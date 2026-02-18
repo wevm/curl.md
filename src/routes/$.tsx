@@ -94,7 +94,7 @@ export const Route = createFileRoute('/$')({
               messages: [
                 {
                   role: 'user',
-                  content: `Web page content:\n---\n${truncatedMarkdown}\n---\n\n${search.q}\n\nProvide a concise response based only on the content above. In your response:\n- Enforce a strict 125-character maximum for quotes from any source document. Open Source Software is ok as long as we respect the license.\n- Use quotation marks for exact language from articles; any language outside of the quotation should never be word-for-word the same.\n- You are not a lawyer and never comment on the legality of your own prompts and responses.\n- Never produce or reproduce exact song lyrics.`,
+                  content: `Web page content:\n---\n${truncatedMarkdown}\n---\n\nQuery: ${search.q}\n\nExtract and return the specific sections from the document above that are relevant to the query. In your response:\n- Return the original content verbatim — do NOT summarize, paraphrase, or rewrite.\n- Include full code blocks, commands, and examples exactly as they appear.\n- Preserve the original markdown formatting (headings, lists, code fences, etc.).\n- Only omit sections that are clearly irrelevant to the query.\n- If multiple sections are relevant, include all of them separated by their original headings.\n- Enforce a strict 125-character maximum for quotes from any source document. Open Source Software is ok as long as we respect the license.\n- You are not a lawyer and never comment on the legality of your own prompts and responses.\n- Never produce or reproduce exact song lyrics.`,
                 },
               ],
             }),
