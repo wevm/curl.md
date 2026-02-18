@@ -68,15 +68,17 @@ jobs:
 
       - name: Build
         run: pnpm build
+        env:
+          CLOUDFLARE_ENV: preview
 
       - name: Deploy preview
         uses: cloudflare/wrangler-action@da0e0dfe58b7a431659754fdf3f186c529afbe65 # v3.14.1
         with:
-          wranglerVersion: ""
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           command: deploy --env preview
           environment: preview
+          wranglerVersion: ""
 
       - name: Comment deploy status
         if: always()
