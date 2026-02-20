@@ -20,10 +20,8 @@ function Home() {
   return (
     <>
       <header className="mb-10">
-        <h1 className="text-base">
-          <span className="font-bold">curl.md</span>
-          <span className="ms-2 text-gray6">Fetch any URL as markdown</span>
-        </h1>
+        <h1 className="text-base font-bold">curl.md</h1>
+        <p className="mt-1 text-base text-gray6">Fetch any URL as markdown</p>
       </header>
 
       <h2 className="text-sm text-gray10">
@@ -189,9 +187,12 @@ function Playground() {
         <div className="bg-bg2">
           <div className="flex items-center gap-2 px-3 py-2 text-xs text-gray8">
             <span>{pending ? pendingDisplayUrl : result?.fetchedUrl}</span>
-            {result && (
+            {result && (!pending || refreshingRef.current) && (
               <button
-                className={`hover:text-gray11 ${pending && refreshingRef.current ? 'animate-spin' : ''}`}
+                className="hover:text-gray11 data-[spinning]:animate-spin"
+                data-spinning={
+                  pending && refreshingRef.current ? '' : undefined
+                }
                 disabled={pending}
                 onClick={() => {
                   freshRef.current = true

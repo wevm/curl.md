@@ -21,8 +21,13 @@ jobs:
       - name: Lint
         run: pnpm check
 
+      - name: Run migrations
+        run: pnpm exec wrangler d1 migrations apply DB --local
+
       - name: Generate types
-        run: pnpm gen:types
+        run: |
+          pnpm gen:types
+          pnpm db:codegen
 
       - name: Check types
         run: pnpm check:types

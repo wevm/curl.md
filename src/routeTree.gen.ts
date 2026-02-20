@@ -9,11 +9,17 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SkillsRouteImport } from './routes/skills'
 import { Route as McpRouteImport } from './routes/mcp'
 import { Route as LlmsDottxtRouteImport } from './routes/llms[.]txt'
 import { Route as SplatRouteImport } from './routes/$'
 import { Route as IndexRouteImport } from './routes/index'
 
+const SkillsRoute = SkillsRouteImport.update({
+  id: '/skills',
+  path: '/skills',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const McpRoute = McpRouteImport.update({
   id: '/mcp',
   path: '/mcp',
@@ -40,12 +46,14 @@ export interface FileRoutesByFullPath {
   '/$': typeof SplatRoute
   '/llms.txt': typeof LlmsDottxtRoute
   '/mcp': typeof McpRoute
+  '/skills': typeof SkillsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
   '/llms.txt': typeof LlmsDottxtRoute
   '/mcp': typeof McpRoute
+  '/skills': typeof SkillsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -53,13 +61,14 @@ export interface FileRoutesById {
   '/$': typeof SplatRoute
   '/llms.txt': typeof LlmsDottxtRoute
   '/mcp': typeof McpRoute
+  '/skills': typeof SkillsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/$' | '/llms.txt' | '/mcp'
+  fullPaths: '/' | '/$' | '/llms.txt' | '/mcp' | '/skills'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/$' | '/llms.txt' | '/mcp'
-  id: '__root__' | '/' | '/$' | '/llms.txt' | '/mcp'
+  to: '/' | '/$' | '/llms.txt' | '/mcp' | '/skills'
+  id: '__root__' | '/' | '/$' | '/llms.txt' | '/mcp' | '/skills'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -67,10 +76,18 @@ export interface RootRouteChildren {
   SplatRoute: typeof SplatRoute
   LlmsDottxtRoute: typeof LlmsDottxtRoute
   McpRoute: typeof McpRoute
+  SkillsRoute: typeof SkillsRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/skills': {
+      id: '/skills'
+      path: '/skills'
+      fullPath: '/skills'
+      preLoaderRoute: typeof SkillsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/mcp': {
       id: '/mcp'
       path: '/mcp'
@@ -107,6 +124,7 @@ const rootRouteChildren: RootRouteChildren = {
   SplatRoute: SplatRoute,
   LlmsDottxtRoute: LlmsDottxtRoute,
   McpRoute: McpRoute,
+  SkillsRoute: SkillsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

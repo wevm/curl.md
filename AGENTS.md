@@ -51,3 +51,4 @@ App runs in Docker via `docker compose up`. Use these to debug:
 
 - **Tailwind CSS v4** - Use `@import "tailwindcss"` in CSS; utility classes in components
   - Use logical properties for RTL/LTR support (e.g. `ms-4`/`me-4` instead of `ml-4`/`mr-4`, `start-2`/`end-2` instead of `left-2`/`right-2`)
+  - Do NOT concatenate class names for conditional styles. Use `data-*` attributes with Tailwind's `data-[...]` variant instead (e.g., `data-[active]:bg-blue9` + `data-active={cond ? '' : undefined}`)
