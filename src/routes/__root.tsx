@@ -75,7 +75,7 @@ function RootComponent() {
 function commitHref(sha: string) {
   if (sha === 'dev') return 'https://github.com/wevm/curl.md'
   const pr = prNumber(__HOST__)
-  if (pr) return `https://github.com/wevm/curl.md/pull/${pr}/changes/${sha}`
+  if (pr) return `https://github.com/wevm/curl.md/pull/${pr}/commits/${sha}`
   return `https://github.com/wevm/curl.md/commit/${sha}`
 }
 

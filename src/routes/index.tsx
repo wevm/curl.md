@@ -36,14 +36,14 @@ function Home() {
         </CopyableCommand>
         <span className="block mt-3 text-gray8"># Focus output with query</span>
         <CopyableCommand
-          command={`curl ${__HOST__}/react.dev?q=fullstack+support`}
+          command={`curl ${__HOST__}/react.dev?q=fullstack+framework+support`}
         >
           curl {__HOST__}
           <span className="text-blue9">/react.dev</span>
           <span className="text-purple9">
             ?q=
             <wbr />
-            fullstack+support
+            fullstack+framework+support
           </span>
         </CopyableCommand>
       </pre>
@@ -75,10 +75,10 @@ function Home() {
 }
 
 const examples = [
-  ['react.dev', 'fullstack support'],
-  ['developer.mozilla.org/en-US/docs/Web/API/Fetch_API'],
-  ['en.wikipedia.org/wiki/Linux', 'kernel history'],
-  ['docs.github.com/en/rest', 'rate limiting'],
+  ['react.dev', 'fullstack framework support'],
+  ['developer.mozilla.org/docs/Web/API/Fetch_API', 'Response'],
+  ['wikipedia.org/wiki/Linux', 'kernel history'],
+  ['docs.github.com/en/actions', 'workflow syntax'],
 ] as const
 
 function Playground() {
@@ -222,7 +222,7 @@ function Playground() {
         <div className="mt-2 grid grid-cols-1 gap-1.5 text-xs sm:grid-cols-2">
           {examples.map(([url, q]) => (
             <button
-              className="bg-bg2 px-3 py-2 text-start opacity-50 grayscale hover:opacity-100 hover:grayscale-0 focus:opacity-100 focus:grayscale-0"
+              className="bg-bg2 px-3 py-2 text-start opacity-75 grayscale hover:opacity-100 hover:grayscale-0 focus:opacity-100 focus:grayscale-0 sm:opacity-50"
               key={`${url}${q ?? ''}`}
               onClick={() => {
                 flushSync(() => {
@@ -235,20 +235,19 @@ function Playground() {
             >
               <span className="block truncate text-gray10">
                 {url.split('/')[0]}
-                {q && url.includes('/') && (
-                  <span className="text-blue9">
-                    /{url.split('/').slice(1).join('/')}
-                  </span>
-                )}
               </span>
-              {!q && url.includes('/') && (
-                <span className="block truncate text-blue9">
-                  /{url.split('/').slice(1).join('/')}
-                </span>
-              )}
-              {q && (
-                <span className="block truncate text-purple9">
-                  ?q={q.replace(/ /g, '+')}
+              {(url.includes('/') || q) && (
+                <span className="block truncate">
+                  {url.includes('/') && (
+                    <span className="text-blue9">
+                      /{url.split('/').slice(1).join('/')}
+                    </span>
+                  )}
+                  {q && (
+                    <span className="text-purple9">
+                      ?q={q.replace(/ /g, '+')}
+                    </span>
+                  )}
                 </span>
               )}
             </button>

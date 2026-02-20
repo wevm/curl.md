@@ -33,16 +33,17 @@ export default defineConfig({
   ],
   define: {
     __GIT_SHA__: JSON.stringify(
-      (() => {
-        try {
-          return child
-            .execSync('git rev-parse HEAD', { stdio: 'pipe' })
-            .toString()
-            .trim()
-        } catch {
-          return 'dev'
-        }
-      })(),
+      process.env.GIT_SHA ??
+        (() => {
+          try {
+            return child
+              .execSync('git rev-parse HEAD', { stdio: 'pipe' })
+              .toString()
+              .trim()
+          } catch {
+            return 'dev'
+          }
+        })(),
     ),
     __HOST__: JSON.stringify(getWranglerVar('HOST')),
   },

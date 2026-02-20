@@ -76,10 +76,28 @@ function appendMdWithIndex(url: URL): URL {
   return mdUrl
 }
 
+const githubDocsLangs = new Set([
+  'cn',
+  'de',
+  'en',
+  'es',
+  'fr',
+  'ja',
+  'ko',
+  'pt',
+  'ru',
+  'zh',
+])
+
 function githubDocsArticle(url: URL): MdUrlResult {
   const mdUrl = new URL(url.href)
   mdUrl.pathname = '/api/article'
-  mdUrl.searchParams.set('pathname', url.pathname)
+  const firstSegment = url.pathname.split('/')[1]
+  const pathname =
+    firstSegment && githubDocsLangs.has(firstSegment)
+      ? url.pathname
+      : `/en${url.pathname}`
+  mdUrl.searchParams.set('pathname', pathname)
   return {
     url: mdUrl,
     parse: (content) => {
