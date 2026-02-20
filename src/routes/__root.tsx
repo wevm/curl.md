@@ -49,13 +49,23 @@ function RootComponent() {
             {theme}
           </button>
         )}
+        {prNumber(__HOST__) && (
+          <a
+            className="hover:text-gray10"
+            href={`https://github.com/wevm/curl.md/pull/${prNumber(__HOST__)}`}
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            #{prNumber(__HOST__)}
+          </a>
+        )}
         <a
           className="hover:text-gray10"
           href={commitHref(__GIT_SHA__)}
           rel="noopener noreferrer"
           target="_blank"
         >
-          {__GIT_SHA__}
+          {__GIT_SHA__.slice(0, 7)}
         </a>
       </div>
     </>
@@ -64,9 +74,13 @@ function RootComponent() {
 
 function commitHref(sha: string) {
   if (sha === 'dev') return 'https://github.com/wevm/curl.md'
-  const pr = __HOST__.match(/^pr(\d+)\./)?.[1]
+  const pr = prNumber(__HOST__)
   if (pr) return `https://github.com/wevm/curl.md/pull/${pr}/commits/${sha}`
   return `https://github.com/wevm/curl.md/commit/${sha}`
+}
+
+function prNumber(host: string) {
+  return host.match(/^pr(\d+)\./)?.[1]
 }
 
 function RootDocument(props: React.PropsWithChildren) {

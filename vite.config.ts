@@ -36,7 +36,7 @@ export default defineConfig({
       (() => {
         try {
           return child
-            .execSync('git rev-parse --short HEAD', { stdio: 'pipe' })
+            .execSync('git rev-parse HEAD', { stdio: 'pipe' })
             .toString()
             .trim()
         } catch {

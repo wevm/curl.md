@@ -11,7 +11,7 @@ type request = {
   country: string | null
   created_at: k.Generated<string>
   hostname: string
-  id: string
+  id: k.Generated<string>
   path: string
   query: string | null
   url: string
