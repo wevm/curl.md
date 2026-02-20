@@ -51,11 +51,7 @@ function RootComponent() {
         )}
         <a
           className="hover:text-gray10"
-          href={
-            __GIT_SHA__ === 'dev'
-              ? 'https://github.com/wevm/curl.md'
-              : `https://github.com/wevm/curl.md/commit/${__GIT_SHA__}`
-          }
+          href={commitHref(__GIT_SHA__)}
           rel="noopener noreferrer"
           target="_blank"
         >
@@ -64,6 +60,13 @@ function RootComponent() {
       </div>
     </>
   )
+}
+
+function commitHref(sha: string) {
+  if (sha === 'dev') return 'https://github.com/wevm/curl.md'
+  const pr = __HOST__.match(/^pr(\d+)\./)?.[1]
+  if (pr) return `https://github.com/wevm/curl.md/pull/${pr}/commits/${sha}`
+  return `https://github.com/wevm/curl.md/commit/${sha}`
 }
 
 function RootDocument(props: React.PropsWithChildren) {
