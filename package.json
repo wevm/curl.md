@@ -20,7 +20,8 @@
     "preinstall": "pnpx only-allow pnpm",
     "prepare": "pnpm gen:types && simple-git-hooks",
     "preview": "pnpm run build && vite preview",
-    "test": "vitest run --config test/vitest.config.ts"
+    "test": "vitest run --config test/vitest.config.ts",
+    "test:eval": "NODE_TLS_REJECT_UNAUTHORIZED=0 evalite"
   },
   "dependencies": {
     "@cloudflare/vite-plugin": "^1.25.4",
@@ -55,6 +56,7 @@
     "@types/react-dom": "^19.2.0",
     "@typescript/native-preview": "7.0.0-dev.20260216.1",
     "@vitejs/plugin-react": "^5.0.4",
+    "evalite": "1.0.0-beta.16",
     "simple-git-hooks": "^2.13.1",
     "tailwindcss": "^4.1.18",
     "tiny-jsonc": "^1.0.2",
