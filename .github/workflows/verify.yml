@@ -11,6 +11,9 @@ on:
         default: false
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 env:
   WRANGLER_SEND_METRICS: false
 
