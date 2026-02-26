@@ -37,12 +37,11 @@ test('prints version', async () => {
 test('prints help', async () => {
   const { stdout } = await exec('node', [cli, '--help'], { env })
   expect(stdout).toMatchInlineSnapshot(`
-    "curl.md — Fetch any URL as Markdown
+    "curl.md — Fetch a web page and convert it to markdown.
     vx.y.z
 
     Usage: curl.md <url> [options]
            echo <url> | curl.md [options]
-           curl.md --mcp <mcp>
 
     Arguments:
       url  URL to fetch
@@ -50,7 +49,6 @@ test('prints help', async () => {
     Options:
       --fresh, -f <boolean>     Force fresh fetch (bypass cache)
       --keywords, -k <array>    Pre-filter by keywords (comma-separated)
-      --mcp <boolean>           Start as MCP stdio server
       --objective, -q <string>  Narrow content to a specific objective
 
     Environment Variables:
@@ -67,12 +65,14 @@ test('prints help', async () => {
       $ curl.md ai-sdk.dev/docs/ai-sdk-core/generating-text --objective how to stream text with the ai sdk --keywords streamText,generateText
 
     Built-in Commands:
+      mcp add     Register as an MCP server
       skills add  Sync skill files to your agent
 
     Global Options:
       --format <toon|json|yaml|md>  Output format
       --help                        Show help
       --llms                        Print LLM-readable manifest
+      --mcp                         Start as MCP stdio server
       --verbose                     Show full output envelope
       --version                     Show version
     "
@@ -103,17 +103,17 @@ async function createMcpClient() {
   return client
 }
 
-test('mcp: lists fetch_page tool', async () => {
+test('mcp: lists curl.md tool', async () => {
   const client = await createMcpClient()
   const { tools } = await client.listTools()
   expect(tools).toHaveLength(1)
-  expect(tools[0]).toMatchObject({ name: 'fetch_page' })
+  expect(tools[0]).toMatchObject({ name: 'curl.md' })
 })
 
 test('mcp: fetches example.com', async () => {
   const client = await createMcpClient()
   const result = await client.callTool({
-    name: 'fetch_page',
+    name: 'curl.md',
     arguments: { url: 'example.com' },
   })
   expect(result.isError).toBeFalsy()
