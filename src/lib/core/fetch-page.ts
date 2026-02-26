@@ -4,8 +4,6 @@ import rehypeRemark from 'rehype-remark'
 import remarkGfm from 'remark-gfm'
 import remarkStringify from 'remark-stringify'
 import { unified } from 'unified'
-import { selfMarkdown } from '#lib/self-markdown.ts'
-
 export async function fetchPage(
   url: URL,
   options?: { fresh?: boolean; keywords?: string[]; objective?: string },
@@ -18,7 +16,8 @@ export async function fetchPage(
   const { keywords, objective } = options ?? {}
 
   if (url.hostname === env.HOST) {
-    const markdown = selfMarkdown()
+    const res = await env.ASSETS.fetch(new URL('/llms.txt', url))
+    const markdown = await res.text()
     const tokensCount = Math.round(markdown.length / 4)
     return { estimated: false, markdown, tokensCount, tokensSaved: 0 }
   }

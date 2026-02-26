@@ -4,20 +4,8 @@ on:
   pull_request:
     types: [closed]
 
-# Share concurrency group with pull_request.yml to wait for any in-progress deploy
-concurrency:
-  group: preview-${{ github.event.pull_request.number }}
-
 permissions:
   contents: read
-  pull-requests: write
-
-env:
-  PREVIEW_NAME: curl-pr${{ github.event.pull_request.number }}
-  PREVIEW_DB_NAME: curl-db-pr${{ github.event.pull_request.number }}
-  PREVIEW_KV_NAME: curl-kv-pr${{ github.event.pull_request.number }}
-  PREVIEW_QUEUE_NAME: curl-tokens-pr${{ github.event.pull_request.number }}
-  WRANGLER_SEND_METRICS: false
 
 jobs:
   cleanup:
@@ -25,45 +13,20 @@ jobs:
     if: contains(fromJSON('["COLLABORATOR", "MEMBER", "OWNER"]'), github.event.pull_request.author_association)
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-
-      - name: Setup pnpm
-        uses: ./.github/actions/setup-pnpm
-
-      - name: Delete Worker
-        run: pnpm exec wrangler delete "$PREVIEW_NAME" --force || true
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-
-      - name: Delete D1 database
-        run: pnpm exec wrangler d1 delete "$PREVIEW_DB_NAME" --skip-confirmation || true
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-
-      - name: Delete KV namespace
-        run: |
-          KV_ID=$(pnpm exec wrangler kv namespace list | jq -r --arg name "$PREVIEW_KV_NAME" '.[] | select(.title == $name) | .id')
-          if [ -n "$KV_ID" ]; then
-            pnpm exec wrangler kv namespace delete --namespace-id "$KV_ID" -y || true
-          fi
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-
-      - name: Delete Queue
-        run: pnpm exec wrangler queues delete "$PREVIEW_QUEUE_NAME" --force || true
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-
-      - name: Update preview comment
-        uses: ./.github/actions/preview-comment
+      - name: Generate token
+        id: app-token
+        uses: actions/create-github-app-token@df432ceedc7162793a195dd1713ff69aefc7379e # v2.0.6
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          pr-number: ${{ github.event.pull_request.number }}
-          sha: ${{ github.event.pull_request.head.sha }}
-          status: shut-down
-          run-url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          app-id: ${{ secrets.CORE_APP_ID }}
+          private-key: ${{ secrets.CORE_APP_PRIVATE_KEY }}
+          repositories: curl.md.pro
+
+      - name: Dispatch cleanup
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          gh api repos/wevm/curl.md.pro/dispatches \
+            --method POST \
+            -f event_type=preview-cleanup \
+            -f 'client_payload[pr_number]=${{ github.event.pull_request.number }}' \
+            -f 'client_payload[sha]=${{ github.event.pull_request.head.sha }}'

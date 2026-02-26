@@ -6,17 +6,8 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write
-
-concurrency:
-  group: preview-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
 
 env:
-  PREVIEW_NAME: curl-pr${{ github.event.pull_request.number }}
-  PREVIEW_DB_NAME: curl-db-pr${{ github.event.pull_request.number }}
-  PREVIEW_KV_NAME: curl-kv-pr${{ github.event.pull_request.number }}
-  PREVIEW_QUEUE_NAME: curl-tokens-pr${{ github.event.pull_request.number }}
   WRANGLER_SEND_METRICS: false
 
 jobs:
@@ -41,113 +32,15 @@ jobs:
           private-key: ${{ secrets.CORE_APP_PRIVATE_KEY }}
           repositories: curl.md.pro
 
-      - name: Checkout
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
-        with:
-          persist-credentials: false
-
-      - name: Checkout submodules
+      - name: Dispatch preview deploy
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
-          git config --global url."https://x-access-token:${TOKEN}@github.com/wevm/curl.md.pro".insteadOf "https://github.com/wevm/curl.md.pro"
-          git submodule update --init
-        env:
-          TOKEN: ${{ steps.app-token.outputs.token }}
-
-      - name: Setup pnpm
-        uses: ./.github/actions/setup-pnpm
-
-      - name: Comment building status
-        uses: ./.github/actions/preview-comment
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          pr-number: ${{ github.event.pull_request.number }}
-          sha: ${{ github.event.pull_request.head.sha }}
-          status: building
-
-      - name: Setup preview D1
-        id: d1
-        run: |
-          if ! pnpm exec wrangler d1 info "$PREVIEW_DB_NAME" 2>/dev/null; then
-            pnpm exec wrangler d1 create "$PREVIEW_DB_NAME" || true
-          fi
-          DB_ID=$(pnpm exec wrangler d1 info "$PREVIEW_DB_NAME" --json | jq -r '.uuid')
-          echo "id=$DB_ID" >> "$GITHUB_OUTPUT"
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-
-      - name: Setup preview KV
-        id: kv
-        run: |
-          KV_ID=$(pnpm exec wrangler kv namespace list | jq -r --arg name "$PREVIEW_KV_NAME" '.[] | select(.title == $name) | .id')
-          if [ -z "$KV_ID" ]; then
-            OUTPUT=$(pnpm exec wrangler kv namespace create "$PREVIEW_KV_NAME" 2>&1)
-            KV_ID=$(echo "$OUTPUT" | grep -o '"id": "[^"]*"' | head -1 | cut -d'"' -f4)
-          fi
-          echo "id=$KV_ID" >> "$GITHUB_OUTPUT"
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-
-      - name: Setup preview queue
-        run: |
-          if ! pnpm exec wrangler queues list | jq -e --arg name "$PREVIEW_QUEUE_NAME" '.[] | select(.queue_name == $name)' > /dev/null 2>&1; then
-            pnpm exec wrangler queues create "$PREVIEW_QUEUE_NAME" || true
-          fi
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-
-      - name: Setup preview wrangler.jsonc
-        run: |
-          sed -i.bak \
-            -e "s|__PREVIEW_NAME__|$PREVIEW_NAME|g" \
-            -e "s|__PREVIEW_APEX__|pr${{ github.event.pull_request.number }}|g" \
-            -e "s|__PREVIEW_DB_NAME__|$PREVIEW_DB_NAME|g" \
-            -e "s|__PREVIEW_DB_ID__|${{ steps.d1.outputs.id }}|g" \
-            -e "s|__PREVIEW_KV_ID__|${{ steps.kv.outputs.id }}|g" \
-            wrangler.jsonc
-
-      - name: Run migrations on preview database
-        run: pnpm exec wrangler d1 migrations apply DB --remote --env preview
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-
-      - name: Generate types
-        run: |
-          pnpm gen:types
-          pnpm db:codegen --remote --env preview
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-
-      - name: Build
-        run: pnpm build
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          CLOUDFLARE_ENV: preview
-          GIT_SHA: ${{ github.event.pull_request.head.sha }}
-
-      - name: Deploy preview
-        uses: cloudflare/wrangler-action@da0e0dfe58b7a431659754fdf3f186c529afbe65 # v3.14.1
-        with:
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          command: deploy --env preview
-          environment: preview
-          wranglerVersion: ""
-
-      - name: Comment deploy status
-        if: always()
-        uses: ./.github/actions/preview-comment
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          pr-number: ${{ github.event.pull_request.number }}
-          sha: ${{ github.event.pull_request.head.sha }}
-          status: ${{ job.status == 'success' && 'ready' || 'error' }}
-          run-url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          gh api repos/wevm/curl.md.pro/dispatches \
+            --method POST \
+            -f event_type=preview-deploy \
+            -f 'client_payload[sha]=${{ github.event.pull_request.head.sha }}' \
+            -f 'client_payload[pr_number]=${{ github.event.pull_request.number }}'
 
   publish-preview:
     name: Publish Preview # rename to curl.md cli or something

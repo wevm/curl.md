@@ -178,8 +178,8 @@ importers:
   cli:
     dependencies:
       incur:
-        specifier: https://pkg.pr.new/wevm/incur@600f691
-        version: https://pkg.pr.new/wevm/incur@600f691
+        specifier: https://pkg.pr.new/wevm/incur@ec734e6
+        version: https://pkg.pr.new/wevm/incur@ec734e6
 
   pro:
     devDependencies:
@@ -2509,8 +2509,8 @@ packages:
     resolution: {integrity: sha512-TR3KfrTZTYLPB6jUjfx6MF9WcWrHL9su5TObK4ZkYgBdWKPOFoSoQIdEuTuR82pmtxH2spWG9h6etwfr1pLBqQ==}
     engines: {node: '>=6'}
 
-  incur@https://pkg.pr.new/wevm/incur@600f691:
-    resolution: {tarball: https://pkg.pr.new/wevm/incur@600f691}
+  incur@https://pkg.pr.new/wevm/incur@ec734e6:
+    resolution: {tarball: https://pkg.pr.new/wevm/incur@ec734e6}
     version: 0.0.0
     hasBin: true
 
@@ -6139,7 +6139,7 @@ snapshots:
       parent-module: 1.0.1
       resolve-from: 4.0.0
 
-  incur@https://pkg.pr.new/wevm/incur@600f691:
+  incur@https://pkg.pr.new/wevm/incur@ec734e6:
     dependencies:
       '@modelcontextprotocol/sdk': 1.27.1(zod@4.3.6)
       '@toon-format/toon': 2.1.0

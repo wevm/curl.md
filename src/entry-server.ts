@@ -1,7 +1,6 @@
 import { env } from 'cloudflare:workers'
 import handler from '@tanstack/react-start/server-entry'
 import { getDb } from '#lib/db.ts'
-import { selfMarkdown } from '#lib/self-markdown.ts'
 
 export default {
   fetch(request, env, ctx) {
@@ -9,9 +8,6 @@ export default {
     const path = url.pathname.replace(/\/+$/, '')
     switch (path) {
       case '/llms.txt':
-        return new Response(selfMarkdown(), {
-          headers: { 'content-type': 'text/markdown; charset=utf-8' },
-        })
       case '/skills':
       case '/.well-known/skills':
       case '/.well-known/skills/curl-md':
