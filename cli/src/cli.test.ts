@@ -40,7 +40,8 @@ test('prints help', async () => {
     "curl.md — Fetch any URL as Markdown
     vx.y.z
 
-    Usage: echo <url> | curl.md [options]
+    Usage: curl.md <url> [options]
+           echo <url> | curl.md [options]
            curl.md --mcp <mcp>
 
     Arguments:

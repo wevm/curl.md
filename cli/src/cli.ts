@@ -8,6 +8,7 @@ const cli = Cli.create('curl.md', {
   description: 'Fetch any URL as Markdown',
   version,
   usage: [
+    { suffix: '<url> [options]' },
     { prefix: 'echo <url> |', suffix: '[options]' },
     { options: { mcp: true } },
   ],
