@@ -175,8 +175,8 @@ importers:
         specifier: 'catalog:'
         version: 1.26.0(zod@4.3.6)
       incur:
-        specifier: https://pkg.pr.new/wevm/incur@185b334
-        version: https://pkg.pr.new/wevm/incur@185b334
+        specifier: https://pkg.pr.new/wevm/incur@600f691
+        version: https://pkg.pr.new/wevm/incur@600f691
       zod:
         specifier: 'catalog:'
         version: 4.3.6
@@ -1182,6 +1182,16 @@ packages:
 
   '@modelcontextprotocol/sdk@1.26.0':
     resolution: {integrity: sha512-Y5RmPncpiDtTXDbLKswIJzTqu2hyBKxTNsgKqKclDbhIgg1wgtf1fRuvxgTnRfcnxtvvgbIEcqUOzZrJ6iSReg==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      '@cfworker/json-schema': ^4.1.1
+      zod: ^3.25 || ^4.0
+    peerDependenciesMeta:
+      '@cfworker/json-schema':
+        optional: true
+
+  '@modelcontextprotocol/sdk@1.27.1':
+    resolution: {integrity: sha512-sr6GbP+4edBwFndLbM60gf07z0FQ79gaExpnsjMGePXqFcSSb7t6iscpjk9DhFhwd+mTEQrzNafGP8/iGGFYaA==}
     engines: {node: '>=18'}
     peerDependencies:
       '@cfworker/json-schema': ^4.1.1
@@ -2493,8 +2503,8 @@ packages:
     resolution: {integrity: sha512-TR3KfrTZTYLPB6jUjfx6MF9WcWrHL9su5TObK4ZkYgBdWKPOFoSoQIdEuTuR82pmtxH2spWG9h6etwfr1pLBqQ==}
     engines: {node: '>=6'}
 
-  incur@https://pkg.pr.new/wevm/incur@185b334:
-    resolution: {tarball: https://pkg.pr.new/wevm/incur@185b334}
+  incur@https://pkg.pr.new/wevm/incur@600f691:
+    resolution: {tarball: https://pkg.pr.new/wevm/incur@600f691}
     version: 0.0.0
     hasBin: true
 
@@ -4685,6 +4695,28 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
+  '@modelcontextprotocol/sdk@1.27.1(zod@4.3.6)':
+    dependencies:
+      '@hono/node-server': 1.19.9(hono@4.11.10)
+      ajv: 8.18.0
+      ajv-formats: 3.0.1(ajv@8.18.0)
+      content-type: 1.0.5
+      cors: 2.8.6
+      cross-spawn: 7.0.6
+      eventsource: 3.0.7
+      eventsource-parser: 3.0.6
+      express: 5.2.1
+      express-rate-limit: 8.2.1(express@5.2.1)
+      hono: 4.11.10
+      jose: 6.1.3
+      json-schema-typed: 8.0.2
+      pkce-challenge: 5.0.1
+      raw-body: 3.0.2
+      zod: 4.3.6
+      zod-to-json-schema: 3.25.1(zod@4.3.6)
+    transitivePeerDependencies:
+      - supports-color
+
   '@nodelib/fs.scandir@2.1.5':
     dependencies:
       '@nodelib/fs.stat': 2.0.5
@@ -6101,11 +6133,15 @@ snapshots:
       parent-module: 1.0.1
       resolve-from: 4.0.0
 
-  incur@https://pkg.pr.new/wevm/incur@185b334:
+  incur@https://pkg.pr.new/wevm/incur@600f691:
     dependencies:
+      '@modelcontextprotocol/sdk': 1.27.1(zod@4.3.6)
       '@toon-format/toon': 2.1.0
       yaml: 2.8.2
       zod: 4.3.6
+    transitivePeerDependencies:
+      - '@cfworker/json-schema'
+      - supports-color
 
   inherits@2.0.4: {}
 

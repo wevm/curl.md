@@ -15,7 +15,7 @@
   ],
   "dependencies": {
     "@modelcontextprotocol/sdk": "catalog:",
-    "incur": "https://pkg.pr.new/wevm/incur@185b334",
+    "incur": "https://pkg.pr.new/wevm/incur@600f691",
     "zod": "catalog:"
   },
   "engines": {

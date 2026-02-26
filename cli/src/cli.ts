@@ -5,12 +5,11 @@ import pkg from '../package.json' with { type: 'json' }
 const version = process.env.CURL_MD_VERSION ?? pkg.version
 
 const cli = Cli.create('curl.md', {
-  description: 'Fetch any URL as Markdown',
+  description: 'Fetch a web page and convert it to markdown.',
   version,
   usage: [
     { suffix: '<url> [options]' },
     { prefix: 'echo <url> |', suffix: '[options]' },
-    { options: { mcp: true } },
   ],
   args: z.object({
     url: z.string().optional().describe('URL to fetch'),
@@ -21,7 +20,6 @@ const cli = Cli.create('curl.md', {
       .array(z.string())
       .optional()
       .describe('Pre-filter by keywords (comma-separated)'),
-    mcp: z.boolean().optional().describe('Start as MCP stdio server'),
     objective: z
       .string()
       .optional()
@@ -84,12 +82,6 @@ const cli = Cli.create('curl.md', {
   output: z.string().describe('Page content as markdown'),
   format: 'md',
   async run({ args, options, env, error, ok }) {
-    if (options.mcp) {
-      const { startMcp } = await import('./mcp.js')
-      await startMcp()
-      return undefined as never
-    }
-
     const url = args.url ?? (await readStdin())
     if (!url)
       return error({
