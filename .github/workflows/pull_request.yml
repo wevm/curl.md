@@ -24,7 +24,32 @@ jobs:
     uses: ./.github/workflows/verify.yml
     with:
       submodules: ${{ contains(fromJSON('["COLLABORATOR", "MEMBER", "OWNER"]'), github.event.pull_request.author_association) }}
+      pro_tests: false
     secrets: inherit
+
+  pro-tests:
+    name: Pro Tests
+    if: contains(fromJSON('["COLLABORATOR", "MEMBER", "OWNER"]'), github.event.pull_request.author_association)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate token
+        id: app-token
+        uses: actions/create-github-app-token@df432ceedc7162793a195dd1713ff69aefc7379e # v2.0.6
+        with:
+          app-id: ${{ secrets.CORE_APP_ID }}
+          private-key: ${{ secrets.CORE_APP_PRIVATE_KEY }}
+          repositories: curl.md.pro
+
+      - name: Dispatch pro tests
+        run: |
+          curl -fsSL -X POST \
+            -H "Authorization: token $TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/wevm/curl.md.pro/dispatches" \
+            -d "{\"event_type\":\"parent-pr-test\",\"client_payload\":{\"sha\":\"$SHA\"}}"
+        env:
+          TOKEN: ${{ steps.app-token.outputs.token }}
+          SHA: ${{ github.event.pull_request.head.sha }}
 
   preview:
     name: Preview

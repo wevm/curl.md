@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "paths": {
-      "#lib/core/*": ["./../pro/*", "./../src/lib/basic/*"],
+      "#lib/core/*": ["./../pro/*", "./../src/lib/core/*"],
       "#*": ["./../src/*"]
     },
     "tsBuildInfoFile": "../node_modules/.tmp/tsconfig.node.tsbuildinfo",
@@ -26,5 +26,9 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["../config/wrangler.ts", "../vite.config.ts"]
+  "include": [
+    "../config/wrangler.ts",
+    "../vite.config.ts",
+    "../vitest.config.ts"
+  ]
 }
