@@ -1,4 +1,4 @@
-name: Preview Cleanup
+name: Pull Request Cleanup
 
 on:
   pull_request:
@@ -8,8 +8,8 @@ permissions:
   contents: read
 
 jobs:
-  cleanup:
-    name: Cleanup Preview
+  dispatch-preview-cleanup:
+    name: Dispatch Preview Cleanup
     if: contains(fromJSON('["COLLABORATOR", "MEMBER", "OWNER"]'), github.event.pull_request.author_association)
     runs-on: ubuntu-latest
     steps:

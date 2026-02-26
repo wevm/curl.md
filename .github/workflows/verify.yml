@@ -70,6 +70,20 @@ jobs:
       - name: Build
         run: pnpm build
 
+  dispatch:
+    name: Dispatch
+    needs: check
+    if: inputs.dispatch_pro_sha || inputs.dispatch_preview_pr
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate token
+        id: app-token
+        uses: actions/create-github-app-token@df432ceedc7162793a195dd1713ff69aefc7379e # v2.0.6
+        with:
+          app-id: ${{ secrets.CORE_APP_ID }}
+          private-key: ${{ secrets.CORE_APP_PRIVATE_KEY }}
+          repositories: curl.md.pro
+
       - name: Dispatch test
         if: inputs.dispatch_pro_sha
         env:
