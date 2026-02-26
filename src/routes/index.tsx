@@ -72,8 +72,8 @@ function Home() {
           # Install agent skill
         </code>
         <code className="block">
-          <span className="text-gray12">npx skills add</span>{' '}
-          <span className="text-gray10">https://{__HOST__}</span>
+          <span className="text-gray12">npx curl.md</span>{' '}
+          <span className="text-gray10">skills add</span>
         </code>
       </div>
       <div>
@@ -81,8 +81,8 @@ function Home() {
           # Install MCP server
         </code>
         <code className="block">
-          <span className="text-gray12">npx add-mcp</span>{' '}
-          <span className="text-gray10">{__HOST__}/mcp</span>
+          <span className="text-gray12">npx curl.md</span>{' '}
+          <span className="text-gray10">mcp add</span>
         </code>
       </div>
       <div>

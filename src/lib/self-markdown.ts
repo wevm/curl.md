@@ -14,13 +14,13 @@ Fetch any URL as Markdown
 curl https://${host}/example.com
 
 # Install agent skill
-npx skills add https://${host}
+npx curl.md skills add
+
+# Install MCP server (cli)
+npx curl.md mcp add
 
 # Install MCP server (remote)
 npx add-mcp ${host}/mcp
-
-# Install MCP server (cli)
-npx add-mcp curl.md -- --mcp
 \`\`\`
 
 ## Usage
