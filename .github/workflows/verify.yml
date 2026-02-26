@@ -3,12 +3,12 @@ name: Verify
 on:
   workflow_call:
     inputs:
+      sha:
+        type: string
+        required: true
       submodules:
         type: boolean
         default: false
-      pro_tests:
-        type: boolean
-        default: true
   workflow_dispatch:
 
 env:
@@ -59,7 +59,27 @@ jobs:
         run: pnpm check:types
 
       - name: Test
-        run: pnpm vitest ${{ !inputs.pro_tests && '--project app --project cli' || '' }}
+        run: pnpm vitest --project app --project cli
 
       - name: Build
         run: pnpm build
+
+  curl-md-pro:
+    name: curl.md.pro
+    if: inputs.submodules
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate token
+        id: app-token
+        uses: actions/create-github-app-token@df432ceedc7162793a195dd1713ff69aefc7379e # v2.0.6
+        with:
+          app-id: ${{ secrets.CORE_APP_ID }}
+          private-key: ${{ secrets.CORE_APP_PRIVATE_KEY }}
+          repositories: curl.md.pro
+
+      - name: Dispatch pro tests
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          printf '{"event_type":"parent-pr-test","client_payload":{"sha":"%s"}}' "${{ inputs.sha }}" \
+            | gh api repos/wevm/curl.md.pro/dispatches --method POST --input -
