@@ -16,6 +16,7 @@ env:
   PREVIEW_NAME: curl-pr${{ github.event.pull_request.number }}
   PREVIEW_DB_NAME: curl-db-pr${{ github.event.pull_request.number }}
   PREVIEW_KV_NAME: curl-kv-pr${{ github.event.pull_request.number }}
+  PREVIEW_QUEUE_NAME: curl-tokens-pr${{ github.event.pull_request.number }}
   WRANGLER_SEND_METRICS: false
 
 jobs:
@@ -48,6 +49,12 @@ jobs:
           if [ -n "$KV_ID" ]; then
             pnpm exec wrangler kv namespace delete --namespace-id "$KV_ID" -y || true
           fi
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Delete Queue
+        run: pnpm exec wrangler queues delete "$PREVIEW_QUEUE_NAME" --force || true
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

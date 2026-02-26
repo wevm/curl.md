@@ -69,6 +69,9 @@ jobs:
               pnpm exec wrangler kv namespace delete --namespace-id "$KV_ID" -y || echo "  Failed to delete KV"
             fi
 
+            echo "  Deleting Queue..."
+            pnpm exec wrangler queues delete "curl-tokens-pr$PR_NUM" --force || echo "  Failed to delete Queue"
+
             # Collect cleaned PR info as JSON
             SHA=$(echo "$PR_INFO" | jq -r '.headRefOid // ""')
             CLEANED_PRS=$(echo "$CLEANED_PRS" | jq -c --arg pr "$PR_NUM" --arg sha "$SHA" \

@@ -97,11 +97,14 @@
       "kv_namespaces": [{ "binding": "KV", "id": "__PREVIEW_KV_ID__" }],
       "queues": {
         "producers": [
-          { "binding": "TOKEN_UPDATE_QUEUE", "queue": "curl-tokens-preview" }
+          {
+            "binding": "TOKEN_UPDATE_QUEUE",
+            "queue": "curl-tokens-__PREVIEW_APEX__"
+          }
         ],
         "consumers": [
           {
-            "queue": "curl-tokens-preview",
+            "queue": "curl-tokens-__PREVIEW_APEX__",
             "max_batch_size": 10,
             "max_batch_timeout": 30,
             "max_retries": 3
