@@ -36,11 +36,10 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
-          gh api repos/wevm/curl.md.pro/dispatches \
-            --method POST \
-            -f event_type=preview-deploy \
-            -f 'client_payload[sha]=${{ github.event.pull_request.head.sha }}' \
-            -f 'client_payload[pr_number]=${{ github.event.pull_request.number }}'
+          printf '{"event_type":"preview-deploy","client_payload":{"sha":"%s","pr_number":"%s"}}' \
+            "${{ github.event.pull_request.head.sha }}" \
+            "${{ github.event.pull_request.number }}" \
+            | gh api repos/wevm/curl.md.pro/dispatches --method POST --input -
 
   publish-preview:
     name: Publish Preview # rename to curl.md cli or something
