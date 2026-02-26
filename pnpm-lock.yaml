@@ -171,15 +171,9 @@ importers:
 
   cli:
     dependencies:
-      '@modelcontextprotocol/sdk':
-        specifier: 'catalog:'
-        version: 1.26.0(zod@4.3.6)
       incur:
         specifier: https://pkg.pr.new/wevm/incur@600f691
         version: https://pkg.pr.new/wevm/incur@600f691
-      zod:
-        specifier: 'catalog:'
-        version: 4.3.6
 
   pro:
     devDependencies:

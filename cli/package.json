@@ -14,9 +14,7 @@
     "dist"
   ],
   "dependencies": {
-    "@modelcontextprotocol/sdk": "catalog:",
-    "incur": "https://pkg.pr.new/wevm/incur@600f691",
-    "zod": "catalog:"
+    "incur": "https://pkg.pr.new/wevm/incur@600f691"
   },
   "engines": {
     "node": ">=22.0.0"
