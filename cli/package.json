@@ -2,18 +2,20 @@
   "name": "curl.md",
   "version": "0.0.0",
   "description": "Fetch any URL as Markdown",
+  "scripts": {
+    "gen:types": "incur gen"
+  },
   "license": "MIT",
   "type": "module",
   "bin": {
-    "curl.md": "./dist/cli.js",
-    "curl-md": "./dist/cli.js",
-    "curlmd": "./dist/cli.js"
+    "curl.md": "./dist/cli.js"
   },
   "files": [
     "dist"
   ],
   "dependencies": {
     "@modelcontextprotocol/sdk": "catalog:",
+    "incur": "https://pkg.pr.new/wevm/incur@185b334",
     "zod": "catalog:"
   },
   "engines": {

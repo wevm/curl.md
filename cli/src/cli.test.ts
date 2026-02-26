@@ -23,7 +23,10 @@ test('fetches example.com as json', async () => {
     timeout: 30_000,
   })
   const json = JSON.parse(stdout)
-  expect(json.content).toContain('Example Domain')
+  const content = json.data ?? json.content ?? json
+  expect(
+    typeof content === 'string' ? content : JSON.stringify(content),
+  ).toContain('Example Domain')
 })
 
 test('prints version', async () => {
@@ -37,62 +40,40 @@ test('prints help', async () => {
     "curl.md — Fetch any URL as Markdown
     vx.y.z
 
-    Usage:
-      curl.md <url> [options]
-      echo <url> | curl.md [options]
-      curl.md --mcp
+    Usage: echo <url> | curl.md [options]
+           curl.md --mcp <mcp>
 
-    Aliases:
-      curl-md, curlmd
+    Arguments:
+      url  URL to fetch
 
     Options:
-      -q, --objective <text>  Narrow content to a specific objective
-      -k, --keywords <words>  Pre-filter by keywords (comma-separated)
-      -f, --fresh             Force fresh fetch (bypass cache)
-      -j, --json              Output as JSON
-      --mcp                   Start as MCP stdio server
-      -v, --version           Show version
-      -h, --help              Show this help
+      --fresh, -f <boolean>     Force fresh fetch (bypass cache)
+      --keywords, -k <array>    Pre-filter by keywords (comma-separated)
+      --mcp <boolean>           Start as MCP stdio server
+      --objective, -q <string>  Narrow content to a specific objective
+
+    Environment Variables:
+      CURL_MD_BASE_URL  Base URL (default: https://curl.md)
 
     Examples:
-      curl.md example.com
-      curl.md example.com -q "pricing plans"
-      curl.md example.com -k "api,auth"
-      curl.md example.com -q "authentication" -k "oauth,jwt"
+      $ curl.md example.com
+      $ curl.md example.com --objective pricing plans
+      $ curl.md example.com --keywords api,auth
+      $ curl.md example.com --objective authentication --keywords oauth,jwt
+      $ curl.md docs.github.com/en/webhooks/webhook-events-and-payloads --objective pull request webhook event payload and actions --keywords pull_request
+      $ curl.md developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch --objective streaming response body --keywords ReadableStream,getReader
+      $ curl.md developers.cloudflare.com/d1/get-started --objective how to query D1 from a worker --keywords D1,bindings
+      $ curl.md ai-sdk.dev/docs/ai-sdk-core/generating-text --objective how to stream text with the ai sdk --keywords streamText,generateText
 
-      curl.md docs.github.com/en/webhooks/webhook-events-and-payloads -q "pull request webhook event payload and actions" -k "pull_request"
-      curl.md developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch -q "streaming response body" -k "ReadableStream,getReader"
-      curl.md developers.cloudflare.com/d1/get-started -q "how to query D1 from a worker" -k "D1,bindings"
-      curl.md ai-sdk.dev/docs/ai-sdk-core/generating-text -q "how to stream text with the ai sdk" -k "streamText,generateText"
+    Built-in Commands:
+      skills add  Sync skill files to your agent
 
-    MCP:
-      curl.md --mcp
-
-      Configure in your MCP client:
-      {
-        "mcpServers": {
-          "curl.md": {
-            "command": "npx",
-            "args": ["-y", "curl.md", "--mcp"]
-          }
-        }
-      }
-
-    Experimental:
-      Add a shell alias to use curl.md from curl:
-
-      # bash/zsh
-      alias curm='f() { curl "https://curl.md/$1" "\${@:2}"; }; f'
-
-      # fish
-      function curm; curl "https://curl.md/$argv[1]" $argv[2..]; end
-
-      Then:
-      curm example.com
-      curm example.com?q=pricing
-
-    Environment:
-      CURL_MD_BASE_URL  Base URL (default: https://curl.md)
+    Global Options:
+      --format <toon|json|yaml|md>  Output format
+      --help                        Show help
+      --llms                        Print LLM-readable manifest
+      --verbose                     Show full output envelope
+      --version                     Show version
     "
   `)
 })

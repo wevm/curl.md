@@ -6,4 +6,5 @@ node_modules
 .tanstack
 .output
 .vinxi
+incur.generated.ts
 tsconfig.tsbuildinfo
