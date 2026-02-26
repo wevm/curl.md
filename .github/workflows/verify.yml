@@ -64,7 +64,7 @@ jobs:
       - name: Build
         run: pnpm build
 
-      - name: Dispatch pro tests
+      - name: Dispatch curl.md.pro
         if: inputs.dispatch_pro_sha
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
