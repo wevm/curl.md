@@ -140,7 +140,7 @@ jobs:
           run-url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
   publish-preview:
-    name: Publish Preview
+    name: Publish Preview # rename to curl.md cli or something
     if: contains(fromJSON('["COLLABORATOR", "MEMBER", "OWNER"]'), github.event.pull_request.author_association)
     runs-on: ubuntu-latest
     steps:
