@@ -41,8 +41,8 @@ jobs:
             "${{ github.event.pull_request.number }}" \
             | gh api repos/wevm/curl.md.pro/dispatches --method POST --input -
 
-  publish-preview:
-    name: Publish Preview # rename to curl.md cli or something
+  cli:
+    name: Publish CLI Preview
     if: contains(fromJSON('["COLLABORATOR", "MEMBER", "OWNER"]'), github.event.pull_request.author_association)
     runs-on: ubuntu-latest
     steps:
@@ -52,13 +52,11 @@ jobs:
       - name: Setup pnpm
         uses: ./.github/actions/setup-pnpm
 
+      - name: Set preview base URL
+        run: sed -i'' -e "s|https://curl.md|https://pr${{ github.event.pull_request.number }}.curl.md|" cli/src/cli.ts
+
       - name: Build CLI
         run: pnpm build:cli
 
       - name: Publish preview
-        run: |
-          if git diff --quiet origin/${{ github.base_ref }}...HEAD -- cli/; then
-            echo "No changes to publish"
-          else
-            pnpx pkg-pr-new publish ./cli
-          fi
+        run: pnpx pkg-pr-new publish ./cli
