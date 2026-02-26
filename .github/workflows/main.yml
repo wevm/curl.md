@@ -19,7 +19,6 @@ jobs:
     name: Verify
     uses: ./.github/workflows/verify.yml
     with:
-      sha: ${{ github.sha }}
       submodules: true
     secrets: inherit
 

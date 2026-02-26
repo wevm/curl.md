@@ -3,9 +3,9 @@ name: Verify
 on:
   workflow_call:
     inputs:
-      sha:
+      dispatch_pro_sha:
+        description: If set, dispatches pro tests for this commit SHA
         type: string
-        required: true
       submodules:
         type: boolean
         default: false
@@ -64,22 +64,10 @@ jobs:
       - name: Build
         run: pnpm build
 
-  curl-md-pro:
-    name: curl.md.pro
-    if: inputs.submodules
-    runs-on: ubuntu-latest
-    steps:
-      - name: Generate token
-        id: app-token
-        uses: actions/create-github-app-token@df432ceedc7162793a195dd1713ff69aefc7379e # v2.0.6
-        with:
-          app-id: ${{ secrets.CORE_APP_ID }}
-          private-key: ${{ secrets.CORE_APP_PRIVATE_KEY }}
-          repositories: curl.md.pro
-
       - name: Dispatch pro tests
+        if: inputs.dispatch_pro_sha
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
-          printf '{"event_type":"parent-pr-test","client_payload":{"sha":"%s"}}' "${{ inputs.sha }}" \
+          printf '{"event_type":"parent-pr-test","client_payload":{"sha":"%s"}}' "${{ inputs.dispatch_pro_sha }}" \
             | gh api repos/wevm/curl.md.pro/dispatches --method POST --input -

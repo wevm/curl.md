@@ -16,6 +16,7 @@ env:
   PREVIEW_NAME: curl-pr${{ github.event.pull_request.number }}
   PREVIEW_DB_NAME: curl-db-pr${{ github.event.pull_request.number }}
   PREVIEW_KV_NAME: curl-kv-pr${{ github.event.pull_request.number }}
+  PREVIEW_QUEUE_NAME: curl-tokens-pr${{ github.event.pull_request.number }}
   WRANGLER_SEND_METRICS: false
 
 jobs:
@@ -23,7 +24,7 @@ jobs:
     name: Verify
     uses: ./.github/workflows/verify.yml
     with:
-      sha: ${{ github.event.pull_request.head.sha }}
+      dispatch_pro_sha: ${{ contains(fromJSON('["COLLABORATOR", "MEMBER", "OWNER"]'), github.event.pull_request.author_association) && github.event.pull_request.head.sha || '' }}
       submodules: ${{ contains(fromJSON('["COLLABORATOR", "MEMBER", "OWNER"]'), github.event.pull_request.author_association) }}
     secrets: inherit
 
@@ -84,6 +85,15 @@ jobs:
             KV_ID=$(echo "$OUTPUT" | grep -o '"id": "[^"]*"' | head -1 | cut -d'"' -f4)
           fi
           echo "id=$KV_ID" >> "$GITHUB_OUTPUT"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Setup preview queue
+        run: |
+          if ! pnpm exec wrangler queues list | jq -e --arg name "$PREVIEW_QUEUE_NAME" '.[] | select(.queue_name == $name)' > /dev/null 2>&1; then
+            pnpm exec wrangler queues create "$PREVIEW_QUEUE_NAME" || true
+          fi
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
