@@ -18,6 +18,9 @@ catalogs:
     '@types/node':
       specifier: ^25.2.3
       version: 25.2.3
+    '@typescript/native-preview':
+      specifier: 7.0.0-dev.20260216.1
+      version: 7.0.0-dev.20260216.1
     rehype-parse:
       specifier: ^9.0.1
       version: 9.0.1
@@ -36,6 +39,9 @@ catalogs:
     vfile:
       specifier: ^6.0.3
       version: 6.0.3
+    wrangler:
+      specifier: ^4.68.0
+      version: 4.68.0
     zod:
       specifier: ^4.3.6
       version: 4.3.6
@@ -136,7 +142,7 @@ importers:
         specifier: ^19.2.0
         version: 19.2.3(@types/react@19.2.14)
       '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260216.1
+        specifier: 'catalog:'
         version: 7.0.0-dev.20260216.1
       '@vitejs/plugin-react':
         specifier: ^5.0.4
@@ -166,7 +172,7 @@ importers:
         specifier: ^4.0.18
         version: 4.0.18(@types/node@25.2.3)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)
       wrangler:
-        specifier: ^4.68.0
+        specifier: 'catalog:'
         version: 4.68.0
 
   cli:
@@ -186,6 +192,12 @@ importers:
       '@types/hast':
         specifier: 'catalog:'
         version: 3.0.4
+      '@types/node':
+        specifier: 'catalog:'
+        version: 25.2.3
+      '@typescript/native-preview':
+        specifier: 'catalog:'
+        version: 7.0.0-dev.20260216.1
       node:
         specifier: runtime:^24.5.1
         version: runtime:24.14.0
@@ -211,7 +223,7 @@ importers:
         specifier: ~3.2.4
         version: 3.2.4(@types/debug@4.1.12)(@types/node@25.2.3)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)
       wrangler:
-        specifier: ^4.68.0
+        specifier: 'catalog:'
         version: 4.68.0
       zod:
         specifier: 'catalog:'

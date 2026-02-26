@@ -59,7 +59,7 @@
     "@types/node": "catalog:",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
-    "@typescript/native-preview": "7.0.0-dev.20260216.1",
+    "@typescript/native-preview": "catalog:",
     "@vitejs/plugin-react": "^5.0.4",
     "simple-git-hooks": "^2.13.1",
     "tailwindcss": "^4.1.18",
@@ -68,7 +68,7 @@
     "unplugin-icons": "^23.0.1",
     "vite": "^7.1.7",
     "vitest": "^4.0.18",
-    "wrangler": "^4.68.0"
+    "wrangler": "catalog:"
   },
   "packageManager": "pnpm@10.22.0",
   "devEngines": {
