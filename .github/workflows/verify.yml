@@ -6,6 +6,9 @@ on:
       dispatch_pro_sha:
         description: If set, dispatches pro tests for this commit SHA
         type: string
+      dispatch_preview_pr:
+        description: If set, dispatches preview deploy for this PR number
+        type: string
       submodules:
         type: boolean
         default: false
@@ -67,10 +70,19 @@ jobs:
       - name: Build
         run: pnpm build
 
-      - name: Dispatch curl.md.pro
+      - name: Dispatch test
         if: inputs.dispatch_pro_sha
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           printf '{"event_type":"parent-pr-test","client_payload":{"sha":"%s"}}' "${{ inputs.dispatch_pro_sha }}" \
+            | gh api repos/wevm/curl.md.pro/dispatches --method POST --input -
+
+      - name: Dispatch preview
+        if: inputs.dispatch_preview_pr
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          printf '{"event_type":"preview-deploy","client_payload":{"sha":"%s","pr_number":"%s"}}' \
+            "${{ inputs.dispatch_pro_sha }}" "${{ inputs.dispatch_preview_pr }}" \
             | gh api repos/wevm/curl.md.pro/dispatches --method POST --input -

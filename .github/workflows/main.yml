@@ -19,6 +19,7 @@ jobs:
     name: Verify
     uses: ./.github/workflows/verify.yml
     with:
+      dispatch_pro_sha: ${{ github.sha }}
       submodules: true
     secrets: inherit
 

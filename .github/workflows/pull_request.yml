@@ -16,30 +16,9 @@ jobs:
     uses: ./.github/workflows/verify.yml
     with:
       dispatch_pro_sha: ${{ contains(fromJSON('["COLLABORATOR", "MEMBER", "OWNER"]'), github.event.pull_request.author_association) && github.event.pull_request.head.sha || '' }}
+      dispatch_preview_pr: ${{ contains(fromJSON('["COLLABORATOR", "MEMBER", "OWNER"]'), github.event.pull_request.author_association) && github.event.pull_request.number || '' }}
       submodules: ${{ contains(fromJSON('["COLLABORATOR", "MEMBER", "OWNER"]'), github.event.pull_request.author_association) }}
     secrets: inherit
-
-  preview:
-    name: Preview
-    if: contains(fromJSON('["COLLABORATOR", "MEMBER", "OWNER"]'), github.event.pull_request.author_association)
-    runs-on: ubuntu-latest
-    steps:
-      - name: Generate token
-        id: app-token
-        uses: actions/create-github-app-token@df432ceedc7162793a195dd1713ff69aefc7379e # v2.0.6
-        with:
-          app-id: ${{ secrets.CORE_APP_ID }}
-          private-key: ${{ secrets.CORE_APP_PRIVATE_KEY }}
-          repositories: curl.md.pro
-
-      - name: Dispatch preview deploy
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-        run: |
-          printf '{"event_type":"preview-deploy","client_payload":{"sha":"%s","pr_number":"%s"}}' \
-            "${{ github.event.pull_request.head.sha }}" \
-            "${{ github.event.pull_request.number }}" \
-            | gh api repos/wevm/curl.md.pro/dispatches --method POST --input -
 
   cli:
     name: Publish CLI Preview
