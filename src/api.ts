@@ -2,25 +2,62 @@ import { zValidator as validator } from '@hono/zod-validator'
 import { Octokit } from '@octokit/core'
 import { Hono } from 'hono'
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie'
+import { Kysely } from 'kysely'
 import { z } from 'zod'
-import { getDb } from '#lib/db.ts'
+import { fetchPage } from '#lib/core/fetch-page.ts'
+import type { DB } from '#lib/db.gen.ts'
+import { D1Dialect } from '#lib/db.ts'
 import * as Nanoid from '#lib/nanoid.ts'
+import { urlSchema } from '#lib/schemas.ts'
 
-export const api = new Hono<{ Bindings: Cloudflare.Env }>()
-  .get('/api/health', (c) => c.json({ ok: true }))
-  .get('/api/auth/github', (c) => {
-    const state = Math.random().toString(36).substring(2)
-    setCookie(c, 'curl.state', state, {
-      httpOnly: true,
-      maxAge: 600,
-      sameSite: 'Lax',
-      secure: true,
-    })
-    const url = new URL('https://github.com/login/oauth/authorize')
-    url.searchParams.set('client_id', c.env.GH_CLIENT_ID)
-    url.searchParams.set('state', state)
-    return c.redirect(url.toString())
+export const api = new Hono<{
+  Bindings: Cloudflare.Env
+  Variables: { db: Kysely<DB> }
+}>()
+  .use(async (c, next) => {
+    c.set(
+      'db',
+      new Kysely<DB>({ dialect: new D1Dialect({ database: c.env.DB }) }),
+    )
+    await next()
   })
+  .get(
+    '/api/auth/github',
+    validator(
+      'query',
+      z.object({
+        next: z.optional(z.union([z.string(), z.undefined()])),
+      }),
+    ),
+    (c) => {
+      const query = c.req.valid('query')
+      const state = Math.random().toString(36).substring(2)
+      setCookie(c, 'curl.state', state, {
+        httpOnly: true,
+        maxAge: 600,
+        sameSite: 'Lax',
+        secure: true,
+      })
+
+      const callbackUrl = new URL(
+        `/api/auth/github/callback`,
+        `https://${c.env.HOST}`,
+      )
+      if (query.next) {
+        const origin = `https://${c.env.HOST}`
+        try {
+          if (new URL(query.next, origin).origin === origin)
+            callbackUrl.searchParams.set('next', query.next)
+        } catch {}
+      }
+
+      const url = new URL('https://github.com/login/oauth/authorize')
+      url.searchParams.set('client_id', c.env.GH_CLIENT_ID)
+      url.searchParams.set('redirect_uri', callbackUrl.toString())
+      url.searchParams.set('state', state)
+      return c.redirect(url.toString())
+    },
+  )
   .get(
     '/api/auth/github/callback',
     validator(
@@ -66,61 +103,48 @@ export const api = new Hono<{ Bindings: Cloudflare.Env }>()
         ghEmails.find((e) => e.primary)?.email ?? ghEmails[0]?.email
       if (!primaryEmail) return c.json({ error: 'No email found' }, 400)
 
-      const db = getDb()
-      const accountId = Nanoid.generate()
-      const account = await db
-        .insertInto('account')
-        .values({
-          avatar_url: ghUser.avatar_url,
-          email: primaryEmail,
-          github_id: ghUser.id,
-          id: accountId,
-          name: ghUser.name,
-        })
-        .onConflict((oc) =>
-          oc.column('github_id').doUpdateSet({
+      // Find existing account via account_provider
+      const existing = await c.var.db
+        .selectFrom('account_provider')
+        .innerJoin('account', 'account.id', 'account_provider.account_id')
+        .where('account_provider.provider', '=', 'github')
+        .where('account_provider.provider_account_id', '=', String(ghUser.id))
+        .select('account.id')
+        .executeTakeFirst()
+
+      let account: { id: string }
+      if (existing) {
+        await c.var.db
+          .updateTable('account')
+          .set({
             avatar_url: ghUser.avatar_url,
             email: primaryEmail,
             name: ghUser.name,
-          }),
-        )
-        .returning('id')
-        .executeTakeFirstOrThrow()
-
-      const memberships = await db
-        .selectFrom('organization_member')
-        .where('account_id', '=', account.id)
-        .select('organization_id')
-        .execute()
-
-      let slug: string
-      if (memberships.length === 0) {
-        const orgId = Nanoid.generate()
-        slug = ghUser.login.toLowerCase()
-        await db
-          .insertInto('organization')
-          .values({
-            id: orgId,
-            name: ghUser.login,
-            plan: 'free',
-            slug,
           })
+          .where('id', '=', existing.id)
           .execute()
-        await db
-          .insertInto('organization_member')
+        account = existing
+      } else {
+        const accountId = Nanoid.generate()
+        account = await c.var.db
+          .insertInto('account')
+          .values({
+            avatar_url: ghUser.avatar_url,
+            email: primaryEmail,
+            id: accountId,
+            name: ghUser.name,
+          })
+          .returning('id')
+          .executeTakeFirstOrThrow()
+        await c.var.db
+          .insertInto('account_provider')
           .values({
             account_id: account.id,
-            organization_id: orgId,
-            role: 'owner',
+            id: Nanoid.generate(),
+            provider: 'github',
+            provider_account_id: String(ghUser.id),
           })
           .execute()
-      } else {
-        const org = await db
-          .selectFrom('organization')
-          .where('id', '=', memberships[0]?.organization_id as string)
-          .select('slug')
-          .executeTakeFirstOrThrow()
-        slug = org.slug
       }
 
       const sessionId = crypto.randomUUID()
@@ -135,7 +159,32 @@ export const api = new Hono<{ Bindings: Cloudflare.Env }>()
         sameSite: 'Lax',
         secure: true,
       })
-      return c.redirect(`https://${c.env.HOST}/${slug}/dashboard`)
+
+      const origin = `https://${c.env.HOST}`
+
+      if (query.next) {
+        try {
+          const nextUrl = new URL(query.next, origin)
+          if (nextUrl.origin === origin) return c.redirect(nextUrl.toString())
+        } catch {}
+      }
+
+      const membership = await c.var.db
+        .selectFrom('organization_member')
+        .innerJoin(
+          'organization',
+          'organization.id',
+          'organization_member.organization_id',
+        )
+        .where('organization_member.account_id', '=', account.id)
+        .where('organization.deleted_at', 'is', null)
+        .select('organization.slug')
+        .executeTakeFirst()
+
+      const redirect = membership
+        ? `${origin}/${membership.slug}`
+        : `${origin}/new`
+      return c.redirect(redirect)
     },
   )
   .post('/api/auth/logout', async (c) => {
@@ -157,15 +206,14 @@ export const api = new Hono<{ Bindings: Cloudflare.Env }>()
     if (!data) return c.json({ account: null })
 
     const { account_id } = JSON.parse(data) as { account_id: string }
-    const db = getDb()
-    const account = await db
+    const account = await c.var.db
       .selectFrom('account')
       .where('id', '=', account_id)
-      .select(['avatar_url', 'email', 'github_id', 'id', 'name'])
+      .select(['avatar_url', 'email', 'id', 'name'])
       .executeTakeFirst()
     if (!account) return c.json({ account: null })
 
-    const organizations = await db
+    const organizations = await c.var.db
       .selectFrom('organization_member')
       .innerJoin(
         'organization',
@@ -174,15 +222,139 @@ export const api = new Hono<{ Bindings: Cloudflare.Env }>()
       )
       .where('organization_member.account_id', '=', account_id)
       .where('organization.deleted_at', 'is', null)
-      .select([
-        'organization.id',
-        'organization.name',
-        'organization.plan',
-        'organization.slug',
-      ])
+      .select(['organization.id', 'organization.name', 'organization.slug'])
       .execute()
 
     return c.json({
       account: { ...account, organizations },
     })
   })
+  .get('/api/health', (c) => c.json({ ok: true }))
+  .post(
+    '/api/organizations',
+    validator(
+      'json',
+      z.object({
+        name: z.string().min(2).max(50).optional(),
+        slug: z
+          .string()
+          .min(2)
+          .max(50)
+          .regex(
+            /^[a-z0-9][a-z0-9-]*[a-z0-9]$/,
+            'Must start and end with a lowercase letter or number, and contain only lowercase letters, numbers, or hyphens',
+          ),
+      }),
+    ),
+    async (c) => {
+      const session = getCookie(c, 'curl.session')
+      if (!session) return c.json({ error: 'Unauthorized' }, 401)
+
+      const data = await c.env.KV.get(`session:${session}`)
+      if (!data) return c.json({ error: 'Unauthorized' }, 401)
+
+      const { account_id } = JSON.parse(data) as { account_id: string }
+      const json = c.req.valid('json')
+
+      const reservedSlugs = new Set([
+        'api',
+        'check',
+        'login',
+        'new',
+        'playground',
+      ])
+      if (reservedSlugs.has(json.slug))
+        return c.json({ error: 'This slug is reserved' }, 409)
+
+      const existing = await c.var.db
+        .selectFrom('organization')
+        .where('slug', '=', json.slug)
+        .select('id')
+        .executeTakeFirst()
+      if (existing)
+        return c.json({ error: 'Organization name already taken' }, 409)
+
+      const orgId = Nanoid.generate()
+      await c.var.db
+        .insertInto('organization')
+        .values({ id: orgId, name: json.name ?? json.slug, slug: json.slug })
+        .execute()
+      await c.var.db
+        .insertInto('organization_member')
+        .values({
+          account_id,
+          id: Nanoid.generate(),
+          organization_id: orgId,
+          role: 'owner',
+        })
+        .execute()
+
+      return c.json({ slug: json.slug })
+    },
+  )
+  .get(
+    '/api/:url{.+}',
+    validator(
+      'param',
+      z.object({
+        url: urlSchema.refine(
+          (url) =>
+            !/\.(action|aspx?|cgi|css|eot|gif|html?|ico|jpe?g|json|jsx?|map|php|png|svg|tsx?|ttf|webp|woff2?|xml|ya?ml)$/i.test(
+              new URL(url).hostname,
+            ),
+        ),
+      }),
+    ),
+    validator(
+      'query',
+      z.object({
+        fresh: z.string().optional(),
+        k: z
+          .string()
+          .transform((v) => v.split(/[\s,]+/).filter(Boolean))
+          .optional(),
+        q: z.string().optional(),
+      }),
+    ),
+    // TODO: add rate limiting back
+    // TODO: add error handling back
+    // TODO: add json response support back
+    async (c) => {
+      const url = new URL(c.req.valid('param').url)
+      const query = c.req.valid('query')
+
+      const page = await fetchPage(url, {
+        fresh: query.fresh !== undefined ? true : undefined,
+        keywords: query.k,
+        objective: query.q,
+      })
+
+      const requestId = crypto.randomUUID()
+      c.env.REQUEST_QUEUE.send({
+        estimated: page.estimated,
+        hostname: url.hostname,
+        id: requestId,
+        keywords: query.k?.join(',') || null,
+        markdownLength: page.markdown.length,
+        objective: query.q || null,
+        path: url.pathname,
+        tokens_saved: page.tokensSaved ?? null,
+        url: url.href,
+        user_agent: c.req.header('user-agent'),
+      })
+
+      return new Response(
+        `${page.markdown.trimEnd()}\n\n---\n\nPowered by [${c.env.HOST}](https://${c.env.HOST})`,
+        {
+          headers: {
+            'access-control-expose-headers':
+              'x-request-id, x-tokens-count, x-tokens-saved',
+            'content-type': 'text/markdown; charset=utf-8',
+            'x-request-id': requestId,
+            'x-tokens-count': String(page.tokensCount),
+            'x-tokens-saved': String(page.tokensSaved),
+          },
+        },
+      )
+    },
+  )

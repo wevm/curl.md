@@ -1,0 +1,2 @@
+ALTER TABLE request DROP COLUMN city;
+ALTER TABLE request DROP COLUMN country;

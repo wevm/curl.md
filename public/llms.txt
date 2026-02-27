@@ -14,11 +14,6 @@ curl curl.md/example.com
 # Install agent skill
 npx curl.md skills add
 
-# Install MCP server (cli)
-npx curl.md mcp add
-
-# Install MCP server (remote)
-npx add-mcp curl.md/mcp
 ```
 
 ## Usage
@@ -88,4 +83,3 @@ curl.md --help
 - [X](https://x.com/wevm_dev)
 - [llms.txt](https://curl.md/llms.txt)
 - [Skill](https://curl.md/skills)
-- [MCP server](https://curl.md/mcp)

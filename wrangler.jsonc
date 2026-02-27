@@ -19,7 +19,7 @@
   ],
   "kv_namespaces": [{ "binding": "KV", "id": "local" }],
   "queues": {
-    "producers": [{ "binding": "TOKEN_UPDATE_QUEUE", "queue": "curl-tokens" }],
+    "producers": [{ "binding": "REQUEST_QUEUE", "queue": "curl-tokens" }],
     "consumers": [
       {
         "queue": "curl-tokens",
@@ -62,9 +62,7 @@
         { "binding": "KV", "id": "e3a921b8d13741b99e7aa1cbb6144c9f" }
       ],
       "queues": {
-        "producers": [
-          { "binding": "TOKEN_UPDATE_QUEUE", "queue": "curl-tokens" }
-        ],
+        "producers": [{ "binding": "REQUEST_QUEUE", "queue": "curl-tokens" }],
         "consumers": [
           {
             "queue": "curl-tokens",
@@ -98,7 +96,7 @@
       "queues": {
         "producers": [
           {
-            "binding": "TOKEN_UPDATE_QUEUE",
+            "binding": "REQUEST_QUEUE",
             "queue": "curl-tokens-__PREVIEW_APEX__"
           }
         ],

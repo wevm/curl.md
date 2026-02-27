@@ -11,10 +11,12 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as PlaygroundRouteImport } from './routes/playground'
 import { Route as OgDotpngRouteImport } from './routes/og[.]png'
-import { Route as McpRouteImport } from './routes/mcp'
+import { Route as NewRouteImport } from './routes/new'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as CheckRouteImport } from './routes/check'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as urlSplatRouteImport } from './routes/(url)/$'
+import { Route as Char126orgSlugRouteRouteImport } from './routes/~org.$slug/route'
+import { Route as Char126orgSlugIndexRouteImport } from './routes/~org.$slug/index'
 
 const PlaygroundRoute = PlaygroundRouteImport.update({
   id: '/playground',
@@ -26,9 +28,14 @@ const OgDotpngRoute = OgDotpngRouteImport.update({
   path: '/og.png',
   getParentRoute: () => rootRouteImport,
 } as any)
-const McpRoute = McpRouteImport.update({
-  id: '/mcp',
-  path: '/mcp',
+const NewRoute = NewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CheckRoute = CheckRouteImport.update({
@@ -41,59 +48,87 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const urlSplatRoute = urlSplatRouteImport.update({
-  id: '/(url)/$',
-  path: '/$',
+const Char126orgSlugRouteRoute = Char126orgSlugRouteRouteImport.update({
+  id: '/~org/$slug',
+  path: '/~org/$slug',
   getParentRoute: () => rootRouteImport,
+} as any)
+const Char126orgSlugIndexRoute = Char126orgSlugIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => Char126orgSlugRouteRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/check': typeof CheckRoute
-  '/mcp': typeof McpRoute
+  '/login': typeof LoginRoute
+  '/new': typeof NewRoute
   '/og.png': typeof OgDotpngRoute
   '/playground': typeof PlaygroundRoute
-  '/$': typeof urlSplatRoute
+  '/~org/$slug': typeof Char126orgSlugRouteRouteWithChildren
+  '/~org/$slug/': typeof Char126orgSlugIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/check': typeof CheckRoute
-  '/mcp': typeof McpRoute
+  '/login': typeof LoginRoute
+  '/new': typeof NewRoute
   '/og.png': typeof OgDotpngRoute
   '/playground': typeof PlaygroundRoute
-  '/$': typeof urlSplatRoute
+  '/~org/$slug': typeof Char126orgSlugIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/check': typeof CheckRoute
-  '/mcp': typeof McpRoute
+  '/login': typeof LoginRoute
+  '/new': typeof NewRoute
   '/og.png': typeof OgDotpngRoute
   '/playground': typeof PlaygroundRoute
-  '/(url)/$': typeof urlSplatRoute
+  '/~org/$slug': typeof Char126orgSlugRouteRouteWithChildren
+  '/~org/$slug/': typeof Char126orgSlugIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/check' | '/mcp' | '/og.png' | '/playground' | '/$'
+  fullPaths:
+    | '/'
+    | '/check'
+    | '/login'
+    | '/new'
+    | '/og.png'
+    | '/playground'
+    | '/~org/$slug'
+    | '/~org/$slug/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/check' | '/mcp' | '/og.png' | '/playground' | '/$'
+  to:
+    | '/'
+    | '/check'
+    | '/login'
+    | '/new'
+    | '/og.png'
+    | '/playground'
+    | '/~org/$slug'
   id:
     | '__root__'
     | '/'
     | '/check'
-    | '/mcp'
+    | '/login'
+    | '/new'
     | '/og.png'
     | '/playground'
-    | '/(url)/$'
+    | '/~org/$slug'
+    | '/~org/$slug/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CheckRoute: typeof CheckRoute
-  McpRoute: typeof McpRoute
+  LoginRoute: typeof LoginRoute
+  NewRoute: typeof NewRoute
   OgDotpngRoute: typeof OgDotpngRoute
   PlaygroundRoute: typeof PlaygroundRoute
-  urlSplatRoute: typeof urlSplatRoute
+  Char126orgSlugRouteRoute: typeof Char126orgSlugRouteRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
@@ -112,11 +147,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OgDotpngRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/mcp': {
-      id: '/mcp'
-      path: '/mcp'
-      fullPath: '/mcp'
-      preLoaderRoute: typeof McpRouteImport
+    '/new': {
+      id: '/new'
+      path: '/new'
+      fullPath: '/new'
+      preLoaderRoute: typeof NewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/check': {
@@ -133,23 +175,42 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/(url)/$': {
-      id: '/(url)/$'
-      path: '/$'
-      fullPath: '/$'
-      preLoaderRoute: typeof urlSplatRouteImport
+    '/~org/$slug': {
+      id: '/~org/$slug'
+      path: '/~org/$slug'
+      fullPath: '/~org/$slug'
+      preLoaderRoute: typeof Char126orgSlugRouteRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/~org/$slug/': {
+      id: '/~org/$slug/'
+      path: '/'
+      fullPath: '/~org/$slug/'
+      preLoaderRoute: typeof Char126orgSlugIndexRouteImport
+      parentRoute: typeof Char126orgSlugRouteRoute
     }
   }
 }
 
+interface Char126orgSlugRouteRouteChildren {
+  Char126orgSlugIndexRoute: typeof Char126orgSlugIndexRoute
+}
+
+const Char126orgSlugRouteRouteChildren: Char126orgSlugRouteRouteChildren = {
+  Char126orgSlugIndexRoute: Char126orgSlugIndexRoute,
+}
+
+const Char126orgSlugRouteRouteWithChildren =
+  Char126orgSlugRouteRoute._addFileChildren(Char126orgSlugRouteRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CheckRoute: CheckRoute,
-  McpRoute: McpRoute,
+  LoginRoute: LoginRoute,
+  NewRoute: NewRoute,
   OgDotpngRoute: OgDotpngRoute,
   PlaygroundRoute: PlaygroundRoute,
-  urlSplatRoute: urlSplatRoute,
+  Char126orgSlugRouteRoute: Char126orgSlugRouteRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

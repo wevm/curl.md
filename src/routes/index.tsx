@@ -77,15 +77,6 @@ function Home() {
         </code>
       </div>
       <div>
-        <code className="block text-gray9 dark:text-gray6">
-          # Install MCP server
-        </code>
-        <code className="block">
-          <span className="text-gray12">npx curl.md</span>{' '}
-          <span className="text-gray10">mcp add</span>
-        </code>
-      </div>
-      <div>
         <code className="block text-gray9 dark:text-gray6"># Use via CLI</code>
         <code className="block">
           <span className="text-gray12">npx curl.md</span>{' '}

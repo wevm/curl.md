@@ -30,6 +30,8 @@ Add the following secrets to your GitHub repository (Settings → Secrets and va
 
 * `CLOUDFLARE_ACCOUNT_ID` - Cloudflare account ID (found in the Workers dashboard URL)
 * `CLOUDFLARE_API_TOKEN` - Cloudflare API token for deployments (see [below](#creating-a-cloudflare-api-token))
+* `GH_CLIENT_ID` - GitHub App client ID (see [GitHub App Setup](#github-app-setup))
+* `GH_CLIENT_SECRET` - GitHub App client secret (see [GitHub App Setup](#github-app-setup))
 
 ### Creating a Cloudflare API Token
 
@@ -46,6 +48,23 @@ Add the following secrets to your GitHub repository (Settings → Secrets and va
 5. Set Account Resources to your account
 6. Set Zone Resources to your domain (e.g., `curl.md`)
 7. Click "Continue to summary" → "Create Token"
+
+### GitHub App Setup
+
+1. Go to [GitHub Developer Settings → GitHub Apps](https://github.com/organizations/wevm/settings/apps)
+2. Click "New GitHub App"
+3. Fill in:
+   - **GitHub App name**: `curl.md`
+   - **Homepage URL**: `https://curl.md`
+   - **Callback URL**: `https://curl.md/api/auth/github/callback`
+   - Check "Expire user authorization tokens"
+   - Check "Enable Device Flow" (for CLI authentication)
+   - Uncheck "Active" under Webhook (not needed)
+   4. Under Permissions:
+   - **Account permissions** → **Email addresses** → Read-only
+5. Click "Create GitHub App"
+6. Copy the **Client ID** → `GH_CLIENT_ID` in `.env`
+7. Click "Generate a new client secret" → `GH_CLIENT_SECRET` in `.env`
 
 ### WWW Redirect
 

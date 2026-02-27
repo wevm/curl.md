@@ -9,6 +9,9 @@
     { "binding": "DB", "database_name": "test-db", "database_id": "local" }
   ],
   "kv_namespaces": [{ "binding": "KV", "id": "local" }],
+  "queues": {
+    "producers": [{ "binding": "REQUEST_QUEUE", "queue": "test-queue" }]
+  },
   "vars": {
     "GH_CLIENT_ID": "test",
     "GH_CLIENT_SECRET": "test",

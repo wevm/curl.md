@@ -23,9 +23,16 @@ const schemaResult = JSON.parse(
     "SELECT name, sql FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_cf_%' AND name NOT LIKE 'd1_%'",
   ),
 )
-const tables = schemaResult[0].results as { name: string; sql: string }[]
+const tables = (
+  schemaResult[0].results as { name: string; sql: string }[]
+).sort((a, b) => a.name.localeCompare(b.name))
 
-type Column = { name: string; type: string; notnull: boolean }
+type Column = {
+  name: string
+  type: string
+  notnull: boolean
+  hasDefault: boolean
+}
 
 function parseCreateTable(sql: string): Column[] {
   const columns: Column[] = []
@@ -57,10 +64,16 @@ function parseCreateTable(sql: string): Column[] {
 
     const [, name, type] = colMatch
     const notnull = /NOT\s+NULL/i.test(part) || /PRIMARY\s+KEY/i.test(part)
-    columns.push({ name, type, notnull })
+    const hasDefault = /DEFAULT\s+/i.test(part)
+    columns.push({ hasDefault, name, notnull, type })
   }
 
   return columns
+}
+
+const customTypes: Record<string, Record<string, string>> = {
+  account: { role: "'crew' | 'user'" },
+  organization_member: { role: "'admin' | 'member' | 'owner'" },
 }
 
 function sqliteToTs(sqlType: string, notnull: boolean): string {
@@ -96,8 +109,10 @@ for (const { name, sql } of tables) {
 
   output += `type ${name} = {\n`
   for (const col of columns) {
-    const baseType = sqliteToTs(col.type, true)
-    const isGenerated = col.name === 'id' || col.name.endsWith('_at')
+    const custom = customTypes[name]?.[col.name]
+    const baseType = custom ?? sqliteToTs(col.type, true)
+    const isGenerated =
+      col.name === 'id' || col.name.endsWith('_at') || col.hasDefault
     const nullableSuffix = col.notnull ? '' : ' | null'
 
     if (isGenerated) {

@@ -16,6 +16,7 @@ declare global {
   const IconOcticonCopy16: typeof import('~icons/octicon/copy16.jsx').default
   const IconOcticonGitCommit16: typeof import('~icons/octicon/git-commit16.jsx').default
   const IconOcticonGitPullRequest16: typeof import('~icons/octicon/git-pull-request16.jsx').default
+  const IconOcticonMarkGithub16: typeof import('~icons/octicon/mark-github16.jsx').default
   const IconOcticonMarkdown16: typeof import('~icons/octicon/markdown16.jsx').default
   const IconOcticonPaintbrush16: typeof import('~icons/octicon/paintbrush16.jsx').default
   const IconOcticonSync16: typeof import('~icons/octicon/sync16.jsx').default

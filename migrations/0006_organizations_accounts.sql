@@ -1,25 +1,38 @@
--- organizations
-
-CREATE TABLE IF NOT EXISTS organization (
-  id                 TEXT PRIMARY KEY,
-  name               TEXT NOT NULL,
-  slug               TEXT NOT NULL UNIQUE,
-  plan               TEXT NOT NULL DEFAULT 'free',
-  stripe_customer_id TEXT,
-  created_at         TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-  deleted_at         TEXT
-);
-
-CREATE INDEX idx_organization_stripe_customer_id ON organization(stripe_customer_id);
-
 -- accounts
 
 CREATE TABLE IF NOT EXISTS account (
   id         TEXT PRIMARY KEY,
-  github_id  INTEGER NOT NULL UNIQUE,
   email      TEXT NOT NULL,
   name       TEXT,
   avatar_url TEXT,
+  role       TEXT NOT NULL DEFAULT 'user',
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+  deleted_at TEXT
+);
+
+-- account providers
+
+CREATE TABLE IF NOT EXISTS account_provider (
+  id                       TEXT PRIMARY KEY,
+  account_id               TEXT NOT NULL REFERENCES account(id),
+  provider                 TEXT NOT NULL,
+  provider_account_id      TEXT NOT NULL,
+  access_token             TEXT,
+  refresh_token            TEXT,
+  access_token_expires_at  TEXT,
+  refresh_token_expires_at TEXT,
+  created_at               TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+  UNIQUE(provider, provider_account_id)
+);
+
+CREATE INDEX idx_account_provider_account_id ON account_provider(account_id);
+
+-- organizations
+
+CREATE TABLE IF NOT EXISTS organization (
+  id         TEXT PRIMARY KEY,
+  name       TEXT NOT NULL,
+  slug       TEXT NOT NULL UNIQUE,
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
   deleted_at TEXT
 );
@@ -27,11 +40,12 @@ CREATE TABLE IF NOT EXISTS account (
 -- organization members
 
 CREATE TABLE IF NOT EXISTS organization_member (
+  id              TEXT PRIMARY KEY,
   organization_id TEXT NOT NULL REFERENCES organization(id),
   account_id      TEXT NOT NULL REFERENCES account(id),
   role            TEXT NOT NULL DEFAULT 'member',
   created_at      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-  PRIMARY KEY (organization_id, account_id)
+  UNIQUE(organization_id, account_id)
 );
 
 -- api keys
@@ -39,7 +53,7 @@ CREATE TABLE IF NOT EXISTS organization_member (
 CREATE TABLE IF NOT EXISTS api_key (
   id                    TEXT PRIMARY KEY,
   organization_id       TEXT NOT NULL REFERENCES organization(id),
-  created_by_account_id TEXT NOT NULL REFERENCES account(id),
+  account_id            TEXT NOT NULL REFERENCES account(id),
   key_prefix            TEXT NOT NULL,
   key_hash              TEXT NOT NULL UNIQUE,
   name                  TEXT NOT NULL,

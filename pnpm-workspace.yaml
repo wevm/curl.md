@@ -4,12 +4,12 @@ packages:
   - pro
 
 catalog:
-  "@biomejs/biome": "2.3.13"
-  "@cloudflare/workers-types": ^4.20260302.0
-  "@modelcontextprotocol/sdk": ^1.26.0
-  "@types/hast": ^3.0.4
-  "@types/node": ^25.2.3
-  "@typescript/native-preview": 7.0.0-dev.20260216.1
+  '@biomejs/biome': 2.3.13
+  '@cloudflare/workers-types': ^4.20260302.0
+  '@modelcontextprotocol/sdk': ^1.26.0
+  '@types/hast': ^3.0.4
+  '@types/node': ^25.2.3
+  '@typescript/native-preview': 7.0.0-dev.20260216.1
   rehype-parse: ^9.0.1
   rehype-remark: ^10.0.1
   remark-gfm: ^4.0.1
@@ -22,6 +22,8 @@ catalog:
 minimumReleaseAge: 1440
 
 onlyBuiltDependencies:
-  - "simple-git-hooks"
+  - simple-git-hooks
 
 trustPolicy: no-downgrade
+trustPolicyExclude:
+  - 'semver@6.3.1'

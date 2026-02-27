@@ -1,0 +1,112 @@
+import { env } from 'cloudflare:workers'
+import { useMutation } from '@tanstack/react-query'
+import {
+  createFileRoute,
+  Outlet,
+  redirect,
+  useRouter,
+} from '@tanstack/react-router'
+import { createServerFn } from '@tanstack/react-start'
+import { getRequest } from '@tanstack/react-start/server'
+import { getDb } from '#lib/db.ts'
+
+export const Route = createFileRoute('/~org/$slug')({
+  beforeLoad: async ({ location, params }) => {
+    const data = await getLayoutData({ data: { slug: params.slug } })
+    if (!data)
+      throw redirect({ to: '/login', search: { next: location.pathname } })
+    return data
+  },
+  component: DashboardLayout,
+})
+
+function DashboardLayout() {
+  const { account, organization } = Route.useRouteContext()
+  const router = useRouter()
+
+  const logout = useMutation({
+    mutationFn: async () => {
+      await fetch('/api/auth/logout', { method: 'POST' })
+    },
+    onSuccess: () => router.navigate({ to: '/' }),
+  })
+
+  return (
+    <div className="mx-auto flex min-h-dvh max-w-4xl flex-col px-6 pt-6 pb-16">
+      <div className="flex items-center justify-between border-b pb-4">
+        <div className="flex items-center gap-3">
+          {account.avatar_url ? (
+            <img
+              alt={account.name ?? account.email}
+              className="size-8 rounded-full"
+              src={account.avatar_url}
+            />
+          ) : null}
+          <span className="font-bold">{organization.name}</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <a
+            className="text-gray9 hover:text-gray10 hover:underline dark:text-gray6"
+            href="/"
+          >
+            Home
+          </a>
+          <button
+            className="text-gray9 hover:text-gray10 hover:underline disabled:opacity-50 dark:text-gray6"
+            disabled={logout.isPending}
+            onClick={() => logout.mutate()}
+            type="button"
+          >
+            Sign Out
+          </button>
+        </div>
+      </div>
+      <div className="pt-6">
+        <Outlet />
+      </div>
+    </div>
+  )
+}
+
+const getLayoutData = createServerFn({ method: 'GET' })
+  .inputValidator((d: { slug: string }) => d)
+  .handler(async ({ data: { slug } }) => {
+    const request = getRequest()
+    const cookies = Object.fromEntries(
+      (request.headers.get('cookie') ?? '').split(';').map((c) => {
+        const [k, ...v] = c.trim().split('=')
+        return [k, v.join('=')] as const
+      }),
+    )
+    const sessionId = cookies['curl.session']
+    if (!sessionId) return null
+
+    const sessionData = await env.KV.get(`session:${sessionId}`)
+    if (!sessionData) return null
+
+    const { account_id } = JSON.parse(sessionData) as { account_id: string }
+    const db = getDb()
+
+    const account = await db
+      .selectFrom('account')
+      .where('id', '=', account_id)
+      .select(['avatar_url', 'email', 'id', 'name'])
+      .executeTakeFirst()
+    if (!account) return null
+
+    const org = await db
+      .selectFrom('organization')
+      .innerJoin(
+        'organization_member',
+        'organization_member.organization_id',
+        'organization.id',
+      )
+      .where('organization.slug', '=', slug)
+      .where('organization.deleted_at', 'is', null)
+      .where('organization_member.account_id', '=', account_id)
+      .select(['organization.id', 'organization.name', 'organization.slug'])
+      .executeTakeFirst()
+    if (!org) return null
+
+    return { account, organization: org }
+  })

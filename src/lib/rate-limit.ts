@@ -8,7 +8,7 @@ export async function rateLimit(request: Request): Promise<{
 }> {
   const ip = request.headers.get('cf-connecting-ip') ?? 'unknown'
   const date = new Date().toISOString().slice(0, 10)
-  const key = `ratelimit:${ip}:${date}`
+  const key = `ratelimit:${ip}:${date}` as const
 
   const count = Number((await env.KV.get(key)) ?? 0)
   if (count >= dailyLimit) return { limited: true, remaining: 0 }

@@ -530,8 +530,8 @@ async function getTokensSaved(urlParam?: string) {
         .hostname
     : undefined
   const cacheKey = hostname
-    ? `stats:tokens_saved:${hostname}`
-    : 'stats:tokens_saved'
+    ? (`stats:tokens_saved:${hostname}` as const)
+    : ('stats:tokens_saved' as const)
   const cached = await env.KV.get<number>(cacheKey, 'json')
   if (cached !== null) return cached
 
