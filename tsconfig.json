@@ -3,6 +3,7 @@
   "references": [
     { "path": "./config/tsconfig.app.json" },
     { "path": "./config/tsconfig.node.json" },
-    { "path": "./config/tsconfig.test-legacy.json" }
+    { "path": "./config/tsconfig.pro-workers.json" },
+    { "path": "./config/tsconfig.workers.json" }
   ]
 }

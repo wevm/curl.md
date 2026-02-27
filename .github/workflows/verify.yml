@@ -67,6 +67,11 @@ jobs:
       - name: Test
         run: pnpm vitest --project app --project cli
 
+      # TODO: Merge into "Test" step once `@cloudflare/vitest-pool-workers` supports vitest v4
+      # https://github.com/cloudflare/workers-sdk/issues/11064
+      - name: Test (Workers)
+        run: pnpm test:workers -- --run
+
       - name: Build
         run: pnpm build
 

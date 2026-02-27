@@ -1,0 +1,17 @@
+{
+  "compatibility_date": "2025-09-06",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "binding": "ASSETS",
+    "directory": "../../dist/client"
+  },
+  "d1_databases": [
+    { "binding": "DB", "database_name": "test-db", "database_id": "local" }
+  ],
+  "kv_namespaces": [{ "binding": "KV", "id": "local" }],
+  "vars": {
+    "GH_CLIENT_ID": "test",
+    "GH_CLIENT_SECRET": "test",
+    "HOST": "curl.local"
+  }
+}

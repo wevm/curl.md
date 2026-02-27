@@ -15,17 +15,10 @@ export default defineConfig({
         resolve: { alias: aliases },
         test: {
           name: 'app',
-          exclude: ['**/node_modules/**'],
+          // TODO: Remove once `@cloudflare/vitest-pool-workers` supports vitest v4 and `config/workers` is inlined
+          // https://github.com/cloudflare/workers-sdk/issues/11064
+          exclude: ['**/node_modules/**', 'src/**/*.workers.test.ts'],
           include: ['src/**/*.test.ts'],
-          root: path.resolve(import.meta.dirname),
-        },
-      },
-      {
-        resolve: { alias: aliases },
-        test: {
-          name: 'pro',
-          exclude: ['**/node_modules/**'],
-          include: ['pro/src/**/*.test.ts'],
           root: path.resolve(import.meta.dirname),
         },
       },

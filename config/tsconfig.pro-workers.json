@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "../node_modules/.tmp/tsconfig.pro-workers.tsbuildinfo",
+    "types": [
+      "vite/client",
+      "../pro/node_modules/@cloudflare/vitest-pool-workers/types/cloudflare-test"
+    ]
+  },
+  "exclude": [],
+  "include": [
+    "../pro/src/fetch-page.workers.test.ts",
+    "../pro/src/env.d.ts",
+    "../pro/src/worker-configuration.d.ts"
+  ]
+}

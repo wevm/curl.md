@@ -27,7 +27,7 @@ interface D1DialectConfig {
   database: D1Database | D1DatabaseSession
 }
 
-class D1Dialect implements Dialect {
+export class D1Dialect implements Dialect {
   #config: D1DialectConfig
 
   constructor(config: D1DialectConfig) {

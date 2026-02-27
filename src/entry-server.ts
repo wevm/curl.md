@@ -1,10 +1,12 @@
 import { env } from 'cloudflare:workers'
 import handler from '@tanstack/react-start/server-entry'
+import { api } from '#api.ts'
 import { getDb } from '#lib/db.ts'
 
 export default {
   fetch(request, env, ctx) {
     const url = new URL(request.url)
+    if (url.pathname.startsWith('/api/')) return api.fetch(request, env, ctx)
     const path = url.pathname.replace(/\/+$/, '')
     switch (path) {
       case '/llms.txt':
