@@ -2,6 +2,7 @@ import { zValidator as validator } from '@hono/zod-validator'
 import { Octokit } from '@octokit/core'
 import { Hono } from 'hono'
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie'
+import { html, raw } from 'hono/html'
 import { Kysely } from 'kysely'
 import { ImageResponse } from 'workers-og'
 import { z } from 'zod'
@@ -10,7 +11,7 @@ import type { DB } from '#lib/db.gen.ts'
 import { D1Dialect } from '#lib/db.ts'
 import * as Nanoid from '#lib/nanoid.ts'
 import { urlSchema } from '#lib/schemas.ts'
-import { getOgElement, loadFont, ogQuerySchema } from '#og.ts'
+import { getOgElement, loadFont, type OgQuery, ogQuerySchema } from '#og.ts'
 
 export const api = new Hono<{
   Bindings: Cloudflare.Env
@@ -342,44 +343,35 @@ export const api = new Hono<{
     // TODO: add rate limiting back
     // TODO: add error handling back
     async (c) => {
+      const url = new URL(c.req.valid('param').url)
+      const query = c.req.valid('query')
+
       if (
         /Twitterbot|facebookexternalhit|LinkedInBot|Slackbot|Discordbot|WhatsApp|TelegramBot/i.test(
           c.req.header('user-agent') ?? '',
         )
       ) {
-        const raw = c.req.valid('param').url
-        const escaped = raw
-          .replace(/&/g, '&amp;')
-          .replace(/"/g, '&quot;')
-          .replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;')
-        const ogUrl = new URL(
-          `/api/og.png?page=url&url=${encodeURIComponent(raw)}`,
-          `https://${c.env.HOST}`,
+        const ogQuery = { page: 'url', url: url.toString() } satisfies OgQuery
+        const ogUrl = raw(
+          new URL(
+            `/api/og.png?${new URLSearchParams(ogQuery)}`,
+            `https://${c.env.HOST}`,
+          ).toString(),
         )
         return c.html(
-          `<!DOCTYPE html>
-<html>
-<head>
-<meta property="og:title" content="${c.env.HOST}/${escaped}" />
+          html`<meta property="og:title" content="${`${c.env.HOST}/${url}`}" />
 <meta property="og:description" content="Fetch any URL as Markdown" />
 <meta property="og:image" content="${ogUrl}" />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
-<meta property="og:image:type" content="image/png" />
 <meta property="og:type" content="website" />
-<meta property="og:url" content="https://${c.env.HOST}/${escaped}" />
+<meta property="og:url" content="${`https://${c.env.HOST}/${url}`}" />
 <meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:title" content="${c.env.HOST}/${escaped}" />
+<meta name="twitter:title" content="${`${c.env.HOST}/${url}`}" />
 <meta name="twitter:description" content="Fetch any URL as Markdown" />
-<meta name="twitter:image" content="${ogUrl}" />
-</head>
-</html>`,
+<meta name="twitter:image" content="${ogUrl}" />`,
         )
       }
-
-      const url = new URL(c.req.valid('param').url)
-      const query = c.req.valid('query')
 
       const page = await fetchPage(url, {
         fresh: query.fresh !== undefined ? true : undefined,

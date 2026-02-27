@@ -1,4 +1,4 @@
-import { env, fetchMock } from 'cloudflare:test'
+import { createMessageBatch, env, fetchMock } from 'cloudflare:test'
 import { Kysely } from 'kysely'
 import { afterEach, beforeAll, expect, test } from 'vitest'
 import type { DB } from '#lib/db.gen.ts'
@@ -18,19 +18,29 @@ afterEach(() => {
 })
 
 test('inserts request record', async () => {
-  const body = {
-    estimated: false,
-    hostname: 'example.com',
-    id: 'req_1',
-    keywords: null,
-    markdownLength: 100,
-    objective: null,
-    path: '/',
-    tokens_saved: null,
-    url: 'https://example.com',
-    user_agent: 'test-agent',
-  }
-  await processRequestMessage({ body } as Message<typeof body>)
+  const batch = createMessageBatch<processRequestMessage.Body>(
+    processRequestMessage.queueName,
+    [
+      {
+        attempts: 1,
+        body: {
+          estimated: false,
+          hostname: 'example.com',
+          id: 'req_1',
+          keywords: null,
+          markdownLength: 100,
+          objective: null,
+          path: '/',
+          tokens_saved: null,
+          url: 'https://example.com',
+          user_agent: 'test-agent',
+        },
+        id: crypto.randomUUID(),
+        timestamp: new Date(),
+      },
+    ],
+  )
+  await processRequestMessage(batch.messages[0]!, db)
 
   const row = await db
     .selectFrom('request')
@@ -50,19 +60,29 @@ test('updates tokens_saved when estimated', async () => {
     .intercept({ path: '/page' })
     .reply(200, html, { headers: { 'content-type': 'text/html' } })
 
-  const body = {
-    estimated: true,
-    hostname: 'example.com',
-    id: 'req_2',
-    keywords: null,
-    markdownLength: 100,
-    objective: null,
-    path: '/page',
-    tokens_saved: 500,
-    url: 'https://example.com/page',
-    user_agent: 'test-agent',
-  }
-  await processRequestMessage({ body } as Message<typeof body>)
+  const batch = createMessageBatch<processRequestMessage.Body>(
+    processRequestMessage.queueName,
+    [
+      {
+        attempts: 1,
+        body: {
+          estimated: true,
+          hostname: 'example.com',
+          id: 'req_2',
+          keywords: null,
+          markdownLength: 100,
+          objective: null,
+          path: '/page',
+          tokens_saved: 500,
+          url: 'https://example.com/page',
+          user_agent: 'test-agent',
+        },
+        id: crypto.randomUUID(),
+        timestamp: new Date(),
+      },
+    ],
+  )
+  await processRequestMessage(batch.messages[0]!, db)
 
   const row = await db
     .selectFrom('request')
@@ -76,19 +96,29 @@ test('updates tokens_saved when estimated', async () => {
 test('clears KV cache when tokens_saved is set', async () => {
   await env.KV.put('stats:tokens_saved', '1000')
 
-  const body = {
-    estimated: false,
-    hostname: 'example.com',
-    id: 'req_3',
-    keywords: null,
-    markdownLength: 100,
-    objective: null,
-    path: '/',
-    tokens_saved: 500,
-    url: 'https://example.com',
-    user_agent: 'test-agent',
-  }
-  await processRequestMessage({ body } as Message<typeof body>)
+  const batch = createMessageBatch<processRequestMessage.Body>(
+    processRequestMessage.queueName,
+    [
+      {
+        attempts: 1,
+        body: {
+          estimated: false,
+          hostname: 'example.com',
+          id: 'req_3',
+          keywords: null,
+          markdownLength: 100,
+          objective: null,
+          path: '/',
+          tokens_saved: 500,
+          url: 'https://example.com',
+          user_agent: 'test-agent',
+        },
+        id: crypto.randomUUID(),
+        timestamp: new Date(),
+      },
+    ],
+  )
+  await processRequestMessage(batch.messages[0]!, db)
 
   const cached = await env.KV.get('stats:tokens_saved')
   expect(cached).toBeNull()
@@ -100,19 +130,29 @@ test('skips tokens_saved update when fetch fails', async () => {
     .intercept({ path: '/fail' })
     .reply(500, 'error')
 
-  const body = {
-    estimated: true,
-    hostname: 'example.com',
-    id: 'req_4',
-    keywords: null,
-    markdownLength: 100,
-    objective: null,
-    path: '/fail',
-    tokens_saved: 42,
-    url: 'https://example.com/fail',
-    user_agent: 'test-agent',
-  }
-  await processRequestMessage({ body } as Message<typeof body>)
+  const batch = createMessageBatch<processRequestMessage.Body>(
+    processRequestMessage.queueName,
+    [
+      {
+        attempts: 1,
+        body: {
+          estimated: true,
+          hostname: 'example.com',
+          id: 'req_4',
+          keywords: null,
+          markdownLength: 100,
+          objective: null,
+          path: '/fail',
+          tokens_saved: 42,
+          url: 'https://example.com/fail',
+          user_agent: 'test-agent',
+        },
+        id: crypto.randomUUID(),
+        timestamp: new Date(),
+      },
+    ],
+  )
+  await processRequestMessage(batch.messages[0]!, db)
 
   const row = await db
     .selectFrom('request')

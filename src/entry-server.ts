@@ -1,6 +1,7 @@
 import handler from '@tanstack/react-start/server-entry'
 import { z } from 'zod'
 import { api } from '#api.ts'
+import { getDb } from '#lib/db.ts'
 import { processRequestMessage } from '#queues/request.ts'
 
 export default {
@@ -31,21 +32,22 @@ export default {
     return handler.fetch(request, { context: { ctx, env, request } })
   },
   queue: async (batch) => {
-    const queue = z.enum(['curl-request']).parse(batch.queue)
-    const handler = (() => {
-      if (queue === 'curl-request') return processRequestMessage
-      throw new Error(`No handler for ${queue}`)
-    })()
+    const queue = z.enum([processRequestMessage.queueName]).parse(batch.queue)
+    const handlers = {
+      [processRequestMessage.queueName]: processRequestMessage,
+    }
+    const handler = handlers[queue]
+    const db = getDb()
     for (const message of batch.messages) {
       try {
-        await handler(message as never)
+        await handler(message as never, db)
         message.ack()
       } catch {
         message.retry()
       }
     }
   },
-} satisfies ExportedHandler<Env, Parameters<Env['REQUEST_QUEUE']['send']>[0]>
+} satisfies ExportedHandler<Env, processRequestMessage.Body>
 
 declare module '@tanstack/react-start' {
   interface Register {

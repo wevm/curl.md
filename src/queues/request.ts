@@ -1,10 +1,11 @@
 import { env } from 'cloudflare:workers'
-import { getDb } from '#lib/db.ts'
+import type { Kysely } from 'kysely'
+import type { DB } from '#lib/db.gen.ts'
 
 export async function processRequestMessage(
-  message: Message<Parameters<Env['REQUEST_QUEUE']['send']>[0]>,
+  message: Message<processRequestMessage.Body>,
+  db: Kysely<DB>,
 ) {
-  const db = getDb()
   const body = message.body
 
   // Insert request record
@@ -44,4 +45,21 @@ export async function processRequestMessage(
   }
 
   if (body.tokens_saved) await env.KV.delete('stats:tokens_saved')
+}
+
+processRequestMessage.queueName = 'curl-request' as const
+
+export namespace processRequestMessage {
+  export type Body = {
+    estimated: boolean
+    hostname: string
+    id: string
+    keywords: string | null
+    markdownLength: number
+    objective: string | null
+    path: string
+    tokens_saved: number | null
+    url: string
+    user_agent: string | undefined
+  }
 }
