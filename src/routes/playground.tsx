@@ -2,6 +2,7 @@ import * as Query from '@tanstack/react-query'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import * as React from 'react'
 import { z } from 'zod'
+import { rpc } from '#lib/rpc.ts'
 import { urlSchema } from '#lib/schemas.ts'
 
 const searchSchema = z.object({
@@ -11,30 +12,29 @@ const searchSchema = z.object({
 })
 
 export const Route = createFileRoute('/playground')({
-  head: () => ({
-    meta: [
-      { title: `Playground - ${__HOST__}` },
-      { name: 'description', content: 'Fetch any URL as Markdown' },
-      { property: 'og:title', content: `${__HOST__}/playground` },
-      { property: 'og:description', content: 'Fetch any URL as Markdown' },
-      {
-        property: 'og:image',
-        content: `https://${__HOST__}/og.png?page=playground`,
-      },
-      { property: 'og:image:width', content: '1200' },
-      { property: 'og:image:height', content: '630' },
-      { property: 'og:image:type', content: 'image/png' },
-      { property: 'og:type', content: 'website' },
-      { property: 'og:url', content: `https://${__HOST__}/playground` },
-      { name: 'twitter:card', content: 'summary_large_image' },
-      { name: 'twitter:title', content: `${__HOST__}/playground` },
-      { name: 'twitter:description', content: 'Fetch any URL as Markdown' },
-      {
-        name: 'twitter:image',
-        content: `https://${__HOST__}/og.png?page=playground`,
-      },
-    ],
-  }),
+  head: () => {
+    const ogImage = rpc.api['og.png']
+      .$url({ query: { page: 'playground' } })
+      .toString()
+    return {
+      meta: [
+        { title: `Playground - ${__HOST__}` },
+        { name: 'description', content: 'Fetch any URL as Markdown' },
+        { property: 'og:title', content: `${__HOST__}/playground` },
+        { property: 'og:description', content: 'Fetch any URL as Markdown' },
+        { property: 'og:image', content: ogImage },
+        { property: 'og:image:width', content: '1200' },
+        { property: 'og:image:height', content: '630' },
+        { property: 'og:image:type', content: 'image/png' },
+        { property: 'og:type', content: 'website' },
+        { property: 'og:url', content: `https://${__HOST__}/playground` },
+        { name: 'twitter:card', content: 'summary_large_image' },
+        { name: 'twitter:title', content: `${__HOST__}/playground` },
+        { name: 'twitter:description', content: 'Fetch any URL as Markdown' },
+        { name: 'twitter:image', content: ogImage },
+      ],
+    }
+  },
   validateSearch: searchSchema,
   component: Playground,
 })
@@ -173,7 +173,7 @@ function Playground() {
       <div className="mx-auto flex min-h-0 w-full max-w-7xl grow flex-col gap-4">
         <div className="flex flex-col gap-1">
           <a
-            className="text-gray9 hover:text-gray10 hover:underline dark:text-gray6"
+            className="w-max text-gray9 hover:text-gray10 hover:underline dark:text-gray6"
             href="/"
           >
             &larr; Home

@@ -19,10 +19,10 @@
   ],
   "kv_namespaces": [{ "binding": "KV", "id": "local" }],
   "queues": {
-    "producers": [{ "binding": "REQUEST_QUEUE", "queue": "curl-tokens" }],
+    "producers": [{ "binding": "REQUEST_QUEUE", "queue": "curl-request" }],
     "consumers": [
       {
-        "queue": "curl-tokens",
+        "queue": "curl-request",
         "max_batch_size": 10,
         "max_batch_timeout": 30,
         "max_retries": 3
@@ -62,10 +62,10 @@
         { "binding": "KV", "id": "e3a921b8d13741b99e7aa1cbb6144c9f" }
       ],
       "queues": {
-        "producers": [{ "binding": "REQUEST_QUEUE", "queue": "curl-tokens" }],
+        "producers": [{ "binding": "REQUEST_QUEUE", "queue": "curl-request" }],
         "consumers": [
           {
-            "queue": "curl-tokens",
+            "queue": "curl-request",
             "max_batch_size": 10,
             "max_batch_timeout": 30,
             "max_retries": 3
@@ -97,12 +97,12 @@
         "producers": [
           {
             "binding": "REQUEST_QUEUE",
-            "queue": "curl-tokens-__PREVIEW_APEX__"
+            "queue": "curl-request-__PREVIEW_APEX__"
           }
         ],
         "consumers": [
           {
-            "queue": "curl-tokens-__PREVIEW_APEX__",
+            "queue": "curl-request-__PREVIEW_APEX__",
             "max_batch_size": 10,
             "max_batch_timeout": 30,
             "max_retries": 3

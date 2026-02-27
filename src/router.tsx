@@ -1,15 +1,7 @@
 import { createRouter } from '@tanstack/react-router'
 import { routeTree } from './routeTree.gen'
 
-const knownRoutes = new Set([
-  '',
-  'login',
-  'new',
-  'check',
-  'playground',
-  'og.png',
-  'api',
-])
+const knownRoutes = new Set(['', 'check', 'login', 'new', 'playground'])
 
 export const getRouter = () => {
   const router = createRouter({
@@ -23,8 +15,7 @@ export const getRouter = () => {
         )
           return url
         const firstSegment = url.pathname.split('/')[1] ?? ''
-        if (firstSegment.includes('.') || knownRoutes.has(firstSegment))
-          return url
+        if (!firstSegment || knownRoutes.has(firstSegment)) return url
         url.pathname = `/~org${url.pathname}`
         return url
       },

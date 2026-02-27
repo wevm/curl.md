@@ -1,64 +1,46 @@
-import { env, waitUntil } from 'cloudflare:workers'
-import { createFileRoute } from '@tanstack/react-router'
-import { ImageResponse } from 'workers-og'
+import { waitUntil } from 'cloudflare:workers'
+import type { Kysely } from 'kysely'
+import { z } from 'zod'
 import { fetchPage } from '#lib/core/fetch-page.ts'
-import { getDb } from '#lib/db.ts'
+import type { DB } from '#lib/db.gen.ts'
 import { computeScore } from '#lib/score.ts'
 
-export const Route = createFileRoute('/og.png')({
-  server: {
-    handlers: {
-      GET: async ({ request }) => {
-        const url = new URL(request.url)
-        const page = url.searchParams.get('page')?.trim() || undefined
-        const urlParam = url.searchParams.get('url')?.trim() || undefined
+export const ogQuerySchema = z
+  .discriminatedUnion('page', [
+    z.object({ page: z.literal('check'), url: z.string().optional() }),
+    z.object({ page: z.literal('index') }),
+    z.object({ page: z.literal('playground') }),
+    z.object({ page: z.literal('url'), url: z.string() }),
+  ])
+  .catch({ page: 'index' })
 
-        const [font, fontBold] = await Promise.all([
-          loadFont(request, '/fonts/GeistMono-Regular.ttf'),
-          loadFont(request, '/fonts/GeistMono-Black.ttf'),
-        ])
+export type OgQuery = z.infer<typeof ogQuerySchema>
 
-        const tokensSaved = await getTokensSaved(urlParam)
-        const element =
-          page === 'check'
-            ? await checkVariant(url.searchParams)
-            : urlParam
-              ? urlVariant(urlParam, tokensSaved)
-              : page === 'playground'
-                ? playgroundVariant(tokensSaved)
-                : indexVariant(tokensSaved)
+export async function getOgElement(
+  host: string,
+  env: Cloudflare.Env,
+  db: Kysely<DB>,
+  query: OgQuery,
+) {
+  switch (query.page) {
+    case 'check':
+      return checkVariant(host, query)
+    case 'url': {
+      const tokensSaved = await getTokensSaved(env, db, query.url)
+      return urlVariant(host, query.url, tokensSaved)
+    }
+    case 'playground': {
+      const tokensSaved = await getTokensSaved(env, db)
+      return playgroundVariant(host, tokensSaved)
+    }
+    case 'index': {
+      const tokensSaved = await getTokensSaved(env, db)
+      return indexVariant(host, tokensSaved)
+    }
+  }
+}
 
-        if (url.searchParams.has('html'))
-          return new Response(toHtmlPreview(element), {
-            headers: { 'content-type': 'text/html; charset=utf-8' },
-          })
-
-        const response = new ImageResponse(element, {
-          fonts: [
-            { data: font, name: 'Geist Mono', style: 'normal', weight: 400 },
-            {
-              data: fontBold,
-              name: 'Geist Mono',
-              style: 'normal',
-              weight: 900,
-            },
-          ],
-          format: 'png',
-          height: 630,
-          width: 1200,
-        })
-
-        response.headers.set(
-          'cache-control',
-          urlParam ? 'public, max-age=3600' : 'public, max-age=300',
-        )
-        return response
-      },
-    },
-  },
-})
-
-function indexVariant(tokensSaved: number) {
+function indexVariant(host: string, tokensSaved: number) {
   const teal = '#0cc0aa'
   return node('div', {
     style: {
@@ -80,7 +62,7 @@ function indexVariant(tokensSaved: number) {
       node('div', {
         children: [
           node('span', {
-            children: `${__HOST__}/`,
+            children: `${host}/`,
             style: { color: '#ededed' },
           }),
           node('span', {
@@ -128,7 +110,7 @@ function indexVariant(tokensSaved: number) {
   })
 }
 
-function playgroundVariant(tokensSaved: number) {
+function playgroundVariant(host: string, tokensSaved: number) {
   const teal = '#0cc0aa'
   return node('div', {
     style: {
@@ -150,7 +132,7 @@ function playgroundVariant(tokensSaved: number) {
       node('div', {
         children: [
           node('span', {
-            children: `${__HOST__}/`,
+            children: `${host}/`,
             style: { color: '#ededed' },
           }),
           node('span', {
@@ -198,13 +180,13 @@ function playgroundVariant(tokensSaved: number) {
   })
 }
 
-async function checkVariant(params: URLSearchParams) {
+async function checkVariant(host: string, query: { url?: string }) {
   const green = '#46a758'
   const gray = '#a1a1a1'
-  const checkedUrl = params.get('url')?.trim()
-  let score = Number(params.get('score') || 0)
-  let tokens = Number(params.get('tokens') || 0)
-  let saved = Number(params.get('saved') || 0)
+  const checkedUrl = query.url?.trim()
+  let score = 0
+  let tokens = 0
+  let saved = 0
 
   if (checkedUrl && score === 0) {
     try {
@@ -246,7 +228,7 @@ async function checkVariant(params: URLSearchParams) {
     },
     children: [
       node('div', {
-        children: __HOST__,
+        children: host,
         style: {
           bottom: 60,
           color: '#666',
@@ -255,7 +237,6 @@ async function checkVariant(params: URLSearchParams) {
           position: 'absolute',
         },
       }),
-      // Left column: favicon + url, stats
       node('div', {
         style: {
           display: 'flex',
@@ -356,7 +337,6 @@ async function checkVariant(params: URLSearchParams) {
             : []),
         ],
       }),
-      // Right column: score gauge + label
       node('div', {
         style: {
           alignItems: 'center',
@@ -447,7 +427,7 @@ function scoreGauge(score: number, color: string) {
   })
 }
 
-function urlVariant(urlParam: string, tokensSaved: number) {
+function urlVariant(host: string, urlParam: string, tokensSaved: number) {
   const teal = '#0cc0aa'
   const hostname = new URL(
     /^https?:\/\//.test(urlParam) ? urlParam : `https://${urlParam}`,
@@ -472,7 +452,7 @@ function urlVariant(urlParam: string, tokensSaved: number) {
       node('div', {
         children: [
           node('span', {
-            children: `${__HOST__}/`,
+            children: `${host}/`,
             style: { color: '#ededed' },
           }),
           node('span', {
@@ -524,7 +504,11 @@ function node(type: string, props: Record<string, unknown>): React.ReactNode {
   return { type, props } as unknown as React.ReactNode
 }
 
-async function getTokensSaved(urlParam?: string) {
+async function getTokensSaved(
+  env: Cloudflare.Env,
+  db: Kysely<DB>,
+  urlParam?: string,
+) {
   const hostname = urlParam
     ? new URL(/^https?:\/\//.test(urlParam) ? urlParam : `https://${urlParam}`)
         .hostname
@@ -535,7 +519,6 @@ async function getTokensSaved(urlParam?: string) {
   const cached = await env.KV.get<number>(cacheKey, 'json')
   if (cached !== null) return cached
 
-  const db = getDb()
   let total: number
   if (hostname) {
     const result = await db
@@ -555,49 +538,6 @@ async function getTokensSaved(urlParam?: string) {
   return total
 }
 
-function toHtmlPreview(element: React.ReactNode) {
-  const renderNode = (n: unknown): string => {
-    if (n == null || typeof n === 'boolean') return ''
-    if (typeof n === 'string' || typeof n === 'number') return String(n)
-    if (Array.isArray(n)) return n.map(renderNode).join('')
-    const { type, props } = n as {
-      type: string
-      props: Record<string, unknown>
-    }
-    const attrs = Object.entries(props)
-      .filter(([k]) => k !== 'children')
-      .map(([k, v]) =>
-        k === 'style'
-          ? ` style="${styleToString(v as Record<string, unknown>)}"`
-          : ` ${k}="${v}"`,
-      )
-      .join('')
-    const children = props.children ? renderNode(props.children) : ''
-    return `<${type}${attrs}>${children}</${type}>`
-  }
-  const body = renderNode(element)
-  return `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8" />
-<link href="https://fonts.googleapis.com/css2?family=Geist+Mono&display=swap" rel="stylesheet" />
-<style>* { margin: 0; padding: 0; box-sizing: border-box; }</style>
-</head>
-<body>${body}</body>
-</html>`
-}
-
-const unitless = new Set(['fontWeight', 'opacity', 'zIndex', 'flex', 'order'])
-
-function styleToString(style: Record<string, unknown>) {
-  return Object.entries(style)
-    .map(
-      ([k, v]) =>
-        `${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}:${typeof v === 'number' ? `${v}${unitless.has(k) ? '' : 'px'}` : v}`,
-    )
-    .join(';')
-}
-
 function formatCost(tokens: number, perMillionDollars: number) {
   const cost = (tokens / 1_000_000) * perMillionDollars
   return cost < 0.01 ? cost.toFixed(4).replace(/0+$/, '0') : cost.toFixed(2)
@@ -607,8 +547,7 @@ function formatNumber(n: number): string {
   return n.toLocaleString('en-US')
 }
 
-async function loadFont(request: Request, path: string) {
+export function loadFont(request: Request, env: Cloudflare.Env, path: string) {
   const url = new URL(path, request.url)
-  const response = await env.ASSETS.fetch(url)
-  return response.arrayBuffer()
+  return env.ASSETS.fetch(url).then((r) => r.arrayBuffer())
 }

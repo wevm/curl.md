@@ -14,7 +14,10 @@ export const Route = createFileRoute('/~org/$slug')({
   beforeLoad: async ({ location, params }) => {
     const data = await getLayoutData({ data: { slug: params.slug } })
     if (!data)
-      throw redirect({ to: '/login', search: { next: location.pathname } })
+      throw redirect({
+        to: '/login',
+        search: { next: location.publicHref ?? location.pathname },
+      })
     return data
   },
   component: DashboardLayout,

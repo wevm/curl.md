@@ -10,7 +10,6 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as PlaygroundRouteImport } from './routes/playground'
-import { Route as OgDotpngRouteImport } from './routes/og[.]png'
 import { Route as NewRouteImport } from './routes/new'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as CheckRouteImport } from './routes/check'
@@ -21,11 +20,6 @@ import { Route as Char126orgSlugIndexRouteImport } from './routes/~org.$slug/ind
 const PlaygroundRoute = PlaygroundRouteImport.update({
   id: '/playground',
   path: '/playground',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const OgDotpngRoute = OgDotpngRouteImport.update({
-  id: '/og.png',
-  path: '/og.png',
   getParentRoute: () => rootRouteImport,
 } as any)
 const NewRoute = NewRouteImport.update({
@@ -64,7 +58,6 @@ export interface FileRoutesByFullPath {
   '/check': typeof CheckRoute
   '/login': typeof LoginRoute
   '/new': typeof NewRoute
-  '/og.png': typeof OgDotpngRoute
   '/playground': typeof PlaygroundRoute
   '/~org/$slug': typeof Char126orgSlugRouteRouteWithChildren
   '/~org/$slug/': typeof Char126orgSlugIndexRoute
@@ -74,7 +67,6 @@ export interface FileRoutesByTo {
   '/check': typeof CheckRoute
   '/login': typeof LoginRoute
   '/new': typeof NewRoute
-  '/og.png': typeof OgDotpngRoute
   '/playground': typeof PlaygroundRoute
   '/~org/$slug': typeof Char126orgSlugIndexRoute
 }
@@ -84,7 +76,6 @@ export interface FileRoutesById {
   '/check': typeof CheckRoute
   '/login': typeof LoginRoute
   '/new': typeof NewRoute
-  '/og.png': typeof OgDotpngRoute
   '/playground': typeof PlaygroundRoute
   '/~org/$slug': typeof Char126orgSlugRouteRouteWithChildren
   '/~org/$slug/': typeof Char126orgSlugIndexRoute
@@ -96,26 +87,17 @@ export interface FileRouteTypes {
     | '/check'
     | '/login'
     | '/new'
-    | '/og.png'
     | '/playground'
     | '/~org/$slug'
     | '/~org/$slug/'
   fileRoutesByTo: FileRoutesByTo
-  to:
-    | '/'
-    | '/check'
-    | '/login'
-    | '/new'
-    | '/og.png'
-    | '/playground'
-    | '/~org/$slug'
+  to: '/' | '/check' | '/login' | '/new' | '/playground' | '/~org/$slug'
   id:
     | '__root__'
     | '/'
     | '/check'
     | '/login'
     | '/new'
-    | '/og.png'
     | '/playground'
     | '/~org/$slug'
     | '/~org/$slug/'
@@ -126,7 +108,6 @@ export interface RootRouteChildren {
   CheckRoute: typeof CheckRoute
   LoginRoute: typeof LoginRoute
   NewRoute: typeof NewRoute
-  OgDotpngRoute: typeof OgDotpngRoute
   PlaygroundRoute: typeof PlaygroundRoute
   Char126orgSlugRouteRoute: typeof Char126orgSlugRouteRouteWithChildren
 }
@@ -138,13 +119,6 @@ declare module '@tanstack/react-router' {
       path: '/playground'
       fullPath: '/playground'
       preLoaderRoute: typeof PlaygroundRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/og.png': {
-      id: '/og.png'
-      path: '/og.png'
-      fullPath: '/og.png'
-      preLoaderRoute: typeof OgDotpngRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/new': {
@@ -208,7 +182,6 @@ const rootRouteChildren: RootRouteChildren = {
   CheckRoute: CheckRoute,
   LoginRoute: LoginRoute,
   NewRoute: NewRoute,
-  OgDotpngRoute: OgDotpngRoute,
   PlaygroundRoute: PlaygroundRoute,
   Char126orgSlugRouteRoute: Char126orgSlugRouteRouteWithChildren,
 }

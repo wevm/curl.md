@@ -3,12 +3,14 @@ import { Octokit } from '@octokit/core'
 import { Hono } from 'hono'
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie'
 import { Kysely } from 'kysely'
+import { ImageResponse } from 'workers-og'
 import { z } from 'zod'
 import { fetchPage } from '#lib/core/fetch-page.ts'
 import type { DB } from '#lib/db.gen.ts'
 import { D1Dialect } from '#lib/db.ts'
 import * as Nanoid from '#lib/nanoid.ts'
 import { urlSchema } from '#lib/schemas.ts'
+import { getOgElement, loadFont, ogQuerySchema } from '#og.ts'
 
 export const api = new Hono<{
   Bindings: Cloudflare.Env
@@ -230,6 +232,27 @@ export const api = new Hono<{
     })
   })
   .get('/api/health', (c) => c.json({ ok: true }))
+  .get('/api/og.png', validator('query', ogQuerySchema), async (c) => {
+    const query = c.req.valid('query')
+    const element = await getOgElement(c.env.HOST, c.env, c.var.db, query)
+    const [font, fontBold] = await Promise.all([
+      loadFont(c.req.raw, c.env, '/fonts/GeistMono-Regular.ttf'),
+      loadFont(c.req.raw, c.env, '/fonts/GeistMono-Black.ttf'),
+    ])
+    return new ImageResponse(element, {
+      fonts: [
+        { data: font, name: 'Geist Mono', style: 'normal', weight: 400 },
+        { data: fontBold, name: 'Geist Mono', style: 'normal', weight: 900 },
+      ],
+      format: 'png',
+      headers: {
+        'cache-control':
+          query.page === 'url' ? 'public, max-age=3600' : 'public, max-age=300',
+      },
+      height: 630,
+      width: 1200,
+    })
+  })
   .post(
     '/api/organizations',
     validator(
@@ -318,8 +341,43 @@ export const api = new Hono<{
     ),
     // TODO: add rate limiting back
     // TODO: add error handling back
-    // TODO: add json response support back
     async (c) => {
+      if (
+        /Twitterbot|facebookexternalhit|LinkedInBot|Slackbot|Discordbot|WhatsApp|TelegramBot/i.test(
+          c.req.header('user-agent') ?? '',
+        )
+      ) {
+        const raw = c.req.valid('param').url
+        const escaped = raw
+          .replace(/&/g, '&amp;')
+          .replace(/"/g, '&quot;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+        const ogUrl = new URL(
+          `/api/og.png?page=url&url=${encodeURIComponent(raw)}`,
+          `https://${c.env.HOST}`,
+        )
+        return c.html(
+          `<!DOCTYPE html>
+<html>
+<head>
+<meta property="og:title" content="${c.env.HOST}/${escaped}" />
+<meta property="og:description" content="Fetch any URL as Markdown" />
+<meta property="og:image" content="${ogUrl}" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:image:type" content="image/png" />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://${c.env.HOST}/${escaped}" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="${c.env.HOST}/${escaped}" />
+<meta name="twitter:description" content="Fetch any URL as Markdown" />
+<meta name="twitter:image" content="${ogUrl}" />
+</head>
+</html>`,
+        )
+      }
+
       const url = new URL(c.req.valid('param').url)
       const query = c.req.valid('query')
 
@@ -343,18 +401,23 @@ export const api = new Hono<{
         user_agent: c.req.header('user-agent'),
       })
 
-      return new Response(
-        `${page.markdown.trimEnd()}\n\n---\n\nPowered by [${c.env.HOST}](https://${c.env.HOST})`,
-        {
-          headers: {
-            'access-control-expose-headers':
-              'x-request-id, x-tokens-count, x-tokens-saved',
-            'content-type': 'text/markdown; charset=utf-8',
-            'x-request-id': requestId,
-            'x-tokens-count': String(page.tokensCount),
-            'x-tokens-saved': String(page.tokensSaved),
-          },
+      const content = `${page.markdown.trimEnd()}\n\n---\n\nPowered by [${c.env.HOST}](https://${c.env.HOST})`
+      const commonHeaders = {
+        'access-control-expose-headers':
+          'x-request-id, x-tokens-count, x-tokens-saved',
+        'x-request-id': requestId,
+        'x-tokens-count': String(page.tokensCount),
+        'x-tokens-saved': String(page.tokensSaved),
+      }
+
+      if (c.req.header('accept')?.includes('application/json'))
+        return c.json({ content }, { headers: commonHeaders })
+
+      return new Response(content, {
+        headers: {
+          ...commonHeaders,
+          'content-type': 'text/markdown; charset=utf-8',
         },
-      )
+      })
     },
   )

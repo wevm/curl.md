@@ -3,15 +3,16 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import * as React from 'react'
 import { z } from 'zod'
 import { useAnimatedValue } from '#hooks/use-animated-value.ts'
+import { rpc } from '#lib/rpc.ts'
 import { urlSchema } from '#lib/schemas.ts'
 import { computeScore } from '#lib/score.ts'
 
 export const Route = createFileRoute('/check')({
   head: ({ match }) => {
     const checkedUrl = match.search.url
-    const ogParams = new URLSearchParams({ page: 'check' })
-    if (checkedUrl) ogParams.set('url', checkedUrl)
-    const ogImage = `https://${__HOST__}/og.png?${ogParams}`
+    const ogImage = rpc.api['og.png']
+      .$url({ query: { page: 'check', url: checkedUrl } })
+      .toString()
     const description = checkedUrl
       ? `Agent Readability Score for ${checkedUrl}`
       : 'Check how well your site converts to Markdown for AI agents'
@@ -124,7 +125,7 @@ function Check() {
       <div className="mx-auto flex min-h-0 w-full max-w-7xl grow flex-col gap-4">
         <div className="flex flex-col gap-1">
           <a
-            className="text-gray9 hover:text-gray10 hover:underline dark:text-gray6"
+            className="w-max text-gray9 hover:text-gray10 hover:underline dark:text-gray6"
             href="/"
           >
             &larr; Home
