@@ -1,6 +1,19 @@
 name: curl
 
 services:
+  db:
+    image: postgres:17-alpine
+    container_name: curl-db
+    environment:
+      POSTGRES_DB: curl_dev
+      POSTGRES_PASSWORD: postgres
+    labels:
+      - dev.orbstack.domains=db.curl.local
+    ports:
+      - 5432:5432
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
   app:
     build:
       context: .
@@ -10,12 +23,13 @@ services:
         RUN corepack enable
         WORKDIR /app
     command: |
-      sh -c "pnpm install --ignore-scripts && pnpm dev --host 0.0.0.0"
+      sh -c "pnpm install --ignore-scripts && pnpm db:migrate latest && pnpm dev --host 0.0.0.0"
     container_name: curl
+    depends_on: [db]
     restart: unless-stopped
     env_file: .env
     labels:
-      - "dev.orbstack.domains=curl.local"
+      - dev.orbstack.domains=curl.local
     volumes:
       - .:/app
       - node_modules:/app/node_modules
@@ -24,5 +38,6 @@ services:
     working_dir: /app
 
 volumes:
+  db_data:
   node_modules:
   pnpm-store:

@@ -1,9 +1,6 @@
 import { existsSync } from 'node:fs'
 import path from 'node:path'
-import {
-  defineWorkersProject,
-  readD1Migrations,
-} from '@cloudflare/vitest-pool-workers/config'
+import { defineWorkersProject } from '@cloudflare/vitest-pool-workers/config'
 import { defineConfig } from 'vitest/config'
 import { Env } from './test/env.ts'
 
@@ -14,9 +11,8 @@ if (existsSync('pro'))
   aliases['#lib/core'] = new URL('./pro/src/', import.meta.url).pathname
 
 const hasPro = existsSync('pro/src')
-const migrationsPath = path.resolve(import.meta.dirname, 'migrations')
-const migrations = await readD1Migrations(migrationsPath)
 const root = path.resolve(import.meta.dirname)
+const globalSetup = ['test/globalSetup.ts']
 
 export default defineConfig({
   test: {
@@ -36,6 +32,7 @@ export default defineConfig({
       {
         test: {
           name: 'cli',
+          globalSetup,
           hookTimeout: 120_000,
           include: ['cli/src/**/*.test.ts'],
           root,
@@ -49,21 +46,21 @@ export default defineConfig({
           name: 'workers',
           include: ['src/**/*.workers.test.ts'],
           root,
-          globalSetup: ['test/globalSetup.ts'],
-          setupFiles: ['config/workers/apply-migrations.ts'],
+          globalSetup,
           poolOptions: {
             async workers(config) {
               const env = Env.parse(config.inject('env'))
               return {
-                // fetchPage uses waitUntil to cache in KV after responding, which conflicts with isolated storage
                 isolatedStorage: false,
                 miniflare: {
-                  bindings: { ...env, TEST_MIGRATIONS: migrations },
+                  bindings: env,
+                  compatibilityDate: '2026-02-12',
+                  compatibilityFlags: ['nodejs_compat'],
+                  hyperdrives: { DB: env.DB_URL },
+                  kvNamespaces: ['KV'],
+                  queueProducers: { REQUEST_QUEUE: 'test-queue' },
                 },
                 singleWorker: true,
-                wrangler: {
-                  configPath: './config/workers/wrangler.jsonc',
-                },
               }
             },
           },
@@ -78,7 +75,7 @@ export default defineConfig({
                 name: 'pro:workers',
                 include: ['pro/src/**/*.workers.test.ts'],
                 root,
-                globalSetup: ['test/globalSetup.ts'],
+                globalSetup,
                 poolOptions: {
                   async workers(config) {
                     const env = Env.parse(config.inject('env'))
@@ -86,11 +83,16 @@ export default defineConfig({
                       isolatedStorage: false,
                       miniflare: {
                         bindings: env,
+                        compatibilityDate: '2026-02-12',
+                        compatibilityFlags: ['nodejs_compat'],
+                        hyperdrives: { DB: env.DB_URL },
+                        kvNamespaces: ['KV'],
+                        queueProducers: { REQUEST_QUEUE: 'test-queue' },
+                        serviceBindings: {
+                          ASSETS: () => new Response(null, { status: 404 }),
+                        },
                       },
                       singleWorker: true,
-                      wrangler: {
-                        configPath: './pro/wrangler.jsonc',
-                      },
                     }
                   },
                 },

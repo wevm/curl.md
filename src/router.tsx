@@ -32,14 +32,17 @@ export const getRouter = () => {
 
 const knownRoutes: Set<string> = new Set<KnownRoute>([
   '',
+  'auth',
   'check',
   'login',
   'new',
   'playground',
 ])
-type KnownRoute = ExtractSegment<keyof FileRoutesByTo>
-type ExtractSegment<T> = T extends `/${infer S}`
+type KnownRoute = ExtractFirstSegment<keyof FileRoutesByTo>
+type ExtractFirstSegment<T> = T extends `/${infer S}`
   ? S extends `~org/${string}`
     ? never
-    : S
+    : S extends `${infer First}/${string}`
+      ? First
+      : S
   : never

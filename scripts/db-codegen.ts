@@ -1,119 +1,124 @@
 import { execSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
+import { Kysely } from 'kysely'
+import { z } from 'zod'
+import { dialect } from '../src/lib/pg.ts'
 
-const isRemote = process.argv.includes('--remote')
-const env = process.argv.includes('--env')
-  ? process.argv[process.argv.indexOf('--env') + 1]
-  : undefined
+const env = z.parse(z.object({ DB_URL: z.string() }), process.env)
 
-function execD1(sql: string): string {
-  const envFlag = env ? `--env ${env}` : ''
-  const remoteFlag = isRemote ? '--remote' : '--local'
-  const cmd = `pnpm exec wrangler d1 execute curl-db ${remoteFlag} ${envFlag} --command "${sql}" --json`
-  return execSync(cmd, {
-    encoding: 'utf-8',
-    cwd: path.resolve(import.meta.dirname, '..'),
-  })
-}
+const db = new Kysely<{
+  'pg_catalog.pg_namespace': { nspname: string; oid: number }
+  pg_enum: { enumlabel: string; enumtypid: number }
+  pg_type: { oid: number; typname: string; typnamespace: number }
+}>({ dialect: dialect(env.DB_URL) })
 
-// Get CREATE TABLE statements
-const schemaResult = JSON.parse(
-  execD1(
-    "SELECT name, sql FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_cf_%' AND name NOT LIKE 'd1_%'",
-  ),
-)
-const tables = (
-  schemaResult[0].results as { name: string; sql: string }[]
-).sort((a, b) => a.name.localeCompare(b.name))
+const tables = await db.introspection.getTables()
+const publicTables = tables
+  .filter((t) => t.schema === 'public')
+  .sort((a, b) => a.name.localeCompare(b.name))
 
-type Column = {
-  name: string
-  type: string
-  notnull: boolean
-  hasDefault: boolean
-}
-
-function parseCreateTable(sql: string): Column[] {
-  const columns: Column[] = []
-  const match = sql.match(/\(([\s\S]*)\)/)
-  if (!match) return columns
-
-  const body = match[1]
-  let depth = 0
-  let current = ''
-  const parts: string[] = []
-
-  for (const char of body) {
-    if (char === '(') depth++
-    else if (char === ')') depth--
-    else if (char === ',' && depth === 0) {
-      parts.push(current.trim())
-      current = ''
-      continue
+// Auto-discover Postgres enum types
+const enums = await db
+  .selectFrom('pg_type as type')
+  .innerJoin('pg_enum as enum', 'type.oid', 'enum.enumtypid')
+  .innerJoin(
+    'pg_catalog.pg_namespace as namespace',
+    'namespace.oid',
+    'type.typnamespace',
+  )
+  .select(['namespace.nspname', 'type.typname', 'enum.enumlabel'])
+  .execute()
+  .then((rows) => {
+    const values = new Map<string, string[]>()
+    for (const row of rows) {
+      const key = `${row.nspname}.${row.typname}`
+      values.set(key, [...(values.get(key) ?? []), row.enumlabel])
     }
-    current += char
-  }
-  if (current.trim()) parts.push(current.trim())
+    return values
+  })
+  .catch(() => new Map<string, string[]>())
 
-  for (const part of parts) {
-    if (/^(PRIMARY|UNIQUE|CHECK|FOREIGN|CONSTRAINT)/i.test(part)) continue
+// Override types for varchar columns with known enum-like values
+const customTypes: Record<string, Record<string, string>> = {}
 
-    const colMatch = part.match(/^["']?(\w+)["']?\s+(\w+)/i)
-    if (!colMatch) continue
+const timestampTypes = new Set([
+  'timestamptz',
+  'timestamp',
+  'timestamp with time zone',
+  'timestamp without time zone',
+])
 
-    const [, name, type] = colMatch
-    const notnull = /NOT\s+NULL/i.test(part) || /PRIMARY\s+KEY/i.test(part)
-    const hasDefault = /DEFAULT\s+/i.test(part)
-    columns.push({ hasDefault, name, notnull, type })
-  }
-
-  return columns
-}
-
-const customTypes: Record<string, Record<string, string>> = {
-  account: { role: "'crew' | 'user'" },
-  organization_member: { role: "'admin' | 'member' | 'owner'" },
-}
-
-function sqliteToTs(sqlType: string, notnull: boolean): string {
-  const type = sqlType.toUpperCase()
-  const tsType = (() => {
-    if (type.includes('INT')) return 'number'
-    if (type.includes('TEXT') || type.includes('CHAR')) return 'string'
-    if (
-      type.includes('REAL') ||
-      type.includes('FLOAT') ||
-      type.includes('DOUBLE')
-    )
+function pgToTs(dataType: string): string {
+  switch (dataType) {
+    case 'varchar':
+    case 'text':
+    case 'character varying':
+      return 'string'
+    case 'int4':
+    case 'integer':
+    case 'int':
+    case 'smallint':
+    case 'bigint':
+    case 'float4':
+    case 'float8':
+    case 'real':
+    case 'double precision':
+    case 'numeric':
       return 'number'
-    if (type.includes('BLOB')) return 'Uint8Array'
-    return 'unknown'
-  })()
-  return notnull ? tsType : `${tsType} | null`
+    case 'bool':
+    case 'boolean':
+      return 'boolean'
+    case 'bytea':
+      return 'Uint8Array'
+    default:
+      return 'unknown'
+  }
 }
 
-let output = '// Auto-generated from D1 database schema\n\n'
+let output = '// Auto-generated from database schema\n\n'
 output += "import type * as k from 'kysely'\n\n"
+output += 'type Timestamp = k.ColumnType<Date, Date | string, Date | string>\n'
+output +=
+  'type GeneratedTimestamp = k.ColumnType<Date, Date | string | undefined, Date | string>\n\n'
 
 output += 'export interface DB {\n'
-for (const { name } of tables) {
-  output += `\t${name}: ${name}\n`
+for (const table of publicTables) {
+  output += `\t${table.name}: ${table.name}\n`
 }
 output += '}\n\n'
 
-for (const { name, sql } of tables) {
-  const columns = parseCreateTable(sql).sort((a, b) =>
+for (const table of publicTables) {
+  const columns = [...table.columns].sort((a, b) =>
     a.name.localeCompare(b.name),
   )
 
-  output += `type ${name} = {\n`
+  output += `type ${table.name} = {\n`
   for (const col of columns) {
-    const custom = customTypes[name]?.[col.name]
-    const baseType = custom ?? sqliteToTs(col.type, true)
-    const isGenerated =
-      col.name === 'id' || col.name.endsWith('_at') || col.hasDefault
-    const nullableSuffix = col.notnull ? '' : ' | null'
+    const custom = customTypes[table.name]?.[col.name]
+    const isTimestamp = timestampTypes.has(col.dataType)
+    const enumValues = enums.get(`public.${col.dataType}`)
+
+    // Timestamp columns use rich ColumnType aliases
+    if (isTimestamp) {
+      const base = col.hasDefaultValue ? 'GeneratedTimestamp' : 'Timestamp'
+      const suffix = col.isNullable ? ' | null' : ''
+      output += `\t${col.name}: ${base}${suffix}\n`
+      continue
+    }
+
+    // Custom override, auto-discovered enum, or standard type mapping
+    let baseType: string
+    if (custom) baseType = custom
+    else if (enumValues)
+      baseType = enumValues
+        .sort()
+        .map((v) => `'${v}'`)
+        .join(' | ')
+    else baseType = pgToTs(col.dataType)
+
+    const nullableSuffix = col.isNullable ? ' | null' : ''
+    const isGenerated = col.hasDefaultValue
 
     if (isGenerated) {
       output += `\t${col.name}: k.Generated<${baseType}${nullableSuffix}>\n`
@@ -125,20 +130,20 @@ for (const { name, sql } of tables) {
 }
 
 output += 'export declare namespace DB {\n'
-for (const { name } of tables) {
-  output += `\ttype ${name} = k.Selectable<DB["${name}"]>\n`
+for (const table of publicTables) {
+  output += `\ttype ${table.name} = k.Selectable<DB["${table.name}"]>\n`
 }
 output += '\n\texport namespace Insertable {\n'
-for (const { name } of tables) {
-  output += `\t\ttype ${name} = k.Insertable<DB["${name}"]>\n`
+for (const table of publicTables) {
+  output += `\t\ttype ${table.name} = k.Insertable<DB["${table.name}"]>\n`
 }
 output += '\t}\n\n\texport namespace Selectable {\n'
-for (const { name } of tables) {
-  output += `\t\ttype ${name} = k.Selectable<DB["${name}"]>\n`
+for (const table of publicTables) {
+  output += `\t\ttype ${table.name} = k.Selectable<DB["${table.name}"]>\n`
 }
 output += '\t}\n\n\texport namespace Updateable {\n'
-for (const { name } of tables) {
-  output += `\t\ttype ${name} = k.Updateable<DB["${name}"]>\n`
+for (const table of publicTables) {
+  output += `\t\ttype ${table.name} = k.Updateable<DB["${table.name}"]>\n`
 }
 output += '\t}\n}\n'
 
@@ -149,3 +154,5 @@ execSync(`pnpm exec biome format --write ${outputPath}`, {
   stdio: 'inherit',
 })
 console.log('Generated src/lib/db.gen.ts')
+
+process.exit()

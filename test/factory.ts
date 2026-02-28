@@ -6,9 +6,7 @@ export function createFactory(db: Kysely<DB>) {
   function factory(table: keyof DB) {
     return {
       attrs(...args: Record<string, unknown>[]) {
-        const hasId = !tablesWithoutId.has(table)
         const attrs = args.map((overrides) => ({
-          ...(hasId ? { id: Nanoid.generate() } : {}),
           ...defaultConfig[table]?.(),
           ...overrides,
         }))
@@ -34,8 +32,6 @@ export function createFactory(db: Kysely<DB>) {
     },
   })
 }
-
-const tablesWithoutId = new Set<keyof DB>([])
 
 const defaultConfig: Partial<{
   [K in keyof DB]: () => Partial<Insertable<DB[K]>>
@@ -73,7 +69,7 @@ const defaultConfig: Partial<{
   },
   session() {
     return {
-      expires_at: Math.floor(Date.now() / 1000) + 86400,
+      expires_at: new Date(Date.now() + 86400 * 1000).toISOString(),
     }
   },
 }

@@ -24,7 +24,22 @@ export default defineConfig({
   },
   plugins: [
     tailwindcss(),
-    cloudflare({ viteEnvironment: { name: 'ssr' } }),
+    cloudflare({
+      viteEnvironment: { name: 'ssr' },
+      ...(process.env.DB_URL
+        ? {
+            config: (config) => {
+              config.hyperdrive = [
+                {
+                  binding: 'DB',
+                  id: 'local',
+                  localConnectionString: process.env.DB_URL,
+                },
+              ]
+            },
+          }
+        : {}),
+    }),
     tanstackStart(),
     icons({ compiler: 'jsx', jsx: 'react' }),
     autoImport({

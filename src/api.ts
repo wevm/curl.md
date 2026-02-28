@@ -2,16 +2,17 @@ import { zValidator as validator } from '@hono/zod-validator'
 import { Octokit } from '@octokit/core'
 import { Hono } from 'hono'
 import { html, raw } from 'hono/html'
-import { Kysely } from 'kysely'
+import { Kysely, sql } from 'kysely'
+import { jsonArrayFrom } from 'kysely/helpers/postgres'
 import { ImageResponse } from 'workers-og'
 import { z } from 'zod'
 import * as Cookie from '#lib/cookie.ts'
 import { fetchPage } from '#lib/core/fetch-page.ts'
 import type { DB } from '#lib/db.gen.ts'
-import { D1Dialect } from '#lib/db.ts'
-import * as Nanoid from '#lib/nanoid.ts'
 import * as Og from '#lib/og.tsx'
+import { dialect } from '#lib/pg.ts'
 import { urlSchema } from '#lib/schemas.ts'
+import type { OneOf } from '#lib/types.ts'
 
 export const api = new Hono<{
   Bindings: Cloudflare.Env
@@ -23,7 +24,9 @@ export const api = new Hono<{
   .use(async (c, next) => {
     c.set(
       'db',
-      new Kysely<DB>({ dialect: new D1Dialect({ database: c.env.DB }) }),
+      new Kysely<DB>({
+        dialect: dialect(c.env.DB.connectionString),
+      }),
     )
     const sessionId = await Cookie.getSigned(
       c,
@@ -36,7 +39,7 @@ export const api = new Hono<{
         ? ((await c.var.db
             .selectFrom('session')
             .where('id', '=', sessionId)
-            .where('expires_at', '>', Math.floor(Date.now() / 1000))
+            .where('expires_at', '>', new Date())
             .select('account_id')
             .executeTakeFirst()) ?? null)
         : null,
@@ -92,12 +95,17 @@ export const api = new Hono<{
     async (c) => {
       const query = c.req.valid('query')
 
+      const errorUrl = new URL('/auth/error', `https://${c.env.HOST}`)
+
       const cookieState = Cookie.get(c, 'curl.state')
       Cookie.destroy(c, 'curl.state', {
         domain: Cookie.getDomain(c.env.HOST),
       })
-      if (!cookieState || cookieState !== query.state)
-        return c.json({ error: 'State mismatch' }, 400)
+      if (!cookieState || cookieState !== query.state) {
+        errorUrl.searchParams.set('error', 'invalid_request')
+        errorUrl.searchParams.set('error_description', 'State mismatch')
+        return c.redirect(errorUrl.toString())
+      }
 
       if (query.next) {
         try {
@@ -125,15 +133,29 @@ export const api = new Hono<{
         method: 'POST',
         headers: { Accept: 'application/json' },
       })
-      const tokenData = (await tokenRes.json()) as {
-        access_token?: string
-        error?: string
-      }
-      if (tokenData.error || !tokenData.access_token)
-        return c.json(
-          { error: tokenData.error ?? 'Failed to get access token' },
-          400,
+      const tokenData = (await tokenRes.json()) as OneOf<
+        | {
+            access_token: string
+            expires_in?: number
+            refresh_token?: string
+            refresh_token_expires_in?: number
+            scope: string
+            token_type: 'bearer'
+          }
+        | {
+            error: string
+            error_description: string
+            error_uri: string
+          }
+      >
+      if (tokenData.error) {
+        errorUrl.searchParams.set('error', tokenData.error)
+        errorUrl.searchParams.set(
+          'error_description',
+          'Failed to get access token',
         )
+        return c.redirect(errorUrl.toString())
+      }
 
       const octokit = new Octokit({ auth: tokenData.access_token })
       const [{ data: ghUser }, { data: ghEmails }] = await Promise.all([
@@ -142,62 +164,119 @@ export const api = new Hono<{
       ])
       const primaryEmail =
         ghEmails.find((e) => e.primary)?.email ?? ghEmails[0]?.email
-      if (!primaryEmail) return c.json({ error: 'No email found' }, 400)
-
-      // Find existing account via account_provider
-      const existing = await c.var.db
-        .selectFrom('account_provider')
-        .innerJoin('account', 'account.id', 'account_provider.account_id')
-        .where('account_provider.provider', '=', 'github')
-        .where('account_provider.provider_account_id', '=', String(ghUser.id))
-        .select('account.id')
-        .executeTakeFirst()
-
-      let account: { id: string }
-      if (existing) {
-        await c.var.db
-          .updateTable('account')
-          .set({
-            avatar_url: ghUser.avatar_url,
-            email: primaryEmail,
-            name: ghUser.name,
-          })
-          .where('id', '=', existing.id)
-          .execute()
-        account = existing
-      } else {
-        const accountId = Nanoid.generate()
-        account = await c.var.db
-          .insertInto('account')
-          .values({
-            avatar_url: ghUser.avatar_url,
-            email: primaryEmail,
-            id: accountId,
-            name: ghUser.name,
-          })
-          .returning('id')
-          .executeTakeFirstOrThrow()
-        await c.var.db
-          .insertInto('account_provider')
-          .values({
-            account_id: account.id,
-            id: Nanoid.generate(),
-            provider: 'github',
-            provider_account_id: String(ghUser.id),
-          })
-          .execute()
+      if (!primaryEmail) {
+        errorUrl.searchParams.set('error', 'no_email')
+        errorUrl.searchParams.set(
+          'error_description',
+          'No email found on GitHub account',
+        )
+        return c.redirect(errorUrl.toString())
       }
 
+      const crewGitHubIds = new Set([6759464, 7336481])
+      const role = crewGitHubIds.has(ghUser.id) ? 'crew' : 'user'
+
+      let account: { id: string }
       const sessionId = crypto.randomUUID()
-      const expiresAt = Math.floor(Date.now() / 1000) + 86400
-      await c.var.db
-        .insertInto('session')
-        .values({
-          id: sessionId,
-          account_id: account.id,
-          expires_at: expiresAt,
+      try {
+        account = await c.var.db.transaction().execute(async (tx) => {
+          const existing = await tx
+            .selectFrom('account_provider')
+            .where('provider', '=', 'github')
+            .where('provider_account_id', '=', String(ghUser.id))
+            .select('account_id')
+            .executeTakeFirst()
+
+          const accountId = existing
+            ? (
+                await tx
+                  .updateTable('account')
+                  .set({
+                    avatar_url: ghUser.avatar_url,
+                    email: primaryEmail,
+                    name: ghUser.name,
+                    role,
+                  })
+                  .where('id', '=', existing.account_id)
+                  .returning('id')
+                  .executeTakeFirstOrThrow()
+              ).id
+            : await (async () => {
+                const { id } = await tx
+                  .insertInto('account')
+                  .values({
+                    avatar_url: ghUser.avatar_url,
+                    email: primaryEmail,
+                    name: ghUser.name,
+                    role,
+                  })
+                  .returning('id')
+                  .executeTakeFirstOrThrow()
+                await tx
+                  .insertInto('account_provider')
+                  .values({
+                    account_id: id,
+                    provider: 'github',
+                    provider_account_id: String(ghUser.id),
+                  })
+                  .execute()
+                return id
+              })()
+
+          const now = new Date()
+          await tx
+            .insertInto('account_provider')
+            .values({
+              account_id: accountId,
+              provider: 'github',
+              provider_account_id: String(ghUser.id),
+              access_token: tokenData.access_token,
+              refresh_token: tokenData.refresh_token ?? null,
+              access_token_expires_at: tokenData.expires_in
+                ? new Date(now.getTime() + tokenData.expires_in * 1000)
+                : null,
+              refresh_token_expires_at: tokenData.refresh_token_expires_in
+                ? new Date(
+                    now.getTime() + tokenData.refresh_token_expires_in * 1000,
+                  )
+                : null,
+            })
+            .onConflict((oc) =>
+              oc.constraint('unique_account_provider_provider').doUpdateSet({
+                access_token: tokenData.access_token,
+                refresh_token: tokenData.refresh_token ?? null,
+                access_token_expires_at: tokenData.expires_in
+                  ? new Date(now.getTime() + tokenData.expires_in * 1000)
+                  : null,
+                refresh_token_expires_at: tokenData.refresh_token_expires_in
+                  ? new Date(
+                      now.getTime() + tokenData.refresh_token_expires_in * 1000,
+                    )
+                  : null,
+              }),
+            )
+            .execute()
+
+          await tx
+            .insertInto('session')
+            .values({
+              id: sessionId,
+              account_id: accountId,
+              expires_at: sql<Date>`now() + interval '1 day'`,
+            })
+            .execute()
+
+          return { id: accountId }
         })
-        .execute()
+      } catch (error) {
+        console.error('OAuth callback error:', error)
+        errorUrl.searchParams.set('error', 'server_error')
+        errorUrl.searchParams.set(
+          'error_description',
+          'Something went wrong creating your account',
+        )
+        return c.redirect(errorUrl.toString())
+      }
       await Cookie.setSigned(
         c,
         'curl.session',
@@ -213,7 +292,6 @@ export const api = new Hono<{
       )
 
       const origin = `https://${c.env.HOST}`
-
       if (query.next) {
         try {
           const nextUrl = new URL(query.next, origin)
@@ -266,25 +344,33 @@ export const api = new Hono<{
     const account = await c.var.db
       .selectFrom('account')
       .where('id', '=', c.var.session.account_id)
-      .select(['avatar_url', 'email', 'id', 'name'])
+      .select((eb) => [
+        'avatar_url',
+        'email',
+        'id',
+        'name',
+        'role',
+        jsonArrayFrom(
+          eb
+            .selectFrom('organization_member')
+            .innerJoin(
+              'organization',
+              'organization.id',
+              'organization_member.organization_id',
+            )
+            .whereRef('organization_member.account_id', '=', 'account.id')
+            .where('organization.deleted_at', 'is', null)
+            .select([
+              'organization.id',
+              'organization.name',
+              'organization.slug',
+            ]),
+        ).as('organizations'),
+      ])
       .executeTakeFirst()
     if (!account) return c.json({ account: null })
 
-    const organizations = await c.var.db
-      .selectFrom('organization_member')
-      .innerJoin(
-        'organization',
-        'organization.id',
-        'organization_member.organization_id',
-      )
-      .where('organization_member.account_id', '=', c.var.session.account_id)
-      .where('organization.deleted_at', 'is', null)
-      .select(['organization.id', 'organization.name', 'organization.slug'])
-      .execute()
-
-    return c.json({
-      account: { ...account, organizations },
-    })
+    return c.json({ account })
   })
   .get('/api/health', (c) => c.json({ ok: true }))
   .get('/api/og.png', validator('query', Og.schema), async (c) => {
@@ -347,20 +433,22 @@ export const api = new Hono<{
       if (existing)
         return c.json({ error: 'Organization name already taken' }, 409)
 
-      const orgId = Nanoid.generate()
-      await c.var.db
-        .insertInto('organization')
-        .values({ id: orgId, name: json.name ?? json.slug, slug: json.slug })
-        .execute()
-      await c.var.db
-        .insertInto('organization_member')
-        .values({
-          account_id: c.var.session.account_id,
-          id: Nanoid.generate(),
-          organization_id: orgId,
-          role: 'owner',
-        })
-        .execute()
+      const accountId = c.var.session.account_id
+      await c.var.db.transaction().execute(async (tx) => {
+        const org = await tx
+          .insertInto('organization')
+          .values({ name: json.name ?? json.slug, slug: json.slug })
+          .returning('id')
+          .executeTakeFirstOrThrow()
+        await tx
+          .insertInto('organization_member')
+          .values({
+            account_id: accountId,
+            organization_id: org.id,
+            role: 'owner',
+          })
+          .execute()
+      })
 
       return c.json({ slug: json.slug })
     },

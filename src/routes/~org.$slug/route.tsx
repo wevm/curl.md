@@ -76,7 +76,7 @@ const getLayoutData = createServerFn({ method: 'GET' })
   .inputValidator((d: { slug: string }) => d)
   .handler(async ({ data: { slug } }) => {
     const request = getRequest()
-    const db = getDb(env.DB)
+    const db = getDb(env.DB.connectionString)
     const accountId = await Session.getAccountId(request, db, env.COOKIE_SECRET)
     if (!accountId) return null
 

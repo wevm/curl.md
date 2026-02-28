@@ -14,6 +14,7 @@ import { Route as NewRouteImport } from './routes/new'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as CheckRouteImport } from './routes/check'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthErrorRouteImport } from './routes/auth/error'
 import { Route as Char126orgSlugRouteRouteImport } from './routes/~org.$slug/route'
 import { Route as Char126orgSlugIndexRouteImport } from './routes/~org.$slug/index'
 
@@ -42,6 +43,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthErrorRoute = AuthErrorRouteImport.update({
+  id: '/auth/error',
+  path: '/auth/error',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const Char126orgSlugRouteRoute = Char126orgSlugRouteRouteImport.update({
   id: '/~org/$slug',
   path: '/~org/$slug',
@@ -60,6 +66,7 @@ export interface FileRoutesByFullPath {
   '/new': typeof NewRoute
   '/playground': typeof PlaygroundRoute
   '/~org/$slug': typeof Char126orgSlugRouteRouteWithChildren
+  '/auth/error': typeof AuthErrorRoute
   '/~org/$slug/': typeof Char126orgSlugIndexRoute
 }
 export interface FileRoutesByTo {
@@ -68,6 +75,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/new': typeof NewRoute
   '/playground': typeof PlaygroundRoute
+  '/auth/error': typeof AuthErrorRoute
   '/~org/$slug': typeof Char126orgSlugIndexRoute
 }
 export interface FileRoutesById {
@@ -78,6 +86,7 @@ export interface FileRoutesById {
   '/new': typeof NewRoute
   '/playground': typeof PlaygroundRoute
   '/~org/$slug': typeof Char126orgSlugRouteRouteWithChildren
+  '/auth/error': typeof AuthErrorRoute
   '/~org/$slug/': typeof Char126orgSlugIndexRoute
 }
 export interface FileRouteTypes {
@@ -89,9 +98,17 @@ export interface FileRouteTypes {
     | '/new'
     | '/playground'
     | '/~org/$slug'
+    | '/auth/error'
     | '/~org/$slug/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/check' | '/login' | '/new' | '/playground' | '/~org/$slug'
+  to:
+    | '/'
+    | '/check'
+    | '/login'
+    | '/new'
+    | '/playground'
+    | '/auth/error'
+    | '/~org/$slug'
   id:
     | '__root__'
     | '/'
@@ -100,6 +117,7 @@ export interface FileRouteTypes {
     | '/new'
     | '/playground'
     | '/~org/$slug'
+    | '/auth/error'
     | '/~org/$slug/'
   fileRoutesById: FileRoutesById
 }
@@ -110,6 +128,7 @@ export interface RootRouteChildren {
   NewRoute: typeof NewRoute
   PlaygroundRoute: typeof PlaygroundRoute
   Char126orgSlugRouteRoute: typeof Char126orgSlugRouteRouteWithChildren
+  AuthErrorRoute: typeof AuthErrorRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -149,6 +168,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/auth/error': {
+      id: '/auth/error'
+      path: '/auth/error'
+      fullPath: '/auth/error'
+      preLoaderRoute: typeof AuthErrorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/~org/$slug': {
       id: '/~org/$slug'
       path: '/~org/$slug'
@@ -184,6 +210,7 @@ const rootRouteChildren: RootRouteChildren = {
   NewRoute: NewRoute,
   PlaygroundRoute: PlaygroundRoute,
   Char126orgSlugRouteRoute: Char126orgSlugRouteRouteWithChildren,
+  AuthErrorRoute: AuthErrorRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -14,7 +14,7 @@ export async function getAccountId(
   const session = await db
     .selectFrom('session')
     .where('id', '=', sessionId)
-    .where('expires_at', '>', Math.floor(Date.now() / 1000))
+    .where('expires_at', '>', new Date())
     .select('account_id')
     .executeTakeFirst()
   return session?.account_id ?? null

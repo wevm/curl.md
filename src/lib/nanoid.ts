@@ -1,6 +1,7 @@
 import { customAlphabet } from 'nanoid'
 
-const alphabet = '0123456789abcdefghijklmnopqrstuvwxyz'
-const defaultSize = 12
+// NOTE: Do not change these values without first updating DB function
+export const alphabet = '0123456789abcdefghijklmnopqrstuvwxyz'
+export const defaultSize = 12
 
 export const generate = customAlphabet(alphabet, defaultSize)

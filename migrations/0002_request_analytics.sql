@@ -1,3 +1,0 @@
-ALTER TABLE request ADD COLUMN country TEXT;
-ALTER TABLE request ADD COLUMN city TEXT;
-ALTER TABLE request ADD COLUMN user_agent TEXT;

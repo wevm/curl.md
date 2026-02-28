@@ -1,6 +1,13 @@
-// Auto-generated from D1 database schema
+// Auto-generated from database schema
 
 import type * as k from 'kysely'
+
+type Timestamp = k.ColumnType<Date, Date | string, Date | string>
+type GeneratedTimestamp = k.ColumnType<
+  Date,
+  Date | string | undefined,
+  Date | string
+>
 
 export interface DB {
   account: account
@@ -14,8 +21,8 @@ export interface DB {
 
 type account = {
   avatar_url: string | null
-  created_at: k.Generated<string>
-  deleted_at: k.Generated<string | null>
+  created_at: GeneratedTimestamp
+  deleted_at: Timestamp | null
   email: string
   id: k.Generated<string>
   name: string | null
@@ -24,31 +31,31 @@ type account = {
 
 type account_provider = {
   access_token: string | null
-  access_token_expires_at: k.Generated<string | null>
+  access_token_expires_at: Timestamp | null
   account_id: string
-  created_at: k.Generated<string>
+  created_at: GeneratedTimestamp
   id: k.Generated<string>
   provider: string
   provider_account_id: string
   refresh_token: string | null
-  refresh_token_expires_at: k.Generated<string | null>
+  refresh_token_expires_at: Timestamp | null
 }
 
 type api_key = {
   account_id: string
-  created_at: k.Generated<string>
-  deleted_at: k.Generated<string | null>
+  created_at: GeneratedTimestamp
+  deleted_at: Timestamp | null
   id: k.Generated<string>
   key_hash: string
   key_prefix: string
-  last_used_at: k.Generated<string | null>
+  last_used_at: Timestamp | null
   name: string
   organization_id: string
 }
 
 type organization = {
-  created_at: k.Generated<string>
-  deleted_at: k.Generated<string | null>
+  created_at: GeneratedTimestamp
+  deleted_at: Timestamp | null
   id: k.Generated<string>
   name: string
   slug: string
@@ -56,7 +63,7 @@ type organization = {
 
 type organization_member = {
   account_id: string
-  created_at: k.Generated<string>
+  created_at: GeneratedTimestamp
   id: k.Generated<string>
   organization_id: string
   role: k.Generated<'admin' | 'member' | 'owner'>
@@ -65,7 +72,7 @@ type organization_member = {
 type request = {
   account_id: string | null
   api_key_id: string | null
-  created_at: k.Generated<string>
+  created_at: GeneratedTimestamp
   hostname: string
   id: k.Generated<string>
   keywords: string | null
@@ -79,8 +86,8 @@ type request = {
 
 type session = {
   account_id: string
-  created_at: k.Generated<number>
-  expires_at: k.Generated<number>
+  created_at: GeneratedTimestamp
+  expires_at: Timestamp
   id: k.Generated<string>
 }
 

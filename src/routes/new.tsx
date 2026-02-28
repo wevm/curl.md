@@ -80,7 +80,7 @@ function NewOrganization() {
 
 const getAccount = createServerFn({ method: 'GET' }).handler(async () => {
   const request = getRequest()
-  const db = getDb(env.DB)
+  const db = getDb(env.DB.connectionString)
   const accountId = await Session.getAccountId(request, db, env.COOKIE_SECRET)
   if (!accountId) return null
 

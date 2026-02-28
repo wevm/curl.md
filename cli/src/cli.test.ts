@@ -1,13 +1,16 @@
 import { spawn } from 'node:child_process'
-import { beforeAll, expect, test, vi } from 'vitest'
+import { beforeAll, expect, inject, test, vi } from 'vitest'
+import { Env } from '../../test/env.ts'
 import cli from './cli.ts'
 
 vi.mock('../package.json', () => ({ default: { version: 'x.y.z' } }))
 
 let baseUrl: string
 beforeAll(async () => {
+  const env = Env.parse(inject('env'))
   const proc = spawn('pnpm', ['vite', 'dev'], {
     cwd: process.cwd(),
+    env: { ...process.env, DB_URL: env.DB_URL },
     stdio: 'pipe',
   })
 

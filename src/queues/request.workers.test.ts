@@ -1,11 +1,9 @@
 import { createMessageBatch, env, fetchMock } from 'cloudflare:test'
-import { Kysely } from 'kysely'
 import { afterEach, beforeAll, expect, test } from 'vitest'
-import type { DB } from '#lib/db.gen.ts'
-import { D1Dialect } from '#lib/db.ts'
+import { getDb } from '#lib/db.ts'
 import { processRequestMessage } from '#queues/request.ts'
 
-const db = new Kysely<DB>({ dialect: new D1Dialect({ database: env.DB }) })
+const db = getDb(env.DB.connectionString)
 
 beforeAll(() => {
   fetchMock.activate()

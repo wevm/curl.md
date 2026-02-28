@@ -37,7 +37,7 @@ export default {
       [processRequestMessage.queueName]: processRequestMessage,
     }
     const handler = handlers[queue]
-    const db = getDb(env.DB)
+    const db = getDb(env.DB.connectionString)
     for (const message of batch.messages) {
       try {
         await handler(message as never, db)

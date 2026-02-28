@@ -5,8 +5,12 @@
     "binding": "ASSETS",
     "directory": "../../dist/client"
   },
-  "d1_databases": [
-    { "binding": "DB", "database_name": "test-db", "database_id": "local" }
+  "hyperdrive": [
+    {
+      "binding": "DB",
+      "id": "local",
+      "localConnectionString": "postgresql://postgres:postgres@localhost:5432/curl_dev"
+    }
   ],
   "kv_namespaces": [{ "binding": "KV", "id": "local" }],
   "queues": {

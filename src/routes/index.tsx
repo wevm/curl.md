@@ -168,7 +168,7 @@ const getTokensSaved = createServerFn({ method: 'GET' }).handler(async () => {
     const origin = request.headers.get('origin')
     if (origin && origin !== `https://${env.HOST}`) throw new Error('Forbidden')
 
-    const db = getDb(env.DB)
+    const db = getDb(env.DB.connectionString)
     const result = await db
       .selectFrom('request')
       .select((eb) => eb.fn.sum<number>('tokens_saved').as('total'))

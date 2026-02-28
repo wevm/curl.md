@@ -14,8 +14,12 @@
   "ai": {
     "binding": "AI"
   },
-  "d1_databases": [
-    { "binding": "DB", "database_name": "curl-db", "database_id": "local" }
+  "hyperdrive": [
+    {
+      "binding": "DB",
+      "id": "local",
+      "localConnectionString": "postgresql://postgres:postgres@db.curl.local:5432/curl_dev"
+    }
   ],
   "kv_namespaces": [{ "binding": "KV", "id": "local" }],
   "queues": {
@@ -51,11 +55,10 @@
       "ai": {
         "binding": "AI"
       },
-      "d1_databases": [
+      "hyperdrive": [
         {
           "binding": "DB",
-          "database_name": "curl-db",
-          "database_id": "effd0dcd-c90e-4449-9ccc-ec920da05e04"
+          "id": "effd0dcd-c90e-4449-9ccc-ec920da05e04"
         }
       ],
       "kv_namespaces": [
@@ -85,11 +88,10 @@
       "ai": {
         "binding": "AI"
       },
-      "d1_databases": [
+      "hyperdrive": [
         {
           "binding": "DB",
-          "database_name": "__PREVIEW_DB_NAME__",
-          "database_id": "__PREVIEW_DB_ID__"
+          "id": "__PREVIEW_HYPERDRIVE_ID__"
         }
       ],
       "kv_namespaces": [{ "binding": "KV", "id": "__PREVIEW_KV_ID__" }],

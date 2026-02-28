@@ -8,6 +8,7 @@ declare module 'vitest' {
 
 const schema = z.object({
   COOKIE_SECRET: z.string(),
+  DB_URL: z.string(),
   GH_CLIENT_ID: z.string(),
   GH_CLIENT_SECRET: z.string(),
   HOST: z.string(),
@@ -16,9 +17,10 @@ const schema = z.object({
 type Input = z.infer<typeof schema>
 
 export const Env = {
-  get() {
+  get(dbUrl: string) {
     return {
       COOKIE_SECRET: 'test-secret',
+      DB_URL: dbUrl,
       GH_CLIENT_ID: 'test',
       GH_CLIENT_SECRET: 'test',
       HOST: 'curl.local',

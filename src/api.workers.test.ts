@@ -5,11 +5,12 @@ import { afterEach, beforeAll, describe, expect, test } from 'vitest'
 import { api } from '#api.ts'
 import * as Cookie from '#lib/cookie.ts'
 import type { DB } from '#lib/db.gen.ts'
-import { D1Dialect } from '#lib/db.ts'
+import { dialect } from '#lib/pg.ts'
 import { createFactory } from '../test/factory.ts'
 
 const client = testClient(api, env)
-const db = new Kysely<DB>({ dialect: new D1Dialect({ database: env.DB }) })
+// Workers tests use D1 via miniflare; env.DB is a Hyperdrive stub with connectionString
+const db = new Kysely<DB>({ dialect: dialect(env.DB.connectionString) })
 const factory = createFactory(db)
 
 beforeAll(() => {
@@ -55,15 +56,20 @@ describe('GET /api/auth/github', () => {
 })
 
 describe('GET /api/auth/github/callback', () => {
-  test('with mismatched state returns 400', async () => {
+  test('with mismatched state redirects to error page', async () => {
     const res = await client.api.auth.github.callback.$get({
       query: { code: 'abc', state: 'xyz' },
     })
-    expect(res.status).toBe(400)
-    expect(await res.json()).toEqual({ error: 'State mismatch' })
+    expect(res.status).toBe(302)
+    const location = new URL(res.headers.get('location')!)
+    expect(location.pathname).toBe('/auth/error')
+    expect(location.searchParams.get('error')).toBe('invalid_request')
+    expect(location.searchParams.get('error_description')).toBe(
+      'State mismatch',
+    )
   })
 
-  test('with bad code returns error', async () => {
+  test('with bad code redirects to error page', async () => {
     const query = { code: 'bad', state: 'test-state' }
 
     fetchMock
@@ -82,8 +88,13 @@ describe('GET /api/auth/github/callback', () => {
       { query },
       { headers: { Cookie: `curl.state=${query.state}` } },
     )
-    expect(res.status).toBe(400)
-    expect(await res.json()).toEqual({ error: 'bad_verification_code' })
+    expect(res.status).toBe(302)
+    const location = new URL(res.headers.get('location')!)
+    expect(location.pathname).toBe('/auth/error')
+    expect(location.searchParams.get('error')).toBe('bad_verification_code')
+    expect(location.searchParams.get('error_description')).toBe(
+      'Failed to get access token',
+    )
   })
 
   test('creates account and redirects to /new', async () => {
