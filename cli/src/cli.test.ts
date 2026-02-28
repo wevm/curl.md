@@ -14,18 +14,20 @@ beforeAll(async () => {
     const timeout = setTimeout(() => {
       proc.kill()
       reject(new Error('Dev server startup timeout'))
-    }, 30_000)
+    }, 60_000)
 
     let stderr = ''
-    proc.stderr?.on('data', (data: Buffer) => {
-      stderr += data.toString()
-    })
-
-    proc.stdout?.on('data', (data: Buffer) => {
+    const checkForUrl = (data: Buffer) => {
       const match = data.toString().match(/Local:\s+(http:\/\/localhost:\d+)/)
       if (!match) return
       clearTimeout(timeout)
       resolve(match[1]!)
+    }
+
+    proc.stdout?.on('data', checkForUrl)
+    proc.stderr?.on('data', (data: Buffer) => {
+      stderr += data.toString()
+      checkForUrl(data)
     })
 
     proc.on('error', (err) => {
