@@ -1,11 +1,11 @@
 import { zValidator as validator } from '@hono/zod-validator'
 import { Octokit } from '@octokit/core'
 import { Hono } from 'hono'
-import { deleteCookie, getCookie, setCookie } from 'hono/cookie'
 import { html, raw } from 'hono/html'
 import { Kysely } from 'kysely'
 import { ImageResponse } from 'workers-og'
 import { z } from 'zod'
+import * as Cookie from '#lib/cookie.ts'
 import { fetchPage } from '#lib/core/fetch-page.ts'
 import type { DB } from '#lib/db.gen.ts'
 import { D1Dialect } from '#lib/db.ts'
@@ -40,21 +40,20 @@ export const api = new Hono<{
     (c) => {
       const query = c.req.valid('query')
       const state = Math.random().toString(36).substring(2)
-      setCookie(c, 'curl.state', state, {
+      Cookie.set(c, 'curl.state', state, {
+        domain: Cookie.getDomain(c.env.HOST),
         httpOnly: true,
         maxAge: 600,
         sameSite: 'Lax',
         secure: true,
       })
 
-      const callbackUrl = new URL(
-        `/api/auth/github/callback`,
-        `https://${c.env.HOST}`,
-      )
+      const origin = `https://${c.env.HOST}`
+      const callbackUrl = new URL(`/api/auth/github/callback`, origin)
       if (query.next) {
-        const origin = `https://${c.env.HOST}`
         try {
-          if (new URL(query.next, origin).origin === origin)
+          const nextUrl = new URL(query.next, origin)
+          if (nextUrl.origin === origin)
             callbackUrl.searchParams.set('next', query.next)
         } catch {}
       }
@@ -79,8 +78,10 @@ export const api = new Hono<{
     async (c) => {
       const query = c.req.valid('query')
 
-      const cookieState = getCookie(c, 'curl.state')
-      deleteCookie(c, 'curl.state')
+      const cookieState = Cookie.get(c, 'curl.state')
+      Cookie.destroy(c, 'curl.state', {
+        domain: Cookie.getDomain(c.env.HOST),
+      })
       if (!cookieState || cookieState !== query.state)
         return c.json({ error: 'State mismatch' }, 400)
 
@@ -161,7 +162,8 @@ export const api = new Hono<{
         JSON.stringify({ account_id: account.id }),
         { expirationTtl: 86400 },
       )
-      setCookie(c, 'curl.session', sessionId, {
+      Cookie.set(c, 'curl.session', sessionId, {
+        domain: Cookie.getDomain(c.env.HOST),
         httpOnly: true,
         maxAge: 86400,
         sameSite: 'Lax',
@@ -173,7 +175,11 @@ export const api = new Hono<{
       if (query.next) {
         try {
           const nextUrl = new URL(query.next, origin)
-          if (nextUrl.origin === origin) return c.redirect(nextUrl.toString())
+          if (
+            nextUrl.origin === origin ||
+            nextUrl.hostname.endsWith(`.${c.env.HOST}`)
+          )
+            return c.redirect(nextUrl.toString())
         } catch {}
       }
 
@@ -196,9 +202,10 @@ export const api = new Hono<{
     },
   )
   .post('/api/auth/logout', async (c) => {
-    const session = getCookie(c, 'curl.session')
+    const session = Cookie.get(c, 'curl.session')
     if (session) await c.env.KV.delete(`session:${session}`)
-    deleteCookie(c, 'curl.session', {
+    Cookie.destroy(c, 'curl.session', {
+      domain: Cookie.getDomain(c.env.HOST),
       httpOnly: true,
       maxAge: 0,
       sameSite: 'Lax',
@@ -207,7 +214,7 @@ export const api = new Hono<{
     return c.json({ ok: true })
   })
   .get('/api/auth/me', async (c) => {
-    const session = getCookie(c, 'curl.session')
+    const session = Cookie.get(c, 'curl.session')
     if (!session) return c.json({ account: null })
 
     const data = await c.env.KV.get(`session:${session}`)
@@ -276,7 +283,7 @@ export const api = new Hono<{
       }),
     ),
     async (c) => {
-      const session = getCookie(c, 'curl.session')
+      const session = Cookie.get(c, 'curl.session')
       if (!session) return c.json({ error: 'Unauthorized' }, 401)
 
       const data = await c.env.KV.get(`session:${session}`)

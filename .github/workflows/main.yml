@@ -79,6 +79,12 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: deploy --env production
           environment: production
+          secrets: |
+            GH_CLIENT_ID
+            GH_CLIENT_SECRET
+        env:
+          GH_CLIENT_ID: ${{ secrets.GH_CLIENT_ID }}
+          GH_CLIENT_SECRET: ${{ secrets.GH_CLIENT_SECRET }}
 
   changesets:
     name: Changesets

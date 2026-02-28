@@ -20,9 +20,12 @@ export const Route = createFileRoute('/login')({
 
 function Login() {
   const { next } = Route.useSearch()
-  const href = next
-    ? `/api/auth/github?next=${encodeURIComponent(next)}`
-    : '/api/auth/github'
+  const isPreview = __HOST__ !== 'curl.md' && __HOST__ !== 'curl.local'
+  const href = isPreview
+    ? `https://curl.md/api/auth/github?next=${encodeURIComponent(next ? `https://${__HOST__}${next}` : `https://${__HOST__}`)}`
+    : next
+      ? `/api/auth/github?next=${encodeURIComponent(next)}`
+      : '/api/auth/github'
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col items-center justify-center px-6">
       <h1 className="font-bold text-lg">Sign in to {__HOST__}</h1>
