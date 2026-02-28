@@ -5,6 +5,7 @@ import {
   readD1Migrations,
 } from '@cloudflare/vitest-pool-workers/config'
 import { defineConfig } from 'vitest/config'
+import { Env } from './test/env.ts'
 
 const aliases: Record<string, string> = {
   '#': new URL('./src/', import.meta.url).pathname,
@@ -48,18 +49,22 @@ export default defineConfig({
           name: 'workers',
           include: ['src/**/*.workers.test.ts'],
           root,
+          globalSetup: ['test/globalSetup.ts'],
           setupFiles: ['config/workers/apply-migrations.ts'],
           poolOptions: {
-            workers: {
-              // fetchPage uses waitUntil to cache in KV after responding, which conflicts with isolated storage
-              isolatedStorage: false,
-              miniflare: {
-                bindings: { TEST_MIGRATIONS: migrations },
-              },
-              singleWorker: true,
-              wrangler: {
-                configPath: './config/workers/wrangler.jsonc',
-              },
+            async workers(config) {
+              const env = Env.parse(config.inject('env'))
+              return {
+                // fetchPage uses waitUntil to cache in KV after responding, which conflicts with isolated storage
+                isolatedStorage: false,
+                miniflare: {
+                  bindings: { ...env, TEST_MIGRATIONS: migrations },
+                },
+                singleWorker: true,
+                wrangler: {
+                  configPath: './config/workers/wrangler.jsonc',
+                },
+              }
             },
           },
         },
@@ -73,13 +78,20 @@ export default defineConfig({
                 name: 'pro:workers',
                 include: ['pro/src/**/*.workers.test.ts'],
                 root,
+                globalSetup: ['test/globalSetup.ts'],
                 poolOptions: {
-                  workers: {
-                    isolatedStorage: false,
-                    singleWorker: true,
-                    wrangler: {
-                      configPath: './pro/wrangler.jsonc',
-                    },
+                  async workers(config) {
+                    const env = Env.parse(config.inject('env'))
+                    return {
+                      isolatedStorage: false,
+                      miniflare: {
+                        bindings: env,
+                      },
+                      singleWorker: true,
+                      wrangler: {
+                        configPath: './pro/wrangler.jsonc',
+                      },
+                    }
                   },
                 },
               },

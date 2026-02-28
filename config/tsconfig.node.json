@@ -28,6 +28,7 @@
   },
   "include": [
     "../config/wrangler.ts",
+    "../test",
     "../vite.config.ts",
     "../vitest.config.ts"
   ]

@@ -11,11 +11,5 @@
   "kv_namespaces": [{ "binding": "KV", "id": "local" }],
   "queues": {
     "producers": [{ "binding": "REQUEST_QUEUE", "queue": "test-queue" }]
-  },
-  "vars": {
-    "COOKIE_SECRET": "test-secret",
-    "GH_CLIENT_ID": "test",
-    "GH_CLIENT_SECRET": "test",
-    "HOST": "curl.local"
   }
 }
