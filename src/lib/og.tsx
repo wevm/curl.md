@@ -5,7 +5,7 @@ import { fetchPage } from '#lib/core/fetch-page.ts'
 import type { DB } from '#lib/db.gen.ts'
 import { computeScore } from '#lib/score.ts'
 
-export const ogQuerySchema = z
+export const schema = z
   .discriminatedUnion('page', [
     z.object({ page: z.literal('check'), url: z.string().optional() }),
     z.object({ page: z.literal('index') }),
@@ -14,13 +14,13 @@ export const ogQuerySchema = z
   ])
   .catch({ page: 'index' })
 
-export type OgQuery = z.infer<typeof ogQuerySchema>
+export type query = z.infer<typeof schema>
 
-export async function getOgElement(
+export async function getElement(
   host: string,
   env: Cloudflare.Env,
   db: Kysely<DB>,
-  query: OgQuery,
+  query: query,
 ) {
   switch (query.page) {
     case 'check':

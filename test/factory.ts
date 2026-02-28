@@ -71,6 +71,11 @@ const defaultConfig: Partial<{
       name: `Key ${Nanoid.generate()}`,
     }
   },
+  session() {
+    return {
+      expires_at: Math.floor(Date.now() / 1000) + 86400,
+    }
+  },
 }
 
 type Factory = {

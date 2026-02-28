@@ -10,22 +10,36 @@ import { fetchPage } from '#lib/core/fetch-page.ts'
 import type { DB } from '#lib/db.gen.ts'
 import { D1Dialect } from '#lib/db.ts'
 import * as Nanoid from '#lib/nanoid.ts'
-import {
-  getOgElement,
-  loadFont,
-  type OgQuery,
-  ogQuerySchema,
-} from '#lib/og.tsx'
+import * as Og from '#lib/og.tsx'
 import { urlSchema } from '#lib/schemas.ts'
 
 export const api = new Hono<{
   Bindings: Cloudflare.Env
-  Variables: { db: Kysely<DB> }
+  Variables: {
+    db: Kysely<DB>
+    session: Pick<DB.session, 'account_id'> | null
+  }
 }>()
   .use(async (c, next) => {
     c.set(
       'db',
       new Kysely<DB>({ dialect: new D1Dialect({ database: c.env.DB }) }),
+    )
+    const sessionId = await Cookie.getSigned(
+      c,
+      c.env.COOKIE_SECRET,
+      'curl.session',
+    )
+    c.set(
+      'session',
+      sessionId
+        ? ((await c.var.db
+            .selectFrom('session')
+            .where('id', '=', sessionId)
+            .where('expires_at', '>', Math.floor(Date.now() / 1000))
+            .select('account_id')
+            .executeTakeFirst()) ?? null)
+        : null,
     )
     await next()
   })
@@ -84,6 +98,24 @@ export const api = new Hono<{
       })
       if (!cookieState || cookieState !== query.state)
         return c.json({ error: 'State mismatch' }, 400)
+
+      if (query.next) {
+        try {
+          const nextUrl = new URL(query.next)
+          if (
+            nextUrl.hostname !== c.env.HOST &&
+            nextUrl.hostname.endsWith('.curl.md')
+          ) {
+            const previewCallback = new URL(
+              '/api/auth/github/callback',
+              nextUrl.origin,
+            )
+            previewCallback.searchParams.set('code', query.code)
+            previewCallback.searchParams.set('state', query.state)
+            return c.redirect(previewCallback.toString())
+          }
+        } catch {}
+      }
 
       const tokenUrl = new URL('https://github.com/login/oauth/access_token')
       tokenUrl.searchParams.set('client_id', c.env.GH_CLIENT_ID)
@@ -157,18 +189,28 @@ export const api = new Hono<{
       }
 
       const sessionId = crypto.randomUUID()
-      await c.env.KV.put(
-        `session:${sessionId}`,
-        JSON.stringify({ account_id: account.id }),
-        { expirationTtl: 86400 },
+      const expiresAt = Math.floor(Date.now() / 1000) + 86400
+      await c.var.db
+        .insertInto('session')
+        .values({
+          id: sessionId,
+          account_id: account.id,
+          expires_at: expiresAt,
+        })
+        .execute()
+      await Cookie.setSigned(
+        c,
+        'curl.session',
+        sessionId,
+        c.env.COOKIE_SECRET,
+        {
+          domain: Cookie.getDomain(c.env.HOST),
+          httpOnly: true,
+          maxAge: 86400,
+          sameSite: 'Lax',
+          secure: true,
+        },
       )
-      Cookie.set(c, 'curl.session', sessionId, {
-        domain: Cookie.getDomain(c.env.HOST),
-        httpOnly: true,
-        maxAge: 86400,
-        sameSite: 'Lax',
-        secure: true,
-      })
 
       const origin = `https://${c.env.HOST}`
 
@@ -202,8 +244,13 @@ export const api = new Hono<{
     },
   )
   .post('/api/auth/logout', async (c) => {
-    const session = Cookie.get(c, 'curl.session')
-    if (session) await c.env.KV.delete(`session:${session}`)
+    const sessionId = await Cookie.getSigned(
+      c,
+      c.env.COOKIE_SECRET,
+      'curl.session',
+    )
+    if (sessionId)
+      await c.var.db.deleteFrom('session').where('id', '=', sessionId).execute()
     Cookie.destroy(c, 'curl.session', {
       domain: Cookie.getDomain(c.env.HOST),
       httpOnly: true,
@@ -214,16 +261,11 @@ export const api = new Hono<{
     return c.json({ ok: true })
   })
   .get('/api/auth/me', async (c) => {
-    const session = Cookie.get(c, 'curl.session')
-    if (!session) return c.json({ account: null })
+    if (!c.var.session) return c.json({ account: null })
 
-    const data = await c.env.KV.get(`session:${session}`)
-    if (!data) return c.json({ account: null })
-
-    const { account_id } = JSON.parse(data) as { account_id: string }
     const account = await c.var.db
       .selectFrom('account')
-      .where('id', '=', account_id)
+      .where('id', '=', c.var.session.account_id)
       .select(['avatar_url', 'email', 'id', 'name'])
       .executeTakeFirst()
     if (!account) return c.json({ account: null })
@@ -235,7 +277,7 @@ export const api = new Hono<{
         'organization.id',
         'organization_member.organization_id',
       )
-      .where('organization_member.account_id', '=', account_id)
+      .where('organization_member.account_id', '=', c.var.session.account_id)
       .where('organization.deleted_at', 'is', null)
       .select(['organization.id', 'organization.name', 'organization.slug'])
       .execute()
@@ -245,12 +287,12 @@ export const api = new Hono<{
     })
   })
   .get('/api/health', (c) => c.json({ ok: true }))
-  .get('/api/og.png', validator('query', ogQuerySchema), async (c) => {
+  .get('/api/og.png', validator('query', Og.schema), async (c) => {
     const query = c.req.valid('query')
-    const element = await getOgElement(c.env.HOST, c.env, c.var.db, query)
+    const element = await Og.getElement(c.env.HOST, c.env, c.var.db, query)
     const [font, fontBold] = await Promise.all([
-      loadFont(c.req.raw, c.env, '/fonts/GeistMono-Regular.ttf'),
-      loadFont(c.req.raw, c.env, '/fonts/GeistMono-Black.ttf'),
+      Og.loadFont(c.req.raw, c.env, '/fonts/GeistMono-Regular.ttf'),
+      Og.loadFont(c.req.raw, c.env, '/fonts/GeistMono-Black.ttf'),
     ])
     return new ImageResponse(element, {
       fonts: [
@@ -283,13 +325,8 @@ export const api = new Hono<{
       }),
     ),
     async (c) => {
-      const session = Cookie.get(c, 'curl.session')
-      if (!session) return c.json({ error: 'Unauthorized' }, 401)
+      if (!c.var.session) return c.json({ error: 'Unauthorized' }, 401)
 
-      const data = await c.env.KV.get(`session:${session}`)
-      if (!data) return c.json({ error: 'Unauthorized' }, 401)
-
-      const { account_id } = JSON.parse(data) as { account_id: string }
       const json = c.req.valid('json')
 
       const reservedSlugs = new Set([
@@ -318,7 +355,7 @@ export const api = new Hono<{
       await c.var.db
         .insertInto('organization_member')
         .values({
-          account_id,
+          account_id: c.var.session.account_id,
           id: Nanoid.generate(),
           organization_id: orgId,
           role: 'owner',
@@ -363,7 +400,7 @@ export const api = new Hono<{
           c.req.header('user-agent') ?? '',
         )
       ) {
-        const ogQuery = { page: 'url', url: url.toString() } satisfies OgQuery
+        const ogQuery = { page: 'url', url: url.toString() } satisfies Og.query
         const ogUrl = raw(
           new URL(
             `/api/og.png?${new URLSearchParams(ogQuery)}`,

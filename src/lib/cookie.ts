@@ -4,7 +4,7 @@ import type { CookieOptions } from 'hono/utils/cookie'
 
 export const destroy = cookie.deleteCookie as (
   c: Context,
-  name: Name,
+  name: Name | SignedName,
   opt?: Options | undefined,
 ) => string | undefined
 
@@ -13,6 +13,12 @@ export const get = cookie.getCookie as (
   name: Name,
 ) => string | undefined
 
+export const getSigned = cookie.getSignedCookie as (
+  c: Context,
+  secret: string,
+  name: SignedName,
+) => Promise<string | undefined>
+
 export const set = cookie.setCookie as (
   c: Context,
   name: Name,
@@ -20,10 +26,28 @@ export const set = cookie.setCookie as (
   opt?: Options | undefined,
 ) => void
 
+export async function generateSigned(
+  name: SignedName,
+  value: string,
+  secret: string,
+  opt?: Options | undefined,
+) {
+  return cookie.generateSignedCookie(name, value, secret, opt)
+}
+
+export const setSigned = cookie.setSignedCookie as (
+  c: Context,
+  name: SignedName,
+  value: string,
+  secret: string,
+  opt?: Options | undefined,
+) => Promise<void>
+
 export function getDomain(host: string) {
   const parts = host.split('.')
   return `.${parts.slice(-2).join('.')}`
 }
 
-type Name = 'curl.session' | 'curl.state'
+type Name = 'curl.state'
+type SignedName = 'curl.session'
 export type Options = CookieOptions

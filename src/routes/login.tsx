@@ -4,6 +4,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
 import { z } from 'zod'
 import { getDb } from '#lib/db.ts'
+import * as Session from '#lib/session.ts'
 
 export const Route = createFileRoute('/login')({
   head: () => ({
@@ -43,15 +44,10 @@ function Login() {
 const getSessionOrgSlug = createServerFn({ method: 'GET' }).handler(
   async () => {
     const request = getRequest()
-    const cookies = parseCookies(request.headers.get('cookie') ?? '')
-    const sessionId = cookies['curl.session']
-    if (!sessionId) return null
-
-    const sessionData = await env.KV.get(`session:${sessionId}`)
-    if (!sessionData) return null
-
-    const { account_id } = JSON.parse(sessionData) as { account_id: string }
     const db = getDb(env.DB)
+    const accountId = await Session.getAccountId(request, db, env.COOKIE_SECRET)
+    if (!accountId) return null
+
     const membership = await db
       .selectFrom('organization_member')
       .innerJoin(
@@ -59,7 +55,7 @@ const getSessionOrgSlug = createServerFn({ method: 'GET' }).handler(
         'organization.id',
         'organization_member.organization_id',
       )
-      .where('organization_member.account_id', '=', account_id)
+      .where('organization_member.account_id', '=', accountId)
       .where('organization.deleted_at', 'is', null)
       .select('organization.slug')
       .executeTakeFirst()
@@ -67,12 +63,3 @@ const getSessionOrgSlug = createServerFn({ method: 'GET' }).handler(
     return membership?.slug ?? ''
   },
 )
-
-function parseCookies(header: string) {
-  return Object.fromEntries(
-    header.split(';').map((c) => {
-      const [k, ...v] = c.trim().split('=')
-      return [k, v.join('=')] as const
-    }),
-  )
-}

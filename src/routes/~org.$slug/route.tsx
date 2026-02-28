@@ -9,6 +9,7 @@ import {
 import { createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
 import { getDb } from '#lib/db.ts'
+import * as Session from '#lib/session.ts'
 
 export const Route = createFileRoute('/~org/$slug')({
   beforeLoad: async ({ location, params }) => {
@@ -75,24 +76,13 @@ const getLayoutData = createServerFn({ method: 'GET' })
   .inputValidator((d: { slug: string }) => d)
   .handler(async ({ data: { slug } }) => {
     const request = getRequest()
-    const cookies = Object.fromEntries(
-      (request.headers.get('cookie') ?? '').split(';').map((c) => {
-        const [k, ...v] = c.trim().split('=')
-        return [k, v.join('=')] as const
-      }),
-    )
-    const sessionId = cookies['curl.session']
-    if (!sessionId) return null
-
-    const sessionData = await env.KV.get(`session:${sessionId}`)
-    if (!sessionData) return null
-
-    const { account_id } = JSON.parse(sessionData) as { account_id: string }
     const db = getDb(env.DB)
+    const accountId = await Session.getAccountId(request, db, env.COOKIE_SECRET)
+    if (!accountId) return null
 
     const account = await db
       .selectFrom('account')
-      .where('id', '=', account_id)
+      .where('id', '=', accountId)
       .select(['avatar_url', 'email', 'id', 'name'])
       .executeTakeFirst()
     if (!account) return null
@@ -106,7 +96,7 @@ const getLayoutData = createServerFn({ method: 'GET' })
       )
       .where('organization.slug', '=', slug)
       .where('organization.deleted_at', 'is', null)
-      .where('organization_member.account_id', '=', account_id)
+      .where('organization_member.account_id', '=', accountId)
       .select(['organization.id', 'organization.name', 'organization.slug'])
       .executeTakeFirst()
     if (!org) return null

@@ -9,6 +9,7 @@ export interface DB {
   organization: organization
   organization_member: organization_member
   request: request
+  session: session
 }
 
 type account = {
@@ -64,8 +65,6 @@ type organization_member = {
 type request = {
   account_id: string | null
   api_key_id: string | null
-  city: string | null
-  country: string | null
   created_at: k.Generated<string>
   hostname: string
   id: k.Generated<string>
@@ -78,6 +77,13 @@ type request = {
   user_agent: string | null
 }
 
+type session = {
+  account_id: string
+  created_at: k.Generated<number>
+  expires_at: k.Generated<number>
+  id: k.Generated<string>
+}
+
 export declare namespace DB {
   type account = k.Selectable<DB['account']>
   type account_provider = k.Selectable<DB['account_provider']>
@@ -85,6 +91,7 @@ export declare namespace DB {
   type organization = k.Selectable<DB['organization']>
   type organization_member = k.Selectable<DB['organization_member']>
   type request = k.Selectable<DB['request']>
+  type session = k.Selectable<DB['session']>
 
   export namespace Insertable {
     type account = k.Insertable<DB['account']>
@@ -93,6 +100,7 @@ export declare namespace DB {
     type organization = k.Insertable<DB['organization']>
     type organization_member = k.Insertable<DB['organization_member']>
     type request = k.Insertable<DB['request']>
+    type session = k.Insertable<DB['session']>
   }
 
   export namespace Selectable {
@@ -102,6 +110,7 @@ export declare namespace DB {
     type organization = k.Selectable<DB['organization']>
     type organization_member = k.Selectable<DB['organization_member']>
     type request = k.Selectable<DB['request']>
+    type session = k.Selectable<DB['session']>
   }
 
   export namespace Updateable {
@@ -111,5 +120,6 @@ export declare namespace DB {
     type organization = k.Updateable<DB['organization']>
     type organization_member = k.Updateable<DB['organization_member']>
     type request = k.Updateable<DB['request']>
+    type session = k.Updateable<DB['session']>
   }
 }

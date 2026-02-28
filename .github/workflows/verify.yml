@@ -65,6 +65,7 @@ jobs:
             echo "CLOUDFLARE_ACCOUNT_ID=$CLOUDFLARE_ACCOUNT_ID"
             echo "CLOUDFLARE_API_TOKEN=$CLOUDFLARE_API_TOKEN"
             echo "GH_CLIENT_ID=dummy"
+            echo "COOKIE_SECRET=dummy"
             echo "GH_CLIENT_SECRET=dummy"
             echo "WRANGLER_SEND_METRICS=false"
           } | tee .env pro/.env > /dev/null

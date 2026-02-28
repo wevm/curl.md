@@ -3,6 +3,7 @@ import { testClient } from 'hono/testing'
 import { Kysely } from 'kysely'
 import { afterEach, beforeAll, describe, expect, test } from 'vitest'
 import { api } from '#api.ts'
+import * as Cookie from '#lib/cookie.ts'
 import type { DB } from '#lib/db.gen.ts'
 import { D1Dialect } from '#lib/db.ts'
 import { createFactory } from '../test/factory.ts'
@@ -258,15 +259,19 @@ describe('POST /api/organizations', () => {
 
   test('creates organization and membership', async () => {
     const account = await factory.account.insert({})
-    const sessionId = crypto.randomUUID()
-    await env.KV.put(
-      `session:${sessionId}`,
-      JSON.stringify({ account_id: account.id }),
-    )
+    const session = await factory.session.insert({ account_id: account.id })
 
     const res = await client.api.organizations.$post(
       { json: { name: 'My Org', slug: 'my-org' } },
-      { headers: { Cookie: `curl.session=${sessionId}` } },
+      {
+        headers: {
+          Cookie: await Cookie.generateSigned(
+            'curl.session',
+            session.id,
+            env.COOKIE_SECRET,
+          ),
+        },
+      },
     )
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({ slug: 'my-org' })
@@ -289,15 +294,19 @@ describe('POST /api/organizations', () => {
 
   test('uses slug as name when name is omitted', async () => {
     const account = await factory.account.insert({})
-    const sessionId = crypto.randomUUID()
-    await env.KV.put(
-      `session:${sessionId}`,
-      JSON.stringify({ account_id: account.id }),
-    )
+    const session = await factory.session.insert({ account_id: account.id })
 
     const res = await client.api.organizations.$post(
       { json: { slug: 'cli-org' } },
-      { headers: { Cookie: `curl.session=${sessionId}` } },
+      {
+        headers: {
+          Cookie: await Cookie.generateSigned(
+            'curl.session',
+            session.id,
+            env.COOKIE_SECRET,
+          ),
+        },
+      },
     )
     expect(res.status).toBe(200)
 
@@ -311,16 +320,20 @@ describe('POST /api/organizations', () => {
 
   test('rejects duplicate slug', async () => {
     const account = await factory.account.insert({})
-    const sessionId = crypto.randomUUID()
-    await env.KV.put(
-      `session:${sessionId}`,
-      JSON.stringify({ account_id: account.id }),
-    )
+    const session = await factory.session.insert({ account_id: account.id })
     await factory.organization.insert({ name: 'Taken', slug: 'taken' })
 
     const res = await client.api.organizations.$post(
       { json: { slug: 'taken' } },
-      { headers: { Cookie: `curl.session=${sessionId}` } },
+      {
+        headers: {
+          Cookie: await Cookie.generateSigned(
+            'curl.session',
+            session.id,
+            env.COOKIE_SECRET,
+          ),
+        },
+      },
     )
     expect(res.status).toBe(409)
     expect(await res.json()).toEqual({

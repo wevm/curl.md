@@ -47,6 +47,8 @@ export default {
       }
     }
   },
+  // TODO: Add scheduled handler to clean up expired sessions
+  // scheduled: async (event, env, ctx) => { ... }
 } satisfies ExportedHandler<Env, processRequestMessage.Body>
 
 declare module '@tanstack/react-start' {

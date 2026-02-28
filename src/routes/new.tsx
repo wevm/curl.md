@@ -5,6 +5,7 @@ import { getRequest } from '@tanstack/react-start/server'
 import * as React from 'react'
 import { getDb } from '#lib/db.ts'
 import { rpc } from '#lib/rpc.ts'
+import * as Session from '#lib/session.ts'
 
 export const Route = createFileRoute('/new')({
   head: () => ({
@@ -79,18 +80,13 @@ function NewOrganization() {
 
 const getAccount = createServerFn({ method: 'GET' }).handler(async () => {
   const request = getRequest()
-  const cookies = parseCookies(request.headers.get('cookie') ?? '')
-  const sessionId = cookies['curl.session']
-  if (!sessionId) return null
-
-  const sessionData = await env.KV.get(`session:${sessionId}`)
-  if (!sessionData) return null
-
-  const { account_id } = JSON.parse(sessionData) as { account_id: string }
   const db = getDb(env.DB)
+  const accountId = await Session.getAccountId(request, db, env.COOKIE_SECRET)
+  if (!accountId) return null
+
   const account = await db
     .selectFrom('account')
-    .where('id', '=', account_id)
+    .where('id', '=', accountId)
     .select(['id', 'name'])
     .executeTakeFirst()
   if (!account) return null
@@ -102,19 +98,10 @@ const getAccount = createServerFn({ method: 'GET' }).handler(async () => {
       'organization.id',
       'organization_member.organization_id',
     )
-    .where('organization_member.account_id', '=', account_id)
+    .where('organization_member.account_id', '=', accountId)
     .where('organization.deleted_at', 'is', null)
     .select('organization.slug')
     .executeTakeFirst()
 
   return { ...account, slug: membership?.slug ?? null }
 })
-
-function parseCookies(header: string) {
-  return Object.fromEntries(
-    header.split(';').map((c) => {
-      const [k, ...v] = c.trim().split('=')
-      return [k, v.join('=')] as const
-    }),
-  )
-}

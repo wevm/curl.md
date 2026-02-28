@@ -30,6 +30,7 @@ Add the following secrets to your GitHub repository (Settings → Secrets and va
 
 * `CLOUDFLARE_ACCOUNT_ID` - Cloudflare account ID (found in the Workers dashboard URL)
 * `CLOUDFLARE_API_TOKEN` - Cloudflare API token for deployments (see [below](#creating-a-cloudflare-api-token))
+* `COOKIE_SECRET` - Secret for signing session cookies
 * `GH_CLIENT_ID` - GitHub App client ID (see [GitHub App Setup](#github-app-setup))
 * `GH_CLIENT_SECRET` - GitHub App client secret (see [GitHub App Setup](#github-app-setup))
 
