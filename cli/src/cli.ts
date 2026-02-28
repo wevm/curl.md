@@ -3,11 +3,6 @@ import { Cli, z } from 'incur'
 import type { api } from '../../src/api.ts'
 import pkg from '../package.json' with { type: 'json' }
 
-// TODO: add to incur "context"
-function getClient(baseUrl: string) {
-  return hc<typeof api>(baseUrl)
-}
-
 const cli = Cli.create('curl.md', {
   description: 'Fetch a web page and convert it to markdown.',
   version: pkg.version,
@@ -35,6 +30,9 @@ const cli = Cli.create('curl.md', {
       .string()
       .default('https://curl.md')
       .describe('Base URL'),
+  }),
+  vars: z.object({
+    client: z.custom<ReturnType<typeof hc<typeof api>>>(),
   }),
   examples: [
     { args: { url: 'example.com' } },
@@ -151,8 +149,7 @@ const cli = Cli.create('curl.md', {
       })
 
     const keywords = c.options.keywords?.flatMap((k) => k.split(','))
-    const client = getClient(c.env.CURL_MD_BASE_URL)
-    const res = await client.api[':url{.+}'].$get({
+    const res = await c.var.client.api[':url{.+}'].$get({
       param: { url: url },
       query: {
         fresh: c.options.fresh ? '' : undefined,
@@ -181,6 +178,15 @@ const cli = Cli.create('curl.md', {
 
     return text
   },
+})
+
+// TODO: use c.env instead of process.env when supported in incur
+cli.use(async (c, next) => {
+  c.set(
+    'client',
+    hc<typeof api>(process.env.CURL_MD_BASE_URL ?? 'https://curl.md'),
+  )
+  return next()
 })
 
 export default cli

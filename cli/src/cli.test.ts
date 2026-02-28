@@ -51,6 +51,7 @@ beforeAll(async () => {
     })
   })
 
+  process.env.CURL_MD_BASE_URL = baseUrl
   return () => proc.kill()
 })
 
@@ -143,13 +144,26 @@ test('exits with error for invalid url', async () => {
   const { exitCode, output } = await serve(['!!!invalid'])
   expect(exitCode).toBe(1)
   expect(output).toMatchInlineSnapshot(`
-		"Error (INVALID_URL): Invalid URL: !!!invalid
+    "## code
 
-		URL must be a valid HTTP(S) address:
-		  curl.md example.com  Domain without protocol
-		  curl.md https://example.com/path  Full URL with protocol
-		"
-	`)
+    INVALID_URL
+
+    ## message
+
+    Invalid URL: !!!invalid
+
+    ## cta.description
+
+    URL must be a valid HTTP(S) address:
+
+    ## cta.commands
+
+    | command                          | description             |
+    |----------------------------------|-------------------------|
+    | curl.md example.com              | Domain without protocol |
+    | curl.md https://example.com/path | Full URL with protocol  |
+    "
+  `)
 })
 
 test('exits with error for missing url', async () => {
@@ -162,13 +176,26 @@ test('exits with error for missing url', async () => {
     const { exitCode, output } = await serve([])
     expect(exitCode).toBe(1)
     expect(output).toMatchInlineSnapshot(`
-			"Error (MISSING_URL): No URL provided.
+      "## code
 
-			Try:
-			  curl.md example.com  Fetch a page
-			  curl.md example.com --objective pricing plans  Narrow to a topic
-			"
-		`)
+      MISSING_URL
+
+      ## message
+
+      No URL provided.
+
+      ## cta.description
+
+      Try:
+
+      ## cta.commands
+
+      | command                                       | description       |
+      |-----------------------------------------------|-------------------|
+      | curl.md example.com                           | Fetch a page      |
+      | curl.md example.com --objective pricing plans | Narrow to a topic |
+      "
+    `)
   } finally {
     Object.defineProperty(process.stdin, 'isTTY', {
       value: orig,
