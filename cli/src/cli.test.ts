@@ -1,9 +1,48 @@
-import { expect, test } from 'vitest'
+import { spawn } from 'node:child_process'
+import { beforeAll, expect, test } from 'vitest'
 import cli from './cli.ts'
 
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
+let baseUrl: string
 
-const env = { CURL_MD_BASE_URL: 'https://curl.local' }
+beforeAll(async () => {
+  const proc = spawn('pnpm', ['vite', 'dev'], {
+    cwd: process.cwd(),
+    stdio: 'pipe',
+  })
+
+  baseUrl = await new Promise<string>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      proc.kill()
+      reject(new Error('Dev server startup timeout'))
+    }, 30_000)
+
+    let stderr = ''
+    proc.stderr?.on('data', (data: Buffer) => {
+      stderr += data.toString()
+    })
+
+    proc.stdout?.on('data', (data: Buffer) => {
+      const match = data.toString().match(/Local:\s+(http:\/\/localhost:\d+)/)
+      if (!match) return
+      clearTimeout(timeout)
+      resolve(match[1]!)
+    })
+
+    proc.on('error', (err) => {
+      clearTimeout(timeout)
+      reject(err)
+    })
+
+    proc.on('exit', (code) => {
+      if (code !== null && code !== 0) {
+        clearTimeout(timeout)
+        reject(new Error(`Dev server exited with code ${code}\n${stderr}`))
+      }
+    })
+  })
+
+  return () => proc.kill()
+})
 
 async function serve(
   argv: string[],
@@ -12,7 +51,7 @@ async function serve(
   let output = ''
   let exitCode: number | undefined
   await cli.serve(argv, {
-    env: { ...env, ...overrides },
+    env: { CURL_MD_BASE_URL: baseUrl, ...overrides },
     stdout(s: string) {
       output += s
     },
@@ -40,67 +79,67 @@ test('fetches example.com as json', async () => {
 test('prints version', async () => {
   const { output } = await serve(['--version'])
   expect(output).toMatchInlineSnapshot(`
-    "0.0.0
-    "
-  `)
+		"0.0.0
+		"
+	`)
 })
 
 test('prints help', async () => {
   const { output } = await serve(['--help'])
   expect(output).toMatchInlineSnapshot(`
-    "curl.md — Fetch a web page and convert it to markdown.
-    v0.0.0
+		"curl.md — Fetch a web page and convert it to markdown.
+		v0.0.0
 
-    Usage: curl.md <url> [options]
-           echo <url> | curl.md [options]
+		Usage: curl.md <url> [options]
+		       echo <url> | curl.md [options]
 
-    Arguments:
-      url  URL to fetch
+		Arguments:
+		  url  URL to fetch
 
-    Options:
-      --fresh, -f <boolean>     Force fresh fetch (bypass cache)
-      --keywords, -k <array>    Pre-filter by keywords (comma-separated)
-      --objective, -q <string>  Narrow content to a specific objective
+		Options:
+		  --fresh, -f <boolean>     Force fresh fetch (bypass cache)
+		  --keywords, -k <array>    Pre-filter by keywords (comma-separated)
+		  --objective, -q <string>  Narrow content to a specific objective
 
-    Environment Variables:
-      CURL_MD_BASE_URL  Base URL (default: https://curl.md)
+		Environment Variables:
+		  CURL_MD_BASE_URL  Base URL (default: https://curl.md)
 
-    Examples:
-      $ curl.md example.com
-      $ curl.md example.com --objective pricing plans
-      $ curl.md example.com --keywords api,auth
-      $ curl.md example.com --objective authentication --keywords oauth,jwt
-      $ curl.md docs.github.com/en/webhooks/webhook-events-and-payloads --objective pull request webhook event payload and actions --keywords pull_request
-      $ curl.md developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch --objective streaming response body --keywords ReadableStream,getReader
-      $ curl.md developers.cloudflare.com/d1/get-started --objective how to query D1 from a worker --keywords D1,bindings
-      $ curl.md ai-sdk.dev/docs/ai-sdk-core/generating-text --objective how to stream text with the ai sdk --keywords streamText,generateText
+		Examples:
+		  $ curl.md example.com
+		  $ curl.md example.com --objective pricing plans
+		  $ curl.md example.com --keywords api,auth
+		  $ curl.md example.com --objective authentication --keywords oauth,jwt
+		  $ curl.md docs.github.com/en/webhooks/webhook-events-and-payloads --objective pull request webhook event payload and actions --keywords pull_request
+		  $ curl.md developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch --objective streaming response body --keywords ReadableStream,getReader
+		  $ curl.md developers.cloudflare.com/d1/get-started --objective how to query D1 from a worker --keywords D1,bindings
+		  $ curl.md ai-sdk.dev/docs/ai-sdk-core/generating-text --objective how to stream text with the ai sdk --keywords streamText,generateText
 
-    Built-in Commands:
-      mcp add     Register as an MCP server
-      skills add  Sync skill files to your agent
+		Built-in Commands:
+		  mcp add     Register as an MCP server
+		  skills add  Sync skill files to your agent
 
-    Global Options:
-      --format <toon|json|yaml|md|jsonl>  Output format
-      --help                              Show help
-      --llms                              Print LLM-readable manifest
-      --mcp                               Start as MCP stdio server
-      --verbose                           Show full output envelope
-      --version                           Show version
-    "
-  `)
+		Global Options:
+		  --format <toon|json|yaml|md|jsonl>  Output format
+		  --help                              Show help
+		  --llms                              Print LLM-readable manifest
+		  --mcp                               Start as MCP stdio server
+		  --verbose                           Show full output envelope
+		  --version                           Show version
+		"
+	`)
 })
 
 test('exits with error for invalid url', async () => {
   const { exitCode, output } = await serve(['!!!invalid'])
   expect(exitCode).toBe(1)
   expect(output).toMatchInlineSnapshot(`
-    "Error (INVALID_URL): Invalid URL: !!!invalid
+		"Error (INVALID_URL): Invalid URL: !!!invalid
 
-    URL must be a valid HTTP(S) address:
-      curl.md example.com  Domain without protocol
-      curl.md https://example.com/path  Full URL with protocol
-    "
-  `)
+		URL must be a valid HTTP(S) address:
+		  curl.md example.com  Domain without protocol
+		  curl.md https://example.com/path  Full URL with protocol
+		"
+	`)
 })
 
 test('exits with error for missing url', async () => {
@@ -113,13 +152,13 @@ test('exits with error for missing url', async () => {
     const { exitCode, output } = await serve([])
     expect(exitCode).toBe(1)
     expect(output).toMatchInlineSnapshot(`
-      "Error (MISSING_URL): No URL provided.
+			"Error (MISSING_URL): No URL provided.
 
-      Try:
-        curl.md example.com  Fetch a page
-        curl.md example.com --objective pricing plans  Narrow to a topic
-      "
-    `)
+			Try:
+			  curl.md example.com  Fetch a page
+			  curl.md example.com --objective pricing plans  Narrow to a topic
+			"
+		`)
   } finally {
     Object.defineProperty(process.stdin, 'isTTY', {
       value: orig,
