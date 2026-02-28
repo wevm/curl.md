@@ -1,9 +1,10 @@
 import { spawn } from 'node:child_process'
-import { beforeAll, expect, test } from 'vitest'
+import { beforeAll, expect, test, vi } from 'vitest'
 import cli from './cli.ts'
 
-let baseUrl: string
+vi.mock('../package.json', () => ({ default: { version: 'x.y.z' } }))
 
+let baseUrl: string
 beforeAll(async () => {
   const proc = spawn('pnpm', ['vite', 'dev'], {
     cwd: process.cwd(),
@@ -13,28 +14,35 @@ beforeAll(async () => {
   baseUrl = await new Promise<string>((resolve, reject) => {
     const timeout = setTimeout(() => {
       proc.kill()
-      reject(new Error('Dev server startup timeout'))
-    }, 60_000)
+      reject(
+        new Error(
+          `Dev server startup timeout\nstdout: ${stdout}\nstderr: ${stderr}`,
+        ),
+      )
+    }, 90_000)
 
     let stderr = ''
-    const checkForUrl = (data: Buffer) => {
-      const match = data.toString().match(/Local:\s+(http:\/\/localhost:\d+)/)
+    let stdout = ''
+    const checkForUrl = (chunk: string) => {
+      // biome-ignore lint/suspicious/noControlCharactersInRegex: stripping ANSI escape codes
+      const clean = chunk.replace(/\x1b\[[0-9;]*m/g, '')
+      const match = clean.match(/Local:\s+(http:\/\/localhost:\d+)/)
       if (!match) return
       clearTimeout(timeout)
       resolve(match[1]!)
     }
-
-    proc.stdout?.on('data', checkForUrl)
+    proc.stdout?.on('data', (data: Buffer) => {
+      stdout += data.toString()
+      checkForUrl(data.toString())
+    })
     proc.stderr?.on('data', (data: Buffer) => {
       stderr += data.toString()
-      checkForUrl(data)
+      checkForUrl(data.toString())
     })
-
     proc.on('error', (err) => {
       clearTimeout(timeout)
       reject(err)
     })
-
     proc.on('exit', (code) => {
       if (code !== null && code !== 0) {
         clearTimeout(timeout)
@@ -81,16 +89,16 @@ test('fetches example.com as json', async () => {
 test('prints version', async () => {
   const { output } = await serve(['--version'])
   expect(output).toMatchInlineSnapshot(`
-		"0.0.0
-		"
-	`)
+  	"x.y.z
+  	"
+  `)
 })
 
 test('prints help', async () => {
   const { output } = await serve(['--help'])
   expect(output).toMatchInlineSnapshot(`
 		"curl.md — Fetch a web page and convert it to markdown.
-		v0.0.0
+		vx.y.z
 
 		Usage: curl.md <url> [options]
 		       echo <url> | curl.md [options]

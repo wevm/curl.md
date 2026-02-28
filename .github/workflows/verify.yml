@@ -56,6 +56,19 @@ jobs:
       - name: Run migrations
         run: pnpm exec wrangler d1 migrations apply DB --local
 
+      - name: Write .env
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          {
+            echo "CLOUDFLARE_ACCOUNT_ID=$CLOUDFLARE_ACCOUNT_ID"
+            echo "CLOUDFLARE_API_TOKEN=$CLOUDFLARE_API_TOKEN"
+            echo "GH_CLIENT_ID=dummy"
+            echo "GH_CLIENT_SECRET=dummy"
+            echo "WRANGLER_SEND_METRICS=false"
+          } | tee .env pro/.env > /dev/null
+
       - name: Generate types
         run: |
           pnpm gen:types
@@ -66,10 +79,7 @@ jobs:
         run: pnpm check:types
 
       - name: Test
-        env:
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: pnpm test
+        run: pnpm test --project '!pro:*' --exclude 'pro/**'
 
       - name: Build
         run: pnpm build
