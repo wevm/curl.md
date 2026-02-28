@@ -1,12 +1,15 @@
 {
   "compilerOptions": {
-    "declaration": false,
+    "allowImportingTsExtensions": true,
+    "jsx": "react-jsx",
     "module": "nodenext",
     "moduleResolution": "nodenext",
-    "outDir": "dist",
-    "rootDir": "src",
-    "skipLibCheck": true,
+    "noEmit": true,
+    "paths": {
+      "#*": ["./../src/*"]
+    },
     "resolveJsonModule": true,
+    "skipLibCheck": true,
     "strict": true,
     "target": "es2022"
   },

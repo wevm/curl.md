@@ -31,13 +31,13 @@ export default {
     // Fall through to TanStack Start SSR handler for all other routes (app pages)
     return handler.fetch(request, { context: { ctx, env, request } })
   },
-  queue: async (batch) => {
+  queue: async (batch, env) => {
     const queue = z.enum([processRequestMessage.queueName]).parse(batch.queue)
     const handlers = {
       [processRequestMessage.queueName]: processRequestMessage,
     }
     const handler = handlers[queue]
-    const db = getDb()
+    const db = getDb(env.DB)
     for (const message of batch.messages) {
       try {
         await handler(message as never, db)

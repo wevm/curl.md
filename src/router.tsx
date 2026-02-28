@@ -1,7 +1,6 @@
 import { createRouter } from '@tanstack/react-router'
+import type { FileRoutesByTo } from './routeTree.gen'
 import { routeTree } from './routeTree.gen'
-
-const knownRoutes = new Set(['', 'check', 'login', 'new', 'playground'])
 
 export const getRouter = () => {
   const router = createRouter({
@@ -30,3 +29,17 @@ export const getRouter = () => {
   })
   return router
 }
+
+const knownRoutes: Set<string> = new Set<KnownRoute>([
+  '',
+  'check',
+  'login',
+  'new',
+  'playground',
+])
+type KnownRoute = ExtractSegment<keyof FileRoutesByTo>
+type ExtractSegment<T> = T extends `/${infer S}`
+  ? S extends `~org/${string}`
+    ? never
+    : S
+  : never

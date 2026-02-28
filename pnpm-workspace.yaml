@@ -1,12 +1,11 @@
 packages:
   - cli
-  - config/workers
   - pro
 
 catalog:
   '@biomejs/biome': 2.3.13
   '@cloudflare/workers-types': ^4.20260302.0
-  '@modelcontextprotocol/sdk': ^1.26.0
+  '@modelcontextprotocol/sdk': ^1.27.1
   '@types/hast': ^3.0.4
   '@types/node': ^25.2.3
   '@typescript/native-preview': 7.0.0-dev.20260216.1
@@ -21,9 +20,13 @@ catalog:
 
 minimumReleaseAge: 1440
 
+minimumReleaseAgeExclude:
+  - incur
+
 onlyBuiltDependencies:
   - simple-git-hooks
 
 trustPolicy: no-downgrade
+
 trustPolicyExclude:
-  - 'semver@6.3.1'
+  - semver@6.3.1

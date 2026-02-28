@@ -10,8 +10,13 @@ import { fetchPage } from '#lib/core/fetch-page.ts'
 import type { DB } from '#lib/db.gen.ts'
 import { D1Dialect } from '#lib/db.ts'
 import * as Nanoid from '#lib/nanoid.ts'
+import {
+  getOgElement,
+  loadFont,
+  type OgQuery,
+  ogQuerySchema,
+} from '#lib/og.tsx'
 import { urlSchema } from '#lib/schemas.ts'
-import { getOgElement, loadFont, type OgQuery, ogQuerySchema } from '#og.ts'
 
 export const api = new Hono<{
   Bindings: Cloudflare.Env

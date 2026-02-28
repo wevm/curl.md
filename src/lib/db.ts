@@ -1,4 +1,3 @@
-import { env } from 'cloudflare:workers'
 import type {
   DatabaseConnection,
   DatabaseIntrospector,
@@ -16,9 +15,9 @@ import {
 } from 'kysely'
 import type { DB } from '#lib/db.gen.ts'
 
-export function getDb() {
+export function getDb(database: D1Database | D1DatabaseSession) {
   return new Kysely<DB>({
-    dialect: new D1Dialect({ database: env.DB }),
+    dialect: new D1Dialect({ database }),
   })
 }
 

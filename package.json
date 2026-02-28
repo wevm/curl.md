@@ -7,10 +7,10 @@
   },
   "scripts": {
     "build": "vite build",
-    "build:cli": "tsgo -p cli",
+    "build:cli": "pnpm --filter curl.md build",
     "curl": "CURL_MD_BASE_URL=https://curl.local NODE_TLS_REJECT_UNAUTHORIZED=0 node --experimental-strip-types --no-warnings cli/src/cli.ts",
     "check": "biome check .",
-    "check:types": "tsgo -b",
+    "check:types": "tsgo -b && pnpm --filter curl.md check:types",
     "db": "sqlite3 $(find .wrangler -name '*.sqlite' -path '*/d1/*' | head -1)",
     "db:codegen": "node --experimental-strip-types scripts/db-codegen.ts",
     "db:command": "wrangler d1 execute curl-db --local --command",
@@ -19,13 +19,11 @@
     "deps": "pnpx taze -r --no-ignore-other-workspaces --ignore-paths node_modules",
     "deps:ci": "pnpx actions-up --dir .github --dir pro/.github",
     "dev": "vite dev --port 3000",
-    "gen:types": "cp -n .env.example .env 2>/dev/null; wrangler types src/worker-configuration.d.ts && node --experimental-strip-types scripts/strip-global-props.ts",
+    "gen:types": "cp -n .env.example .env 2>/dev/null; wrangler types src/worker-configuration.d.ts && node --experimental-strip-types scripts/strip-global-props.ts && pnpm --filter curl.md gen:types",
     "preinstall": "pnpx only-allow pnpm",
     "prepare": "pnpm gen:types && simple-git-hooks",
     "preview": "pnpm run build && vite preview",
-    "test": "vitest",
-    "test:pro": "pnpm --filter pro test",
-    "test:workers": "pnpm --filter workers test"
+    "test": "vitest"
   },
   "dependencies": {
     "@cloudflare/vite-plugin": "^1.25.4",
@@ -53,6 +51,7 @@
   "devDependencies": {
     "@biomejs/biome": "catalog:",
     "@changesets/cli": "^2.29.8",
+    "@cloudflare/vitest-pool-workers": "~0.8.71",
     "@iconify-json/lucide": "^1.2.91",
     "@iconify-json/octicon": "^1.2.21",
     "@svgr/core": "^8.1.0",
@@ -71,7 +70,7 @@
     "unplugin-auto-import": "^21.0.0",
     "unplugin-icons": "^23.0.1",
     "vite": "^7.1.7",
-    "vitest": "^4.0.18",
+    "vitest": "~3.2.4",
     "wrangler": "catalog:"
   },
   "packageManager": "pnpm@10.22.0",

@@ -87,7 +87,7 @@ const getAccount = createServerFn({ method: 'GET' }).handler(async () => {
   if (!sessionData) return null
 
   const { account_id } = JSON.parse(sessionData) as { account_id: string }
-  const db = getDb()
+  const db = getDb(env.DB)
   const account = await db
     .selectFrom('account')
     .where('id', '=', account_id)

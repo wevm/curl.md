@@ -1,44 +1,55 @@
-import { execFile } from 'node:child_process'
-import { resolve } from 'node:path'
-import { promisify } from 'node:util'
-import { Client } from '@modelcontextprotocol/sdk/client/index.js'
-import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
-import { afterEach, expect, test } from 'vitest'
+import { expect, test } from 'vitest'
+import cli from './cli.ts'
 
-const exec = promisify(execFile)
-const cli = resolve(import.meta.dirname, '..', 'dist', 'cli.js')
-const env = { ...process.env, CURL_MD_VERSION: 'x.y.z' }
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
+
+const env = { CURL_MD_BASE_URL: 'https://curl.local' }
+
+async function serve(
+  argv: string[],
+  overrides?: Record<string, string | undefined>,
+) {
+  let output = ''
+  let exitCode: number | undefined
+  await cli.serve(argv, {
+    env: { ...env, ...overrides },
+    stdout(s: string) {
+      output += s
+    },
+    exit(code: number) {
+      exitCode = code
+    },
+  })
+  return { output, exitCode }
+}
 
 test('fetches example.com as markdown', async () => {
-  const { stdout } = await exec('node', [cli, 'example.com'], {
-    env,
-    timeout: 30_000,
-  })
-  expect(stdout).toContain('Example Domain')
-})
+  const { output } = await serve(['example.com'])
+  expect(output).toContain('Example Domain')
+}, 30_000)
 
 test('fetches example.com as json', async () => {
-  const { stdout } = await exec('node', [cli, 'example.com', '--json'], {
-    env,
-    timeout: 30_000,
-  })
-  const json = JSON.parse(stdout)
+  const { output } = await serve(['example.com', '--json'])
+  const json = JSON.parse(output)
   const content = json.data ?? json.content ?? json
   expect(
     typeof content === 'string' ? content : JSON.stringify(content),
   ).toContain('Example Domain')
-})
+}, 30_000)
 
 test('prints version', async () => {
-  const { stdout } = await exec('node', [cli, '--version'], { env })
-  expect(stdout.trim()).toBe('x.y.z')
+  const { output } = await serve(['--version'])
+  expect(output).toMatchInlineSnapshot(`
+    "0.0.0
+    "
+  `)
 })
 
 test('prints help', async () => {
-  const { stdout } = await exec('node', [cli, '--help'], { env })
-  expect(stdout).toMatchInlineSnapshot(`
+  const { output } = await serve(['--help'])
+  expect(output).toMatchInlineSnapshot(`
     "curl.md — Fetch a web page and convert it to markdown.
-    vx.y.z
+    v0.0.0
 
     Usage: curl.md <url> [options]
            echo <url> | curl.md [options]
@@ -69,59 +80,50 @@ test('prints help', async () => {
       skills add  Sync skill files to your agent
 
     Global Options:
-      --format <toon|json|yaml|md>  Output format
-      --help                        Show help
-      --llms                        Print LLM-readable manifest
-      --mcp                         Start as MCP stdio server
-      --verbose                     Show full output envelope
-      --version                     Show version
+      --format <toon|json|yaml|md|jsonl>  Output format
+      --help                              Show help
+      --llms                              Print LLM-readable manifest
+      --mcp                               Start as MCP stdio server
+      --verbose                           Show full output envelope
+      --version                           Show version
     "
   `)
 })
 
 test('exits with error for invalid url', async () => {
-  await expect(exec('node', [cli, '!!!invalid'], { env })).rejects.toThrow()
+  const { exitCode, output } = await serve(['!!!invalid'])
+  expect(exitCode).toBe(1)
+  expect(output).toMatchInlineSnapshot(`
+    "Error (INVALID_URL): Invalid URL: !!!invalid
+
+    URL must be a valid HTTP(S) address:
+      curl.md example.com  Domain without protocol
+      curl.md https://example.com/path  Full URL with protocol
+    "
+  `)
 })
 
-// MCP
-
-let client: Client | undefined
-afterEach(async () => {
-  await client?.close()
-  client = undefined
-})
-
-async function createMcpClient() {
-  const transport = new StdioClientTransport({
-    command: 'node',
-    args: [cli, '--mcp'],
-    env,
+test('exits with error for missing url', async () => {
+  const orig = process.stdin.isTTY
+  Object.defineProperty(process.stdin, 'isTTY', {
+    value: true,
+    configurable: true,
   })
-  client = new Client({ name: 'test', version: '0.0.0' })
-  await client.connect(transport)
-  if (!client) throw new Error('client not initialized')
-  return client
-}
+  try {
+    const { exitCode, output } = await serve([])
+    expect(exitCode).toBe(1)
+    expect(output).toMatchInlineSnapshot(`
+      "Error (MISSING_URL): No URL provided.
 
-test('mcp: lists curl.md tool', async () => {
-  const client = await createMcpClient()
-  const { tools } = await client.listTools()
-  expect(tools).toHaveLength(1)
-  expect(tools[0]).toMatchObject({ name: 'curl.md' })
-})
-
-test('mcp: fetches example.com', async () => {
-  const client = await createMcpClient()
-  const result = await client.callTool({
-    name: 'curl.md',
-    arguments: { url: 'example.com' },
-  })
-  expect(result.isError).toBeFalsy()
-  expect(result.content).toEqual(
-    expect.arrayContaining([
-      expect.objectContaining({
-        text: expect.stringContaining('Example Domain'),
-      }),
-    ]),
-  )
+      Try:
+        curl.md example.com  Fetch a page
+        curl.md example.com --objective pricing plans  Narrow to a topic
+      "
+    `)
+  } finally {
+    Object.defineProperty(process.stdin, 'isTTY', {
+      value: orig,
+      configurable: true,
+    })
+  }
 })

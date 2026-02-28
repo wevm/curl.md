@@ -3,18 +3,21 @@
   "version": "0.0.0",
   "description": "Fetch any URL as Markdown",
   "scripts": {
+    "build": "tsgo --noCheck -p tsconfig.build.json && find ../src -name '*.js' -delete",
+    "check:types": "tsgo --noEmit",
     "gen:types": "incur gen"
   },
   "license": "MIT",
   "type": "module",
   "bin": {
-    "curl.md": "./dist/cli.js"
+    "curl.md": "./dist/bin.js"
   },
   "files": [
     "dist"
   ],
   "dependencies": {
-    "incur": "https://pkg.pr.new/wevm/incur@ec734e6"
+    "hono": "^4.12.2",
+    "incur": "^0.1.5"
   },
   "engines": {
     "node": ">=22.0.0"

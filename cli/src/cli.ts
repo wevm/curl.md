@@ -1,12 +1,16 @@
-#!/usr/bin/env node
+import { hc } from 'hono/client'
 import { Cli, z } from 'incur'
+import type { api } from '../../src/api.ts'
 import pkg from '../package.json' with { type: 'json' }
 
-const version = process.env.CURL_MD_VERSION ?? pkg.version
+// TODO: add to incur "context"
+function getClient(baseUrl: string) {
+  return hc<typeof api>(baseUrl)
+}
 
 const cli = Cli.create('curl.md', {
   description: 'Fetch a web page and convert it to markdown.',
-  version,
+  version: pkg.version,
   usage: [
     { suffix: '<url> [options]' },
     { prefix: 'echo <url> |', suffix: '[options]' },
@@ -81,10 +85,17 @@ const cli = Cli.create('curl.md', {
   ],
   output: z.string().describe('Page content as markdown'),
   format: 'md',
-  async run({ args, options, env, error, ok }) {
-    const url = args.url ?? (await readStdin())
+  async run(c) {
+    const url =
+      c.args.url ??
+      (await (async () => {
+        if (process.stdin.isTTY) return undefined
+        let data = ''
+        for await (const chunk of process.stdin) data += chunk
+        return data.trim() || undefined
+      })())
     if (!url)
-      return error({
+      return c.error({
         code: 'MISSING_URL',
         message: 'No URL provided.',
         cta: {
@@ -119,7 +130,7 @@ const cli = Cli.create('curl.md', {
       url,
     )
     if (!result.success)
-      return error({
+      return c.error({
         code: 'INVALID_URL',
         message: `Invalid URL: ${url}`,
         cta: {
@@ -139,22 +150,22 @@ const cli = Cli.create('curl.md', {
         },
       })
 
-    const params = new URLSearchParams()
-    if (options.objective) params.set('q', options.objective)
-    const keywords = options.keywords?.flatMap((k) => k.split(','))
-    if (keywords?.length) params.set('k', keywords.join(','))
-    if (options.fresh) params.set('fresh', '')
-
-    const query = params.toString()
-    const target = `${env.CURL_MD_BASE_URL}/${url}${query ? `?${query}` : ''}`
-
-    const res = await fetch(target)
+    const keywords = c.options.keywords?.flatMap((k) => k.split(','))
+    const client = getClient(c.env.CURL_MD_BASE_URL)
+    const res = await client.api[':url{.+}'].$get({
+      param: { url: url },
+      query: {
+        fresh: c.options.fresh ? '' : undefined,
+        k: keywords?.join(','),
+        q: c.options.objective,
+      },
+    })
     const text = await res.text()
 
-    if (!res.ok) return error({ code: 'FETCH_FAILED', message: text })
+    if (!res.ok) return c.error({ code: 'FETCH_FAILED', message: text })
 
-    if (!options.objective)
-      return ok(text, {
+    if (!c.options.objective)
+      return c.ok(text, {
         cta: {
           description: 'Narrow results with an objective:',
           commands: [
@@ -172,13 +183,4 @@ const cli = Cli.create('curl.md', {
   },
 })
 
-cli.serve()
-
 export default cli
-
-async function readStdin(): Promise<string | undefined> {
-  if (process.stdin.isTTY) return undefined
-  let data = ''
-  for await (const chunk of process.stdin) data += chunk
-  return data.trim() || undefined
-}
