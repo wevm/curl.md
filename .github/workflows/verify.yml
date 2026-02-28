@@ -59,18 +59,17 @@ jobs:
       - name: Generate types
         run: |
           pnpm gen:types
+          ${{ inputs.submodules && 'pnpm --filter pro gen:types' || '' }}
           pnpm db:codegen
 
       - name: Check types
         run: pnpm check:types
 
       - name: Test
-        run: pnpm vitest --project app --project cli
-
-      # TODO: Merge into "Test" step once `@cloudflare/vitest-pool-workers` supports vitest v4
-      # https://github.com/cloudflare/workers-sdk/issues/11064
-      - name: Test (Workers)
-        run: pnpm test:workers -- --run
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: pnpm test
 
       - name: Build
         run: pnpm build

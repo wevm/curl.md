@@ -10,7 +10,8 @@
   "license": "MIT",
   "type": "module",
   "bin": {
-    "curl.md": "./dist/bin.js"
+    "curl.md": "./dist/bin.js",
+    "curl.md.src": "./src/cli.ts"
   },
   "files": [
     "dist"

@@ -51,9 +51,8 @@
   "devDependencies": {
     "@biomejs/biome": "catalog:",
     "@changesets/cli": "^2.29.8",
-    "@cloudflare/vitest-pool-workers": "~0.8.71",
-    "@iconify-json/lucide": "^1.2.91",
-    "@iconify-json/octicon": "^1.2.21",
+    "@cloudflare/vitest-pool-workers": "catalog:",
+    "@iconify/json": "^2.2.344",
     "@svgr/core": "^8.1.0",
     "@svgr/plugin-jsx": "^8.1.0",
     "@svitejs/changesets-changelog-github-compact": "^1.2.0",
@@ -70,7 +69,7 @@
     "unplugin-auto-import": "^21.0.0",
     "unplugin-icons": "^23.0.1",
     "vite": "^7.1.7",
-    "vitest": "~3.2.4",
+    "vitest": "catalog:",
     "wrangler": "catalog:"
   },
   "packageManager": "pnpm@10.22.0",

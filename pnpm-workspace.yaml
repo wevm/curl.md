@@ -4,6 +4,7 @@ packages:
 
 catalog:
   '@biomejs/biome': 2.3.13
+  '@cloudflare/vitest-pool-workers': ~0.8.71
   '@cloudflare/workers-types': ^4.20260302.0
   '@modelcontextprotocol/sdk': ^1.27.1
   '@types/hast': ^3.0.4
@@ -15,6 +16,7 @@ catalog:
   remark-stringify: ^11.0.0
   unified: ^11.0.5
   vfile: ^6.0.3
+  vitest: ~3.2.4
   wrangler: ^4.68.0
   zod: ^4.3.6
 
