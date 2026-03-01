@@ -99,17 +99,8 @@ export const api = new Hono<{
     async (c) => {
       const query = c.req.valid('query')
 
-      const errorUrl = new URL('/auth/error', `https://${c.env.HOST}`)
-      const cookieState = Cookie.get(c, 'curl.state')
-      Cookie.destroy(c, 'curl.state', {
-        domain: Cookie.getDomain(c.env.HOST),
-      })
-      if (!cookieState || cookieState !== query.state) {
-        errorUrl.searchParams.set('error', 'invalid_request')
-        errorUrl.searchParams.set('error_description', 'State mismatch')
-        return c.redirect(errorUrl.toString())
-      }
-
+      // Redirect to preview callback before reading/destroying the state cookie
+      // so the preview worker can validate it
       if (query.next) {
         try {
           const nextUrl = new URL(query.next)
@@ -126,6 +117,17 @@ export const api = new Hono<{
             return c.redirect(previewCallback.toString())
           }
         } catch {}
+      }
+
+      const cookieState = Cookie.get(c, 'curl.state')
+      Cookie.destroy(c, 'curl.state', {
+        domain: Cookie.getDomain(c.env.HOST),
+      })
+      const errorUrl = new URL('/auth/error', `https://${c.env.HOST}`)
+      if (!cookieState || cookieState !== query.state) {
+        errorUrl.searchParams.set('error', 'invalid_request')
+        errorUrl.searchParams.set('error_description', 'State mismatch')
+        return c.redirect(errorUrl.toString())
       }
 
       const tokenUrl = new URL('https://github.com/login/oauth/access_token')
