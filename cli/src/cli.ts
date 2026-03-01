@@ -180,12 +180,8 @@ const cli = Cli.create('curl.md', {
   },
 })
 
-// TODO: use c.env instead of process.env when supported in incur
 cli.use(async (c, next) => {
-  c.set(
-    'client',
-    hc<typeof api>(process.env.CURL_MD_BASE_URL ?? 'https://curl.md'),
-  )
+  c.set('client', hc<typeof api>(c.env.CURL_MD_BASE_URL))
   return next()
 })
 
