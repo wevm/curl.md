@@ -99,7 +99,7 @@ describe('GET /api/auth/github/callback', () => {
     )
   })
 
-  test('creates account and redirects to /new', async () => {
+  test('creates account and redirects to account login', async () => {
     const query = { code: 'good', state: 'test-state' }
 
     fetchMock
@@ -141,7 +141,7 @@ describe('GET /api/auth/github/callback', () => {
       { headers: { Cookie: `curl.state=${query.state}` } },
     )
     expect(res.status).toBe(302)
-    expect(res.headers.get('location')).toBe('https://curl.local/new')
+    expect(res.headers.get('location')).toBe('https://curl.local/testuser')
     expect(
       res.headers.getSetCookie().some((c) => c.startsWith('curl.session=')),
     ).toBe(true)
@@ -159,17 +159,12 @@ describe('GET /api/auth/github/callback', () => {
       .selectAll()
       .executeTakeFirstOrThrow()
     expect(account.email).toBe('test@example.com')
+    expect(account.login).toBe('testuser')
     expect(account.name).toBe('Test User')
   })
 
   test('logs in existing account', async () => {
-    const account = await factory.account.insert({})
-    const org = await factory.organization.insert({})
-    await factory.organization_member.insert({
-      account_id: account.id,
-      organization_id: org.id,
-      role: 'owner',
-    })
+    const account = await factory.account.insert({ login: 'existinguser' })
     await factory.account_provider.insert({
       account_id: account.id,
       provider: 'github',
@@ -217,7 +212,9 @@ describe('GET /api/auth/github/callback', () => {
       { headers: { Cookie: `curl.state=${query.state}` } },
     )
     expect(res.status).toBe(302)
-    expect(res.headers.get('location')).toBe(`https://curl.local/${org.slug}`)
+    expect(res.headers.get('location')).toBe(
+      `https://curl.local/${account.login}`,
+    )
 
     // Verify account was updated, not duplicated
     const accounts = await db
@@ -228,15 +225,6 @@ describe('GET /api/auth/github/callback', () => {
     expect(accounts).toHaveLength(1)
     expect(accounts[0]?.name).toBe('Existing User')
     expect(accounts[0]?.email).toBe('existing@example.com')
-
-    // Verify no new org was created
-    const memberships = await db
-      .selectFrom('organization_member')
-      .where('account_id', '=', account.id)
-      .selectAll()
-      .execute()
-    expect(memberships).toHaveLength(1)
-    expect(memberships[0]?.organization_id).toBe(org.id)
   })
 })
 
@@ -265,7 +253,7 @@ test('GET /api/health returns ok', async () => {
 describe('POST /api/organizations', () => {
   test('without session returns 401', async () => {
     const res = await client.api.organizations.$post({
-      json: { slug: 'my-org' },
+      json: { login: 'my-org' },
     })
     expect(res.status).toBe(401)
   })
@@ -275,7 +263,7 @@ describe('POST /api/organizations', () => {
     const session = await factory.session.insert({ account_id: account.id })
 
     const res = await client.api.organizations.$post(
-      { json: { name: 'My Org', slug: 'my-org' } },
+      { json: { login: 'my-org', name: 'My Org' } },
       {
         headers: {
           Cookie: await Cookie.generateSigned(
@@ -287,11 +275,11 @@ describe('POST /api/organizations', () => {
       },
     )
     expect(res.status).toBe(200)
-    expect(await res.json()).toEqual({ slug: 'my-org' })
+    expect(await res.json()).toEqual({ login: 'my-org' })
 
     const org = await db
       .selectFrom('organization')
-      .where('slug', '=', 'my-org')
+      .where('login', '=', 'my-org')
       .selectAll()
       .executeTakeFirstOrThrow()
     expect(org.name).toBe('My Org')
@@ -305,12 +293,12 @@ describe('POST /api/organizations', () => {
     expect(membership.role).toBe('owner')
   })
 
-  test('uses slug as name when name is omitted', async () => {
+  test('uses login as name when name is omitted', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
 
     const res = await client.api.organizations.$post(
-      { json: { slug: 'cli-org' } },
+      { json: { login: 'cli-org' } },
       {
         headers: {
           Cookie: await Cookie.generateSigned(
@@ -325,19 +313,19 @@ describe('POST /api/organizations', () => {
 
     const org = await db
       .selectFrom('organization')
-      .where('slug', '=', 'cli-org')
+      .where('login', '=', 'cli-org')
       .selectAll()
       .executeTakeFirstOrThrow()
     expect(org.name).toBe('cli-org')
   })
 
-  test('rejects duplicate slug', async () => {
+  test('rejects duplicate login', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
-    await factory.organization.insert({ name: 'Taken', slug: 'taken' })
+    await factory.organization.insert({ login: 'taken', name: 'Taken' })
 
     const res = await client.api.organizations.$post(
-      { json: { slug: 'taken' } },
+      { json: { login: 'taken' } },
       {
         headers: {
           Cookie: await Cookie.generateSigned(
@@ -350,7 +338,7 @@ describe('POST /api/organizations', () => {
     )
     expect(res.status).toBe(409)
     expect(await res.json()).toEqual({
-      error: 'Organization name already taken',
+      error: 'Login already taken',
     })
   })
 })

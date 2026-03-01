@@ -9,18 +9,18 @@ export const getRouter = () => {
     rewrite: {
       input: ({ url }) => {
         if (
-          url.pathname.startsWith('/~org') ||
+          url.pathname.startsWith('/~dash') ||
           url.pathname.startsWith('/api/')
         )
           return url
         const firstSegment = url.pathname.split('/')[1] ?? ''
         if (!firstSegment || knownRoutes.has(firstSegment)) return url
-        url.pathname = `/~org${url.pathname}`
+        url.pathname = `/~dash${url.pathname}`
         return url
       },
       output: ({ url }) => {
-        if (!url.pathname.startsWith('/~org')) return undefined
-        url.pathname = url.pathname.replace(/^\/~org/, '') || '/'
+        if (!url.pathname.startsWith('/~dash')) return undefined
+        url.pathname = url.pathname.replace(/^\/~dash/, '') || '/'
         return url
       },
     },
@@ -35,14 +35,13 @@ const knownRoutes: Set<string> = new Set<KnownRoute>([
   'auth',
   'check',
   'login',
-  'new',
   'playground',
 ])
 type KnownRoute = ExtractFirstSegment<keyof FileRoutesByTo>
-type ExtractFirstSegment<T> = T extends `/${infer S}`
-  ? S extends `~org/${string}`
+type ExtractFirstSegment<path> = path extends `/${infer segment}`
+  ? segment extends `~dash/${string}`
     ? never
-    : S extends `${infer First}/${string}`
-      ? First
-      : S
+    : segment extends `${infer head}/${string}`
+      ? head
+      : segment
   : never

@@ -9,6 +9,7 @@ import { z } from 'zod'
 import * as Cookie from '#lib/cookie.ts'
 import { fetchPage } from '#lib/core/fetch-page.ts'
 import type { DB } from '#lib/db.gen.ts'
+import * as Nanoid from '#lib/nanoid.ts'
 import * as Og from '#lib/og.tsx'
 import { dialect } from '#lib/pg.ts'
 import { urlSchema } from '#lib/schemas.ts'
@@ -99,7 +100,6 @@ export const api = new Hono<{
       const query = c.req.valid('query')
 
       const errorUrl = new URL('/auth/error', `https://${c.env.HOST}`)
-
       const cookieState = Cookie.get(c, 'curl.state')
       Cookie.destroy(c, 'curl.state', {
         domain: Cookie.getDomain(c.env.HOST),
@@ -115,7 +115,7 @@ export const api = new Hono<{
           const nextUrl = new URL(query.next)
           if (
             nextUrl.hostname !== c.env.HOST &&
-            nextUrl.hostname.endsWith('.curl.md')
+            nextUrl.hostname.endsWith(Cookie.getDomain(c.env.HOST))
           ) {
             const previewCallback = new URL(
               '/api/auth/github/callback',
@@ -179,10 +179,9 @@ export const api = new Hono<{
       const crewGitHubIds = new Set([6759464, 7336481])
       const role = crewGitHubIds.has(ghUser.id) ? 'crew' : 'user'
 
-      let account: { id: string }
-      const sessionId = crypto.randomUUID()
+      let result: { accountId: string; sessionId: string }
       try {
-        account = await c.var.db.transaction().execute(async (tx) => {
+        result = await c.var.db.transaction().execute(async (tx) => {
           const existing = await tx
             .selectFrom('account_provider')
             .where('provider', '=', 'github')
@@ -205,28 +204,48 @@ export const api = new Hono<{
                   .executeTakeFirstOrThrow()
               ).id
             : await (async () => {
-                const { id } = await tx
-                  .insertInto('account')
-                  .values({
-                    avatar_url: ghUser.avatar_url,
-                    email: primaryEmail,
-                    name: ghUser.name,
-                    role,
-                  })
-                  .returning('id')
-                  .executeTakeFirstOrThrow()
+                const values = {
+                  avatar_url: ghUser.avatar_url,
+                  email: primaryEmail,
+                  login: ghUser.login,
+                  name: ghUser.name,
+                  role,
+                } satisfies DB.Insertable.account
+                const inserted =
+                  (await tx
+                    .insertInto('account')
+                    .values(values)
+                    .onConflict((oc) => oc.column('login').doNothing())
+                    .returning('id')
+                    .executeTakeFirst()) ??
+                  (await tx
+                    .insertInto('account')
+                    .values({
+                      ...values,
+                      login: `${ghUser.login}-${Nanoid.generate()}`,
+                    })
+                    .returning('id')
+                    .executeTakeFirstOrThrow())
                 await tx
                   .insertInto('account_provider')
                   .values({
-                    account_id: id,
+                    account_id: inserted.id,
                     provider: 'github',
                     provider_account_id: String(ghUser.id),
                   })
                   .execute()
-                return id
+                return inserted.id
               })()
 
           const now = new Date()
+          const access_token_expires_at = tokenData.expires_in
+            ? new Date(now.getTime() + tokenData.expires_in * 1000)
+            : null
+          const refresh_token_expires_at = tokenData.refresh_token_expires_in
+            ? new Date(
+                now.getTime() + tokenData.refresh_token_expires_in * 1000,
+              )
+            : null
           await tx
             .insertInto('account_provider')
             .values({
@@ -235,41 +254,29 @@ export const api = new Hono<{
               provider_account_id: String(ghUser.id),
               access_token: tokenData.access_token,
               refresh_token: tokenData.refresh_token ?? null,
-              access_token_expires_at: tokenData.expires_in
-                ? new Date(now.getTime() + tokenData.expires_in * 1000)
-                : null,
-              refresh_token_expires_at: tokenData.refresh_token_expires_in
-                ? new Date(
-                    now.getTime() + tokenData.refresh_token_expires_in * 1000,
-                  )
-                : null,
+              access_token_expires_at,
+              refresh_token_expires_at,
             })
             .onConflict((oc) =>
               oc.constraint('unique_account_provider_provider').doUpdateSet({
                 access_token: tokenData.access_token,
                 refresh_token: tokenData.refresh_token ?? null,
-                access_token_expires_at: tokenData.expires_in
-                  ? new Date(now.getTime() + tokenData.expires_in * 1000)
-                  : null,
-                refresh_token_expires_at: tokenData.refresh_token_expires_in
-                  ? new Date(
-                      now.getTime() + tokenData.refresh_token_expires_in * 1000,
-                    )
-                  : null,
+                access_token_expires_at,
+                refresh_token_expires_at,
               }),
             )
             .execute()
 
-          await tx
+          const session = await tx
             .insertInto('session')
             .values({
-              id: sessionId,
               account_id: accountId,
               expires_at: sql<Date>`now() + interval '1 day'`,
             })
-            .execute()
+            .returning('id')
+            .executeTakeFirstOrThrow()
 
-          return { id: accountId }
+          return { accountId, sessionId: session.id }
         })
       } catch (error) {
         console.error('OAuth callback error:', error)
@@ -280,10 +287,11 @@ export const api = new Hono<{
         )
         return c.redirect(errorUrl.toString())
       }
+
       await Cookie.setSigned(
         c,
         'curl.session',
-        sessionId,
+        result.sessionId,
         c.env.COOKIE_SECRET,
         {
           domain: Cookie.getDomain(c.env.HOST),
@@ -300,28 +308,18 @@ export const api = new Hono<{
           const nextUrl = new URL(query.next, origin)
           if (
             nextUrl.origin === origin ||
-            nextUrl.hostname.endsWith(`.${c.env.HOST}`)
+            nextUrl.hostname.endsWith(Cookie.getDomain(c.env.HOST))
           )
             return c.redirect(nextUrl.toString())
         } catch {}
       }
 
-      const membership = await c.var.db
-        .selectFrom('organization_member')
-        .innerJoin(
-          'organization',
-          'organization.id',
-          'organization_member.organization_id',
-        )
-        .where('organization_member.account_id', '=', account.id)
-        .where('organization.deleted_at', 'is', null)
-        .select('organization.slug')
-        .executeTakeFirst()
-
-      const redirect = membership
-        ? `${origin}/${membership.slug}`
-        : `${origin}/new`
-      return c.redirect(redirect)
+      const accountRow = await c.var.db
+        .selectFrom('account')
+        .where('id', '=', result.accountId)
+        .select('login')
+        .executeTakeFirstOrThrow()
+      return c.redirect(`${origin}/${accountRow.login}`)
     },
   )
   .post('/api/auth/logout', async (c) => {
@@ -351,6 +349,7 @@ export const api = new Hono<{
         'avatar_url',
         'email',
         'id',
+        'login',
         'name',
         'role',
         jsonArrayFrom(
@@ -365,8 +364,8 @@ export const api = new Hono<{
             .where('organization.deleted_at', 'is', null)
             .select([
               'organization.id',
+              'organization.login',
               'organization.name',
-              'organization.slug',
             ]),
         ).as('organizations'),
       ])
@@ -402,8 +401,7 @@ export const api = new Hono<{
     validator(
       'json',
       z.object({
-        name: z.string().min(2).max(50).optional(),
-        slug: z
+        login: z
           .string()
           .min(2)
           .max(50)
@@ -411,6 +409,7 @@ export const api = new Hono<{
             /^[a-z0-9][a-z0-9-]*[a-z0-9]$/,
             'Must start and end with a lowercase letter or number, and contain only lowercase letters, numbers, or hyphens',
           ),
+        name: z.string().min(2).max(50).optional(),
       }),
     ),
     async (c) => {
@@ -418,29 +417,36 @@ export const api = new Hono<{
 
       const json = c.req.valid('json')
 
-      const reservedSlugs = new Set([
+      const reservedLogins = new Set([
         'api',
         'check',
         'login',
         'new',
         'playground',
       ])
-      if (reservedSlugs.has(json.slug))
-        return c.json({ error: 'This slug is reserved' }, 409)
+      if (reservedLogins.has(json.login))
+        return c.json({ error: 'This login is reserved' }, 409)
 
-      const existing = await c.var.db
-        .selectFrom('organization')
-        .where('slug', '=', json.slug)
-        .select('id')
-        .executeTakeFirst()
-      if (existing)
-        return c.json({ error: 'Organization name already taken' }, 409)
+      const [existingOrg, existingAccount] = await Promise.all([
+        c.var.db
+          .selectFrom('organization')
+          .where('login', '=', json.login)
+          .select('id')
+          .executeTakeFirst(),
+        c.var.db
+          .selectFrom('account')
+          .where('login', '=', json.login)
+          .select('id')
+          .executeTakeFirst(),
+      ])
+      if (existingOrg || existingAccount)
+        return c.json({ error: 'Login already taken' }, 409)
 
       const accountId = c.var.session.account_id
       await c.var.db.transaction().execute(async (tx) => {
         const org = await tx
           .insertInto('organization')
-          .values({ name: json.name ?? json.slug, slug: json.slug })
+          .values({ name: json.name ?? json.login, login: json.login })
           .returning('id')
           .executeTakeFirstOrThrow()
         await tx
@@ -453,7 +459,7 @@ export const api = new Hono<{
           .execute()
       })
 
-      return c.json({ slug: json.slug })
+      return c.json({ login: json.login })
     },
   )
   .get(
@@ -519,7 +525,7 @@ export const api = new Hono<{
         objective: query.q,
       })
 
-      const requestId = crypto.randomUUID()
+      const requestId = Nanoid.generate()
       c.env.REQUEST_QUEUE.send({
         estimated: page.estimated,
         hostname: url.hostname,

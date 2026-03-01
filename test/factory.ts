@@ -37,9 +37,11 @@ const defaultConfig: Partial<{
   [K in keyof DB]: () => Partial<Insertable<DB[K]>>
 }> = {
   account() {
+    const id = Nanoid.generate()
     return {
-      email: `${Nanoid.generate()}@example.com`,
-      name: `User ${Nanoid.generate()}`,
+      email: `${id}@example.com`,
+      login: id,
+      name: `User ${id}`,
     }
   },
   account_provider() {
@@ -49,10 +51,10 @@ const defaultConfig: Partial<{
     }
   },
   organization() {
-    const slug = Nanoid.generate()
+    const login = Nanoid.generate()
     return {
-      name: slug,
-      slug,
+      login,
+      name: login,
     }
   },
   organization_member() {

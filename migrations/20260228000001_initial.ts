@@ -14,10 +14,11 @@ export async function up(db: Kysely<unknown>): Promise<void> {
 
   await db.schema
     .createTable('account')
-    .addColumn('id', 'varchar(255)', (col) =>
+    .addColumn('id', 'varchar(20)', (col) =>
       col.primaryKey().defaultTo(nanoid()),
     )
     .addColumn('email', 'varchar(255)', (col) => col.notNull())
+    .addColumn('login', 'varchar(255)', (col) => col.notNull().unique())
     .addColumn('name', 'varchar(255)')
     .addColumn('avatar_url', 'varchar(255)')
     .addColumn('role', account_role(), (col) =>
@@ -31,10 +32,10 @@ export async function up(db: Kysely<unknown>): Promise<void> {
 
   await db.schema
     .createTable('account_provider')
-    .addColumn('id', 'varchar(255)', (col) =>
+    .addColumn('id', 'varchar(20)', (col) =>
       col.primaryKey().defaultTo(nanoid()),
     )
-    .addColumn('account_id', 'varchar(255)', (col) =>
+    .addColumn('account_id', 'varchar(20)', (col) =>
       col.notNull().references('account.id'),
     )
     .addColumn('provider', 'varchar(255)', (col) => col.notNull())
@@ -54,11 +55,11 @@ export async function up(db: Kysely<unknown>): Promise<void> {
 
   await db.schema
     .createTable('organization')
-    .addColumn('id', 'varchar(255)', (col) =>
+    .addColumn('id', 'varchar(20)', (col) =>
       col.primaryKey().defaultTo(nanoid()),
     )
     .addColumn('name', 'varchar(255)', (col) => col.notNull())
-    .addColumn('slug', 'varchar(255)', (col) => col.notNull().unique())
+    .addColumn('login', 'varchar(255)', (col) => col.notNull().unique())
     .addColumn('created_at', 'timestamptz', (col) =>
       col.notNull().defaultTo(now()),
     )
@@ -67,13 +68,13 @@ export async function up(db: Kysely<unknown>): Promise<void> {
 
   await db.schema
     .createTable('organization_member')
-    .addColumn('id', 'varchar(255)', (col) =>
+    .addColumn('id', 'varchar(20)', (col) =>
       col.primaryKey().defaultTo(nanoid()),
     )
-    .addColumn('organization_id', 'varchar(255)', (col) =>
+    .addColumn('organization_id', 'varchar(20)', (col) =>
       col.notNull().references('organization.id'),
     )
-    .addColumn('account_id', 'varchar(255)', (col) =>
+    .addColumn('account_id', 'varchar(20)', (col) =>
       col.notNull().references('account.id'),
     )
     .addColumn('role', organization_member_role(), (col) =>
@@ -90,13 +91,13 @@ export async function up(db: Kysely<unknown>): Promise<void> {
 
   await db.schema
     .createTable('api_key')
-    .addColumn('id', 'varchar(255)', (col) =>
+    .addColumn('id', 'varchar(20)', (col) =>
       col.primaryKey().defaultTo(nanoid()),
     )
-    .addColumn('organization_id', 'varchar(255)', (col) =>
-      col.notNull().references('organization.id'),
+    .addColumn('organization_id', 'varchar(20)', (col) =>
+      col.references('organization.id'),
     )
-    .addColumn('account_id', 'varchar(255)', (col) =>
+    .addColumn('account_id', 'varchar(20)', (col) =>
       col.notNull().references('account.id'),
     )
     .addColumn('key_prefix', 'varchar(255)', (col) => col.notNull())
@@ -111,7 +112,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
 
   await db.schema
     .createTable('request')
-    .addColumn('id', 'varchar(255)', (col) =>
+    .addColumn('id', 'varchar(20)', (col) =>
       col.primaryKey().defaultTo(nanoid()),
     )
     .addColumn('url', 'text', (col) => col.notNull())
@@ -121,9 +122,9 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('user_agent', 'text')
     .addColumn('tokens_saved', 'integer')
     .addColumn('keywords', 'text')
-    .addColumn('organization_id', 'varchar(255)')
-    .addColumn('api_key_id', 'varchar(255)')
-    .addColumn('account_id', 'varchar(255)')
+    .addColumn('organization_id', 'varchar(20)')
+    .addColumn('api_key_id', 'varchar(20)')
+    .addColumn('account_id', 'varchar(20)')
     .addColumn('created_at', 'timestamptz', (col) =>
       col.notNull().defaultTo(now()),
     )
@@ -131,10 +132,10 @@ export async function up(db: Kysely<unknown>): Promise<void> {
 
   await db.schema
     .createTable('session')
-    .addColumn('id', 'varchar(255)', (col) =>
+    .addColumn('id', 'varchar(20)', (col) =>
       col.primaryKey().defaultTo(nanoid()),
     )
-    .addColumn('account_id', 'varchar(255)', (col) =>
+    .addColumn('account_id', 'varchar(20)', (col) =>
       col.notNull().references('account.id'),
     )
     .addColumn('expires_at', 'timestamptz', (col) => col.notNull())
@@ -162,6 +163,12 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .execute()
 
   await db.schema
+    .createIndex('index_account_login')
+    .on('account')
+    .column('login')
+    .execute()
+
+  await db.schema
     .createIndex('index_api_key_organization_id')
     .on('api_key')
     .column('organization_id')
@@ -170,6 +177,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
 
 export async function down(db: Kysely<unknown>): Promise<void> {
   await db.schema.dropIndex('index_api_key_organization_id').execute()
+  await db.schema.dropIndex('index_account_login').execute()
   await db.schema.dropIndex('index_account_provider_account_id').execute()
   await db.schema.dropIndex('index_request_created_at').execute()
   await db.schema.dropIndex('index_request_hostname').execute()

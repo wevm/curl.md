@@ -12,9 +12,8 @@ export const Route = createFileRoute('/login')({
   }),
   validateSearch: z.object({ next: z.string().optional() }),
   beforeLoad: async () => {
-    const slug = await getSessionOrgSlug()
-    if (slug === '') throw redirect({ to: '/new' })
-    if (slug) throw redirect({ to: '/~org/$slug', params: { slug } })
+    const login = await getSessionLogin()
+    if (login) throw redirect({ to: '/~dash/$login', params: { login } })
   },
   component: Login,
 })
@@ -41,25 +40,17 @@ function Login() {
   )
 }
 
-const getSessionOrgSlug = createServerFn({ method: 'GET' }).handler(
-  async () => {
-    const request = getRequest()
-    const db = getDb(env.DB.connectionString)
-    const accountId = await Session.getAccountId(request, db, env.COOKIE_SECRET)
-    if (!accountId) return null
+const getSessionLogin = createServerFn({ method: 'GET' }).handler(async () => {
+  const request = getRequest()
+  const db = getDb(env.DB.connectionString)
+  const accountId = await Session.getAccountId(request, db, env.COOKIE_SECRET)
+  if (!accountId) return null
 
-    const membership = await db
-      .selectFrom('organization_member')
-      .innerJoin(
-        'organization',
-        'organization.id',
-        'organization_member.organization_id',
-      )
-      .where('organization_member.account_id', '=', accountId)
-      .where('organization.deleted_at', 'is', null)
-      .select('organization.slug')
-      .executeTakeFirst()
+  const account = await db
+    .selectFrom('account')
+    .where('id', '=', accountId)
+    .select('login')
+    .executeTakeFirst()
 
-    return membership?.slug ?? ''
-  },
-)
+  return account?.login ?? null
+})

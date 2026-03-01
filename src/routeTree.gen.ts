@@ -10,22 +10,16 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as PlaygroundRouteImport } from './routes/playground'
-import { Route as NewRouteImport } from './routes/new'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as CheckRouteImport } from './routes/check'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthErrorRouteImport } from './routes/auth/error'
-import { Route as Char126orgSlugRouteRouteImport } from './routes/~org.$slug/route'
-import { Route as Char126orgSlugIndexRouteImport } from './routes/~org.$slug/index'
+import { Route as Char126dashLoginRouteRouteImport } from './routes/~dash.$login/route'
+import { Route as Char126dashLoginIndexRouteImport } from './routes/~dash.$login/index'
 
 const PlaygroundRoute = PlaygroundRouteImport.update({
   id: '/playground',
   path: '/playground',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const NewRoute = NewRouteImport.update({
-  id: '/new',
-  path: '/new',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -48,46 +42,43 @@ const AuthErrorRoute = AuthErrorRouteImport.update({
   path: '/auth/error',
   getParentRoute: () => rootRouteImport,
 } as any)
-const Char126orgSlugRouteRoute = Char126orgSlugRouteRouteImport.update({
-  id: '/~org/$slug',
-  path: '/~org/$slug',
+const Char126dashLoginRouteRoute = Char126dashLoginRouteRouteImport.update({
+  id: '/~dash/$login',
+  path: '/~dash/$login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const Char126orgSlugIndexRoute = Char126orgSlugIndexRouteImport.update({
+const Char126dashLoginIndexRoute = Char126dashLoginIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => Char126orgSlugRouteRoute,
+  getParentRoute: () => Char126dashLoginRouteRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/check': typeof CheckRoute
   '/login': typeof LoginRoute
-  '/new': typeof NewRoute
   '/playground': typeof PlaygroundRoute
-  '/~org/$slug': typeof Char126orgSlugRouteRouteWithChildren
+  '/~dash/$login': typeof Char126dashLoginRouteRouteWithChildren
   '/auth/error': typeof AuthErrorRoute
-  '/~org/$slug/': typeof Char126orgSlugIndexRoute
+  '/~dash/$login/': typeof Char126dashLoginIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/check': typeof CheckRoute
   '/login': typeof LoginRoute
-  '/new': typeof NewRoute
   '/playground': typeof PlaygroundRoute
   '/auth/error': typeof AuthErrorRoute
-  '/~org/$slug': typeof Char126orgSlugIndexRoute
+  '/~dash/$login': typeof Char126dashLoginIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/check': typeof CheckRoute
   '/login': typeof LoginRoute
-  '/new': typeof NewRoute
   '/playground': typeof PlaygroundRoute
-  '/~org/$slug': typeof Char126orgSlugRouteRouteWithChildren
+  '/~dash/$login': typeof Char126dashLoginRouteRouteWithChildren
   '/auth/error': typeof AuthErrorRoute
-  '/~org/$slug/': typeof Char126orgSlugIndexRoute
+  '/~dash/$login/': typeof Char126dashLoginIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -95,39 +86,35 @@ export interface FileRouteTypes {
     | '/'
     | '/check'
     | '/login'
-    | '/new'
     | '/playground'
-    | '/~org/$slug'
+    | '/~dash/$login'
     | '/auth/error'
-    | '/~org/$slug/'
+    | '/~dash/$login/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/check'
     | '/login'
-    | '/new'
     | '/playground'
     | '/auth/error'
-    | '/~org/$slug'
+    | '/~dash/$login'
   id:
     | '__root__'
     | '/'
     | '/check'
     | '/login'
-    | '/new'
     | '/playground'
-    | '/~org/$slug'
+    | '/~dash/$login'
     | '/auth/error'
-    | '/~org/$slug/'
+    | '/~dash/$login/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CheckRoute: typeof CheckRoute
   LoginRoute: typeof LoginRoute
-  NewRoute: typeof NewRoute
   PlaygroundRoute: typeof PlaygroundRoute
-  Char126orgSlugRouteRoute: typeof Char126orgSlugRouteRouteWithChildren
+  Char126dashLoginRouteRoute: typeof Char126dashLoginRouteRouteWithChildren
   AuthErrorRoute: typeof AuthErrorRoute
 }
 
@@ -138,13 +125,6 @@ declare module '@tanstack/react-router' {
       path: '/playground'
       fullPath: '/playground'
       preLoaderRoute: typeof PlaygroundRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/new': {
-      id: '/new'
-      path: '/new'
-      fullPath: '/new'
-      preLoaderRoute: typeof NewRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -175,41 +155,42 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthErrorRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/~org/$slug': {
-      id: '/~org/$slug'
-      path: '/~org/$slug'
-      fullPath: '/~org/$slug'
-      preLoaderRoute: typeof Char126orgSlugRouteRouteImport
+    '/~dash/$login': {
+      id: '/~dash/$login'
+      path: '/~dash/$login'
+      fullPath: '/~dash/$login'
+      preLoaderRoute: typeof Char126dashLoginRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/~org/$slug/': {
-      id: '/~org/$slug/'
+    '/~dash/$login/': {
+      id: '/~dash/$login/'
       path: '/'
-      fullPath: '/~org/$slug/'
-      preLoaderRoute: typeof Char126orgSlugIndexRouteImport
-      parentRoute: typeof Char126orgSlugRouteRoute
+      fullPath: '/~dash/$login/'
+      preLoaderRoute: typeof Char126dashLoginIndexRouteImport
+      parentRoute: typeof Char126dashLoginRouteRoute
     }
   }
 }
 
-interface Char126orgSlugRouteRouteChildren {
-  Char126orgSlugIndexRoute: typeof Char126orgSlugIndexRoute
+interface Char126dashLoginRouteRouteChildren {
+  Char126dashLoginIndexRoute: typeof Char126dashLoginIndexRoute
 }
 
-const Char126orgSlugRouteRouteChildren: Char126orgSlugRouteRouteChildren = {
-  Char126orgSlugIndexRoute: Char126orgSlugIndexRoute,
+const Char126dashLoginRouteRouteChildren: Char126dashLoginRouteRouteChildren = {
+  Char126dashLoginIndexRoute: Char126dashLoginIndexRoute,
 }
 
-const Char126orgSlugRouteRouteWithChildren =
-  Char126orgSlugRouteRoute._addFileChildren(Char126orgSlugRouteRouteChildren)
+const Char126dashLoginRouteRouteWithChildren =
+  Char126dashLoginRouteRoute._addFileChildren(
+    Char126dashLoginRouteRouteChildren,
+  )
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CheckRoute: CheckRoute,
   LoginRoute: LoginRoute,
-  NewRoute: NewRoute,
   PlaygroundRoute: PlaygroundRoute,
-  Char126orgSlugRouteRoute: Char126orgSlugRouteRouteWithChildren,
+  Char126dashLoginRouteRoute: Char126dashLoginRouteRouteWithChildren,
   AuthErrorRoute: AuthErrorRoute,
 }
 export const routeTree = rootRouteImport

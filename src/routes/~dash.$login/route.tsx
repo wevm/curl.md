@@ -11,9 +11,9 @@ import { getRequest } from '@tanstack/react-start/server'
 import { getDb } from '#lib/db.ts'
 import * as Session from '#lib/session.ts'
 
-export const Route = createFileRoute('/~org/$slug')({
+export const Route = createFileRoute('/~dash/$login')({
   beforeLoad: async ({ location, params }) => {
-    const data = await getLayoutData({ data: { slug: params.slug } })
+    const data = await getLayoutData({ data: { login: params.login } })
     if (!data)
       throw redirect({
         to: '/login',
@@ -25,7 +25,7 @@ export const Route = createFileRoute('/~org/$slug')({
 })
 
 function DashboardLayout() {
-  const { account, organization } = Route.useRouteContext()
+  const { account } = Route.useRouteContext()
   const router = useRouter()
 
   const logout = useMutation({
@@ -46,7 +46,7 @@ function DashboardLayout() {
               src={account.avatar_url}
             />
           ) : null}
-          <span className="font-bold">{organization.name}</span>
+          <span className="font-bold">{account.name ?? account.login}</span>
         </div>
         <div className="flex items-center gap-3">
           <a
@@ -73,8 +73,8 @@ function DashboardLayout() {
 }
 
 const getLayoutData = createServerFn({ method: 'GET' })
-  .inputValidator((d: { slug: string }) => d)
-  .handler(async ({ data: { slug } }) => {
+  .inputValidator((d: { login: string }) => d)
+  .handler(async ({ data: { login } }) => {
     const request = getRequest()
     const db = getDb(env.DB.connectionString)
     const accountId = await Session.getAccountId(request, db, env.COOKIE_SECRET)
@@ -83,10 +83,15 @@ const getLayoutData = createServerFn({ method: 'GET' })
     const account = await db
       .selectFrom('account')
       .where('id', '=', accountId)
-      .select(['avatar_url', 'email', 'id', 'name'])
+      .select(['avatar_url', 'email', 'id', 'login', 'name'])
       .executeTakeFirst()
     if (!account) return null
 
+    // Check if login matches the logged-in account
+    if (account.login === login)
+      return { account, entity: { type: 'account' as const, ...account } }
+
+    // Check if login matches an organization the user belongs to
     const org = await db
       .selectFrom('organization')
       .innerJoin(
@@ -94,12 +99,12 @@ const getLayoutData = createServerFn({ method: 'GET' })
         'organization_member.organization_id',
         'organization.id',
       )
-      .where('organization.slug', '=', slug)
+      .where('organization.login', '=', login)
       .where('organization.deleted_at', 'is', null)
       .where('organization_member.account_id', '=', accountId)
-      .select(['organization.id', 'organization.name', 'organization.slug'])
+      .select(['organization.id', 'organization.login', 'organization.name'])
       .executeTakeFirst()
     if (!org) return null
 
-    return { account, organization: org }
+    return { account, entity: { type: 'organization' as const, ...org } }
   })

@@ -25,6 +25,7 @@ type account = {
   deleted_at: Timestamp | null
   email: string
   id: k.Generated<string>
+  login: string
   name: string | null
   role: k.Generated<'crew' | 'user'>
 }
@@ -50,15 +51,15 @@ type api_key = {
   key_prefix: string
   last_used_at: Timestamp | null
   name: string
-  organization_id: string
+  organization_id: string | null
 }
 
 type organization = {
   created_at: GeneratedTimestamp
   deleted_at: Timestamp | null
   id: k.Generated<string>
+  login: string
   name: string
-  slug: string
 }
 
 type organization_member = {
