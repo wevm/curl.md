@@ -1,11 +1,23 @@
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import { hc } from 'hono/client'
 import { Cli, z } from 'incur'
 import type { api } from '../../src/api.ts'
 import pkg from '../package.json' with { type: 'json' }
 
 const cli = Cli.create('curl.md', {
-  description: 'Fetch a web page and convert it to markdown.',
+  description: 'Fetch any web page and convert it to markdown.',
   version: pkg.version,
+  env: z.object({
+    CURL_MD_BASE_URL: z
+      .string()
+      .default('https://curl.md')
+      .describe('Base URL'),
+  }),
+  vars: z.object({
+    client: z.custom<ReturnType<typeof hc<typeof api>>>(),
+  }),
   usage: [
     { suffix: '<url> [options]' },
     { prefix: 'echo <url> |', suffix: '[options]' },
@@ -25,15 +37,6 @@ const cli = Cli.create('curl.md', {
       .describe('Narrow content to a specific objective'),
   }),
   alias: { fresh: 'f', keywords: 'k', objective: 'q' },
-  env: z.object({
-    CURL_MD_BASE_URL: z
-      .string()
-      .default('https://curl.md')
-      .describe('Base URL'),
-  }),
-  vars: z.object({
-    client: z.custom<ReturnType<typeof hc<typeof api>>>(),
-  }),
   examples: [
     { args: { url: 'example.com' } },
     {
@@ -148,7 +151,7 @@ const cli = Cli.create('curl.md', {
         },
       })
 
-    const keywords = c.options.keywords?.flatMap((k) => k.split(','))
+    const keywords = c.options.keywords?.flatMap((k: string) => k.split(','))
     const res = await c.var.client.api[':url{.+}'].$get({
       param: { url: url },
       query: {
@@ -181,8 +184,130 @@ const cli = Cli.create('curl.md', {
 })
 
 cli.use(async (c, next) => {
-  c.set('client', hc<typeof api>(c.env.CURL_MD_BASE_URL))
+  c.set(
+    'client',
+    hc<typeof api>(c.env.CURL_MD_BASE_URL, {
+      headers: (() => {
+        const session = readSession()
+        if (session) return { Authorization: `Bearer ${session.session_id}` }
+        return {} as Record<string, string>
+      })(),
+    }),
+  )
   return next()
 })
 
+const auth = Cli.create('auth', {
+  description: 'Authentication commands',
+  vars: z.object({
+    client: z.custom<ReturnType<typeof hc<typeof api>>>(),
+  }),
+})
+  .command('login', {
+    description: 'Log in to curl.md',
+    output: z.string(),
+    format: 'md',
+    async run(c) {
+      const existing = readSession()
+      if (existing) {
+        const res = await c.var.client.api.auth.me.$get()
+        const data = await res.json()
+        if (data.account)
+          return c.error({
+            code: 'ALREADY_LOGGED_IN',
+            message: `Already logged in as ${data.account.login}`,
+          })
+      }
+
+      const deviceRes = await c.var.client.api.auth.device.$post()
+      const device = await deviceRes.json()
+
+      const url = `${device.verification_uri}?user_code=${device.user_code}`
+      const { exec } = await import('node:child_process')
+      const openCmd =
+        process.platform === 'darwin'
+          ? 'open'
+          : process.platform === 'win32'
+            ? 'start'
+            : 'xdg-open'
+      exec(`${openCmd} "${url}"`)
+
+      console.log(`\nConfirmation Code: ${device.user_code}\n`)
+      console.log(
+        `If something goes wrong, copy and paste this URL into your browser: ${url}\n`,
+      )
+
+      const interval = (device.interval ?? 5) * 1000
+      while (true) {
+        await new Promise((r) => setTimeout(r, interval))
+        const tokenRes = await c.var.client.api.auth.device.token.$post({
+          json: { device_code: device.device_code },
+        })
+        const tokenData = await tokenRes.json()
+        if ('error' in tokenData) {
+          if (tokenData.error === 'authorization_pending') continue
+          return c.error({ code: 'AUTH_FAILED', message: tokenData.error })
+        }
+        if ('session_id' in tokenData) {
+          writeSession(tokenData.session_id)
+          return 'Successfully logged in.'
+        }
+      }
+    },
+  })
+  .command('logout', {
+    description: 'Log out of curl.md',
+    output: z.string(),
+    format: 'md',
+    async run() {
+      const session = readSession()
+      if (!session) return 'Not logged in.'
+      deleteSession()
+      return 'Logged out.'
+    },
+  })
+  .command('check', {
+    description: 'Check authentication status',
+    output: z.string(),
+    format: 'md',
+    async run(c) {
+      const session = readSession()
+      if (!session) return 'Not logged in. Run `curl.md auth login` to log in.'
+
+      const res = await c.var.client.api.auth.me.$get()
+      const data = await res.json()
+      if (!data.account) {
+        deleteSession()
+        return 'Session expired. Run `curl.md auth login` to log in again.'
+      }
+      return `Logged in as ${data.account.login} (${data.account.email})`
+    },
+  })
+
+cli.command(auth)
+
 export default cli
+
+function getConfigPath() {
+  return path.join(os.homedir(), '.config', 'curl-md', 'session.json')
+}
+
+function readSession(): { session_id: string } | null {
+  try {
+    return JSON.parse(fs.readFileSync(getConfigPath(), 'utf-8'))
+  } catch {
+    return null
+  }
+}
+
+function writeSession(sessionId: string) {
+  const configPath = getConfigPath()
+  fs.mkdirSync(path.dirname(configPath), { recursive: true })
+  fs.writeFileSync(configPath, JSON.stringify({ session_id: sessionId }))
+}
+
+function deleteSession() {
+  try {
+    fs.unlinkSync(getConfigPath())
+  } catch {}
+}

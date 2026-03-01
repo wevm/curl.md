@@ -31,7 +31,8 @@ export default defineConfig({
       {
         test: {
           name: 'cli',
-          globalSetup: ['test/globalSetup.ts'],
+          globalSetup: ['test/cli.globalSetup.ts'],
+          setupFiles: ['test/cli.setup.ts'],
           hookTimeout: 120_000,
           include: ['cli/src/**/*.test.ts'],
           root,
@@ -48,7 +49,7 @@ export default defineConfig({
             ...(hasPro ? ['pro/src/**/*.workers.test.ts'] : []),
           ],
           root,
-          globalSetup: ['test/globalSetup.ts'],
+          globalSetup: ['test/workers.globalSetup.ts'],
           setupFiles: ['test/workers.setup.ts'],
           poolOptions: {
             async workers(config) {

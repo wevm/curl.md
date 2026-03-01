@@ -40,7 +40,9 @@ const enums = await db
   .catch(() => new Map<string, string[]>())
 
 // Override types for varchar columns with known enum-like values
-const customTypes: Record<string, Record<string, string>> = {}
+const customTypes: Record<string, Record<string, string>> = {
+  device_code: { status: "'approved' | 'pending'" },
+}
 
 const timestampTypes = new Set([
   'timestamptz',

@@ -13,6 +13,7 @@ export interface DB {
   account: account
   account_provider: account_provider
   api_key: api_key
+  device_code: device_code
   organization: organization
   organization_member: organization_member
   request: request
@@ -52,6 +53,16 @@ type api_key = {
   last_used_at: Timestamp | null
   name: string
   organization_id: string | null
+}
+
+type device_code = {
+  account_id: string | null
+  created_at: GeneratedTimestamp
+  device_code: string
+  expires_at: Timestamp
+  id: k.Generated<string>
+  status: k.Generated<'approved' | 'pending'>
+  user_code: string
 }
 
 type organization = {
@@ -96,6 +107,7 @@ export declare namespace DB {
   type account = k.Selectable<DB['account']>
   type account_provider = k.Selectable<DB['account_provider']>
   type api_key = k.Selectable<DB['api_key']>
+  type device_code = k.Selectable<DB['device_code']>
   type organization = k.Selectable<DB['organization']>
   type organization_member = k.Selectable<DB['organization_member']>
   type request = k.Selectable<DB['request']>
@@ -105,6 +117,7 @@ export declare namespace DB {
     type account = k.Insertable<DB['account']>
     type account_provider = k.Insertable<DB['account_provider']>
     type api_key = k.Insertable<DB['api_key']>
+    type device_code = k.Insertable<DB['device_code']>
     type organization = k.Insertable<DB['organization']>
     type organization_member = k.Insertable<DB['organization_member']>
     type request = k.Insertable<DB['request']>
@@ -115,6 +128,7 @@ export declare namespace DB {
     type account = k.Selectable<DB['account']>
     type account_provider = k.Selectable<DB['account_provider']>
     type api_key = k.Selectable<DB['api_key']>
+    type device_code = k.Selectable<DB['device_code']>
     type organization = k.Selectable<DB['organization']>
     type organization_member = k.Selectable<DB['organization_member']>
     type request = k.Selectable<DB['request']>
@@ -125,6 +139,7 @@ export declare namespace DB {
     type account = k.Updateable<DB['account']>
     type account_provider = k.Updateable<DB['account_provider']>
     type api_key = k.Updateable<DB['api_key']>
+    type device_code = k.Updateable<DB['device_code']>
     type organization = k.Updateable<DB['organization']>
     type organization_member = k.Updateable<DB['organization_member']>
     type request = k.Updateable<DB['request']>

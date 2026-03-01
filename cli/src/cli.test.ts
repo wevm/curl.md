@@ -1,62 +1,8 @@
-import { spawn } from 'node:child_process'
-import { beforeAll, expect, inject, test, vi } from 'vitest'
+import { expect, inject, test } from 'vitest'
 import { Env } from '../../test/env.ts'
 import cli from './cli.ts'
 
-vi.mock('../package.json', () => ({ default: { version: 'x.y.z' } }))
-
-let baseUrl: string
-beforeAll(async () => {
-  const env = Env.parse(inject('env'))
-  const proc = spawn('pnpm', ['vite', 'dev'], {
-    cwd: process.cwd(),
-    env: { ...process.env, DB_URL: env.DB_URL },
-    stdio: 'pipe',
-  })
-
-  baseUrl = await new Promise<string>((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      proc.kill()
-      reject(
-        new Error(
-          `Dev server startup timeout\nstdout: ${stdout}\nstderr: ${stderr}`,
-        ),
-      )
-    }, 90_000)
-
-    let stderr = ''
-    let stdout = ''
-    const checkForUrl = (chunk: string) => {
-      // biome-ignore lint/suspicious/noControlCharactersInRegex: stripping ANSI escape codes
-      const clean = chunk.replace(/\x1b\[[0-9;]*m/g, '')
-      const match = clean.match(/Local:\s+(http:\/\/localhost:\d+)/)
-      if (!match) return
-      clearTimeout(timeout)
-      resolve(match[1]!)
-    }
-    proc.stdout?.on('data', (data: Buffer) => {
-      stdout += data.toString()
-      checkForUrl(data.toString())
-    })
-    proc.stderr?.on('data', (data: Buffer) => {
-      stderr += data.toString()
-      checkForUrl(data.toString())
-    })
-    proc.on('error', (err) => {
-      clearTimeout(timeout)
-      reject(err)
-    })
-    proc.on('exit', (code) => {
-      if (code !== null && code !== 0) {
-        clearTimeout(timeout)
-        reject(new Error(`Dev server exited with code ${code}\n${stderr}`))
-      }
-    })
-  })
-
-  process.env.CURL_MD_BASE_URL = baseUrl
-  return () => proc.kill()
-})
+const env = Env.parse(inject('env'))
 
 async function serve(
   argv: string[],
@@ -65,7 +11,7 @@ async function serve(
   let output = ''
   let exitCode: number | undefined
   await cli.serve(argv, {
-    env: { CURL_MD_BASE_URL: baseUrl, ...overrides },
+    env: { CURL_MD_BASE_URL: env.CURL_MD_BASE_URL, ...overrides },
     stdout(s: string) {
       output += s
     },
@@ -101,46 +47,49 @@ test('prints version', async () => {
 test('prints help', async () => {
   const { output } = await serve(['--help'])
   expect(output).toMatchInlineSnapshot(`
-		"curl.md — Fetch a web page and convert it to markdown.
-		vx.y.z
+    "curl.md — Fetch any web page and convert it to markdown.
+    vx.y.z
 
-		Usage: curl.md <url> [options]
-		       echo <url> | curl.md [options]
+    Usage: curl.md <url> [options]
+           echo <url> | curl.md [options]
 
-		Arguments:
-		  url  URL to fetch
+    Arguments:
+      url  URL to fetch
 
-		Options:
-		  --fresh, -f <boolean>     Force fresh fetch (bypass cache)
-		  --keywords, -k <array>    Pre-filter by keywords (comma-separated)
-		  --objective, -q <string>  Narrow content to a specific objective
+    Options:
+      --fresh, -f <boolean>     Force fresh fetch (bypass cache)
+      --keywords, -k <array>    Pre-filter by keywords (comma-separated)
+      --objective, -q <string>  Narrow content to a specific objective
 
-		Environment Variables:
-		  CURL_MD_BASE_URL  Base URL (default: https://curl.md)
+    Environment Variables:
+      CURL_MD_BASE_URL  Base URL (default: https://curl.md)
 
-		Examples:
-		  $ curl.md example.com
-		  $ curl.md example.com --objective pricing plans
-		  $ curl.md example.com --keywords api,auth
-		  $ curl.md example.com --objective authentication --keywords oauth,jwt
-		  $ curl.md docs.github.com/en/webhooks/webhook-events-and-payloads --objective pull request webhook event payload and actions --keywords pull_request
-		  $ curl.md developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch --objective streaming response body --keywords ReadableStream,getReader
-		  $ curl.md developers.cloudflare.com/d1/get-started --objective how to query D1 from a worker --keywords D1,bindings
-		  $ curl.md ai-sdk.dev/docs/ai-sdk-core/generating-text --objective how to stream text with the ai sdk --keywords streamText,generateText
+    Examples:
+      $ curl.md example.com
+      $ curl.md example.com --objective pricing plans
+      $ curl.md example.com --keywords api,auth
+      $ curl.md example.com --objective authentication --keywords oauth,jwt
+      $ curl.md docs.github.com/en/webhooks/webhook-events-and-payloads --objective pull request webhook event payload and actions --keywords pull_request
+      $ curl.md developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch --objective streaming response body --keywords ReadableStream,getReader
+      $ curl.md developers.cloudflare.com/d1/get-started --objective how to query D1 from a worker --keywords D1,bindings
+      $ curl.md ai-sdk.dev/docs/ai-sdk-core/generating-text --objective how to stream text with the ai sdk --keywords streamText,generateText
 
-		Built-in Commands:
-		  mcp add     Register as an MCP server
-		  skills add  Sync skill files to your agent
+    Commands:
+      auth  Authentication commands
 
-		Global Options:
-		  --format <toon|json|yaml|md|jsonl>  Output format
-		  --help                              Show help
-		  --llms                              Print LLM-readable manifest
-		  --mcp                               Start as MCP stdio server
-		  --verbose                           Show full output envelope
-		  --version                           Show version
-		"
-	`)
+    Built-in Commands:
+      mcp add     Register as an MCP server
+      skills add  Sync skill files to your agent
+
+    Global Options:
+      --format <toon|json|yaml|md|jsonl>  Output format
+      --help                              Show help
+      --llms                              Print LLM-readable manifest
+      --mcp                               Start as MCP stdio server
+      --verbose                           Show full output envelope
+      --version                           Show version
+    "
+  `)
 })
 
 test('exits with error for invalid url', async () => {

@@ -4,6 +4,7 @@ import { Hono } from 'hono'
 import { html, raw } from 'hono/html'
 import { Kysely, sql } from 'kysely'
 import { jsonArrayFrom } from 'kysely/helpers/postgres'
+import { customAlphabet } from 'nanoid'
 import { ImageResponse } from 'workers-og'
 import { z } from 'zod'
 import * as Cookie from '#lib/cookie.ts'
@@ -29,11 +30,14 @@ export const api = new Hono<{
         dialect: dialect(c.env.DB.connectionString),
       }),
     )
-    const sessionId = await Cookie.getSigned(
+    let sessionId = await Cookie.getSigned(
       c,
       c.env.COOKIE_SECRET,
       'curl.session',
     )
+    const authHeader = c.req.header('authorization')
+    if (!sessionId && authHeader?.startsWith('Bearer '))
+      sessionId = authHeader.slice(7)
     c.set(
       'session',
       sessionId
@@ -376,6 +380,85 @@ export const api = new Hono<{
 
     return c.json({ account })
   })
+  .post('/api/auth/device', async (c) => {
+    const device_code = Nanoid.generate()
+    const generateUserCode = customAlphabet(
+      'ABCDEFGHJKLMNPQRSTUVWXYZ23456789',
+      8,
+    )
+    const user_code = generateUserCode()
+    await c.var.db
+      .insertInto('device_code')
+      .values({
+        device_code,
+        expires_at: new Date(Date.now() + 15 * 60 * 1000),
+        status: 'pending',
+        user_code,
+      })
+      .execute()
+    return c.json({
+      device_code,
+      interval: 5,
+      user_code,
+      verification_uri: `https://${c.env.HOST}/auth/device`,
+    })
+  })
+  .post(
+    '/api/auth/device/token',
+    validator('json', z.object({ device_code: z.string() })),
+    async (c) => {
+      const json = c.req.valid('json')
+      const row = await c.var.db
+        .selectFrom('device_code')
+        .where('device_code', '=', json.device_code)
+        .select(['account_id', 'expires_at', 'id', 'status'])
+        .executeTakeFirst()
+      if (!row || row.expires_at <= new Date())
+        return c.json({ error: 'expired_token' }, 400)
+      if (row.status === 'pending')
+        return c.json({ error: 'authorization_pending' }, 400)
+      if (!row.account_id) return c.json({ error: 'expired_token' }, 400)
+      const sessionId = Nanoid.generate()
+      await c.var.db
+        .insertInto('session')
+        .values({
+          account_id: row.account_id,
+          expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          id: sessionId,
+        })
+        .execute()
+      await c.var.db
+        .deleteFrom('device_code')
+        .where('id', '=', row.id)
+        .execute()
+      return c.json({ session_id: sessionId })
+    },
+  )
+  .post(
+    '/api/auth/device/confirm',
+    validator('json', z.object({ user_code: z.string() })),
+    async (c) => {
+      if (!c.var.session) return c.json({ error: 'Unauthorized' }, 401)
+      const json = c.req.valid('json')
+      const row = await c.var.db
+        .selectFrom('device_code')
+        .where('user_code', '=', json.user_code)
+        .where('status', '=', 'pending')
+        .where('expires_at', '>', new Date())
+        .select('id')
+        .executeTakeFirst()
+      if (!row) return c.json({ error: 'Invalid or expired code' }, 404)
+      await c.var.db
+        .updateTable('device_code')
+        .set({
+          account_id: c.var.session.account_id,
+          status: 'approved',
+        })
+        .where('id', '=', row.id)
+        .execute()
+      return c.json({ ok: true })
+    },
+  )
   .get('/api/health', (c) => c.json({ ok: true }))
   .get('/api/og.png', validator('query', Og.schema), async (c) => {
     const query = c.req.valid('query')
