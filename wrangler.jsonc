@@ -84,6 +84,16 @@
     },
     "preview": {
       "name": "__PREVIEW_NAME__",
+      "observability": {
+        "enabled": true,
+        "logs": {
+          "head_sampling_rate": 1
+        },
+        "traces": {
+          "enabled": true,
+          "head_sampling_rate": 1
+        }
+      },
       "assets": {
         "binding": "ASSETS"
       },
