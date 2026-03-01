@@ -70,7 +70,10 @@ export const api = new Hono<{
       if (query.next) {
         try {
           const nextUrl = new URL(query.next, origin)
-          if (nextUrl.origin === origin)
+          if (
+            nextUrl.origin === origin ||
+            nextUrl.hostname.endsWith(Cookie.getDomain(c.env.HOST))
+          )
             callbackUrl.searchParams.set('next', query.next)
         } catch {}
       }

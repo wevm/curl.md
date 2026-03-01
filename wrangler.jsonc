@@ -17,11 +17,13 @@
   "hyperdrive": [
     {
       "binding": "DB",
-      "id": "local",
+      "id": "96d641bd374842d784a128d7de0428af",
       "localConnectionString": "postgresql://postgres:postgres@db.curl.local:5432/curl_dev"
     }
   ],
-  "kv_namespaces": [{ "binding": "KV", "id": "local" }],
+  "kv_namespaces": [
+    { "binding": "KV", "id": "e3a921b8d13741b99e7aa1cbb6144c9f" }
+  ],
   "queues": {
     "producers": [{ "binding": "REQUEST_QUEUE", "queue": "curl-request" }],
     "consumers": [

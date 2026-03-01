@@ -34,6 +34,18 @@ describe('GET /api/auth/github', () => {
     expect(new URL(redirectUri).searchParams.get('next')).toBe('/myorg')
   })
 
+  test('forwards preview subdomain next param in redirect_uri', async () => {
+    const res = await client.api.auth.github.$get({
+      query: { next: 'https://pr10.curl.local' },
+    })
+    expect(res.status).toBe(302)
+    const location = res.headers.get('location')!
+    const redirectUri = new URL(location).searchParams.get('redirect_uri')!
+    expect(new URL(redirectUri).searchParams.get('next')).toBe(
+      'https://pr10.curl.local',
+    )
+  })
+
   test('ignores invalid next param origin', async () => {
     const res = await client.api.auth.github.$get({
       query: { next: 'https://evil.com/steal' },

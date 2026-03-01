@@ -26,16 +26,14 @@ export default defineConfig({
     tailwindcss(),
     cloudflare({
       viteEnvironment: { name: 'ssr' },
-      ...(process.env.DB_URL
+      // Override localConnectionString for CLI tests (testcontainers uses a random port)
+      ...(process.env.DB_URL && process.env.VITEST
         ? {
-            config: (config) => {
-              config.hyperdrive = [
-                {
-                  binding: 'DB',
-                  id: 'local',
-                  localConnectionString: process.env.DB_URL,
-                },
-              ]
+            config(config) {
+              config.hyperdrive = config.hyperdrive?.map((h) => ({
+                ...h,
+                localConnectionString: process.env.DB_URL,
+              }))
             },
           }
         : {}),
