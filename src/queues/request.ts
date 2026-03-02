@@ -12,10 +12,13 @@ export async function processRequestMessage(
   await db
     .insertInto('request')
     .values({
+      account_id: body.account_id,
+      api_key_id: body.api_key_id,
       hostname: body.hostname,
       id: body.id,
       keywords: body.keywords,
       objective: body.objective,
+      organization_id: body.organization_id,
       path: body.path,
       tokens_saved: body.tokens_saved,
       url: body.url,
@@ -51,12 +54,15 @@ processRequestMessage.queueName = 'curl-request' as const
 
 export namespace processRequestMessage {
   export type Body = {
+    account_id: string | null
+    api_key_id: string | null
     estimated: boolean
     hostname: string
     id: string
     keywords: string | null
     markdownLength: number
     objective: string | null
+    organization_id: string | null
     path: string
     tokens_saved: number | null
     url: string

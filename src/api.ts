@@ -7,6 +7,7 @@ import { jsonArrayFrom } from 'kysely/helpers/postgres'
 import { customAlphabet } from 'nanoid'
 import { ImageResponse } from 'workers-og'
 import { z } from 'zod'
+import * as ApiKey from '#lib/api-key.ts'
 import * as Cookie from '#lib/cookie.ts'
 import { fetchPage } from '#lib/core/fetch-page.ts'
 import type { DB } from '#lib/db.gen.ts'
@@ -19,7 +20,9 @@ import type { OneOf } from '#lib/types.ts'
 export const api = new Hono<{
   Bindings: Cloudflare.Env
   Variables: {
+    api_key_id: string | null
     db: Kysely<DB>
+    organization_id: string | null
     session: Pick<DB.session, 'account_id'> | null
   }
 }>()
@@ -31,28 +34,75 @@ export const api = new Hono<{
       }),
     )
 
-    const sessionId = await (async () => {
-      const cookie = await Cookie.getSigned(
-        c,
-        c.env.COOKIE_SECRET,
-        'curl.session',
-      )
-      if (cookie) return cookie
-      const authorizationHeader = c.req.header('authorization')
-      if (authorizationHeader?.startsWith('Bearer '))
-        return authorizationHeader.replace('Bearer ', '')
-    })()
-    c.set(
-      'session',
-      sessionId
-        ? ((await c.var.db
-            .selectFrom('session')
-            .where('id', '=', sessionId)
-            .where('expires_at', '>', new Date())
-            .select('account_id')
-            .executeTakeFirst()) ?? null)
-        : null,
+    c.set('api_key_id', null)
+    c.set('organization_id', null)
+
+    // Try cookie → session lookup
+    const cookie = await Cookie.getSigned(
+      c,
+      c.env.COOKIE_SECRET,
+      'curl.session',
     )
+    if (cookie) {
+      c.set(
+        'session',
+        (await c.var.db
+          .selectFrom('session')
+          .where('id', '=', cookie)
+          .where('expires_at', '>', new Date())
+          .select('account_id')
+          .executeTakeFirst()) ?? null,
+      )
+      await next()
+      return
+    }
+
+    const authorizationHeader = c.req.header('authorization')
+    const token = authorizationHeader?.startsWith('Bearer ')
+      ? authorizationHeader.replace('Bearer ', '')
+      : undefined
+
+    // Try API key (curl_ prefix)
+    if (token?.startsWith('curl_')) {
+      const keyHash = await ApiKey.hash(token)
+      const apiKey = await c.var.db
+        .selectFrom('api_key')
+        .where('key_hash', '=', keyHash)
+        .where('deleted_at', 'is', null)
+        .select(['id', 'account_id', 'organization_id'])
+        .executeTakeFirst()
+      if (apiKey) {
+        c.set('api_key_id', apiKey.id)
+        c.set('organization_id', apiKey.organization_id)
+        c.set('session', { account_id: apiKey.account_id })
+        c.executionCtx.waitUntil(
+          c.var.db
+            .updateTable('api_key')
+            .set('last_used_at', new Date())
+            .where('id', '=', apiKey.id)
+            .execute(),
+        )
+        await next()
+        return
+      }
+    }
+
+    // Try bearer token → session lookup
+    if (token) {
+      c.set(
+        'session',
+        (await c.var.db
+          .selectFrom('session')
+          .where('id', '=', token)
+          .where('expires_at', '>', new Date())
+          .select('account_id')
+          .executeTakeFirst()) ?? null,
+      )
+      await next()
+      return
+    }
+
+    c.set('session', null)
     await next()
   })
   .get(
@@ -611,12 +661,15 @@ export const api = new Hono<{
 
       const requestId = Nanoid.generate()
       c.env.REQUEST_QUEUE.send({
+        account_id: c.var.session?.account_id ?? null,
+        api_key_id: c.var.api_key_id,
         estimated: page.estimated,
         hostname: url.hostname,
         id: requestId,
         keywords: query.k?.join(',') || null,
         markdownLength: page.markdown.length,
         objective: query.q || null,
+        organization_id: c.var.organization_id,
         path: url.pathname,
         tokens_saved: page.tokensSaved ?? null,
         url: url.href,

@@ -1,8 +1,9 @@
 import { env, fetchMock } from 'cloudflare:test'
 import { testClient } from 'hono/testing'
 import { Kysely } from 'kysely'
-import { describe, expect, test } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
 import { api } from '#api.ts'
+import * as ApiKey from '#lib/api-key.ts'
 import { assert } from '#lib/assert.ts'
 import * as Cookie from '#lib/cookie.ts'
 import type { DB } from '#lib/db.gen.ts'
@@ -355,6 +356,93 @@ describe('device auth flow', () => {
       .selectAll()
       .execute()
     expect(remaining).toHaveLength(0)
+  })
+})
+
+describe('API key authentication', () => {
+  const apiClient = testClient(api, env, {
+    waitUntil: vi.fn((p: Promise<unknown>) => p),
+    passThroughOnException: vi.fn(),
+  })
+
+  test('resolves API key from bearer token', async () => {
+    const account = await factory.account.insert({})
+    const org = await factory.organization.insert({})
+    await factory.organization_member.insert({
+      organization_id: org.id,
+      account_id: account.id,
+    })
+    const hash = await ApiKey.hash('curl_test123456')
+    await factory.api_key.insert({
+      organization_id: org.id,
+      account_id: account.id,
+      key_hash: hash,
+      key_prefix: 'curl_test',
+      name: 'test key',
+    })
+
+    const res = await apiClient.api.auth.me.$get(
+      {},
+      { headers: { Authorization: 'Bearer curl_test123456' } },
+    )
+    expect(res.status).toBe(200)
+    const data = await res.json()
+    expect(data.account).not.toBeNull()
+    expect(data.account!.id).toBe(account.id)
+  })
+
+  test('rejects deleted API key', async () => {
+    const account = await factory.account.insert({})
+    const org = await factory.organization.insert({})
+    await factory.organization_member.insert({
+      organization_id: org.id,
+      account_id: account.id,
+    })
+    const hash = await ApiKey.hash('curl_deleted789')
+    await factory.api_key.insert({
+      organization_id: org.id,
+      account_id: account.id,
+      key_hash: hash,
+      key_prefix: 'curl_dele',
+      name: 'deleted key',
+      deleted_at: new Date().toISOString(),
+    })
+
+    const res = await apiClient.api.auth.me.$get(
+      {},
+      { headers: { Authorization: 'Bearer curl_deleted789' } },
+    )
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ account: null })
+  })
+
+  test('updates last_used_at on API key use', async () => {
+    const account = await factory.account.insert({})
+    const org = await factory.organization.insert({})
+    await factory.organization_member.insert({
+      organization_id: org.id,
+      account_id: account.id,
+    })
+    const hash = await ApiKey.hash('curl_lastused999')
+    const apiKey = await factory.api_key.insert({
+      organization_id: org.id,
+      account_id: account.id,
+      key_hash: hash,
+      key_prefix: 'curl_last',
+      name: 'lastused key',
+    })
+
+    await apiClient.api.auth.me.$get(
+      {},
+      { headers: { Authorization: 'Bearer curl_lastused999' } },
+    )
+
+    const updated = await db
+      .selectFrom('api_key')
+      .where('id', '=', apiKey.id)
+      .select('last_used_at')
+      .executeTakeFirstOrThrow()
+    expect(updated.last_used_at).not.toBeNull()
   })
 })
 
