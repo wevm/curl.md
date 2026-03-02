@@ -1,12 +1,9 @@
-import { exec } from 'node:child_process'
-import fs from 'node:fs'
-import os from 'node:os'
-import path from 'node:path'
 import { hc } from 'hono/client'
 import { Cli, z } from 'incur'
 import pc from 'picocolors'
 import type { api } from '../../src/api.ts'
 import pkg from '../package.json' with { type: 'json' }
+import { createSpinner, openUrl, Session } from './utils.ts'
 
 const cli = Cli.create('curl.md', {
   description: 'Fetch any web page and convert it to markdown.',
@@ -19,6 +16,7 @@ const cli = Cli.create('curl.md', {
   }),
   vars: z.object({
     client: z.custom<ReturnType<typeof hc<typeof api>>>(),
+    session: z.custom<{ session_id: string } | null>(),
   }),
   usage: [
     { suffix: '<url> [options]' },
@@ -186,14 +184,14 @@ const cli = Cli.create('curl.md', {
 })
 
 cli.use(async (c, next) => {
+  const session = Session.read()
+  c.set('session', session)
   c.set(
     'client',
     hc<typeof api>(c.env.CURL_MD_BASE_URL, {
-      headers: (() => {
-        const session = readSession()
-        if (session) return { Authorization: `Bearer ${session.session_id}` }
-        return {} as Record<string, string>
-      })(),
+      headers: session
+        ? { Authorization: `Bearer ${session.session_id}` }
+        : ({} as Record<string, string>),
     }),
   )
   return next()
@@ -203,6 +201,7 @@ const auth = Cli.create('auth', {
   description: 'Authentication commands',
   vars: z.object({
     client: z.custom<ReturnType<typeof hc<typeof api>>>(),
+    session: z.custom<{ session_id: string } | null>(),
   }),
 })
   .command('login', {
@@ -210,8 +209,7 @@ const auth = Cli.create('auth', {
     output: z.string(),
     format: 'md',
     async run(c) {
-      const existing = readSession()
-      if (existing) {
+      if (c.var.session) {
         const res = await c.var.client.api.auth.me.$get()
         const data = await res.json()
         if (data.account)
@@ -252,7 +250,7 @@ const auth = Cli.create('auth', {
           }
           if ('session_id' in tokenData) {
             spinner.stop()
-            writeSession(tokenData.session_id)
+            Session.write(tokenData.session_id)
             return 'Successfully logged in.'
           }
         }
@@ -267,11 +265,10 @@ const auth = Cli.create('auth', {
     output: z.string(),
     format: 'md',
     async run(c) {
-      const session = readSession()
-      if (!session) return 'Already logged out.'
+      if (!c.var.session) return 'Already logged out.'
 
       await new Promise<void>((resolve) => {
-        process.stdout.write(`Press Enter to log out of ${c.name} API.`)
+        process.stdout.write(`Press Enter to log out of ${c.name} CLI.`)
         process.stdin.once('data', () => {
           process.stdin.pause()
           resolve()
@@ -279,7 +276,7 @@ const auth = Cli.create('auth', {
         process.stdin.resume()
       })
 
-      deleteSession()
+      Session.delete()
       return 'Successfully logged out.'
     },
   })
@@ -302,13 +299,12 @@ const auth = Cli.create('auth', {
         },
       }
 
-      const session = readSession()
-      if (!session) return c.error(notAuthenticated)
+      if (!c.var.session) return c.error(notAuthenticated)
 
       const res = await c.var.client.api.auth.me.$get()
       const data = await res.json()
       if (!data.account) {
-        deleteSession()
+        Session.delete()
         return c.error(notAuthenticated)
       }
       return 'You are authenticated.'
@@ -318,60 +314,3 @@ const auth = Cli.create('auth', {
 cli.command(auth)
 
 export default cli
-
-function getConfigPath() {
-  return path.join(os.homedir(), '.config', 'curl-md', 'session.json')
-}
-
-function readSession(): { session_id: string } | null {
-  try {
-    return JSON.parse(fs.readFileSync(getConfigPath(), 'utf-8'))
-  } catch {
-    return null
-  }
-}
-
-function writeSession(sessionId: string) {
-  const configPath = getConfigPath()
-  fs.mkdirSync(path.dirname(configPath), { recursive: true })
-  fs.writeFileSync(configPath, JSON.stringify({ session_id: sessionId }))
-}
-
-function deleteSession() {
-  try {
-    fs.unlinkSync(getConfigPath())
-  } catch {}
-}
-
-// Vendored ANSI spinner (inspired by Vitest's windowed renderer)
-const ANSI_CLEAR_LINE = '\x1B[2K'
-const ANSI_CURSOR_TO_START = '\x1B[G'
-const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
-
-function createSpinner(message: string) {
-  let frame = 0
-  const interval = setInterval(() => {
-    const symbol = pc.cyan(SPINNER_FRAMES[frame]!)
-    process.stderr.write(
-      `${ANSI_CURSOR_TO_START}${ANSI_CLEAR_LINE}${symbol} ${message}`,
-    )
-    frame = (frame + 1) % SPINNER_FRAMES.length
-  }, 80).unref()
-
-  return {
-    stop() {
-      clearInterval(interval)
-      process.stderr.write(`${ANSI_CURSOR_TO_START}${ANSI_CLEAR_LINE}`)
-    },
-  }
-}
-
-function openUrl(url: string) {
-  const cmd =
-    process.platform === 'darwin'
-      ? 'open'
-      : process.platform === 'win32'
-        ? 'start'
-        : 'xdg-open'
-  exec(`${cmd} "${url}"`)
-}
