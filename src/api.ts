@@ -207,7 +207,11 @@ export const api = new Hono<{
             token_type: 'bearer'
           }
         | {
-            error: string
+            error:
+              | 'bad_verification_code'
+              | 'incorrect_client_credentials'
+              | 'redirect_uri_mismatch'
+              | 'unverified_user_email'
             error_description: string
             error_uri: string
           }
@@ -308,7 +312,7 @@ export const api = new Hono<{
               )
             : null
           const encryptedAccessToken = await Crypto.encrypt(
-            tokenData.access_token!,
+            tokenData.access_token,
             c.env.TOKEN_ENCRYPTION_KEY,
           )
           const encryptedRefreshToken = tokenData.refresh_token
