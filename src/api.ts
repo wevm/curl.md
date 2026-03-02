@@ -497,19 +497,19 @@ export const api = new Hono<{
     return c.json({ organization })
   })
   .post('/api/auth/device', async (c) => {
-    const device_code = Nanoid.generate()
+    const code = Nanoid.generate()
     const user_code = customAlphabet('ABCDEFGHJKLMNPQRSTUVWXYZ23456789', 8)()
     await c.var.db
       .insertInto('device_code')
       .values({
-        device_code,
+        code,
         expires_at: new Date(Date.now() + 15 * 60 * 1000), // 15 minutes
         status: 'pending',
         user_code,
       })
       .execute()
     return c.json({
-      device_code,
+      code,
       interval: 1,
       user_code,
       verification_uri: `https://${c.env.HOST}/auth/device`,
@@ -517,12 +517,12 @@ export const api = new Hono<{
   })
   .post(
     '/api/auth/device/token',
-    validator('json', z.object({ device_code: z.string() })),
+    validator('json', z.object({ code: z.string() })),
     async (c) => {
       const json = c.req.valid('json')
       const deviceCode = await c.var.db
         .selectFrom('device_code')
-        .where('device_code', '=', json.device_code)
+        .where('code', '=', json.code)
         .select(['account_id', 'expires_at', 'id', 'status'])
         .executeTakeFirst()
       if (!deviceCode || deviceCode.expires_at <= new Date())

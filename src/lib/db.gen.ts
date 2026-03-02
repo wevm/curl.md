@@ -57,8 +57,8 @@ type api_key = {
 
 type device_code = {
   account_id: string | null
+  code: string
   created_at: GeneratedTimestamp
-  device_code: string
   expires_at: Timestamp
   id: k.Generated<string>
   status: k.Generated<'approved' | 'pending'>

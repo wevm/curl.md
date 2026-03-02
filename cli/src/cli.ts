@@ -223,7 +223,7 @@ const auth = Cli.create('auth', {
       try {
         while (true) {
           const tokenRes = await c.var.client.api.auth.device.token.$post({
-            json: { device_code: device.device_code },
+            json: { code: device.code },
           })
           const tokenData = await tokenRes.json()
           if ('error' in tokenData) {

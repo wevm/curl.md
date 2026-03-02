@@ -1,4 +1,4 @@
-import type { Kysely } from 'kysely'
+import { type Kysely, sql } from 'kysely'
 import { nanoid, now } from '../src/lib/pg.ts'
 
 export async function up(db: Kysely<unknown>): Promise<void> {
@@ -7,13 +7,16 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('id', 'varchar(20)', (col) =>
       col.primaryKey().defaultTo(nanoid()),
     )
-    .addColumn('device_code', 'varchar(255)', (col) => col.notNull().unique())
+    .addColumn('code', 'varchar(255)', (col) => col.notNull().unique())
     .addColumn('user_code', 'varchar(8)', (col) => col.notNull().unique())
     .addColumn('account_id', 'varchar(20)', (col) =>
       col.references('account.id'),
     )
     .addColumn('status', 'varchar(20)', (col) =>
-      col.notNull().defaultTo('pending'),
+      col
+        .notNull()
+        .defaultTo('pending')
+        .check(sql`status in ('approved', 'pending')`),
     )
     .addColumn('expires_at', 'timestamptz', (col) => col.notNull())
     .addColumn('created_at', 'timestamptz', (col) =>

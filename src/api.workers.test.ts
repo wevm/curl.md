@@ -265,7 +265,7 @@ describe('device auth flow', () => {
     const res = await client.api.auth.device.$post()
     expect(res.status).toBe(200)
     const data = await res.json()
-    expect(data.device_code).toBeDefined()
+    expect(data.code).toBeDefined()
     expect(data.user_code).toMatch(/^[A-Z2-9]{8}$/)
     expect(data.verification_uri).toBe('https://curl.local/auth/device')
     expect(data.interval).toBe(1)
@@ -276,7 +276,7 @@ describe('device auth flow', () => {
     const device = await deviceRes.json()
 
     const res = await client.api.auth.device.token.$post({
-      json: { device_code: device.device_code },
+      json: { code: device.code },
     })
     expect(res.status).toBe(400)
     expect(await res.json()).toEqual({ error: 'authorization_pending' })
@@ -284,7 +284,7 @@ describe('device auth flow', () => {
 
   test('polling invalid code returns expired_token', async () => {
     const res = await client.api.auth.device.token.$post({
-      json: { device_code: 'nonexistent' },
+      json: { code: 'nonexistent' },
     })
     expect(res.status).toBe(400)
     expect(await res.json()).toEqual({ error: 'expired_token' })
@@ -342,7 +342,7 @@ describe('device auth flow', () => {
 
     // 3. Exchange device code for session
     const tokenRes = await client.api.auth.device.token.$post({
-      json: { device_code: device.device_code },
+      json: { code: device.code },
     })
     expect(tokenRes.status).toBe(200)
     const tokenData = await tokenRes.json()
@@ -366,7 +366,7 @@ describe('device auth flow', () => {
     // 5. Verify device code was consumed (deleted)
     const remaining = await db
       .selectFrom('device_code')
-      .where('device_code', '=', device.device_code)
+      .where('code', '=', device.code)
       .selectAll()
       .execute()
     expect(remaining).toHaveLength(0)
