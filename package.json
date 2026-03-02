@@ -15,6 +15,7 @@
     "check:types": "tsgo -b && pnpm --filter curl.md check:types",
     "db": "docker exec -it curl-db psql -U postgres -d curl_dev",
     "db:codegen": "node --experimental-strip-types scripts/dbCodegen.ts",
+    "db:connect": "docker exec -it curl-db psql -U postgres -d curl_dev",
     "db:make": "kysely migrate make",
     "db:migrate": "kysely migrate",
     "deploy": "pnpm run build && wrangler deploy",
