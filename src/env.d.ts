@@ -1,6 +1,7 @@
 declare namespace Cloudflare {
   interface Env {
     KV: KVNamespace<
+      | `check:${string}`
       | `page:${string}`
       | `query:${string}`
       | `ratelimit:${string}`
@@ -8,6 +9,7 @@ declare namespace Cloudflare {
       | 'stats:tokens_saved'
       | `stats:tokens_saved:${string}`
     >
+    TOKEN_ENCRYPTION_KEY: string
     // Adding stronger queue types
     // https://github.com/cloudflare/workers-sdk/issues/7112
     REQUEST_QUEUE: Queue<

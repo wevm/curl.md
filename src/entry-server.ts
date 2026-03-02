@@ -1,4 +1,4 @@
-import handler from '@tanstack/react-start/server-entry'
+import serverEntry from '@tanstack/react-start/server-entry'
 import { z } from 'zod'
 import { api } from '#api.ts'
 import { getDb } from '#lib/db.ts'
@@ -29,7 +29,7 @@ export default {
         new URL(staticAssets[path as keyof typeof staticAssets], url),
       )
     // Fall through to TanStack Start SSR handler for all other routes (app pages)
-    return handler.fetch(request, { context: { ctx, env, request } })
+    return serverEntry.fetch(request, { context: { ctx, env, request } })
   },
   queue: async (batch, env) => {
     const queue = z.enum([processRequestMessage.queueName]).parse(batch.queue)
@@ -42,7 +42,8 @@ export default {
       try {
         await handler(message as never, db)
         message.ack()
-      } catch {
+      } catch (error) {
+        console.error(`Queue message ${message.id} failed:`, error)
         message.retry()
       }
     }

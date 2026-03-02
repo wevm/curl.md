@@ -81,6 +81,7 @@ jobs:
             echo "GH_CLIENT_ID=dummy"
             echo "COOKIE_SECRET=dummy"
             echo "GH_CLIENT_SECRET=dummy"
+            echo "TOKEN_ENCRYPTION_KEY=dGVzdC1lbmNyeXB0aW9uLWtleXRlc3QtZW5jcnlwdGk="
             echo "WRANGLER_SEND_METRICS=false"
           } > .env
 

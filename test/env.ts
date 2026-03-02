@@ -13,6 +13,7 @@ const schema = z.object({
   GH_CLIENT_ID: z.string(),
   GH_CLIENT_SECRET: z.string(),
   HOST: z.string(),
+  TOKEN_ENCRYPTION_KEY: z.string(),
 })
 
 type Input = z.infer<typeof schema>
@@ -26,6 +27,7 @@ export const Env = {
       GH_CLIENT_ID: 'test',
       GH_CLIENT_SECRET: 'test',
       HOST: 'curl.local',
+      TOKEN_ENCRYPTION_KEY: 'dGVzdC1lbmNyeXB0aW9uLWtleXRlc3QtZW5jcnlwdGk=',
       ...overrides,
     } satisfies Input
   },

@@ -84,10 +84,12 @@ jobs:
             COOKIE_SECRET
             GH_CLIENT_ID
             GH_CLIENT_SECRET
+            TOKEN_ENCRYPTION_KEY
         env:
           COOKIE_SECRET: ${{ secrets.COOKIE_SECRET }}
           GH_CLIENT_ID: ${{ secrets.GH_CLIENT_ID }}
           GH_CLIENT_SECRET: ${{ secrets.GH_CLIENT_SECRET }}
+          TOKEN_ENCRYPTION_KEY: ${{ secrets.TOKEN_ENCRYPTION_KEY }}
 
   changesets:
     name: Changesets

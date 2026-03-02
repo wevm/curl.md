@@ -3,6 +3,7 @@ import type { Kysely } from 'kysely'
 import { z } from 'zod'
 import { fetchPage } from '#lib/core/fetch-page.ts'
 import type { DB } from '#lib/db.gen.ts'
+import { formatCost, formatNumber } from '#lib/format.ts'
 import { computeScore } from '#lib/score.ts'
 
 export const schema = z
@@ -24,7 +25,7 @@ export async function getElement(
 ) {
   switch (query.page) {
     case 'check':
-      return checkVariant(host, query)
+      return checkVariant(host, env, query)
     case 'url': {
       const tokensSaved = await getTokensSaved(env, db, query.url)
       return urlVariant(host, query.url, tokensSaved)
@@ -130,7 +131,11 @@ function playgroundVariant(host: string, tokensSaved: number) {
   )
 }
 
-async function checkVariant(host: string, query: { url?: string }) {
+async function checkVariant(
+  host: string,
+  env: Cloudflare.Env,
+  query: { url?: string },
+) {
   const green = '#46a758'
   const gray = '#a1a1a1'
   const checkedUrl = query.url?.trim()
@@ -138,22 +143,39 @@ async function checkVariant(host: string, query: { url?: string }) {
   let tokens = 0
   let saved = 0
 
-  if (checkedUrl && score === 0) {
-    try {
-      const validatedUrl = new URL(
-        checkedUrl.includes('://') ? checkedUrl : `https://${checkedUrl}`,
-      )
-      const page = await fetchPage(validatedUrl)
-      tokens = page.tokensCount
-      saved = page.tokensSaved
-      const result = computeScore({
-        markdown: page.markdown,
-        rawHtmlLength: (tokens + saved) * 4,
-        tokensCount: tokens,
-        tokensSaved: saved,
-      })
-      score = result.overall
-    } catch {}
+  if (checkedUrl) {
+    const cacheKey = `check:${checkedUrl}` as const
+    const cached = await env.KV.get<{
+      score: number
+      tokens: number
+      saved: number
+    }>(cacheKey, 'json')
+    if (cached) {
+      score = cached.score
+      tokens = cached.tokens
+      saved = cached.saved
+    } else {
+      try {
+        const validatedUrl = new URL(
+          checkedUrl.includes('://') ? checkedUrl : `https://${checkedUrl}`,
+        )
+        const page = await fetchPage(validatedUrl)
+        tokens = page.tokensCount
+        saved = page.tokensSaved
+        const result = computeScore({
+          markdown: page.markdown,
+          rawHtmlLength: (tokens + saved) * 4,
+          tokensCount: tokens,
+          tokensSaved: saved,
+        })
+        score = result.overall
+        waitUntil(
+          env.KV.put(cacheKey, JSON.stringify({ score, tokens, saved }), {
+            expirationTtl: 3600,
+          }),
+        )
+      } catch {}
+    }
   }
 
   const scoreColor =
@@ -413,15 +435,6 @@ async function getTokensSaved(
   }
   waitUntil(env.KV.put(cacheKey, String(total), { expirationTtl: 60 }))
   return total
-}
-
-function formatCost(tokens: number, perMillionDollars: number) {
-  const cost = (tokens / 1_000_000) * perMillionDollars
-  return cost < 0.01 ? cost.toFixed(4).replace(/0+$/, '0') : cost.toFixed(2)
-}
-
-function formatNumber(n: number): string {
-  return n.toLocaleString('en-US')
 }
 
 export async function loadFont(request: Request, env: Env, path: string) {

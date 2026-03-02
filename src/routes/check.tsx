@@ -3,6 +3,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import * as React from 'react'
 import { z } from 'zod'
 import { useAnimatedValue } from '#hooks/use-animated-value.ts'
+import { formatCost } from '#lib/format.ts'
 import { rpc } from '#lib/rpc.ts'
 import { urlSchema } from '#lib/schemas.ts'
 import { computeScore } from '#lib/score.ts'
@@ -371,9 +372,4 @@ function CopyButton(props: { text: string }) {
       )}
     </button>
   )
-}
-
-function formatCost(tokens: number, perMillionDollars: number) {
-  const cost = (tokens / 1_000_000) * perMillionDollars
-  return cost < 0.01 ? cost.toFixed(4).replace(/0+$/, '0') : cost.toFixed(2)
 }

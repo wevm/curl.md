@@ -5,6 +5,7 @@ import { createServerFn, useServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
 import { useAnimatedValue } from '#hooks/use-animated-value.ts'
 import { getDb } from '#lib/db.ts'
+import { formatCost, formatNumber } from '#lib/format.ts'
 import { rpc } from '#lib/rpc.ts'
 
 export const Route = createFileRoute('/')({
@@ -157,11 +158,6 @@ function TokensSaved() {
   )
 }
 
-function formatCost(tokens: number, perMillionDollars: number) {
-  const cost = (tokens / 1_000_000) * perMillionDollars
-  return cost < 0.01 ? cost.toFixed(4).replace(/0+$/, '0') : cost.toFixed(2)
-}
-
 const getTokensSaved = createServerFn({ method: 'GET' }).handler(async () => {
   try {
     const request = getRequest()
@@ -178,7 +174,3 @@ const getTokensSaved = createServerFn({ method: 'GET' }).handler(async () => {
     return { tokens_saved: __INITIAL_TOKENS_SAVED__ }
   }
 })
-
-function formatNumber(n: number): string {
-  return n.toLocaleString('en-US')
-}

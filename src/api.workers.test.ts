@@ -6,6 +6,7 @@ import { api } from '#api.ts'
 import * as ApiKey from '#lib/api-key.ts'
 import { assert } from '#lib/assert.ts'
 import * as Cookie from '#lib/cookie.ts'
+import * as Crypto from '#lib/crypto.ts'
 import type { DB } from '#lib/db.gen.ts'
 import { dialect } from '#lib/pg.ts'
 import { createFactory } from '../test/factory.ts'
@@ -163,6 +164,15 @@ describe('GET /api/auth/github/callback', () => {
     expect(account.email).toBe('test@example.com')
     expect(account.login).toBe('testuser')
     expect(account.name).toBe('Test User')
+
+    // Verify tokens are encrypted (not stored as plaintext)
+    expect(provider.access_token).not.toBe('ghu_test123')
+    expect(provider.access_token).toBeTruthy()
+    const decrypted = await Crypto.decrypt(
+      provider.access_token!,
+      env.TOKEN_ENCRYPTION_KEY,
+    )
+    expect(decrypted).toBe('ghu_test123')
   })
 
   test('logs in existing account', async () => {

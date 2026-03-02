@@ -2,6 +2,7 @@ import * as Query from '@tanstack/react-query'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import * as React from 'react'
 import { z } from 'zod'
+import { formatCost } from '#lib/format.ts'
 import { rpc } from '#lib/rpc.ts'
 import { urlSchema } from '#lib/schemas.ts'
 
@@ -451,9 +452,4 @@ function CopyButton(props: { text: string }) {
       )}
     </button>
   )
-}
-
-function formatCost(tokens: number, perMillionDollars: number) {
-  const cost = (tokens / 1_000_000) * perMillionDollars
-  return cost < 0.01 ? cost.toFixed(4).replace(/0+$/, '0') : cost.toFixed(2)
 }

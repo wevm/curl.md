@@ -10,6 +10,7 @@ import { z } from 'zod'
 import * as ApiKey from '#lib/api-key.ts'
 import * as Cookie from '#lib/cookie.ts'
 import { fetchPage } from '#lib/core/fetch-page.ts'
+import * as Crypto from '#lib/crypto.ts'
 import type { DB } from '#lib/db.gen.ts'
 import * as Nanoid from '#lib/nanoid.ts'
 import * as Og from '#lib/og.tsx'
@@ -37,6 +38,7 @@ export const api = new Hono<{
 
     c.set('api_key_id', null)
     c.set('organization_id', null)
+    c.set('session', null)
 
     // Try cookie → session lookup
     const cookie = await Cookie.getSigned(
@@ -44,39 +46,18 @@ export const api = new Hono<{
       c.env.COOKIE_SECRET,
       'curl.session',
     )
-    if (cookie) {
-      const session =
-        (await c.var.db
-          .selectFrom('session')
-          .where('id', '=', cookie)
-          .where('expires_at', '>', new Date())
-          .select('account_id')
-          .executeTakeFirst()) ?? null
-      c.set('session', session)
-      if (session) {
-        const orgHeader = c.req.header('x-organization-id')
-        if (orgHeader) {
-          const member = await c.var.db
-            .selectFrom('organization_member')
-            .where('organization_id', '=', orgHeader)
-            .where('account_id', '=', session.account_id)
-            .select('id')
-            .executeTakeFirst()
-          if (member) c.set('organization_id', orgHeader)
-        }
-      }
-      await next()
-      return
-    }
-
-    const authorizationHeader = c.req.header('authorization')
-    const token = authorizationHeader?.startsWith('Bearer ')
-      ? authorizationHeader.replace('Bearer ', '')
-      : undefined
+    const sessionId =
+      cookie ??
+      (() => {
+        const authorizationHeader = c.req.header('authorization')
+        return authorizationHeader?.startsWith('Bearer ')
+          ? authorizationHeader.replace('Bearer ', '')
+          : undefined
+      })()
 
     // Try API key (curl_ prefix)
-    if (token?.startsWith('curl_')) {
-      const keyHash = await ApiKey.hash(token)
+    if (!cookie && sessionId?.startsWith('curl_')) {
+      const keyHash = await ApiKey.hash(sessionId)
       const apiKey = await c.var.db
         .selectFrom('api_key')
         .where('key_hash', '=', keyHash)
@@ -99,33 +80,30 @@ export const api = new Hono<{
       }
     }
 
-    // Try bearer token → session lookup
-    if (token) {
+    // Try session lookup (cookie or bearer token)
+    if (sessionId) {
       const session =
         (await c.var.db
           .selectFrom('session')
-          .where('id', '=', token)
+          .where('id', '=', sessionId)
           .where('expires_at', '>', new Date())
           .select('account_id')
           .executeTakeFirst()) ?? null
       c.set('session', session)
-      if (session) {
-        const orgHeader = c.req.header('x-organization-id')
-        if (orgHeader) {
-          const member = await c.var.db
-            .selectFrom('organization_member')
-            .where('organization_id', '=', orgHeader)
-            .where('account_id', '=', session.account_id)
-            .select('id')
-            .executeTakeFirst()
-          if (member) c.set('organization_id', orgHeader)
-        }
-      }
-      await next()
-      return
     }
 
-    c.set('session', null)
+    // Resolve organization membership
+    const orgHeader = c.req.header('x-organization-id')
+    if (c.var.session && orgHeader) {
+      const member = await c.var.db
+        .selectFrom('organization_member')
+        .where('organization_id', '=', orgHeader)
+        .where('account_id', '=', c.var.session.account_id)
+        .select('id')
+        .executeTakeFirst()
+      if (member) c.set('organization_id', orgHeader)
+    }
+
     await next()
   })
   .get(
@@ -138,7 +116,7 @@ export const api = new Hono<{
     ),
     (c) => {
       const query = c.req.valid('query')
-      const state = Math.random().toString(36).substring(2)
+      const state = crypto.randomUUID()
       Cookie.set(c, 'curl.state', state, {
         domain: Cookie.getDomain(c.env.HOST),
         httpOnly: true,
@@ -329,21 +307,31 @@ export const api = new Hono<{
                 now.getTime() + tokenData.refresh_token_expires_in * 1000,
               )
             : null
+          const encryptedAccessToken = await Crypto.encrypt(
+            tokenData.access_token!,
+            c.env.TOKEN_ENCRYPTION_KEY,
+          )
+          const encryptedRefreshToken = tokenData.refresh_token
+            ? await Crypto.encrypt(
+                tokenData.refresh_token,
+                c.env.TOKEN_ENCRYPTION_KEY,
+              )
+            : null
           await tx
             .insertInto('account_provider')
             .values({
               account_id: accountId,
               provider: 'github',
               provider_account_id: String(ghUser.id),
-              access_token: tokenData.access_token,
-              refresh_token: tokenData.refresh_token ?? null,
+              access_token: encryptedAccessToken,
+              refresh_token: encryptedRefreshToken,
               access_token_expires_at,
               refresh_token_expires_at,
             })
             .onConflict((oc) =>
               oc.constraint('unique_account_provider_provider').doUpdateSet({
-                access_token: tokenData.access_token,
-                refresh_token: tokenData.refresh_token ?? null,
+                access_token: encryptedAccessToken,
+                refresh_token: encryptedRefreshToken,
                 access_token_expires_at,
                 refresh_token_expires_at,
               }),
@@ -541,7 +529,7 @@ export const api = new Hono<{
         .insertInto('session')
         .values({
           account_id: deviceCode.account_id,
-          expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+          expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000), // 1 day
         })
         .returning('id')
         .executeTakeFirstOrThrow()
