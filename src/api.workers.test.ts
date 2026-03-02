@@ -696,36 +696,36 @@ test('GET /api/:url fetches URL and returns markdown', async () => {
   expect(text).toContain('World')
 })
 
-test('GET /api/:url returns rate limit headers', async () => {
+test('GET /api/:url returns fetch rate limit headers', async () => {
   fetchMock
-    .get('https://rl-headers.example.com')
+    .get('https://rl-fetch.example.com')
     .intercept({ path: '/' })
     .reply(200, '<html><body><p>ok</p></body></html>', {
       headers: { 'content-type': 'text/html' },
     })
 
   const res = await client.api[':url{.+}'].$get(
-    { param: { url: 'rl-headers.example.com' }, query: {} },
+    { param: { url: 'rl-fetch.example.com' }, query: {} },
     { headers: { 'cf-connecting-ip': '10.0.0.2' } },
   )
   expect(res.status).toBe(200)
-  expect(res.headers.get('x-ratelimit-limit')).toBe('10')
+  expect(res.headers.get('x-ratelimit-limit')).toBe('100')
   expect(res.headers.get('x-ratelimit-remaining')).toBeTruthy()
   expect(res.headers.get('x-ratelimit-reset')).toBeTruthy()
 })
 
-test('GET /api/:url authenticated accounts get higher limit', async () => {
+test('GET /api/:url authenticated accounts get higher fetch limit', async () => {
   const account = await factory.account.insert({})
   const session = await factory.session.insert({ account_id: account.id })
   fetchMock
-    .get('https://rl-authed.example.com')
+    .get('https://rl-authed-fetch.example.com')
     .intercept({ path: '/' })
     .reply(200, '<html><body><p>ok</p></body></html>', {
       headers: { 'content-type': 'text/html' },
     })
 
   const res = await client.api[':url{.+}'].$get(
-    { param: { url: 'rl-authed.example.com' }, query: {} },
+    { param: { url: 'rl-authed-fetch.example.com' }, query: {} },
     {
       headers: {
         Cookie: await Cookie.generateSigned(
@@ -737,19 +737,55 @@ test('GET /api/:url authenticated accounts get higher limit', async () => {
     },
   )
   expect(res.status).toBe(200)
-  expect(res.headers.get('x-ratelimit-limit')).toBe('100')
+  expect(res.headers.get('x-ratelimit-limit')).toBe('1000')
 })
 
-test('GET /api/:url returns 429 when limit exceeded', async () => {
+test('GET /api/:url with q= uses stricter query limit', async () => {
+  // Seed KV cache so fetchPage skips AI inference
+  // (Workers AI binding requires remote connection, unavailable in tests)
   await env.KV.put(
-    'ratelimit:192.0.2.1',
-    JSON.stringify({ count: 10, reset: Math.floor(Date.now() / 1000) + 60 }),
-    { expirationTtl: 60 },
+    'page:https://rl-query.example.com/',
+    JSON.stringify({
+      content: '<html><body><p>ok</p></body></html>',
+      contentType: 'text/html',
+    }),
+  )
+  await env.KV.put('query:https://rl-query.example.com/:test:', 'ok')
+
+  const res = await client.api[':url{.+}'].$get(
+    { param: { url: 'rl-query.example.com' }, query: { q: 'test' } },
+    { headers: { 'cf-connecting-ip': '10.0.0.3' } },
+  )
+  expect(res.status).toBe(200)
+  expect(res.headers.get('x-ratelimit-limit')).toBe('10')
+})
+
+test('GET /api/:url returns 429 when fetch limit exceeded', async () => {
+  await env.KV.put(
+    'ratelimit:fetch:192.0.2.1',
+    JSON.stringify({ count: 100, reset: Math.floor(Date.now() / 1000) + 3600 }),
+    { expirationTtl: 3600 },
   )
 
   const res = await client.api[':url{.+}'].$get(
     { param: { url: 'rl-exceeded.example.com' }, query: {} },
     { headers: { 'cf-connecting-ip': '192.0.2.1' } },
+  )
+  expect(res.status).toBe(429)
+  expect(res.headers.get('retry-after')).toBeTruthy()
+  expect(await res.json()).toEqual({ error: 'Rate limit exceeded' })
+})
+
+test('GET /api/:url returns 429 when query limit exceeded', async () => {
+  await env.KV.put(
+    'ratelimit:query:192.0.2.2',
+    JSON.stringify({ count: 10, reset: Math.floor(Date.now() / 1000) + 3600 }),
+    { expirationTtl: 3600 },
+  )
+
+  const res = await client.api[':url{.+}'].$get(
+    { param: { url: 'rl-query-exceeded.example.com' }, query: { q: 'test' } },
+    { headers: { 'cf-connecting-ip': '192.0.2.2' } },
   )
   expect(res.status).toBe(429)
   expect(res.headers.get('retry-after')).toBeTruthy()

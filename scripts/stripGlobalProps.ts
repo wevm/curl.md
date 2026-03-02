@@ -1,14 +1,13 @@
-// TODO: Remove once fixed upstream
-// https://github.com/cloudflare/workers-sdk/issues/11454
-//
-// Strips `GlobalProps` from generated worker-configuration.d.ts.
-// GlobalProps contains `mainModule: typeof import("./entry-server")` which
-// creates a transitive dependency on the entire app when included in tsconfigs
-// that only need Cloudflare.Env (e.g., worker test configs).
+// Post-processes generated worker-configuration.d.ts:
+// 1. Strips `GlobalProps` (TODO: remove once fixed upstream)
+//    https://github.com/cloudflare/workers-sdk/issues/11454
+// 2. Strips `KV` properties from Cloudflare.Env interfaces so env.d.ts
+//    can provide strongly-typed KV via TypedKV without declaration conflicts.
 
 import { readFileSync, writeFileSync } from 'node:fs'
 
 const file = 'src/worker-configuration.d.ts'
-const content = readFileSync(file, 'utf8')
-const stripped = content.replace(/\tinterface GlobalProps \{[^}]*\}\n/, '')
-if (stripped !== content) writeFileSync(file, stripped)
+let content = readFileSync(file, 'utf8')
+content = content.replace(/\tinterface GlobalProps \{[^}]*\}\n/, '')
+content = content.replace(/^\t+KV: KVNamespace;?\n/gm, '')
+if (content !== readFileSync(file, 'utf8')) writeFileSync(file, content)

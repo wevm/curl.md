@@ -10,11 +10,6 @@
 declare namespace Cloudflare {
   interface Env {
     ASSETS: { fetch(input: any): Promise<Response> }
-    KV: {
-      get<T = string>(key: string, options?: any): Promise<T | null>
-      put(key: string, value: string, options?: any): Promise<void>
-      delete(key: string): Promise<void>
-    }
     [key: string]: any
   }
 }

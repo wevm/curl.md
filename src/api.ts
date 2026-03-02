@@ -714,28 +714,27 @@ export const api = new Hono<{
         )
       }
 
-      // Rate limit: anon by IP, authed by account
-      // TODO: use plan-based limits for authenticated accounts
-      const limit = (() => {
-        if (c.var.session)
-          return {
-            key: c.var.session.account_id,
-            max: 100,
-            window: 60,
+      // Rate limit: two tiers (fetch = abuse prevention, query = cost protection)
+      // TODO: use metered billing for authenticated accounts so no limits
+      const identity = c.var.session
+        ? c.var.session.account_id
+        : (c.req.header('cf-connecting-ip') ?? 'unknown')
+      const isAuthed = !!c.var.session
+      const limit = query.q
+        ? {
+            key: `query:${identity}` as const,
+            max: isAuthed ? 100 : 10,
+            window: 3600,
           }
-        return {
-          key: c.req.header('cf-connecting-ip') ?? 'unknown',
-          max: 10,
-          window: 60,
-        }
-      })()
+        : {
+            key: `fetch:${identity}` as const,
+            max: isAuthed ? 1000 : 100,
+            window: 3600,
+          }
 
       const kvKey = `ratelimit:${limit.key}` as const
       const now = Math.floor(Date.now() / 1000)
-      const record = await c.env.KV.get<{ count: number; reset: number }>(
-        kvKey,
-        'json',
-      )
+      const record = await c.env.KV.get(kvKey, 'json')
 
       const reset =
         record && record.reset > now ? record.reset : now + limit.window

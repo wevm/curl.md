@@ -3,7 +3,6 @@
 // Runtime types generated with workerd@1.20260305.0 2025-09-06 no_handle_cross_request_promise_resolution,nodejs_compat
 declare namespace Cloudflare {
 	interface ProductionEnv {
-		KV: KVNamespace;
 		DB: Hyperdrive;
 		REQUEST_QUEUE: Queue;
 		AI: Ai;
@@ -19,7 +18,6 @@ declare namespace Cloudflare {
 		WRANGLER_SEND_METRICS: string;
 	}
 	interface PreviewEnv {
-		KV: KVNamespace;
 		DB: Hyperdrive;
 		REQUEST_QUEUE: Queue;
 		AI: Ai;
@@ -43,7 +41,6 @@ declare namespace Cloudflare {
 		GH_CLIENT_SECRET: string;
 		TOKEN_ENCRYPTION_KEY: string;
 		WRANGLER_SEND_METRICS: string;
-		KV: KVNamespace;
 		DB: Hyperdrive;
 		REQUEST_QUEUE: Queue;
 		AI: Ai;

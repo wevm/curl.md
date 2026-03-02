@@ -145,11 +145,7 @@ async function checkVariant(
 
   if (checkedUrl) {
     const cacheKey = `check:${checkedUrl}` as const
-    const cached = await env.KV.get<{
-      score: number
-      tokens: number
-      saved: number
-    }>(cacheKey, 'json')
+    const cached = await env.KV.get(cacheKey, 'json')
     if (cached) {
       score = cached.score
       tokens = cached.tokens
@@ -415,7 +411,7 @@ async function getTokensSaved(
   const cacheKey = hostname
     ? (`stats:tokens_saved:${hostname}` as const)
     : ('stats:tokens_saved' as const)
-  const cached = await env.KV.get<number>(cacheKey, 'json')
+  const cached = await env.KV.get(cacheKey, 'json')
   if (cached !== null) return cached
 
   let total: number
