@@ -71,7 +71,7 @@ const defaultConfig: Partial<{
   },
   session() {
     return {
-      expires_at: new Date(Date.now() + 86400 * 1000).toISOString(),
+      expires_at: new Date(Date.now() + 30 * 86400 * 1000).toISOString(), // 30 days
     }
   },
 }

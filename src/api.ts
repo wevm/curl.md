@@ -8,6 +8,7 @@ import { customAlphabet } from 'nanoid'
 import { ImageResponse } from 'workers-og'
 import { z } from 'zod'
 import * as ApiKey from '#lib/api-key.ts'
+import { attribution } from '#lib/constants.ts'
 import * as Cookie from '#lib/cookie.ts'
 import { fetchPage } from '#lib/core/fetch-page.ts'
 import * as Crypto from '#lib/crypto.ts'
@@ -346,7 +347,7 @@ export const api = new Hono<{
             .insertInto('session')
             .values({
               account_id: accountId,
-              expires_at: sql<Date>`now() + interval '1 day'`,
+              expires_at: sql<Date>`now() + interval '30 days'`,
             })
             .returning('id')
             .executeTakeFirstOrThrow()
@@ -371,7 +372,7 @@ export const api = new Hono<{
         {
           domain: Cookie.getDomain(c.env.HOST),
           httpOnly: true,
-          maxAge: 86400,
+          maxAge: 2592000, // 30 days
           sameSite: 'Lax',
           secure: true,
         },
@@ -533,7 +534,7 @@ export const api = new Hono<{
         .insertInto('session')
         .values({
           account_id: deviceCode.account_id,
-          expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000), // 1 day
+          expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
         })
         .returning('id')
         .executeTakeFirstOrThrow()
@@ -681,7 +682,6 @@ export const api = new Hono<{
         q: z.string().optional(),
       }),
     ),
-    // TODO: add rate limiting back
     // TODO: add error handling back
     async (c) => {
       const url = new URL(c.req.valid('param').url)
@@ -714,6 +714,57 @@ export const api = new Hono<{
         )
       }
 
+      // Rate limit: anon by IP, authed by account
+      // TODO: use plan-based limits for authenticated accounts
+      const limit = (() => {
+        if (c.var.session)
+          return {
+            key: c.var.session.account_id,
+            max: 100,
+            window: 60,
+          }
+        return {
+          key: c.req.header('cf-connecting-ip') ?? 'unknown',
+          max: 10,
+          window: 60,
+        }
+      })()
+
+      const kvKey = `ratelimit:${limit.key}` as const
+      const now = Math.floor(Date.now() / 1000)
+      const record = await c.env.KV.get<{ count: number; reset: number }>(
+        kvKey,
+        'json',
+      )
+
+      const reset =
+        record && record.reset > now ? record.reset : now + limit.window
+      const count = record && record.reset > now ? record.count + 1 : 1
+
+      const rateLimitHeaders = {
+        'x-ratelimit-limit': String(limit.max),
+        'x-ratelimit-remaining': String(Math.max(0, limit.max - count)),
+        'x-ratelimit-reset': String(reset),
+      }
+
+      if (count > limit.max)
+        return c.json(
+          { error: 'Rate limit exceeded' },
+          {
+            status: 429,
+            headers: {
+              ...rateLimitHeaders,
+              'retry-after': String(reset - now),
+            },
+          },
+        )
+
+      c.executionCtx.waitUntil(
+        c.env.KV.put(kvKey, JSON.stringify({ count, reset }), {
+          expirationTtl: limit.window,
+        }),
+      )
+
       const page = await fetchPage(url, {
         fresh: query.fresh !== undefined ? true : undefined,
         keywords: query.k,
@@ -737,10 +788,13 @@ export const api = new Hono<{
         user_agent: c.req.header('user-agent'),
       })
 
-      const content = `${page.markdown.trimEnd()}\n\n---\n\nPowered by [${c.env.HOST}](https://${c.env.HOST})`
+      const content = c.var.session
+        ? page.markdown.trimEnd()
+        : `${page.markdown.trimEnd()}${attribution.suffix}`
       const commonHeaders = {
+        ...rateLimitHeaders,
         'access-control-expose-headers':
-          'x-request-id, x-tokens-count, x-tokens-saved',
+          'retry-after, x-ratelimit-limit, x-ratelimit-remaining, x-ratelimit-reset, x-request-id, x-tokens-count, x-tokens-saved',
         'x-request-id': requestId,
         'x-tokens-count': String(page.tokensCount),
         'x-tokens-saved': String(page.tokensSaved),

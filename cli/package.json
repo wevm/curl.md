@@ -18,8 +18,7 @@
   ],
   "dependencies": {
     "hono": "^4.12.2",
-    "incur": "^0.1.10",
-    "picocolors": "^1.1.1"
+    "incur": "^0.1.10"
   },
   "engines": {
     "node": ">=22.0.0"

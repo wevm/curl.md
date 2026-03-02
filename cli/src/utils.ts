@@ -2,7 +2,7 @@ import { exec } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import pc from 'picocolors'
+import { pc } from './picocolors.ts'
 
 export type SessionData = {
   session_id: string

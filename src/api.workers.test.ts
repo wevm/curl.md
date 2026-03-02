@@ -11,7 +11,11 @@ import type { DB } from '#lib/db.gen.ts'
 import { dialect } from '#lib/pg.ts'
 import { createFactory } from '../test/factory.ts'
 
-const client = testClient(api, env)
+const client = testClient(api, env, {
+  waitUntil: vi.fn((p: Promise<unknown>) => p),
+  passThroughOnException: vi.fn(),
+  props: {},
+})
 // Workers tests use D1 via miniflare; env.DB is a Hyperdrive stub with connectionString
 const db = new Kysely<DB>({ dialect: dialect(env.DB.connectionString) })
 const factory = createFactory(db)
@@ -681,13 +685,73 @@ test('GET /api/:url fetches URL and returns markdown', async () => {
       headers: { 'content-type': 'text/html' },
     })
 
-  const res = await client.api[':url{.+}'].$get({
-    param: { url: 'api-test.example.com' },
-    query: {},
-  })
+  const res = await client.api[':url{.+}'].$get(
+    { param: { url: 'api-test.example.com' }, query: {} },
+    { headers: { 'cf-connecting-ip': '10.0.0.1' } },
+  )
   expect(res.status).toBe(200)
   expect(res.headers.get('content-type')).toContain('text/markdown')
   const text = await res.text()
   expect(text).toContain('Hello')
   expect(text).toContain('World')
+})
+
+test('GET /api/:url returns rate limit headers', async () => {
+  fetchMock
+    .get('https://rl-headers.example.com')
+    .intercept({ path: '/' })
+    .reply(200, '<html><body><p>ok</p></body></html>', {
+      headers: { 'content-type': 'text/html' },
+    })
+
+  const res = await client.api[':url{.+}'].$get(
+    { param: { url: 'rl-headers.example.com' }, query: {} },
+    { headers: { 'cf-connecting-ip': '10.0.0.2' } },
+  )
+  expect(res.status).toBe(200)
+  expect(res.headers.get('x-ratelimit-limit')).toBe('10')
+  expect(res.headers.get('x-ratelimit-remaining')).toBeTruthy()
+  expect(res.headers.get('x-ratelimit-reset')).toBeTruthy()
+})
+
+test('GET /api/:url authenticated accounts get higher limit', async () => {
+  const account = await factory.account.insert({})
+  const session = await factory.session.insert({ account_id: account.id })
+  fetchMock
+    .get('https://rl-authed.example.com')
+    .intercept({ path: '/' })
+    .reply(200, '<html><body><p>ok</p></body></html>', {
+      headers: { 'content-type': 'text/html' },
+    })
+
+  const res = await client.api[':url{.+}'].$get(
+    { param: { url: 'rl-authed.example.com' }, query: {} },
+    {
+      headers: {
+        Cookie: await Cookie.generateSigned(
+          'curl.session',
+          session.id,
+          env.COOKIE_SECRET,
+        ),
+      },
+    },
+  )
+  expect(res.status).toBe(200)
+  expect(res.headers.get('x-ratelimit-limit')).toBe('100')
+})
+
+test('GET /api/:url returns 429 when limit exceeded', async () => {
+  await env.KV.put(
+    'ratelimit:192.0.2.1',
+    JSON.stringify({ count: 10, reset: Math.floor(Date.now() / 1000) + 60 }),
+    { expirationTtl: 60 },
+  )
+
+  const res = await client.api[':url{.+}'].$get(
+    { param: { url: 'rl-exceeded.example.com' }, query: {} },
+    { headers: { 'cf-connecting-ip': '192.0.2.1' } },
+  )
+  expect(res.status).toBe(429)
+  expect(res.headers.get('retry-after')).toBeTruthy()
+  expect(await res.json()).toEqual({ error: 'Rate limit exceeded' })
 })
