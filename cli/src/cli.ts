@@ -1,9 +1,33 @@
+import readline from 'node:readline'
 import { hc } from 'hono/client'
-import { Cli, z } from 'incur'
+import { Cli, middleware, z } from 'incur'
 import pc from 'picocolors'
 import type { api } from '../../src/api.ts'
 import pkg from '../package.json' with { type: 'json' }
-import { createSpinner, openUrl, Session } from './utils.ts'
+import { createSpinner, openUrl, Session, type SessionData } from './utils.ts'
+
+const vars = z.object({
+  client: z.custom<ReturnType<typeof hc<typeof api>>>(),
+  session: z.custom<SessionData | null>(),
+})
+
+const requireAuth = middleware<typeof vars>((c, next) => {
+  if (!c.var.session)
+    return c.error({
+      code: 'NOT_AUTHENTICATED',
+      message: 'You are not authenticated.',
+      cta: {
+        description: 'Log in:',
+        commands: [
+          {
+            command: `${c.name} auth login`,
+            description: `Authenticate with ${c.name}`,
+          },
+        ],
+      },
+    })
+  return next()
+})
 
 const cli = Cli.create('curl.md', {
   description: 'Fetch any web page and convert it to markdown.',
@@ -14,10 +38,7 @@ const cli = Cli.create('curl.md', {
       .default('https://curl.md')
       .describe('Base URL'),
   }),
-  vars: z.object({
-    client: z.custom<ReturnType<typeof hc<typeof api>>>(),
-    session: z.custom<{ session_id: string } | null>(),
-  }),
+  vars,
   usage: [
     { suffix: '<url> [options]' },
     { prefix: 'echo <url> |', suffix: '[options]' },
@@ -186,23 +207,19 @@ const cli = Cli.create('curl.md', {
 cli.use(async (c, next) => {
   const session = Session.read()
   c.set('session', session)
-  c.set(
-    'client',
-    hc<typeof api>(c.env.CURL_MD_BASE_URL, {
-      headers: session
-        ? { Authorization: `Bearer ${session.session_id}` }
-        : ({} as Record<string, string>),
-    }),
-  )
+  const headers: Record<string, string> = {}
+  if (session) {
+    headers.Authorization = `Bearer ${session.session_id}`
+    if (session.organization_id)
+      headers['x-organization-id'] = session.organization_id
+  }
+  c.set('client', hc<typeof api>(c.env.CURL_MD_BASE_URL, { headers }))
   return next()
 })
 
 const auth = Cli.create('auth', {
   description: 'Authentication commands',
-  vars: z.object({
-    client: z.custom<ReturnType<typeof hc<typeof api>>>(),
-    session: z.custom<{ session_id: string } | null>(),
-  }),
+  vars,
 })
   .command('login', {
     description: 'Log in to curl.md',
@@ -250,7 +267,7 @@ const auth = Cli.create('auth', {
           }
           if ('session_id' in tokenData) {
             spinner.stop()
-            Session.write(tokenData.session_id)
+            Session.write({ session_id: tokenData.session_id })
             return 'Successfully logged in.'
           }
         }
@@ -311,6 +328,157 @@ const auth = Cli.create('auth', {
     },
   })
 
+const org = Cli.create('org', {
+  description: 'List, show, and switch organizations',
+  vars,
+})
+  .command('create', {
+    description: 'Create an organization',
+    middleware: [requireAuth],
+    args: z.object({
+      login: z.string().describe('Organization login (e.g. "wevm")'),
+    }),
+    options: z.object({
+      name: z.string().optional().describe('Display name (defaults to login)'),
+    }),
+    output: z.string(),
+    format: 'md',
+    async run(c) {
+      const res = await c.var.client.api.organizations.$post({
+        json: { login: c.args.login, name: c.options.name },
+      })
+      const data = await res.json()
+      if (!res.ok)
+        return c.error({
+          code: 'CREATE_FAILED',
+          message:
+            'error' in data ? data.error : 'Failed to create organization.',
+        })
+
+      return c.ok(`Created organization ${c.args.login}.`, {
+        cta: {
+          description: 'Switch to it:',
+          commands: [
+            {
+              command: `${c.name} org switch ${c.args.login}`,
+              description: `Switch to ${c.args.login}`,
+            },
+          ],
+        },
+      })
+    },
+  })
+  .command('list', {
+    description: 'List organizations',
+    middleware: [requireAuth],
+    output: z.string(),
+    format: 'md',
+    async run(c) {
+      const res = await c.var.client.api.orgs.$get()
+      const data = await res.json()
+      if ('error' in data)
+        return c.error({ code: 'FETCH_FAILED', message: data.error })
+      // biome-ignore lint/style/noNonNullAssertion: middleware handles
+      const activeId = c.var.session!.organization_id
+
+      const lines: string[] = []
+      if (activeId) lines.push(`  personal ${pc.dim('(no organization)')}`)
+      else lines.push(`${pc.bold('*')} personal ${pc.dim('(no organization)')}`)
+
+      for (const org of data.organizations) {
+        if (org.id === activeId) lines.push(`${pc.bold('*')} ${org.login}`)
+        else lines.push(`  ${org.login}`)
+      }
+      return lines.join('\n')
+    },
+  })
+  .command('show', {
+    description: 'Show current organization',
+    middleware: [requireAuth],
+    output: z.string(),
+    format: 'md',
+    async run(c) {
+      // biome-ignore lint/style/noNonNullAssertion: middleware handles
+      const orgId = c.var.session!.organization_id
+      if (!orgId) return `personal ${pc.dim('(no organization)')}`
+
+      const res = await c.var.client.api.orgs[':id'].$get({
+        param: { id: orgId },
+      })
+      const data = await res.json()
+      if ('error' in data)
+        return c.error({ code: 'FETCH_FAILED', message: data.error })
+      return `${data.organization.login} (${data.organization.name})`
+    },
+  })
+  .command('switch', {
+    description: 'Switch organization',
+    middleware: [requireAuth],
+    args: z.object({
+      login: z
+        .string()
+        .optional()
+        .describe('Organization login to switch to (or "personal")'),
+    }),
+    output: z.string(),
+    format: 'md',
+    async run(c) {
+      const res = await c.var.client.api.orgs.$get()
+      const data = await res.json()
+      if ('error' in data)
+        return c.error({ code: 'FETCH_FAILED', message: data.error })
+
+      if (c.args.login) {
+        if (c.args.login === 'personal') {
+          Session.write({ organization_id: undefined })
+          return 'Switched to personal (no organization).'
+        }
+        const match = data.organizations.find((o) => o.login === c.args.login)
+        if (!match)
+          return c.error({
+            code: 'ORG_NOT_FOUND',
+            message: `Organization "${c.args.login}" not found.`,
+          })
+        Session.write({ organization_id: match.id })
+        return `Switched to ${match.login}.`
+      }
+
+      const choices = [
+        { label: `personal ${pc.dim('(no organization)')}`, id: undefined },
+        ...data.organizations.map((o) => ({ label: o.login, id: o.id })),
+      ]
+      console.log('\nSwitch to:')
+      for (let i = 0; i < choices.length; i++)
+        console.log(`  ${i + 1}. ${choices[i]?.label}`)
+
+      const answer = await prompt('Enter number: ')
+      const num = Number.parseInt(answer, 10)
+      if (Number.isNaN(num) || num < 1 || num > choices.length)
+        return c.error({
+          code: 'INVALID_SELECTION',
+          message: 'Invalid selection.',
+        })
+
+      const selected = choices[num - 1]!
+      Session.write({ organization_id: selected.id })
+      return `Switched to ${selected.id ? selected.label : 'personal (no organization)'}.`
+    },
+  })
+
 cli.command(auth)
+cli.command(org)
 
 export default cli
+
+function prompt(question: string): Promise<string> {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stderr,
+  })
+  return new Promise((resolve) => {
+    rl.question(question, (answer) => {
+      rl.close()
+      resolve(answer.trim())
+    })
+  })
+}

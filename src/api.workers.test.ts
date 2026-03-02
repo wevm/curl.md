@@ -363,6 +363,7 @@ describe('API key authentication', () => {
   const apiClient = testClient(api, env, {
     waitUntil: vi.fn((p: Promise<unknown>) => p),
     passThroughOnException: vi.fn(),
+    props: {},
   })
 
   test('resolves API key from bearer token', async () => {
@@ -450,6 +451,123 @@ test('GET /api/health returns ok', async () => {
   const res = await client.api.health.$get()
   expect(res.status).toBe(200)
   expect(await res.json()).toEqual({ ok: true })
+})
+
+describe('GET /api/orgs', () => {
+  test('lists organizations for authenticated account', async () => {
+    const account = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: account.id })
+    const org1 = await factory.organization.insert({
+      login: 'org-a',
+      name: 'Org A',
+    })
+    const org2 = await factory.organization.insert({
+      login: 'org-b',
+      name: 'Org B',
+    })
+    await factory.organization_member.insert({
+      organization_id: org1.id,
+      account_id: account.id,
+      role: 'owner',
+    })
+    await factory.organization_member.insert({
+      organization_id: org2.id,
+      account_id: account.id,
+      role: 'member',
+    })
+
+    const res = await client.api.orgs.$get(
+      {},
+      {
+        headers: {
+          Cookie: await Cookie.generateSigned(
+            'curl.session',
+            session.id,
+            env.COOKIE_SECRET,
+          ),
+        },
+      },
+    )
+    expect(res.status).toBe(200)
+    const data = await res.json()
+    assert(!('error' in data), 'expected organizations')
+    expect(data.organizations).toHaveLength(2)
+    expect(data.organizations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: org1.id, login: 'org-a', role: 'owner' }),
+        expect.objectContaining({
+          id: org2.id,
+          login: 'org-b',
+          role: 'member',
+        }),
+      ]),
+    )
+  })
+
+  test('returns 401 when not authenticated', async () => {
+    const res = await client.api.orgs.$get()
+    expect(res.status).toBe(401)
+  })
+})
+
+describe('GET /api/orgs/:id', () => {
+  test('returns org for member', async () => {
+    const account = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: account.id })
+    const org = await factory.organization.insert({
+      login: 'show-org',
+      name: 'Show Org',
+    })
+    await factory.organization_member.insert({
+      organization_id: org.id,
+      account_id: account.id,
+      role: 'owner',
+    })
+
+    const res = await client.api.orgs[':id'].$get(
+      { param: { id: org.id } },
+      {
+        headers: {
+          Cookie: await Cookie.generateSigned(
+            'curl.session',
+            session.id,
+            env.COOKIE_SECRET,
+          ),
+        },
+      },
+    )
+    expect(res.status).toBe(200)
+    const data = await res.json()
+    assert(!('error' in data), 'expected organization')
+    expect(data.organization).toEqual(
+      expect.objectContaining({
+        id: org.id,
+        login: 'show-org',
+        name: 'Show Org',
+        role: 'owner',
+      }),
+    )
+  })
+
+  test('returns 404 for non-member', async () => {
+    const account = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: account.id })
+    const org = await factory.organization.insert({})
+
+    const res = await client.api.orgs[':id'].$get(
+      { param: { id: org.id } },
+      {
+        headers: {
+          Cookie: await Cookie.generateSigned(
+            'curl.session',
+            session.id,
+            env.COOKIE_SECRET,
+          ),
+        },
+      },
+    )
+    expect(res.status).toBe(404)
+  })
 })
 
 describe('POST /api/organizations', () => {

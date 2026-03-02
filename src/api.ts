@@ -14,6 +14,7 @@ import type { DB } from '#lib/db.gen.ts'
 import * as Nanoid from '#lib/nanoid.ts'
 import * as Og from '#lib/og.tsx'
 import { dialect } from '#lib/pg.ts'
+import { knownRoutes } from '#lib/routes.ts'
 import { urlSchema } from '#lib/schemas.ts'
 import type { OneOf } from '#lib/types.ts'
 
@@ -44,15 +45,26 @@ export const api = new Hono<{
       'curl.session',
     )
     if (cookie) {
-      c.set(
-        'session',
+      const session =
         (await c.var.db
           .selectFrom('session')
           .where('id', '=', cookie)
           .where('expires_at', '>', new Date())
           .select('account_id')
-          .executeTakeFirst()) ?? null,
-      )
+          .executeTakeFirst()) ?? null
+      c.set('session', session)
+      if (session) {
+        const orgHeader = c.req.header('x-organization-id')
+        if (orgHeader) {
+          const member = await c.var.db
+            .selectFrom('organization_member')
+            .where('organization_id', '=', orgHeader)
+            .where('account_id', '=', session.account_id)
+            .select('id')
+            .executeTakeFirst()
+          if (member) c.set('organization_id', orgHeader)
+        }
+      }
       await next()
       return
     }
@@ -89,15 +101,26 @@ export const api = new Hono<{
 
     // Try bearer token → session lookup
     if (token) {
-      c.set(
-        'session',
+      const session =
         (await c.var.db
           .selectFrom('session')
           .where('id', '=', token)
           .where('expires_at', '>', new Date())
           .select('account_id')
-          .executeTakeFirst()) ?? null,
-      )
+          .executeTakeFirst()) ?? null
+      c.set('session', session)
+      if (session) {
+        const orgHeader = c.req.header('x-organization-id')
+        if (orgHeader) {
+          const member = await c.var.db
+            .selectFrom('organization_member')
+            .where('organization_id', '=', orgHeader)
+            .where('account_id', '=', session.account_id)
+            .select('id')
+            .executeTakeFirst()
+          if (member) c.set('organization_id', orgHeader)
+        }
+      }
       await next()
       return
     }
@@ -434,6 +457,52 @@ export const api = new Hono<{
 
     return c.json({ account })
   })
+  .get('/api/orgs', async (c) => {
+    if (!c.var.session) return c.json({ error: 'Unauthorized' }, 401)
+
+    const organizations = await c.var.db
+      .selectFrom('organization_member')
+      .innerJoin(
+        'organization',
+        'organization.id',
+        'organization_member.organization_id',
+      )
+      .where('organization_member.account_id', '=', c.var.session.account_id)
+      .where('organization.deleted_at', 'is', null)
+      .select([
+        'organization.id',
+        'organization.login',
+        'organization.name',
+        'organization_member.role',
+      ])
+      .execute()
+
+    return c.json({ organizations })
+  })
+  .get('/api/orgs/:id', async (c) => {
+    if (!c.var.session) return c.json({ error: 'Unauthorized' }, 401)
+
+    const organization = await c.var.db
+      .selectFrom('organization')
+      .innerJoin(
+        'organization_member',
+        'organization_member.organization_id',
+        'organization.id',
+      )
+      .where('organization.id', '=', c.req.param('id'))
+      .where('organization_member.account_id', '=', c.var.session.account_id)
+      .where('organization.deleted_at', 'is', null)
+      .select([
+        'organization.id',
+        'organization.login',
+        'organization.name',
+        'organization_member.role',
+      ])
+      .executeTakeFirst()
+
+    if (!organization) return c.json({ error: 'Not found' }, 404)
+    return c.json({ organization })
+  })
   .post('/api/auth/device', async (c) => {
     const device_code = Nanoid.generate()
     const user_code = customAlphabet('ABCDEFGHJKLMNPQRSTUVWXYZ23456789', 8)()
@@ -552,11 +621,11 @@ export const api = new Hono<{
       const json = c.req.valid('json')
 
       const reservedLogins = new Set([
+        ...knownRoutes,
         'api',
-        'check',
-        'login',
-        'new',
-        'playground',
+        'curl',
+        'dash',
+        'org',
       ])
       if (reservedLogins.has(json.login))
         return c.json({ error: 'This login is reserved' }, 409)

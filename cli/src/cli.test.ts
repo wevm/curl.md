@@ -62,6 +62,7 @@ test('prints help', async () => {
 
     Commands:
       auth  Authentication commands
+      org   List, show, and switch organizations
 
     Built-in Commands:
       mcp add     Register as an MCP server

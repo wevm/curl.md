@@ -4,20 +4,25 @@ import os from 'node:os'
 import path from 'node:path'
 import pc from 'picocolors'
 
+export type SessionData = {
+  session_id: string
+  organization_id?: string | undefined
+}
+
 export const Session = {
-  read(): { session_id: string } | null {
+  read(): SessionData | null {
     try {
       return JSON.parse(fs.readFileSync(configPath(), 'utf-8'))
     } catch {
       return null
     }
   },
-  write(sessionId: string) {
+  write(session: Partial<SessionData>) {
     const p = configPath()
     fs.mkdirSync(path.dirname(p), { recursive: true })
-    fs.writeFileSync(p, JSON.stringify({ session_id: sessionId }), {
-      mode: 0o600,
-    })
+    const existing = Session.read()
+    const merged = { ...existing, ...session }
+    fs.writeFileSync(p, JSON.stringify(merged), { mode: 0o600 })
   },
   delete() {
     try {
