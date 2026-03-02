@@ -47,7 +47,7 @@ export default {
       }
     }
   },
-  // TODO: Add scheduled handler to clean up expired sessions
+  // TODO: Add scheduled handler to clean up expired device codes and sessions
   // scheduled: async (event, env, ctx) => { ... }
 } satisfies ExportedHandler<Env, processRequestMessage.Body>
 

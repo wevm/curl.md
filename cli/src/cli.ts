@@ -105,12 +105,12 @@ const cli = Cli.create('curl.md', {
           description: 'Try:',
           commands: [
             {
-              command: 'curl.md',
+              command: c.name,
               args: { url: 'example.com' },
               description: 'Fetch a page',
             },
             {
-              command: 'curl.md',
+              command: c.name,
               args: { url: 'example.com' },
               options: { objective: 'pricing plans' },
               description: 'Narrow to a topic',
@@ -140,12 +140,12 @@ const cli = Cli.create('curl.md', {
           description: 'URL must be a valid HTTP(S) address:',
           commands: [
             {
-              command: 'curl.md',
+              command: c.name,
               args: { url: 'example.com' },
               description: 'Domain without protocol',
             },
             {
-              command: 'curl.md',
+              command: c.name,
               args: { url: 'https://example.com/path' },
               description: 'Full URL with protocol',
             },
@@ -172,7 +172,7 @@ const cli = Cli.create('curl.md', {
           description: 'Narrow results with an objective:',
           commands: [
             {
-              command: 'curl.md',
+              command: c.name,
               args: { url },
               options: { objective: true },
               description: 'Focus on a specific topic',
@@ -217,7 +217,7 @@ const auth = Cli.create('auth', {
         if (data.account)
           return c.error({
             code: 'ALREADY_LOGGED_IN',
-            message: `Already logged in as ${data.account.login}`,
+            message: 'You are already authenticated.',
           })
       }
 
@@ -234,23 +234,31 @@ const auth = Cli.create('auth', {
         `If something goes wrong, copy and paste this URL into your browser: ${pc.bold(url)}\n`,
       )
 
+      const spinner = createSpinner('Waiting for authentication...')
       const interval = (device.interval ?? 5) * 1000
-      while (true) {
-        const tokenRes = await c.var.client.api.auth.device.token.$post({
-          json: { device_code: device.device_code },
-        })
-        const tokenData = await tokenRes.json()
-        if ('error' in tokenData) {
-          if (tokenData.error === 'authorization_pending') {
-            await new Promise((r) => setTimeout(r, interval))
-            continue
+      try {
+        while (true) {
+          const tokenRes = await c.var.client.api.auth.device.token.$post({
+            json: { device_code: device.device_code },
+          })
+          const tokenData = await tokenRes.json()
+          if ('error' in tokenData) {
+            if (tokenData.error === 'authorization_pending') {
+              await new Promise((r) => setTimeout(r, interval))
+              continue
+            }
+            spinner.stop()
+            return c.error({ code: 'AUTH_FAILED', message: tokenData.error })
           }
-          return c.error({ code: 'AUTH_FAILED', message: tokenData.error })
+          if ('session_id' in tokenData) {
+            spinner.stop()
+            writeSession(tokenData.session_id)
+            return 'Successfully logged in.'
+          }
         }
-        if ('session_id' in tokenData) {
-          writeSession(tokenData.session_id)
-          return 'Successfully logged in.'
-        }
+      } catch (error) {
+        spinner.stop()
+        throw error
       }
     },
   })
@@ -258,12 +266,12 @@ const auth = Cli.create('auth', {
     description: 'Log out of curl.md',
     output: z.string(),
     format: 'md',
-    async run() {
+    async run(c) {
       const session = readSession()
       if (!session) return 'Already logged out.'
 
       await new Promise<void>((resolve) => {
-        process.stdout.write('Press Enter to log out of curl.md API.')
+        process.stdout.write(`Press Enter to log out of ${c.name} API.`)
         process.stdin.once('data', () => {
           process.stdin.pause()
           resolve()
@@ -287,8 +295,8 @@ const auth = Cli.create('auth', {
           description: 'Log in:',
           commands: [
             {
-              command: 'curl.md auth login',
-              description: 'Authenticate with curl.md',
+              command: `${c.name} auth login`,
+              description: `Authenticate with ${c.name}`,
             },
           ],
         },
@@ -333,6 +341,29 @@ function deleteSession() {
   try {
     fs.unlinkSync(getConfigPath())
   } catch {}
+}
+
+// Vendored ANSI spinner (inspired by Vitest's windowed renderer)
+const ANSI_CLEAR_LINE = '\x1B[2K'
+const ANSI_CURSOR_TO_START = '\x1B[G'
+const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
+
+function createSpinner(message: string) {
+  let frame = 0
+  const interval = setInterval(() => {
+    const symbol = pc.cyan(SPINNER_FRAMES[frame]!)
+    process.stderr.write(
+      `${ANSI_CURSOR_TO_START}${ANSI_CLEAR_LINE}${symbol} ${message}`,
+    )
+    frame = (frame + 1) % SPINNER_FRAMES.length
+  }, 80).unref()
+
+  return {
+    stop() {
+      clearInterval(interval)
+      process.stderr.write(`${ANSI_CURSOR_TO_START}${ANSI_CLEAR_LINE}`)
+    },
+  }
 }
 
 function openUrl(url: string) {
