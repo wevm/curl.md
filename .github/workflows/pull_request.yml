@@ -22,7 +22,7 @@ jobs:
 
   cli:
     name: Publish CLI Preview
-    if: ${{ !github.event.pull_request.draft && contains(fromJSON('["COLLABORATOR", "MEMBER", "OWNER"]'), github.event.pull_request.author_association) }}
+    if: ${{ contains(fromJSON('["COLLABORATOR", "MEMBER", "OWNER"]'), github.event.pull_request.author_association) }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
