@@ -313,7 +313,7 @@ const org = Cli.create('org', {
     output: z.string(),
     format: 'md',
     async run(c) {
-      const res = await c.var.client.api.organizations.$post({
+      const res = await c.var.client.api.orgs.$post({
         json: { login: c.args.login, name: c.options.name },
       })
       const data = await res.json()

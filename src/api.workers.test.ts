@@ -584,9 +584,9 @@ describe('GET /api/orgs/:id', () => {
   })
 })
 
-describe('POST /api/organizations', () => {
+describe('POST /api/orgs', () => {
   test('without session returns 401', async () => {
-    const res = await client.api.organizations.$post({
+    const res = await client.api.orgs.$post({
       json: { login: 'my-org' },
     })
     expect(res.status).toBe(401)
@@ -596,7 +596,7 @@ describe('POST /api/organizations', () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
 
-    const res = await client.api.organizations.$post(
+    const res = await client.api.orgs.$post(
       { json: { login: 'my-org', name: 'My Org' } },
       {
         headers: {
@@ -631,7 +631,7 @@ describe('POST /api/organizations', () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
 
-    const res = await client.api.organizations.$post(
+    const res = await client.api.orgs.$post(
       { json: { login: 'cli-org' } },
       {
         headers: {
@@ -658,7 +658,7 @@ describe('POST /api/organizations', () => {
     const session = await factory.session.insert({ account_id: account.id })
     await factory.organization.insert({ login: 'taken', name: 'Taken' })
 
-    const res = await client.api.organizations.$post(
+    const res = await client.api.orgs.$post(
       { json: { login: 'taken' } },
       {
         headers: {

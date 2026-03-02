@@ -593,7 +593,7 @@ export const api = new Hono<{
     })
   })
   .post(
-    '/api/organizations',
+    '/api/orgs',
     validator(
       'json',
       z.object({
