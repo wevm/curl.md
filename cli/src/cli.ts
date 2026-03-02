@@ -39,12 +39,9 @@ const cli = Cli.create('curl.md', {
       .describe('Base URL'),
   }),
   vars,
-  usage: [
-    { suffix: '<url> [options]' },
-    { prefix: 'echo <url> |', suffix: '[options]' },
-  ],
+  usage: [{ suffix: '<url> [options]' }],
   args: z.object({
-    url: z.string().optional().describe('URL to fetch'),
+    url: z.string().describe('URL to fetch'),
   }),
   options: z.object({
     fresh: z.boolean().optional().describe('Force fresh fetch (bypass cache)'),
@@ -108,35 +105,7 @@ const cli = Cli.create('curl.md', {
   output: z.string().describe('Page content as markdown'),
   format: 'md',
   async run(c) {
-    const url =
-      c.args.url ??
-      (await (async () => {
-        if (process.stdin.isTTY) return undefined
-        let data = ''
-        for await (const chunk of process.stdin) data += chunk
-        return data.trim() || undefined
-      })())
-    if (!url)
-      return c.error({
-        code: 'MISSING_URL',
-        message: 'No URL provided.',
-        cta: {
-          description: 'Try:',
-          commands: [
-            {
-              command: c.name,
-              args: { url: 'example.com' },
-              description: 'Fetch a page',
-            },
-            {
-              command: c.name,
-              args: { url: 'example.com' },
-              options: { objective: 'pricing plans' },
-              description: 'Narrow to a topic',
-            },
-          ],
-        },
-      })
+    const url = c.args.url
 
     const result = z.safeParse(
       z

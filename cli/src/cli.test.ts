@@ -37,7 +37,6 @@ test('prints help', async () => {
     vx.y.z
 
     Usage: curl.md <url> [options]
-           echo <url> | curl.md [options]
 
     Arguments:
       url  URL to fetch
@@ -106,41 +105,9 @@ test('exits with error for invalid url', async () => {
 })
 
 test('exits with error for missing url', async () => {
-  const orig = process.stdin.isTTY
-  Object.defineProperty(process.stdin, 'isTTY', {
-    value: true,
-    configurable: true,
-  })
-  try {
-    const { exitCode, output } = await serve([])
-    expect(exitCode).toBe(1)
-    expect(output).toMatchInlineSnapshot(`
-      "## code
-
-      MISSING_URL
-
-      ## message
-
-      No URL provided.
-
-      ## cta.description
-
-      Try:
-
-      ## cta.commands
-
-      | command                                       | description       |
-      |-----------------------------------------------|-------------------|
-      | curl.md example.com                           | Fetch a page      |
-      | curl.md example.com --objective pricing plans | Narrow to a topic |
-      "
-    `)
-  } finally {
-    Object.defineProperty(process.stdin, 'isTTY', {
-      value: orig,
-      configurable: true,
-    })
-  }
+  const { exitCode, output } = await serve([])
+  expect(exitCode).toBe(1)
+  expect(output).toContain('VALIDATION_ERROR')
 })
 
 test('auth check when not logged in', async () => {

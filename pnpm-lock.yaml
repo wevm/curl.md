@@ -163,8 +163,8 @@ importers:
         specifier: ^4.12.2
         version: 4.12.3
       incur:
-        specifier: ^0.1.10
-        version: 0.1.10
+        specifier: ^0.1.12
+        version: 0.1.12
 
 packages:
 
@@ -2758,8 +2758,8 @@ packages:
     resolution: {integrity: sha512-TR3KfrTZTYLPB6jUjfx6MF9WcWrHL9su5TObK4ZkYgBdWKPOFoSoQIdEuTuR82pmtxH2spWG9h6etwfr1pLBqQ==}
     engines: {node: '>=6'}
 
-  incur@0.1.10:
-    resolution: {integrity: sha512-3i15Ul/re4EwA9jtstdDc3iqofh3luGO2FDWzsRPNm8R2LUOEsZFTxM6I4ak1HtPI3Nl1ti+DzWyGIUL7zzL+w==}
+  incur@0.1.12:
+    resolution: {integrity: sha512-sFcRtl5f5HJKrMJxl7TRz4Y01Em4XiC2OoyfLWxwXKnOJjpaCfooNRB+/O8NpwFQaaW6+5CbJOPRVLaaW1h33w==}
     hasBin: true
 
   inherits@2.0.4:
@@ -6960,7 +6960,7 @@ snapshots:
       parent-module: 1.0.1
       resolve-from: 4.0.0
 
-  incur@0.1.10:
+  incur@0.1.12:
     dependencies:
       '@modelcontextprotocol/sdk': 1.27.1(zod@4.3.6)
       '@toon-format/toon': 2.1.0
