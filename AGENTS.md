@@ -44,10 +44,6 @@ The `pro/` directory is a git submodule (`wevm/curl.md.pro`) containing pro/prem
 - Use `DB.<table>` types from `src/lib/db.gen.ts` for database record types. When only a subset of fields is needed, use `Pick<DB.<table>, "field1" | "field2">` instead of defining custom types.
 - Prefer snake_case field names when data originates from the database (e.g., `credential_id` not `credentialId`)
 
-## Tools
-
-- Prefer `mcp__curl_md__fetch_page` over `read_web_page` for fetching web pages.
-
 ## Code Style
 
 - Component/page component should be the first thing in the file (after imports)
@@ -62,6 +58,7 @@ The `pro/` directory is a git submodule (`wevm/curl.md.pro`) containing pro/prem
 - Prefer "account" over "user" in naming (variables, types, functions, etc.)
 - Don't destructure unless necessary (e.g. prefer `const json = c.req.valid('json')` over `const { name, slug } = c.req.valid('json')`)
 - Avoid creating variables for basic things unless necessary (e.g. prefer using `c.var.db` over `const db = c.var.db`)
+- Use rpc $url() method for type-safe url generation instead of hardcoding strings
 
 ## Tests
 

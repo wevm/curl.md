@@ -4,6 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { hc } from 'hono/client'
 import { Cli, z } from 'incur'
+import pc from 'picocolors'
 import type { api } from '../../src/api.ts'
 import pkg from '../package.json' with { type: 'json' }
 
@@ -226,9 +227,11 @@ const auth = Cli.create('auth', {
       const url = `${device.verification_uri}?user_code=${device.user_code}`
       openUrl(url)
 
-      console.log(`\nConfirmation Code: ${device.user_code}\n`)
       console.log(
-        `If something goes wrong, copy and paste this URL into your browser: ${url}\n`,
+        `\n${pc.bold('Confirmation Code:')} ${pc.green(device.user_code)}\n`,
+      )
+      console.log(
+        `If something goes wrong, copy and paste this URL into your browser: ${pc.bold(url)}\n`,
       )
 
       const interval = (device.interval ?? 5) * 1000
@@ -257,9 +260,19 @@ const auth = Cli.create('auth', {
     format: 'md',
     async run() {
       const session = readSession()
-      if (!session) return 'Not logged in.'
+      if (!session) return 'Already logged out.'
+
+      await new Promise<void>((resolve) => {
+        process.stdout.write('Press Enter to log out of curl.md API.')
+        process.stdin.once('data', () => {
+          process.stdin.pause()
+          resolve()
+        })
+        process.stdin.resume()
+      })
+
       deleteSession()
-      return 'Logged out.'
+      return 'Successfully logged out.'
     },
   })
   .command('check', {
@@ -267,16 +280,30 @@ const auth = Cli.create('auth', {
     output: z.string(),
     format: 'md',
     async run(c) {
+      const notAuthenticated = {
+        code: 'NOT_AUTHENTICATED',
+        message: 'You are not authenticated.',
+        cta: {
+          description: 'Log in:',
+          commands: [
+            {
+              command: 'curl.md auth login',
+              description: 'Authenticate with curl.md',
+            },
+          ],
+        },
+      }
+
       const session = readSession()
-      if (!session) return 'Not logged in. Run `curl.md auth login` to log in.'
+      if (!session) return c.error(notAuthenticated)
 
       const res = await c.var.client.api.auth.me.$get()
       const data = await res.json()
       if (!data.account) {
         deleteSession()
-        return 'Session expired. Run `curl.md auth login` to log in again.'
+        return c.error(notAuthenticated)
       }
-      return `Logged in as ${data.account.login} (${data.account.email})`
+      return 'You are authenticated.'
     },
   })
 

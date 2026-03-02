@@ -5,6 +5,7 @@ import { getRequest } from '@tanstack/react-start/server'
 import { useState } from 'react'
 import { z } from 'zod'
 import { getDb } from '#lib/db.ts'
+import { rpc } from '#lib/rpc.ts'
 import * as Session from '#lib/session.ts'
 
 export const Route = createFileRoute('/auth/device')({
@@ -12,15 +13,15 @@ export const Route = createFileRoute('/auth/device')({
     meta: [{ title: `Device Confirmation - ${__HOST__}` }],
   }),
   validateSearch: z.object({ user_code: z.string().optional() }),
-  beforeLoad: async ({ search }) => {
+  beforeLoad: async (context) => {
     const accountId = await getAccountId()
     if (!accountId) {
-      const next = search.user_code
-        ? `/auth/device?user_code=${encodeURIComponent(search.user_code)}`
-        : '/auth/device'
-      throw redirect({
-        href: `/api/auth/github?next=${encodeURIComponent(next)}`,
+      const url = rpc.api.auth.github.$url({
+        query: {
+          next: context.location.publicHref ?? context.location.pathname,
+        },
       })
+      throw redirect({ href: `${url.pathname}${url.search}` })
     }
   },
   component: DeviceConfirmation,
@@ -90,11 +91,15 @@ function DeviceConfirmation() {
           onClick={async () => {
             setState('confirming')
             try {
-              const res = await fetch('/api/auth/device/confirm', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user_code }),
-              })
+              const confirmUrl = rpc.api.auth.device.confirm.$url()
+              const res = await fetch(
+                `${confirmUrl.pathname}${confirmUrl.search}`,
+                {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ user_code }),
+                },
+              )
               if (!res.ok) {
                 const body = await res.json().catch(() => null)
                 setErrorMessage(
