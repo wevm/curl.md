@@ -30,14 +30,18 @@ export const api = new Hono<{
         dialect: dialect(c.env.DB.connectionString),
       }),
     )
-    let sessionId = await Cookie.getSigned(
-      c,
-      c.env.COOKIE_SECRET,
-      'curl.session',
-    )
-    const authHeader = c.req.header('authorization')
-    if (!sessionId && authHeader?.startsWith('Bearer '))
-      sessionId = authHeader.slice(7)
+
+    const sessionId = await (async () => {
+      const cookie = await Cookie.getSigned(
+        c,
+        c.env.COOKIE_SECRET,
+        'curl.session',
+      )
+      if (cookie) return cookie
+      const authorizationHeader = c.req.header('authorization')
+      if (authorizationHeader?.startsWith('Bearer '))
+        return authorizationHeader.replace('Bearer ', '')
+    })()
     c.set(
       'session',
       sessionId
@@ -382,23 +386,19 @@ export const api = new Hono<{
   })
   .post('/api/auth/device', async (c) => {
     const device_code = Nanoid.generate()
-    const generateUserCode = customAlphabet(
-      'ABCDEFGHJKLMNPQRSTUVWXYZ23456789',
-      8,
-    )
-    const user_code = generateUserCode()
+    const user_code = customAlphabet('ABCDEFGHJKLMNPQRSTUVWXYZ23456789', 8)()
     await c.var.db
       .insertInto('device_code')
       .values({
         device_code,
-        expires_at: new Date(Date.now() + 15 * 60 * 1000),
+        expires_at: new Date(Date.now() + 15 * 60 * 1000), // 15 minutes
         status: 'pending',
         user_code,
       })
       .execute()
     return c.json({
       device_code,
-      interval: 5,
+      interval: 1,
       user_code,
       verification_uri: `https://${c.env.HOST}/auth/device`,
     })
@@ -408,30 +408,29 @@ export const api = new Hono<{
     validator('json', z.object({ device_code: z.string() })),
     async (c) => {
       const json = c.req.valid('json')
-      const row = await c.var.db
+      const deviceCode = await c.var.db
         .selectFrom('device_code')
         .where('device_code', '=', json.device_code)
         .select(['account_id', 'expires_at', 'id', 'status'])
         .executeTakeFirst()
-      if (!row || row.expires_at <= new Date())
+      if (!deviceCode || deviceCode.expires_at <= new Date())
         return c.json({ error: 'expired_token' }, 400)
-      if (row.status === 'pending')
+      if (deviceCode.status === 'pending')
         return c.json({ error: 'authorization_pending' }, 400)
-      if (!row.account_id) return c.json({ error: 'expired_token' }, 400)
-      const sessionId = Nanoid.generate()
-      await c.var.db
+      if (!deviceCode.account_id) return c.json({ error: 'expired_token' }, 400)
+      const session = await c.var.db
         .insertInto('session')
         .values({
-          account_id: row.account_id,
-          expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-          id: sessionId,
+          account_id: deviceCode.account_id,
+          expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
         })
-        .execute()
+        .returning('id')
+        .executeTakeFirstOrThrow()
       await c.var.db
         .deleteFrom('device_code')
-        .where('id', '=', row.id)
+        .where('id', '=', deviceCode.id)
         .execute()
-      return c.json({ session_id: sessionId })
+      return c.json({ session_id: session.id })
     },
   )
   .post(

@@ -1,8 +1,26 @@
-import { expect, inject, test } from 'vitest'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+import { hc } from 'hono/client'
+import { expect, inject, onTestFinished, test, vi } from 'vitest'
 import { Env } from '../../test/env.ts'
 import cli from './cli.ts'
 
 const env = Env.parse(inject('env'))
+const client = hc<typeof import('../../src/api.ts').api>(env.CURL_MD_BASE_URL)
+
+function useTempHome() {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'curl-md-test-'))
+  const spy = vi.spyOn(os, 'homedir').mockReturnValue(tmpDir)
+  return {
+    dir: tmpDir,
+    sessionPath: path.join(tmpDir, '.config', 'curl-md', 'session.json'),
+    cleanup() {
+      spy.mockRestore()
+      fs.rmSync(tmpDir, { recursive: true, force: true })
+    },
+  }
+}
 
 async function serve(
   argv: string[],
@@ -154,4 +172,113 @@ test('exits with error for missing url', async () => {
       configurable: true,
     })
   }
+})
+
+test('auth check when not logged in', async () => {
+  const home = useTempHome()
+  try {
+    const { output } = await serve(['auth', 'check'])
+    expect(output).toContain('Not logged in')
+  } finally {
+    home.cleanup()
+  }
+})
+
+test('auth logout when not logged in', async () => {
+  const home = useTempHome()
+  try {
+    const { output } = await serve(['auth', 'logout'])
+    expect(output).toContain('Not logged in')
+  } finally {
+    home.cleanup()
+  }
+})
+
+test('auth logout deletes session', async () => {
+  const home = useTempHome()
+  try {
+    fs.mkdirSync(path.dirname(home.sessionPath), { recursive: true })
+    fs.writeFileSync(home.sessionPath, JSON.stringify({ session_id: 'test' }))
+
+    const { output } = await serve(['auth', 'logout'])
+    expect(output).toContain('Logged out')
+    expect(fs.existsSync(home.sessionPath)).toBe(false)
+  } finally {
+    home.cleanup()
+  }
+})
+
+test('auth check with expired session', async () => {
+  const home = useTempHome()
+  try {
+    fs.mkdirSync(path.dirname(home.sessionPath), { recursive: true })
+    fs.writeFileSync(
+      home.sessionPath,
+      JSON.stringify({ session_id: 'expired-session-id' }),
+    )
+
+    const { output } = await serve(['auth', 'check'])
+    expect(output).toContain('Session expired')
+    expect(fs.existsSync(home.sessionPath)).toBe(false)
+  } finally {
+    home.cleanup()
+  }
+})
+
+test('auth login full device flow', async () => {
+  vi.mock('node:child_process', () => ({ exec: vi.fn() }))
+
+  const home = useTempHome()
+  onTestFinished(() => home.cleanup())
+
+  const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+  onTestFinished(() => consoleSpy.mockRestore())
+
+  const { Kysely } = await import('kysely')
+  const { dialect } = await import('../../src/lib/pg.ts')
+  const db = new Kysely<import('../../src/lib/db.gen.ts').DB>({
+    dialect: dialect(env.DB_URL),
+  })
+  onTestFinished(() => db.destroy())
+
+  const account = await db
+    .insertInto('account')
+    .values({
+      email: 'cli-test@example.com',
+      login: 'cli-test-user',
+      name: 'CLI Test',
+    })
+    .returning('id')
+    .executeTakeFirstOrThrow()
+  const session = await db
+    .insertInto('session')
+    .values({
+      account_id: account.id,
+      expires_at: new Date(Date.now() + 86400 * 1000),
+    })
+    .returning('id')
+    .executeTakeFirstOrThrow()
+
+  const loginPromise = serve(['auth', 'login'])
+
+  const deviceCode = await vi.waitFor(() =>
+    db
+      .selectFrom('device_code')
+      .where('status', '=', 'pending')
+      .select(['user_code', 'id'])
+      .orderBy('created_at', 'desc')
+      .executeTakeFirstOrThrow(),
+  )
+
+  await client.api.auth.device.confirm.$post(
+    { json: { user_code: deviceCode.user_code } },
+    { headers: { Authorization: `Bearer ${session.id}` } },
+  )
+
+  const { output } = await loginPromise
+  expect(output).toContain('Successfully logged in')
+  expect(fs.existsSync(home.sessionPath)).toBe(true)
+
+  const { output: checkOutput } = await serve(['auth', 'check'])
+  expect(checkOutput).toContain('cli-test-user')
 })

@@ -3,6 +3,7 @@ import { testClient } from 'hono/testing'
 import { Kysely } from 'kysely'
 import { describe, expect, test } from 'vitest'
 import { api } from '#api.ts'
+import { assert } from '#lib/assert.ts'
 import * as Cookie from '#lib/cookie.ts'
 import type { DB } from '#lib/db.gen.ts'
 import { dialect } from '#lib/pg.ts'
@@ -241,6 +242,119 @@ describe('GET /api/auth/me', () => {
     const res = await client.api.auth.me.$get()
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({ account: null })
+  })
+})
+
+describe('device auth flow', () => {
+  test('returns device code and user code', async () => {
+    const res = await client.api.auth.device.$post()
+    expect(res.status).toBe(200)
+    const data = await res.json()
+    expect(data.device_code).toBeDefined()
+    expect(data.user_code).toMatch(/^[A-Z2-9]{8}$/)
+    expect(data.verification_uri).toBe('https://curl.local/auth/device')
+    expect(data.interval).toBe(1)
+  })
+
+  test('polling pending code returns authorization_pending', async () => {
+    const deviceRes = await client.api.auth.device.$post()
+    const device = await deviceRes.json()
+
+    const res = await client.api.auth.device.token.$post({
+      json: { device_code: device.device_code },
+    })
+    expect(res.status).toBe(400)
+    expect(await res.json()).toEqual({ error: 'authorization_pending' })
+  })
+
+  test('polling invalid code returns expired_token', async () => {
+    const res = await client.api.auth.device.token.$post({
+      json: { device_code: 'nonexistent' },
+    })
+    expect(res.status).toBe(400)
+    expect(await res.json()).toEqual({ error: 'expired_token' })
+  })
+
+  test('confirm without session returns 401', async () => {
+    const res = await client.api.auth.device.confirm.$post({
+      json: { user_code: 'ABCD1234' },
+    })
+    expect(res.status).toBe(401)
+  })
+
+  test('confirm with invalid code returns 404', async () => {
+    const account = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: account.id })
+
+    const res = await client.api.auth.device.confirm.$post(
+      { json: { user_code: 'INVALID1' } },
+      {
+        headers: {
+          Cookie: await Cookie.generateSigned(
+            'curl.session',
+            session.id,
+            env.COOKIE_SECRET,
+          ),
+        },
+      },
+    )
+    expect(res.status).toBe(404)
+  })
+
+  test('full flow: create, confirm, exchange for session', async () => {
+    const account = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: account.id })
+
+    // 1. Create device code
+    const deviceRes = await client.api.auth.device.$post()
+    const device = await deviceRes.json()
+
+    // 2. Confirm (as authenticated user)
+    const confirmRes = await client.api.auth.device.confirm.$post(
+      { json: { user_code: device.user_code } },
+      {
+        headers: {
+          Cookie: await Cookie.generateSigned(
+            'curl.session',
+            session.id,
+            env.COOKIE_SECRET,
+          ),
+        },
+      },
+    )
+    expect(confirmRes.status).toBe(200)
+    expect(await confirmRes.json()).toEqual({ ok: true })
+
+    // 3. Exchange device code for session
+    const tokenRes = await client.api.auth.device.token.$post({
+      json: { device_code: device.device_code },
+    })
+    expect(tokenRes.status).toBe(200)
+    const tokenData = await tokenRes.json()
+    expect(tokenData).toHaveProperty('session_id')
+    assert('session_id' in tokenData, 'session_id not defined')
+
+    // 4. Verify new session works
+    const meRes = await client.api.auth.me.$get(
+      {},
+      {
+        headers: {
+          Authorization: `Bearer ${tokenData.session_id}`,
+        },
+      },
+    )
+    expect(meRes.status).toBe(200)
+    const meData = await meRes.json()
+    expect(meData.account).not.toBeNull()
+    expect(meData.account!.id).toBe(account.id)
+
+    // 5. Verify device code was consumed (deleted)
+    const remaining = await db
+      .selectFrom('device_code')
+      .where('device_code', '=', device.device_code)
+      .selectAll()
+      .execute()
+    expect(remaining).toHaveLength(0)
   })
 })
 

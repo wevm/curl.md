@@ -1,3 +1,4 @@
+import { exec } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -223,14 +224,7 @@ const auth = Cli.create('auth', {
       const device = await deviceRes.json()
 
       const url = `${device.verification_uri}?user_code=${device.user_code}`
-      const { exec } = await import('node:child_process')
-      const openCmd =
-        process.platform === 'darwin'
-          ? 'open'
-          : process.platform === 'win32'
-            ? 'start'
-            : 'xdg-open'
-      exec(`${openCmd} "${url}"`)
+      openUrl(url)
 
       console.log(`\nConfirmation Code: ${device.user_code}\n`)
       console.log(
@@ -239,13 +233,15 @@ const auth = Cli.create('auth', {
 
       const interval = (device.interval ?? 5) * 1000
       while (true) {
-        await new Promise((r) => setTimeout(r, interval))
         const tokenRes = await c.var.client.api.auth.device.token.$post({
           json: { device_code: device.device_code },
         })
         const tokenData = await tokenRes.json()
         if ('error' in tokenData) {
-          if (tokenData.error === 'authorization_pending') continue
+          if (tokenData.error === 'authorization_pending') {
+            await new Promise((r) => setTimeout(r, interval))
+            continue
+          }
           return c.error({ code: 'AUTH_FAILED', message: tokenData.error })
         }
         if ('session_id' in tokenData) {
@@ -310,4 +306,14 @@ function deleteSession() {
   try {
     fs.unlinkSync(getConfigPath())
   } catch {}
+}
+
+function openUrl(url: string) {
+  const cmd =
+    process.platform === 'darwin'
+      ? 'open'
+      : process.platform === 'win32'
+        ? 'start'
+        : 'xdg-open'
+  exec(`${cmd} "${url}"`)
 }
