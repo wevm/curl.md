@@ -1,26 +1,32 @@
-import fs from 'node:fs'
-import path from 'node:path'
 import { hc } from 'hono/client'
-import { expect, inject, onTestFinished, test, vi } from 'vitest'
+import { Kysely } from 'kysely'
+import {
+  beforeEach,
+  describe,
+  expect,
+  inject,
+  onTestFinished,
+  test,
+  vi,
+} from 'vitest'
+import type { api } from '#api.ts'
+import type { DB } from '#lib/db.gen.ts'
+import { dialect } from '#lib/pg.ts'
 import { Env } from '../../test/env.ts'
+import { createFactory } from '../../test/factory.ts'
+import { Session } from '../src/utils.ts'
 import { serve, useTempHome } from '../test/utils.ts'
 
 const env = Env.parse(inject('env'))
-const client = hc<typeof import('../../src/api.ts').api>(env.CURL_MD_BASE_URL)
+const client = hc<typeof api>(env.CURL_MD_BASE_URL)
+const db = new Kysely<DB>({ dialect: dialect(env.DB_URL) })
+const factory = createFactory(db)
 
-test('fetches example.com as markdown', async () => {
-  const { output } = await serve(['example.com'])
-  expect(output).toContain('Example Domain')
-}, 30_000)
-
-test('fetches example.com as json', async () => {
-  const { output } = await serve(['example.com', '--json'])
-  const json = JSON.parse(output)
-  const content = json.data ?? json.content ?? json
-  expect(
-    typeof content === 'string' ? content : JSON.stringify(content),
-  ).toContain('Example Domain')
-}, 30_000)
+let home: ReturnType<typeof useTempHome>
+beforeEach(() => {
+  home = useTempHome()
+  return () => home.cleanup()
+})
 
 test('prints version', async () => {
   const { output } = await serve(['--version'])
@@ -78,145 +84,185 @@ test('prints help', async () => {
   `)
 })
 
-test('exits with error for invalid url', async () => {
-  const { exitCode, output } = await serve(['!!!invalid'])
-  expect(exitCode).toBe(1)
-  expect(output).toMatchInlineSnapshot(`
-    "## code
+describe('fetch', () => {
+  test('fetches example.com as markdown', async () => {
+    const { output } = await serve(['example.com'])
+    expect(output).toContain('Example Domain')
+  }, 30_000)
 
-    INVALID_URL
+  test('fetches example.com as json', async () => {
+    const { output } = await serve(['example.com', '--json'])
+    const json = JSON.parse(output)
+    const content = json.data ?? json.content ?? json
+    expect(
+      typeof content === 'string' ? content : JSON.stringify(content),
+    ).toContain('Example Domain')
+  }, 30_000)
 
-    ## message
+  test('exits with error for invalid url', async () => {
+    const { exitCode, output } = await serve(['!!!invalid'])
+    expect(exitCode).toBe(1)
+    expect(output).toMatchInlineSnapshot(`
+      "## code
 
-    Invalid URL: !!!invalid
+      INVALID_URL
 
-    ## cta.description
+      ## message
 
-    URL must be a valid HTTP(S) address:
+      Invalid URL: !!!invalid
 
-    ## cta.commands
+      ## cta.description
 
-    | command                          | description             |
-    |----------------------------------|-------------------------|
-    | curl.md example.com              | Domain without protocol |
-    | curl.md https://example.com/path | Full URL with protocol  |
-    "
-  `)
+      URL must be a valid HTTP(S) address:
+
+      ## cta.commands
+
+      | command                          | description             |
+      |----------------------------------|-------------------------|
+      | curl.md example.com              | Domain without protocol |
+      | curl.md https://example.com/path | Full URL with protocol  |
+      "
+    `)
+  })
+
+  test('exits with error for missing url', async () => {
+    const { exitCode, output } = await serve([])
+    expect(exitCode).toBe(1)
+    expect(output).toContain('VALIDATION_ERROR')
+  })
 })
 
-test('exits with error for missing url', async () => {
-  const { exitCode, output } = await serve([])
-  expect(exitCode).toBe(1)
-  expect(output).toContain('VALIDATION_ERROR')
-})
-
-test('auth check when not logged in', async () => {
-  const home = useTempHome()
-  try {
+describe('auth', () => {
+  test('check when not logged in', async () => {
     const { output } = await serve(['auth', 'check'])
     expect(output).toContain('You are not authenticated')
-  } finally {
-    home.cleanup()
-  }
-})
+  })
 
-test('auth logout when not logged in', async () => {
-  const home = useTempHome()
-  try {
+  test('logout when not logged in', async () => {
     const { output } = await serve(['auth', 'logout'])
     expect(output).toContain('Already logged out')
-  } finally {
-    home.cleanup()
-  }
-})
+  })
 
-test('auth logout deletes session', async () => {
-  const home = useTempHome()
-  try {
-    fs.mkdirSync(path.dirname(home.sessionPath), { recursive: true })
-    fs.writeFileSync(home.sessionPath, JSON.stringify({ session_id: 'test' }))
+  test('logout deletes session', async () => {
+    Session.write({ session_id: 'test' })
 
     // Simulate pressing Enter
     setTimeout(() => process.stdin.emit('data', '\n'), 100)
     const { output } = await serve(['auth', 'logout'])
     expect(output).toContain('Successfully logged out')
-    expect(fs.existsSync(home.sessionPath)).toBe(false)
-  } finally {
-    home.cleanup()
-  }
-})
+    expect(Session.read()).toBeNull()
+  })
 
-test('auth check with expired session', async () => {
-  const home = useTempHome()
-  try {
-    fs.mkdirSync(path.dirname(home.sessionPath), { recursive: true })
-    fs.writeFileSync(
-      home.sessionPath,
-      JSON.stringify({ session_id: 'expired-session-id' }),
-    )
+  test('check with expired session', async () => {
+    Session.write({ session_id: 'expired-session-id' })
 
     const { output } = await serve(['auth', 'check'])
     expect(output).toContain('You are not authenticated')
-    expect(fs.existsSync(home.sessionPath)).toBe(false)
-  } finally {
-    home.cleanup()
-  }
+    expect(Session.read()).toBeNull()
+  })
+
+  test('login full device flow', async () => {
+    vi.mock('node:child_process', () => ({ exec: vi.fn() }))
+
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    onTestFinished(() => consoleSpy.mockRestore())
+
+    const account = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: account.id })
+
+    const loginPromise = serve(['auth', 'login'])
+
+    const deviceCode = await vi.waitFor(() =>
+      db
+        .selectFrom('device_code')
+        .where('status', '=', 'pending')
+        .select(['user_code', 'id'])
+        .orderBy('created_at', 'desc')
+        .executeTakeFirstOrThrow(),
+    )
+
+    await client.api.auth.device.confirm.$post(
+      { json: { user_code: deviceCode.user_code } },
+      { headers: { Authorization: `Bearer ${session.id}` } },
+    )
+
+    const { output } = await loginPromise
+    expect(output).toContain('Successfully logged in')
+    expect(Session.read()).not.toBeNull()
+
+    const { output: checkOutput } = await serve(['auth', 'check'])
+    expect(checkOutput).toContain('You are authenticated')
+  })
 })
 
-test('auth login full device flow', async () => {
-  vi.mock('node:child_process', () => ({ exec: vi.fn() }))
-
-  const home = useTempHome()
-  onTestFinished(() => home.cleanup())
-
-  const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-  onTestFinished(() => consoleSpy.mockRestore())
-
-  const { Kysely } = await import('kysely')
-  const { dialect } = await import('../../src/lib/pg.ts')
-  const db = new Kysely<import('../../src/lib/db.gen.ts').DB>({
-    dialect: dialect(env.DB_URL),
+describe('org', () => {
+  test('requires auth when not logged in', async () => {
+    const { exitCode, output } = await serve(['org', 'list'])
+    expect(exitCode).toBe(1)
+    expect(output).toContain('NOT_AUTHENTICATED')
   })
-  onTestFinished(() => db.destroy())
 
-  const account = await db
-    .insertInto('account')
-    .values({
-      email: 'cli-test@example.com',
-      login: 'cli-test-user',
-      name: 'CLI Test',
-    })
-    .returning('id')
-    .executeTakeFirstOrThrow()
-  const session = await db
-    .insertInto('session')
-    .values({
-      account_id: account.id,
-      expires_at: new Date(Date.now() + 86400 * 1000),
-    })
-    .returning('id')
-    .executeTakeFirstOrThrow()
+  test('list shows personal when no orgs', async () => {
+    const account = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: account.id })
+    Session.write({ session_id: session.id })
 
-  const loginPromise = serve(['auth', 'login'])
+    const { output } = await serve(['org', 'list'])
+    expect(output).toContain('personal')
+  })
 
-  const deviceCode = await vi.waitFor(() =>
-    db
-      .selectFrom('device_code')
-      .where('status', '=', 'pending')
-      .select(['user_code', 'id'])
-      .orderBy('created_at', 'desc')
-      .executeTakeFirstOrThrow(),
-  )
+  test('show defaults to personal', async () => {
+    const account = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: account.id })
+    Session.write({ session_id: session.id })
 
-  await client.api.auth.device.confirm.$post(
-    { json: { user_code: deviceCode.user_code } },
-    { headers: { Authorization: `Bearer ${session.id}` } },
-  )
+    const { output } = await serve(['org', 'show'])
+    expect(output).toContain('personal')
+  })
 
-  const { output } = await loginPromise
-  expect(output).toContain('Successfully logged in')
-  expect(fs.existsSync(home.sessionPath)).toBe(true)
+  test('create, list, switch, and show', async () => {
+    const account = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: account.id })
+    Session.write({ session_id: session.id })
 
-  const { output: checkOutput } = await serve(['auth', 'check'])
-  expect(checkOutput).toContain('You are authenticated')
+    const { output: createOutput } = await serve([
+      'org',
+      'create',
+      'test-org',
+      '--name',
+      'Test Org',
+    ])
+    expect(createOutput).toContain('Created organization test-org')
+
+    const { output: listOutput } = await serve(['org', 'list'])
+    expect(listOutput).toContain('test-org')
+    expect(listOutput).toContain('personal')
+
+    const { output: switchOutput } = await serve(['org', 'switch', 'test-org'])
+    expect(switchOutput).toContain('Switched to test-org')
+
+    const { output: showOutput } = await serve(['org', 'show'])
+    expect(showOutput).toContain('test-org')
+
+    const { output: switchBackOutput } = await serve([
+      'org',
+      'switch',
+      'personal',
+    ])
+    expect(switchBackOutput).toContain('Switched to personal')
+  })
+
+  test('switch to nonexistent org', async () => {
+    const account = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: account.id })
+    Session.write({ session_id: session.id })
+
+    const { exitCode, output } = await serve([
+      'org',
+      'switch',
+      'nonexistent-org',
+    ])
+    expect(exitCode).toBe(1)
+    expect(output).toContain('ORG_NOT_FOUND')
+  })
 })
