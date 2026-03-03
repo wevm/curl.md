@@ -1,5 +1,13 @@
 # curl.md
 
+## 0.0.2
+
+### Patch Changes
+
+- Added update command ([`456dcad`](https://github.com/wevm/curl.md/commit/456dcade9249d68c0f555463792bdac5935033f9))
+
+- Switched to [incur](https://github.com/wevm/incur) for CLI ([`e3d540f`](https://github.com/wevm/curl.md/commit/e3d540f14aa50cf03efcccdad41684b3dbf9a584))
+
 ## 0.0.1
 
 ### Patch Changes
