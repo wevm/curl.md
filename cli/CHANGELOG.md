@@ -1,5 +1,11 @@
 # curl.md
 
+## 0.0.3
+
+### Patch Changes
+
+- Bumped incur version ([`46411dd`](https://github.com/wevm/curl.md/commit/46411ddf2b24e220088a2c01d21adaddc8113301))
+
 ## 0.0.2
 
 ### Patch Changes
