@@ -674,11 +674,18 @@ const update = Cli.create('update', {
       compareVersions(version, pkg.version) <= 0
     )
       return c.ok(`Already up-to-date (${pkg.version}).`)
+    const spinner = createSpinner(
+      `Updating ${c.name} ${pkg.version} → ${version}`,
+    )
     try {
       if (isStandalone()) await updateStandalone(version)
       else await installGlobal(c.name, version)
-      return c.ok(`Updated ${c.name} to ${version}.`)
+      spinner.stop()
+      return c.ok(
+        `Updated ${c.name}: ${pkg.version} → ${version}\nhttps://github.com/${pkg.repository}/releases/tag/${c.name}@${version}`,
+      )
     } catch (error) {
+      spinner.stop()
       return c.error({
         code: 'UPDATE_FAILED',
         message: error instanceof Error ? error.message : 'Update failed.',
