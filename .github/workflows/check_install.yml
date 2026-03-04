@@ -1,10 +1,10 @@
-name: Test install.sh
+name: Check install.sh
 
 on:
   pull_request:
     paths:
       - public/install.sh
-      - .github/workflows/test-install.yml
+      - .github/workflows/check_install.yml
   release:
     types: [published]
 
@@ -23,7 +23,7 @@ jobs:
         run: shellcheck public/install.sh
 
   install:
-    name: Install (${{ matrix.os }})
+    name: Test (${{ matrix.os }})
     if: github.event_name == 'release'
     needs: shellcheck
     strategy:
