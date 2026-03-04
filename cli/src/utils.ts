@@ -234,6 +234,22 @@ export function select(title: string, items: string[]): Promise<number> {
   })
 }
 
+export function formatValidationError(
+  json: unknown,
+  fallback = 'Invalid request',
+): string {
+  if (
+    typeof json !== 'object' ||
+    json === null ||
+    !('issues' in json) ||
+    !Array.isArray(json.issues)
+  )
+    return fallback
+  return json.issues
+    .map((i: { message: string; path: string }) => `${i.path}: ${i.message}`)
+    .join('\n')
+}
+
 function hasBinary(name: string) {
   try {
     child_process.execFileSync('which', [name], { stdio: 'ignore' })

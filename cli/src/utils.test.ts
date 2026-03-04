@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { compareVersions } from './utils.ts'
+import { compareVersions, formatValidationError } from './utils.ts'
 
 test('compareVersions: equal versions return 0', () => {
   expect(compareVersions('1.0.0', '1.0.0')).toBe(0)
@@ -27,4 +27,35 @@ test('compareVersions: strips v prefix', () => {
 
 test('compareVersions: different length versions', () => {
   expect(compareVersions('1.0', '1.0.0')).toBe(0)
+})
+
+test('formatValidationError: formats single issue', () => {
+  expect(
+    formatValidationError({
+      error: 'validation_error',
+      issues: [{ path: 'login', message: 'Required' }],
+    }),
+  ).toBe('login: Required')
+})
+
+test('formatValidationError: formats multiple issues', () => {
+  expect(
+    formatValidationError({
+      error: 'validation_error',
+      issues: [
+        { path: 'login', message: 'Too short' },
+        { path: 'name', message: 'Required' },
+      ],
+    }),
+  ).toBe('login: Too short\nname: Required')
+})
+
+test('formatValidationError: returns fallback for non-validation error', () => {
+  expect(formatValidationError({ error: 'not_found' })).toBe('Invalid request')
+  expect(formatValidationError({ error: 'not_found' }, 'custom')).toBe('custom')
+})
+
+test('formatValidationError: returns fallback for non-object', () => {
+  expect(formatValidationError('string')).toBe('Invalid request')
+  expect(formatValidationError(null)).toBe('Invalid request')
 })

@@ -8,6 +8,7 @@ import {
   compareVersions,
   createSpinner,
   fetchLatestVersion,
+  formatValidationError,
   installGlobal,
   openUrl,
   relativeTime,
@@ -137,6 +138,14 @@ const cli = Cli.create('curl.md', {
         q: c.options.objective,
       },
     })
+
+    if (res.status === 400) {
+      const json = await res.json()
+      return c.error({
+        code: 'VALIDATION_ERROR',
+        message: formatValidationError(json),
+      })
+    }
 
     if (res.status === 403) {
       Session.write({ organization_id: undefined })
@@ -337,7 +346,10 @@ const auth = Cli.create('auth', {
               continue
             }
             spinner.stop()
-            return c.error({ code: 'AUTH_FAILED', message: json.error })
+            return c.error({
+              code: 'AUTH_FAILED',
+              message: formatValidationError(json, json.error),
+            })
           }
           const json = await res.json()
           spinner.stop()
@@ -390,6 +402,13 @@ const org = Cli.create('org', {
       const res = await c.var.client.api.orgs.$post({
         json: { login: c.args.login, name: c.options.name },
       })
+      if (res.status === 400) {
+        const json = await res.json()
+        return c.error({
+          code: 'VALIDATION_ERROR',
+          message: formatValidationError(json, json.error),
+        })
+      }
       if (res.status === 401) {
         Session.delete()
         return c.error({

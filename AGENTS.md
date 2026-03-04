@@ -38,6 +38,8 @@ The `pro/` directory is a git submodule (`wevm/curl.md.pro`) containing pro/prem
 - Use `res.status` to narrow response types on the client instead of `'error' in data` checks
 - Prefer route-level error responses over global middleware errors — keeps RPC types precise per-endpoint
 - Use string literal error codes in API responses (e.g., `'organization_access_denied'`, `'expired_token'`) for type-safe client matching
+- Use `validator()` from `#lib/hono.ts` (not `@hono/zod-validator` directly) — it formats validation errors as `{ error: 'validation_error', issues: [{ path, message }] }`
+- Add `if (false as boolean) return validationError(c)` as the first line in validated handlers to include the 400 response in RPC types (validator middleware handles it at runtime, but Hono doesn't type middleware responses)
 
 ## Cloudflare Workers
 

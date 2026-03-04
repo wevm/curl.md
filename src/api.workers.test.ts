@@ -66,6 +66,20 @@ describe('GET /api/auth/github', () => {
 })
 
 describe('GET /api/auth/github/callback', () => {
+  test('rejects missing params with validation_error', async () => {
+    const res = await client.api.auth.github.callback.$get({
+      // @ts-expect-error -- testing missing required fields
+      query: {},
+    })
+    expect(res.status).toBe(400)
+    await expect(res.json()).resolves.toEqual({
+      error: 'validation_error',
+      issues: expect.arrayContaining([
+        { path: expect.any(String), message: expect.any(String) },
+      ]),
+    })
+  })
+
   test('with mismatched state redirects to error page', async () => {
     const res = await client.api.auth.github.callback.$get({
       query: { code: 'abc', state: 'xyz' },
@@ -302,7 +316,7 @@ describe('POST /api/auth/logout', () => {
   test('returns ok', async () => {
     const res = await client.api.auth.logout.$post()
     expect(res.status).toBe(200)
-    expect(await res.json()).toEqual({ ok: true })
+    await expect(res.json()).resolves.toEqual({ ok: true })
   })
 })
 
@@ -310,11 +324,39 @@ describe('GET /api/auth/me', () => {
   test('returns null without session', async () => {
     const res = await client.api.auth.me.$get()
     expect(res.status).toBe(200)
-    expect(await res.json()).toEqual({ account: null })
+    await expect(res.json()).resolves.toEqual({ account: null })
   })
 })
 
 describe('device auth flow', () => {
+  test('rejects missing user_code with validation_error', async () => {
+    const res = await client.api.auth.device.confirm.$post({
+      // @ts-expect-error -- testing missing required field
+      json: {},
+    })
+    expect(res.status).toBe(400)
+    await expect(res.json()).resolves.toEqual({
+      error: 'validation_error',
+      issues: expect.arrayContaining([
+        { path: expect.any(String), message: expect.any(String) },
+      ]),
+    })
+  })
+
+  test('rejects missing code with validation_error', async () => {
+    const res = await client.api.auth.device.token.$post({
+      // @ts-expect-error -- testing missing required field
+      json: {},
+    })
+    expect(res.status).toBe(400)
+    await expect(res.json()).resolves.toEqual({
+      error: 'validation_error',
+      issues: expect.arrayContaining([
+        { path: expect.any(String), message: expect.any(String) },
+      ]),
+    })
+  })
+
   test('returns device code and user code', async () => {
     const res = await client.api.auth.device.$post()
     expect(res.status).toBe(200)
@@ -333,7 +375,9 @@ describe('device auth flow', () => {
       json: { code: device.code },
     })
     expect(res.status).toBe(400)
-    expect(await res.json()).toEqual({ error: 'authorization_pending' })
+    await expect(res.json()).resolves.toEqual({
+      error: 'authorization_pending',
+    })
   })
 
   test('polling invalid code returns expired_token', async () => {
@@ -341,7 +385,7 @@ describe('device auth flow', () => {
       json: { code: 'nonexistent' },
     })
     expect(res.status).toBe(400)
-    expect(await res.json()).toEqual({ error: 'expired_token' })
+    await expect(res.json()).resolves.toEqual({ error: 'expired_token' })
   })
 
   test('confirm without session returns 401', async () => {
@@ -392,7 +436,7 @@ describe('device auth flow', () => {
       },
     )
     expect(confirmRes.status).toBe(200)
-    expect(await confirmRes.json()).toEqual({ ok: true })
+    await expect(confirmRes.json()).resolves.toEqual({ ok: true })
 
     // 3. Exchange device code for session
     const tokenRes = await client.api.auth.device.token.$post({
@@ -482,7 +526,7 @@ describe('API key authentication', () => {
       { headers: { Authorization: 'Bearer curl_deleted789' } },
     )
     expect(res.status).toBe(200)
-    expect(await res.json()).toEqual({ account: null })
+    await expect(res.json()).resolves.toEqual({ account: null })
   })
 
   test('updates last_used_at on API key use', async () => {
@@ -518,7 +562,7 @@ describe('API key authentication', () => {
 test('GET /api/health returns ok', async () => {
   const res = await client.api.health.$get()
   expect(res.status).toBe(200)
-  expect(await res.json()).toEqual({ ok: true })
+  await expect(res.json()).resolves.toEqual({ ok: true })
 })
 
 describe('GET /api/orgs', () => {
@@ -642,6 +686,33 @@ describe('GET /api/orgs/:id', () => {
 })
 
 describe('POST /api/orgs', () => {
+  test('rejects invalid login with validation_error', async () => {
+    const res = await client.api.orgs.$post({
+      json: { login: '!' },
+    })
+    expect(res.status).toBe(400)
+    await expect(res.json()).resolves.toEqual({
+      error: 'validation_error',
+      issues: expect.arrayContaining([
+        { path: 'login', message: expect.any(String) },
+      ]),
+    })
+  })
+
+  test('rejects missing login with validation_error', async () => {
+    const res = await client.api.orgs.$post({
+      // @ts-expect-error -- testing missing required field
+      json: {},
+    })
+    expect(res.status).toBe(400)
+    await expect(res.json()).resolves.toEqual({
+      error: 'validation_error',
+      issues: expect.arrayContaining([
+        { path: 'login', message: expect.any(String) },
+      ]),
+    })
+  })
+
   test('without session returns 401', async () => {
     const res = await client.api.orgs.$post({
       json: { login: 'my-org' },
@@ -667,7 +738,7 @@ describe('POST /api/orgs', () => {
       },
     )
     expect(res.status).toBe(200)
-    expect(await res.json()).toEqual({ login })
+    await expect(res.json()).resolves.toEqual({ login })
 
     const org = await db
       .selectFrom('organization')
@@ -729,7 +800,9 @@ describe('POST /api/orgs', () => {
       },
     )
     expect(res.status).toBe(409)
-    expect(await res.json()).toEqual({ error: 'This login is reserved' })
+    await expect(res.json()).resolves.toEqual({
+      error: 'This login is reserved',
+    })
   })
 
   test('rejects login taken by account', async () => {
@@ -750,7 +823,7 @@ describe('POST /api/orgs', () => {
       },
     )
     expect(res.status).toBe(409)
-    expect(await res.json()).toEqual({ error: 'Login already taken' })
+    await expect(res.json()).resolves.toEqual({ error: 'Login already taken' })
   })
 
   test('rejects duplicate login', async () => {
@@ -771,9 +844,23 @@ describe('POST /api/orgs', () => {
       },
     )
     expect(res.status).toBe(409)
-    expect(await res.json()).toEqual({
+    await expect(res.json()).resolves.toEqual({
       error: 'Login already taken',
     })
+  })
+})
+
+test('GET /api/:url rejects invalid url with validation_error', async () => {
+  const res = await client.api[':url{.+}'].$get({
+    param: { url: '!' },
+    query: {},
+  })
+  expect(res.status).toBe(400)
+  await expect(res.json()).resolves.toEqual({
+    error: 'validation_error',
+    issues: expect.arrayContaining([
+      { path: expect.any(String), message: expect.any(String) },
+    ]),
   })
 })
 
@@ -796,7 +883,9 @@ test('GET /api/:url returns 403 for invalid x-organization-id', async () => {
     },
   )
   expect(res.status).toBe(403)
-  expect(await res.json()).toEqual({ error: 'organization_access_denied' })
+  await expect(res.json()).resolves.toEqual({
+    error: 'organization_access_denied',
+  })
 })
 
 test('GET /api/:url fetches URL and returns markdown', async () => {
@@ -895,7 +984,7 @@ test('GET /api/:url returns 429 when fetch limit exceeded', async () => {
   )
   expect(res.status).toBe(429)
   expect(res.headers.get('retry-after')).toBeTruthy()
-  expect(await res.json()).toEqual({ error: 'rate_limit_exceeded' })
+  await expect(res.json()).resolves.toEqual({ error: 'rate_limit_exceeded' })
 })
 
 test('GET /api/:url returns 429 when query limit exceeded', async () => {
@@ -911,5 +1000,5 @@ test('GET /api/:url returns 429 when query limit exceeded', async () => {
   )
   expect(res.status).toBe(429)
   expect(res.headers.get('retry-after')).toBeTruthy()
-  expect(await res.json()).toEqual({ error: 'rate_limit_exceeded' })
+  await expect(res.json()).resolves.toEqual({ error: 'rate_limit_exceeded' })
 })

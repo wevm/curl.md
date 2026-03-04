@@ -184,6 +184,26 @@ describe('fetch', () => {
     expect(output).toContain('auth login')
   })
 
+  test('shows validation error on 400', async () => {
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = async () =>
+      new Response(
+        JSON.stringify({
+          error: 'validation_error',
+          issues: [{ path: 'url', message: 'Invalid url' }],
+        }),
+        { status: 400, headers: { 'content-type': 'application/json' } },
+      )
+    onTestFinished(() => {
+      globalThis.fetch = originalFetch
+    })
+
+    const { exitCode, output } = await serve(['example.com'])
+    expect(exitCode).toBe(1)
+    expect(output).toContain('VALIDATION_ERROR')
+    expect(output).toContain('url')
+  })
+
   test('shows generic error on unexpected failure', async () => {
     const originalFetch = globalThis.fetch
     globalThis.fetch = async () =>
@@ -371,6 +391,48 @@ describe('auth', () => {
     expect(output).toContain('AUTH_FAILED')
   })
 
+  test('login shows validation error on malformed token request', async () => {
+    vi.mock('node:child_process', () => ({
+      default: { exec: vi.fn(), spawn: vi.fn(() => ({ unref: vi.fn() })) },
+      exec: vi.fn(),
+      spawn: vi.fn(() => ({ unref: vi.fn() })),
+    }))
+
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    onTestFinished(() => consoleSpy.mockRestore())
+
+    const originalFetch = globalThis.fetch
+    let callCount = 0
+    globalThis.fetch = async () => {
+      callCount++
+      if (callCount === 1)
+        return new Response(
+          JSON.stringify({
+            code: 'test-code',
+            interval: 0,
+            user_code: 'TESTCODE',
+            verification_uri: 'https://curl.local/auth/device',
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        )
+      return new Response(
+        JSON.stringify({
+          error: 'validation_error',
+          issues: [{ path: 'code', message: 'Required' }],
+        }),
+        { status: 400, headers: { 'content-type': 'application/json' } },
+      )
+    }
+    onTestFinished(() => {
+      globalThis.fetch = originalFetch
+    })
+
+    const { exitCode, output } = await serve(['auth', 'login'])
+    expect(exitCode).toBe(1)
+    expect(output).toContain('AUTH_FAILED')
+    expect(output).toContain('code')
+  })
+
   test('login full device flow', async () => {
     vi.mock('node:child_process', () => ({
       default: { exec: vi.fn(), spawn: vi.fn(() => ({ unref: vi.fn() })) },
@@ -465,6 +527,17 @@ describe('org', () => {
       'personal',
     ])
     expect(switchBackOutput).toContain('Switched to personal')
+  })
+
+  test('create with invalid login shows validation error', async () => {
+    const account = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: account.id })
+    Session.write({ session_id: session.id })
+
+    const { exitCode, output } = await serve(['org', 'create', '!'])
+    expect(exitCode).toBe(1)
+    expect(output).toContain('VALIDATION_ERROR')
+    expect(output).toContain('login')
   })
 
   test('create with expired session deletes session', async () => {
