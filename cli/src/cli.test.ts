@@ -204,6 +204,26 @@ describe('fetch', () => {
     expect(output).toContain('url')
   })
 
+  test('shows parsed message on fetch_failed 502', async () => {
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = async () =>
+      new Response(
+        JSON.stringify({
+          error: 'fetch_failed',
+          message: 'Connection refused',
+        }),
+        { status: 502, headers: { 'content-type': 'application/json' } },
+      )
+    onTestFinished(() => {
+      globalThis.fetch = originalFetch
+    })
+
+    const { exitCode, output } = await serve(['example.com'])
+    expect(exitCode).toBe(1)
+    expect(output).toContain('FETCH_FAILED')
+    expect(output).toContain('Connection refused')
+  })
+
   test('shows generic error on unexpected failure', async () => {
     const originalFetch = globalThis.fetch
     globalThis.fetch = async () =>

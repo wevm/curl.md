@@ -192,7 +192,14 @@ const cli = Cli.create('curl.md', {
     }
 
     const text = await res.text()
-    if (!res.ok) return c.error({ code: 'FETCH_FAILED', message: text })
+    if (!res.ok) {
+      let message = text
+      try {
+        const json = JSON.parse(text)
+        if (json.message) message = json.message
+      } catch {}
+      return c.error({ code: 'FETCH_FAILED', message })
+    }
 
     if (!c.options.objective)
       return c.ok(text, {
