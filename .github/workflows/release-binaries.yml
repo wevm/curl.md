@@ -42,8 +42,11 @@ jobs:
       - name: Build
         run: bun build cli/src/bin.ts --compile --target=${{ matrix.target }} --outfile=${{ matrix.artifact }}
 
+      - name: Generate checksum
+        run: shasum -a 256 "${{ matrix.artifact }}" | cut -d' ' -f1 > "${{ matrix.artifact }}.sha256"
+
       - name: Upload to release
-        run: gh release upload "$TAG" "${{ matrix.artifact }}" --clobber
+        run: gh release upload "$TAG" "${{ matrix.artifact }}" "${{ matrix.artifact }}.sha256" --clobber
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.event.release.tag_name }}
