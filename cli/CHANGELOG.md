@@ -1,5 +1,11 @@
 # curl.md
 
+## 0.0.4
+
+### Patch Changes
+
+- Added better error handling ([`c9d851f`](https://github.com/wevm/curl.md/commit/c9d851f786da111c6d8dfe925613b095a9d5cdaa))
+
 ## 0.0.3
 
 ### Patch Changes
