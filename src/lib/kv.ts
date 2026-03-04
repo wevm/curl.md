@@ -9,6 +9,9 @@ type ValueFor<K extends string> =
       ? { content: string; contentType: string }
       : never)
   | (K extends `query:${string}` ? string : never)
+  | (K extends 'cli:latest'
+      ? { published_at: string | null; version: string }
+      : never)
   | (K extends `ratelimit:${'fetch' | 'query'}:${string}`
       ? { count: number; reset: number }
       : never)
@@ -16,6 +19,7 @@ type ValueFor<K extends string> =
 
 export type KVKey =
   | `check:${string}`
+  | 'cli:latest'
   | `page:${string}`
   | `query:${string}`
   | `ratelimit:${'fetch' | 'query'}:${string}`

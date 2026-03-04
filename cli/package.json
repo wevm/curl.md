@@ -7,6 +7,7 @@
     "check:types": "tsgo --noEmit",
     "gen:types": "incur gen"
   },
+  "repository": "wevm/curl.md",
   "license": "MIT",
   "type": "module",
   "bin": {

@@ -650,21 +650,51 @@ describe('org', () => {
 })
 
 test('update shows error when install fails', async () => {
+  const standaloneSpy = vi.spyOn(utils, 'isStandalone').mockReturnValue(false)
   const spy = vi
     .spyOn(utils, 'installGlobal')
     .mockRejectedValue(new Error('permission denied'))
-  const fetchSpy = vi
-    .spyOn(utils, 'fetchLatestVersion')
-    .mockResolvedValue('99.0.0')
-  const compareSpy = vi.spyOn(utils, 'compareVersions').mockReturnValue(1)
   onTestFinished(() => {
+    standaloneSpy.mockRestore()
     spy.mockRestore()
-    fetchSpy.mockRestore()
-    compareSpy.mockRestore()
   })
+
+  const { exitCode, output } = await serve(['update', '--target', '99.0.0'])
+  expect(exitCode).toBe(1)
+  expect(output).toContain('UPDATE_FAILED')
+  expect(output).toContain('permission denied')
+})
+
+test('update standalone shows error on download failure', async () => {
+  const standaloneSpy = vi.spyOn(utils, 'isStandalone').mockReturnValue(true)
+  const updateSpy = vi
+    .spyOn(utils, 'updateStandalone')
+    .mockRejectedValue(new Error('Download failed (404)'))
+  onTestFinished(() => {
+    standaloneSpy.mockRestore()
+    updateSpy.mockRestore()
+  })
+
+  const { exitCode, output } = await serve(['update', '--target', '99.0.0'])
+  expect(exitCode).toBe(1)
+  expect(output).toContain('UPDATE_FAILED')
+  expect(output).toContain('Download failed')
+})
+
+test('update already up-to-date', async () => {
+  const spy = vi.spyOn(utils, 'compareVersions').mockReturnValue(0)
+  onTestFinished(() => spy.mockRestore())
+
+  const { output } = await serve(['update', '--target', '0.0.1'])
+  expect(output).toContain('Already up-to-date')
+})
+
+test('update fails when version cannot be determined', async () => {
+  const fetchSpy = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error())
+  onTestFinished(() => fetchSpy.mockRestore())
 
   const { exitCode, output } = await serve(['update'])
   expect(exitCode).toBe(1)
   expect(output).toContain('UPDATE_FAILED')
-  expect(output).toContain('permission denied')
+  expect(output).toContain('Could not determine latest version')
 })

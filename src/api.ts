@@ -7,7 +7,7 @@ import { customAlphabet } from 'nanoid'
 import { ImageResponse } from 'workers-og'
 import { z } from 'zod'
 import * as ApiKey from '#lib/api-key.ts'
-import { attribution } from '#lib/constants.ts'
+import { attribution, packageName } from '#lib/constants.ts'
 import * as Cookie from '#lib/cookie.ts'
 import { fetchPage } from '#lib/core/fetch-page.ts'
 import * as Crypto from '#lib/crypto.ts'
@@ -556,6 +556,62 @@ export const api = new Hono<{
 
     return c.json({ account }, 200)
   })
+  .get(
+    '/api/cli/latest',
+    validator(
+      'query',
+      z.object({
+        arch: z.string().optional(),
+        current: z.string().optional(),
+        os: z.string().optional(),
+        standalone: z.string().optional(),
+      }),
+    ),
+    // TODO: log install/update analytics from query params (current, os, arch, standalone)
+    async (c) => {
+      if (narrowValidation) return validationError(c)
+
+      // Try KV cache first
+      const cached = await c.env.KV.get('cli:latest', 'json')
+      if (cached)
+        return c.json(
+          {
+            published_at: cached.published_at,
+            version: cached.version,
+          },
+          200,
+        )
+
+      // Fetch from npm registry
+      const res = await fetch(`https://registry.npmjs.org/${packageName}`, {
+        headers: { accept: 'application/json' },
+        signal: AbortSignal.timeout(5_000),
+      })
+      if (!res.ok) return c.json({ error: 'upstream_error' }, 502)
+
+      const npm = z.safeParse(
+        z.object({
+          'dist-tags': z.object({ latest: z.string() }).optional(),
+          time: z.record(z.string(), z.string()).optional(),
+        }),
+        await res.json(),
+      )
+      if (!npm.success || !npm.data['dist-tags']?.latest)
+        return c.json({ error: 'version_not_found' }, 502)
+
+      const version = npm.data['dist-tags'].latest
+      const result = {
+        published_at: npm.data.time?.[version] ?? null,
+        version,
+      }
+      c.executionCtx.waitUntil(
+        c.env.KV.put('cli:latest', JSON.stringify(result), {
+          expirationTtl: 300, // 5 minutes
+        }),
+      )
+      return c.json(result, 200)
+    },
+  )
   .get('/api/health', (c) => c.json({ ok: true }, 200))
   .get('/api/og.png', validator('query', Og.schema), async (c) => {
     if (narrowValidation) return validationError(c)

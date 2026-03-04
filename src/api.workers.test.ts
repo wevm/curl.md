@@ -1,7 +1,7 @@
 import { env, fetchMock } from 'cloudflare:test'
 import { testClient } from 'hono/testing'
 import { Kysely } from 'kysely'
-import { describe, expect, test, vi } from 'vitest'
+import { afterEach, describe, expect, test, vi } from 'vitest'
 import { api } from '#api.ts'
 import * as ApiKey from '#lib/api-key.ts'
 import { assert } from '#lib/assert.ts'
@@ -847,6 +847,100 @@ describe('POST /api/orgs', () => {
     await expect(res.json()).resolves.toEqual({
       error: 'Login already taken',
     })
+  })
+})
+
+describe('GET /api/cli/latest', () => {
+  afterEach(async () => {
+    await env.KV.delete('cli:latest')
+  })
+
+  test('returns latest version from npm registry', async () => {
+    fetchMock
+      .get('https://registry.npmjs.org')
+      .intercept({ path: '/curl.md' })
+      .reply(
+        200,
+        {
+          'dist-tags': { latest: '0.0.4' },
+          time: { '0.0.4': '2025-03-04T00:00:00.000Z' },
+        },
+        { headers: { 'content-type': 'application/json' } },
+      )
+
+    const res = await client.api.cli.latest.$get({ query: {} })
+    assert(res.status === 200, 'expected 200')
+    const json = await res.json()
+    expect(json.version).toBe('0.0.4')
+    expect(json.published_at).toBe('2025-03-04T00:00:00.000Z')
+  })
+
+  test('returns cached version from KV', async () => {
+    const cached = {
+      published_at: '2025-02-01T00:00:00.000Z',
+      version: '0.0.3',
+    }
+    await env.KV.put('cli:latest', JSON.stringify(cached), {
+      expirationTtl: 300,
+    })
+
+    const res = await client.api.cli.latest.$get({ query: {} })
+    expect(res.status).toBe(200)
+    await expect(res.json()).resolves.toEqual(cached)
+  })
+
+  test('returns 502 when npm registry is down', async () => {
+    fetchMock
+      .get('https://registry.npmjs.org')
+      .intercept({ path: '/curl.md' })
+      .reply(503, 'Service Unavailable')
+
+    const res = await client.api.cli.latest.$get({ query: {} })
+    expect(res.status).toBe(502)
+    await expect(res.json()).resolves.toEqual({ error: 'upstream_error' })
+  })
+
+  test('returns 502 when no latest version in registry', async () => {
+    fetchMock
+      .get('https://registry.npmjs.org')
+      .intercept({ path: '/curl.md' })
+      .reply(
+        200,
+        { 'dist-tags': {} },
+        {
+          headers: { 'content-type': 'application/json' },
+        },
+      )
+
+    const res = await client.api.cli.latest.$get({ query: {} })
+    expect(res.status).toBe(502)
+    await expect(res.json()).resolves.toEqual({ error: 'version_not_found' })
+  })
+
+  test('accepts analytics query params', async () => {
+    fetchMock
+      .get('https://registry.npmjs.org')
+      .intercept({ path: '/curl.md' })
+      .reply(
+        200,
+        {
+          'dist-tags': { latest: '0.0.4' },
+          time: { '0.0.4': '2025-03-04T00:00:00.000Z' },
+        },
+        { headers: { 'content-type': 'application/json' } },
+      )
+
+    const res = await client.api.cli.latest.$get({
+      query: {
+        current: '0.0.3',
+        os: 'darwin',
+        arch: 'arm64',
+        standalone: 'true',
+      },
+    })
+    assert(res.status === 200, 'expected 200')
+    const json = await res.json()
+    expect(json.version).toBe('0.0.4')
   })
 })
 

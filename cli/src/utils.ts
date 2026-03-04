@@ -3,22 +3,29 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import util from 'node:util'
+import type { hc } from 'hono/client'
+import type { api } from '../../src/api.ts'
+import pkg from '../package.json' with { type: 'json' }
 import { pc } from './picocolors.ts'
+
+export type Client = ReturnType<typeof hc<typeof api>>
 
 export type Command = { command: string; description?: string }
 
 export function dataDir() {
-  return path.join(
-    process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share'),
-    'curl-md',
-  )
+  if (process.env.XDG_DATA_HOME)
+    return path.join(process.env.XDG_DATA_HOME, 'curl-md')
+  if (process.platform === 'win32')
+    return path.join(process.env.LOCALAPPDATA || os.homedir(), 'curl-md')
+  return path.join(os.homedir(), '.local', 'share', 'curl-md')
 }
 
 export function configDir() {
-  return path.join(
-    process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'),
-    'curl-md',
-  )
+  if (process.env.XDG_CONFIG_HOME)
+    return path.join(process.env.XDG_CONFIG_HOME, 'curl-md')
+  if (process.platform === 'win32')
+    return path.join(process.env.APPDATA || os.homedir(), 'curl-md')
+  return path.join(os.homedir(), '.config', 'curl-md')
 }
 
 export const Session = {
@@ -59,25 +66,6 @@ export function compareVersions(a: string, b: string): number {
     if (diff !== 0) return diff
   }
   return 0
-}
-
-export async function fetchLatestVersion(name: string): Promise<string> {
-  const url = `https://registry.npmjs.org/${encodeURIComponent(name)}/latest`
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 5_000)
-  try {
-    const res = await fetch(url, {
-      signal: controller.signal,
-      headers: { accept: 'application/json' },
-    })
-    if (!res.ok) return 'latest'
-    const pkg = (await res.json()) as { version?: string }
-    return pkg.version ?? 'latest'
-  } catch {
-    return 'latest'
-  } finally {
-    clearTimeout(timeout)
-  }
 }
 
 export function installGlobal(name: string, version?: string) {
@@ -158,13 +146,63 @@ export const UpdateCache = {
     fs.mkdirSync(path.dirname(p), { recursive: true })
     fs.writeFileSync(p, JSON.stringify(data))
   },
+  async runUpdate(client?: Client) {
+    let latest: string | undefined
+    let released_at: string | null = null
+
+    // Try curl.md API first
+    if (client) {
+      try {
+        const res = await client.api.cli.latest.$get(
+          {
+            query: {
+              current: pkg.version,
+              os: process.platform,
+              arch: process.arch,
+              standalone: String(isStandalone()),
+            },
+          },
+          { init: { signal: AbortSignal.timeout(3_000) } },
+        )
+        if (res.status === 200) {
+          const json = await res.json()
+          latest = json.version
+          released_at = json.published_at ?? null
+        }
+      } catch {}
+    }
+
+    // Fallback: npm registry
+    if (!latest) {
+      const res = await fetch('https://registry.npmjs.org/curl.md', {
+        headers: { accept: 'application/json' },
+        signal: AbortSignal.timeout(5_000),
+      })
+      if (!res.ok) process.exit(1)
+      const npm = (await res.json()) as {
+        'dist-tags'?: { latest?: string }
+        time?: Record<string, string>
+      }
+      latest = npm['dist-tags']?.latest
+      if (!latest) process.exit(1)
+      released_at = npm.time?.[latest] ?? null
+    }
+
+    const p = UpdateCache.path()
+    fs.mkdirSync(path.dirname(p), { recursive: true })
+    fs.writeFileSync(
+      p,
+      JSON.stringify({ latest, released_at, checked_at: Date.now() }),
+    )
+  },
   /** Spawn a detached background process to refresh the cache. */
   spawnCheck() {
     try {
-      const script = new URL('./update-cache.js', import.meta.url).pathname
-      const child = child_process.spawn(process.execPath, [script], {
+      const args = isStandalone() ? [] : [process.argv[1] as string]
+      const child = child_process.spawn(process.execPath, args, {
         detached: true,
         stdio: 'ignore',
+        env: { ...process.env, __CURL_MD_UPDATE_CACHE: '1' },
       })
       child.unref()
     } catch {}
@@ -250,9 +288,39 @@ export function formatValidationError(
     .join('\n')
 }
 
+export function isStandalone(): boolean {
+  return !/^(node|bun)(\.exe)?$/.test(path.basename(process.execPath))
+}
+
+export async function updateStandalone(version: string) {
+  const os_ = (() => {
+    if (process.platform === 'darwin') return 'darwin'
+    if (process.platform === 'win32') return 'windows'
+    return 'linux'
+  })()
+  const arch = process.arch === 'arm64' ? 'arm64' : 'x64'
+  const ext = os_ === 'windows' ? '.exe' : ''
+  const artifact = `curl.md-${os_}-${arch}${ext}`
+  const tag = `curl.md@${version}`
+  const url = `https://github.com/${pkg.repository}/releases/download/${tag}/${artifact}`
+
+  const res = await fetch(url, { redirect: 'follow' })
+  if (!res.ok)
+    throw new Error(
+      `Download failed (${res.status}). Binary may not exist for ${os_}/${arch}.`,
+    )
+
+  const buffer = Buffer.from(await res.arrayBuffer())
+  const target = process.execPath
+  const tmpPath = `${target}.tmp`
+  fs.writeFileSync(tmpPath, buffer, { mode: 0o755 })
+  fs.renameSync(tmpPath, target)
+}
+
 function hasBinary(name: string) {
   try {
-    child_process.execFileSync('which', [name], { stdio: 'ignore' })
+    const cmd = process.platform === 'win32' ? 'where.exe' : 'which'
+    child_process.execFileSync(cmd, [name], { stdio: 'ignore' })
     return true
   } catch {
     return false

@@ -4,21 +4,23 @@ import type { api } from '../../src/api.ts'
 import pkg from '../package.json' with { type: 'json' }
 import { pc } from './picocolors.ts'
 import {
+  type Client,
   type Command,
   compareVersions,
   createSpinner,
-  fetchLatestVersion,
   formatValidationError,
   installGlobal,
+  isStandalone,
   openUrl,
   relativeTime,
   Session,
   select,
   UpdateCache,
+  updateStandalone,
 } from './utils.ts'
 
 const vars = z.object({
-  client: z.custom<ReturnType<typeof hc<typeof api>>>(),
+  client: z.custom<Client>(),
   commands: z.custom<Command[]>(),
   session: z.custom<Session.Data | null>(),
 })
@@ -308,7 +310,7 @@ const auth = Cli.create('auth', {
           },
         })
       }
-      return 'You are authenticated.'
+      return c.ok('You are authenticated.')
     },
   })
   .command('login', {
@@ -361,7 +363,7 @@ const auth = Cli.create('auth', {
           const json = await res.json()
           spinner.stop()
           Session.write({ session_id: json.session_id })
-          return 'Successfully logged in.'
+          return c.ok('Successfully logged in.')
         }
       } catch (error) {
         spinner.stop()
@@ -374,7 +376,7 @@ const auth = Cli.create('auth', {
     output: z.string(),
     format: 'md',
     async run(c) {
-      if (!c.var.session) return 'Already logged out.'
+      if (!c.var.session) return c.ok('Already logged out.')
 
       await new Promise<void>((resolve) => {
         process.stdout.write(`Press Enter to log out of ${c.name} CLI`)
@@ -386,7 +388,7 @@ const auth = Cli.create('auth', {
       })
 
       Session.delete()
-      return 'Successfully logged out.'
+      return c.ok('Successfully logged out.')
     },
   })
 
@@ -499,7 +501,7 @@ const org = Cli.create('org', {
         if (org.id === activeId) lines.push(`${pc.bold('*')} ${org.login}`)
         else lines.push(`  ${org.login}`)
       }
-      return lines.join('\n')
+      return c.ok(lines.join('\n'))
     },
   })
   .command('show', {
@@ -510,7 +512,7 @@ const org = Cli.create('org', {
     async run(c) {
       // biome-ignore lint/style/noNonNullAssertion: middleware handles
       const orgId = c.var.session!.organization_id
-      if (!orgId) return `personal ${pc.dim('(no organization)')}`
+      if (!orgId) return c.ok(`personal ${pc.dim('(no organization)')}`)
 
       const res = await c.var.client.api.orgs[':id'].$get({
         param: { id: orgId },
@@ -534,11 +536,13 @@ const org = Cli.create('org', {
 
       if (res.status === 404) {
         Session.write({ organization_id: undefined })
-        return 'Active organization no longer accessible. Switched to personal.'
+        return c.ok(
+          'Active organization no longer accessible. Switched to personal.',
+        )
       }
 
       const json = await res.json()
-      return `${json.organization.login} (${json.organization.name})`
+      return c.ok(`${json.organization.login} (${json.organization.name})`)
     },
   })
   .command('switch', {
@@ -575,7 +579,7 @@ const org = Cli.create('org', {
       if (c.args.login) {
         if (c.args.login === 'personal') {
           Session.write({ organization_id: undefined })
-          return 'Switched to personal (no organization).'
+          return c.ok('Switched to personal (no organization).')
         }
         const match = json.organizations.find((o) => o.login === c.args.login)
         if (!match)
@@ -584,7 +588,7 @@ const org = Cli.create('org', {
             message: `Organization "${c.args.login}" not found.`,
           })
         Session.write({ organization_id: match.id })
-        return `Switched to ${match.login}.`
+        return c.ok(`Switched to ${match.login}.`)
       }
 
       const choices = [
@@ -609,7 +613,9 @@ const org = Cli.create('org', {
           message: 'Invalid selection.',
         })
       Session.write({ organization_id: selected.id })
-      return `Switched to ${selected.id ? selected.label : 'personal (no organization)'}.`
+      return c.ok(
+        `Switched to ${selected.id ? selected.label : 'personal (no organization)'}.`,
+      )
     },
   })
 
@@ -622,15 +628,56 @@ const update = Cli.create('update', {
   output: z.string(),
   format: 'md',
   async run(c) {
-    const version = c.options.target ?? (await fetchLatestVersion(c.name))
+    const version = await (async () => {
+      if (c.options.target) return c.options.target
+      // Try curl.md API first
+      try {
+        const res = await c.var.client.api.cli.latest.$get(
+          {
+            query: {
+              current: pkg.version,
+              os: process.platform,
+              arch: process.arch,
+              standalone: String(isStandalone()),
+            },
+          },
+          { init: { signal: AbortSignal.timeout(3_000) } },
+        )
+        if (res.status === 200) {
+          const json = await res.json()
+          if (json.version) return json.version
+        }
+      } catch {}
+      // Fallback: npm registry
+      try {
+        const res = await fetch(
+          `https://registry.npmjs.org/${encodeURIComponent(c.name)}/latest`,
+          {
+            signal: AbortSignal.timeout(5_000),
+            headers: { accept: 'application/json' },
+          },
+        )
+        if (!res.ok) return null
+        const npm = (await res.json()) as { version?: string }
+        return npm.version ?? null
+      } catch {
+        return null
+      }
+    })()
+    if (!version)
+      return c.error({
+        code: 'UPDATE_FAILED',
+        message: 'Could not determine latest version.',
+      })
     if (
       !version.startsWith('http') &&
       compareVersions(version, pkg.version) <= 0
     )
-      return `Already up-to-date (${pkg.version}).`
+      return c.ok(`Already up-to-date (${pkg.version}).`)
     try {
-      await installGlobal(c.name, version)
-      return `Updated ${c.name} to ${version}.`
+      if (isStandalone()) await updateStandalone(version)
+      else await installGlobal(c.name, version)
+      return c.ok(`Updated ${c.name} to ${version}.`)
     } catch (error) {
       return c.error({
         code: 'UPDATE_FAILED',

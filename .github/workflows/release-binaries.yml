@@ -1,0 +1,49 @@
+name: Release Binaries
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: bun-darwin-arm64
+            os: macos-latest
+            artifact: curl.md-darwin-arm64
+          - target: bun-darwin-x64
+            os: macos-latest
+            artifact: curl.md-darwin-x64
+          - target: bun-linux-x64
+            os: ubuntu-latest
+            artifact: curl.md-linux-x64
+          - target: bun-linux-arm64
+            os: ubuntu-latest
+            artifact: curl.md-linux-arm64
+          - target: bun-windows-x64
+            os: ubuntu-latest
+            artifact: curl.md-windows-x64.exe
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          ref: ${{ github.event.release.tag_name }}
+
+      - name: Setup bun
+        uses: oven-sh/setup-bun@735343b667d3e6a283ce7b18aed37ad18e8e3a0e # v2.0.2
+
+      - name: Build
+        run: bun build cli/src/bin.ts --compile --target=${{ matrix.target }} --outfile=${{ matrix.artifact }}
+
+      - name: Upload to release
+        run: gh release upload "$TAG" "${{ matrix.artifact }}" --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event.release.tag_name }}
