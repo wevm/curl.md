@@ -41,8 +41,7 @@ test('prints version', async () => {
 test('prints help', async () => {
   const { output } = await serve(['--help'], { CURL_MD_BASE_URL: undefined })
   expect(output).toMatchInlineSnapshot(`
-    "curl.md — Fetch any URL as Markdown
-    vx.y.z
+    "curl.md@x.y.z — Fetch any URL as Markdown
 
     Usage: curl.md <url> [options]
 
@@ -65,6 +64,7 @@ test('prints help', async () => {
     Commands:
       auth    Authentication commands
       org     Manage organizations (create, list, show, switch)
+      token   Manage API tokens
       update  Update curl.md CLI
 
     Built-in Commands:
@@ -646,6 +646,118 @@ describe('org', () => {
     expect(exitCode).toBe(1)
     expect(output).toContain('no longer accessible')
     expect(Session.read()?.organization_id).toBeUndefined()
+  })
+})
+
+describe('token', () => {
+  test('requires auth when not logged in', async () => {
+    const { exitCode, output } = await serve(['token', 'list'])
+    expect(exitCode).toBe(1)
+    expect(output).toContain('NOT_AUTHENTICATED')
+  })
+
+  test('create and list', async () => {
+    const account = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: account.id })
+    Session.write({ session_id: session.id })
+
+    const { output: createOutput } = await serve([
+      'token',
+      'create',
+      'my-token',
+    ])
+    expect(createOutput).toContain('Token created: my-token')
+    expect(createOutput).toContain('curl_')
+    expect(createOutput).toContain("won't be shown again")
+
+    const { output: listOutput } = await serve(['token', 'list'])
+    expect(listOutput).toContain('my-token')
+    expect(listOutput).toContain('curl_')
+    expect(listOutput).toContain('never')
+  })
+
+  test('create rejects duplicate name', async () => {
+    const account = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: account.id })
+    Session.write({ session_id: session.id })
+
+    await serve(['token', 'create', 'dupe'])
+    const { exitCode, output } = await serve(['token', 'create', 'dupe'])
+    expect(exitCode).toBe(1)
+    expect(output).toContain('NAME_TAKEN')
+    expect(output).toContain('dupe')
+  })
+
+  test('list shows empty message', async () => {
+    const account = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: account.id })
+    Session.write({ session_id: session.id })
+
+    const { output } = await serve(['token', 'list'])
+    expect(output).toContain('No tokens found')
+  })
+
+  test('list with expired session deletes session', async () => {
+    Session.write({ session_id: 'expired-session-id' })
+
+    const { exitCode, output } = await serve(['token', 'list'])
+    expect(exitCode).toBe(1)
+    expect(output).toContain('NOT_AUTHENTICATED')
+    expect(Session.read()).toBeNull()
+  })
+
+  test('create with expired session deletes session', async () => {
+    Session.write({ session_id: 'expired-session-id' })
+
+    const { exitCode, output } = await serve(['token', 'create', 'test'])
+    expect(exitCode).toBe(1)
+    expect(output).toContain('NOT_AUTHENTICATED')
+    expect(Session.read()).toBeNull()
+  })
+
+  test('delete with expired session deletes session', async () => {
+    Session.write({ session_id: 'expired-session-id' })
+
+    const { exitCode, output } = await serve(['token', 'delete', 'test'])
+    expect(exitCode).toBe(1)
+    expect(output).toContain('NOT_AUTHENTICATED')
+    expect(Session.read()).toBeNull()
+  })
+
+  test('delete nonexistent token', async () => {
+    const account = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: account.id })
+    Session.write({ session_id: session.id })
+
+    await serve(['token', 'create', 'exists'])
+    const { exitCode, output } = await serve(['token', 'delete', 'nope'])
+    expect(exitCode).toBe(1)
+    expect(output).toContain('NOT_FOUND')
+  })
+
+  test('delete token', async () => {
+    const account = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: account.id })
+    Session.write({ session_id: session.id })
+
+    await serve(['token', 'create', 'to-delete'])
+
+    setTimeout(() => process.stdin.emit('data', '\n'), 100)
+    const { output } = await serve(['token', 'delete', 'to-delete'])
+    expect(output).toContain('Token deleted')
+
+    const { output: listOutput } = await serve(['token', 'list'])
+    expect(listOutput).toContain('No tokens found')
+  })
+
+  test('delete with no tokens', async () => {
+    const account = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: account.id })
+    Session.write({ session_id: session.id })
+
+    const { exitCode, output } = await serve(['token', 'delete', 'nope'])
+    expect(exitCode).toBe(1)
+    expect(output).toContain('NO_TOKENS')
   })
 })
 

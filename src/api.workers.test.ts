@@ -559,6 +559,220 @@ describe('API key authentication', () => {
   })
 })
 
+describe('Token management', () => {
+  test('POST /api/tokens creates token', async () => {
+    const account = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: account.id })
+
+    const res = await client.api.tokens.$post(
+      { json: { name: 'test token' } },
+      { headers: { Authorization: `Bearer ${session.id}` } },
+    )
+    expect(res.status).toBe(201)
+    const data = await res.json()
+    assert('api_key' in data, 'expected api_key')
+    expect(data.api_key.name).toBe('test token')
+    expect(data.api_key.token.startsWith('curl_')).toBe(true)
+    expect(data.api_key.key_prefix).toBe(data.api_key.token.slice(0, 14))
+
+    const stored = await db
+      .selectFrom('api_key')
+      .where('id', '=', data.api_key.id)
+      .select('key_hash')
+      .executeTakeFirstOrThrow()
+    const expectedHash = await ApiKey.hash(data.api_key.token)
+    expect(stored.key_hash).toBe(expectedHash)
+  })
+
+  test('POST /api/tokens requires auth', async () => {
+    const res = await client.api.tokens.$post({
+      json: { name: 'test token' },
+    })
+    expect(res.status).toBe(401)
+  })
+
+  test('POST /api/tokens blocks API key auth', async () => {
+    const account = await factory.account.insert({})
+    const org = await factory.organization.insert({})
+    await factory.organization_member.insert({
+      organization_id: org.id,
+      account_id: account.id,
+    })
+    const token = 'curl_blockapikey123'
+    const hash = await ApiKey.hash(token)
+    await factory.api_key.insert({
+      organization_id: org.id,
+      account_id: account.id,
+      key_hash: hash,
+      key_prefix: token.slice(0, 14),
+      name: 'existing key',
+    })
+
+    const res = await client.api.tokens.$post(
+      { json: { name: 'new token' } },
+      { headers: { Authorization: `Bearer ${token}` } },
+    )
+    expect(res.status).toBe(403)
+  })
+
+  test('POST /api/tokens associates with active organization', async () => {
+    const account = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: account.id })
+    const org = await factory.organization.insert({})
+    await factory.organization_member.insert({
+      organization_id: org.id,
+      account_id: account.id,
+    })
+
+    const res = await client.api.tokens.$post(
+      { json: { name: 'org token' } },
+      {
+        headers: {
+          Authorization: `Bearer ${session.id}`,
+          'x-organization-id': org.id,
+        },
+      },
+    )
+    expect(res.status).toBe(201)
+    const data = await res.json()
+    assert('api_key' in data, 'expected api_key')
+    expect(data.api_key.organization_id).toBe(org.id)
+  })
+
+  test('POST /api/tokens rejects duplicate name', async () => {
+    const account = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: account.id })
+
+    await client.api.tokens.$post(
+      { json: { name: 'dupe' } },
+      { headers: { Authorization: `Bearer ${session.id}` } },
+    )
+    const res = await client.api.tokens.$post(
+      { json: { name: 'dupe' } },
+      { headers: { Authorization: `Bearer ${session.id}` } },
+    )
+    expect(res.status).toBe(409)
+    const data = await res.json()
+    expect(data).toEqual({ error: 'name_taken' })
+  })
+
+  test('GET /api/tokens lists tokens', async () => {
+    const account = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: account.id })
+    await factory.api_key.insert({
+      account_id: account.id,
+      key_hash: await ApiKey.hash('curl_list1'),
+      key_prefix: 'curl_list1',
+      name: 'key 1',
+    })
+    await factory.api_key.insert({
+      account_id: account.id,
+      key_hash: await ApiKey.hash('curl_list2'),
+      key_prefix: 'curl_list2',
+      name: 'key 2',
+    })
+
+    const res = await client.api.tokens.$get(
+      {},
+      { headers: { Authorization: `Bearer ${session.id}` } },
+    )
+    expect(res.status).toBe(200)
+    const data = (await res.json()) as Extract<
+      Awaited<ReturnType<typeof res.json>>,
+      { api_keys: unknown }
+    >
+    expect(data.api_keys).toHaveLength(2)
+  })
+
+  test('GET /api/tokens excludes deleted tokens', async () => {
+    const account = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: account.id })
+    await factory.api_key.insert({
+      account_id: account.id,
+      key_hash: await ApiKey.hash('curl_active1'),
+      key_prefix: 'curl_active',
+      name: 'active key',
+    })
+    await factory.api_key.insert({
+      account_id: account.id,
+      key_hash: await ApiKey.hash('curl_deleted1'),
+      key_prefix: 'curl_delete',
+      name: 'deleted key',
+      deleted_at: new Date().toISOString(),
+    })
+
+    const res = await client.api.tokens.$get(
+      {},
+      { headers: { Authorization: `Bearer ${session.id}` } },
+    )
+    expect(res.status).toBe(200)
+    const data = (await res.json()) as Extract<
+      Awaited<ReturnType<typeof res.json>>,
+      { api_keys: unknown }
+    >
+    expect(data.api_keys).toHaveLength(1)
+  })
+
+  test('GET /api/tokens requires auth', async () => {
+    const res = await client.api.tokens.$get()
+    expect(res.status).toBe(401)
+  })
+
+  test('DELETE /api/tokens/:id soft deletes token', async () => {
+    const account = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: account.id })
+    const apiKey = await factory.api_key.insert({
+      account_id: account.id,
+      key_hash: await ApiKey.hash('curl_softdel1'),
+      key_prefix: 'curl_softde',
+      name: 'to delete',
+    })
+
+    const res = await client.api.tokens[':id'].$delete(
+      { param: { id: apiKey.id } },
+      { headers: { Authorization: `Bearer ${session.id}` } },
+    )
+    expect(res.status).toBe(200)
+    await expect(res.json()).resolves.toEqual({ ok: true })
+
+    const row = await db
+      .selectFrom('api_key')
+      .where('id', '=', apiKey.id)
+      .select('deleted_at')
+      .executeTakeFirstOrThrow()
+    expect(row.deleted_at).not.toBeNull()
+  })
+
+  test('DELETE /api/tokens/:id returns 404 for nonexistent', async () => {
+    const account = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: account.id })
+
+    const res = await client.api.tokens[':id'].$delete(
+      { param: { id: 'nonexistent-id' } },
+      { headers: { Authorization: `Bearer ${session.id}` } },
+    )
+    expect(res.status).toBe(404)
+  })
+
+  test('DELETE /api/tokens/:id cannot delete another account token', async () => {
+    const account1 = await factory.account.insert({})
+    const account2 = await factory.account.insert({})
+    const session2 = await factory.session.insert({ account_id: account2.id })
+    const apiKey = await factory.api_key.insert({
+      account_id: account1.id,
+      key_hash: await ApiKey.hash('curl_other1'),
+      key_prefix: 'curl_other',
+      name: 'account1 key',
+    })
+
+    const res = await client.api.tokens[':id'].$delete(
+      { param: { id: apiKey.id } },
+      { headers: { Authorization: `Bearer ${session2.id}` } },
+    )
+    expect(res.status).toBe(404)
+  })
+})
+
 test('GET /api/health returns ok', async () => {
   const res = await client.api.health.$get()
   expect(res.status).toBe(200)
@@ -801,7 +1015,7 @@ describe('POST /api/orgs', () => {
     )
     expect(res.status).toBe(409)
     await expect(res.json()).resolves.toEqual({
-      error: 'This login is reserved',
+      error: 'login_reserved',
     })
   })
 
@@ -823,7 +1037,7 @@ describe('POST /api/orgs', () => {
       },
     )
     expect(res.status).toBe(409)
-    await expect(res.json()).resolves.toEqual({ error: 'Login already taken' })
+    await expect(res.json()).resolves.toEqual({ error: 'login_taken' })
   })
 
   test('rejects duplicate login', async () => {
@@ -845,7 +1059,7 @@ describe('POST /api/orgs', () => {
     )
     expect(res.status).toBe(409)
     await expect(res.json()).resolves.toEqual({
-      error: 'Login already taken',
+      error: 'login_taken',
     })
   })
 })

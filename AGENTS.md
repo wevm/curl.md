@@ -63,6 +63,10 @@ Follow [PlanetScale Postgres skill](https://github.com/planetscale/database-skil
   - Check constraints: `{table}_{column}_chk`
   - Foreign keys: `{table}_{column}_fkey`
 
+## Naming
+
+- Avoid hyphens in command names, route paths, and identifiers — they break double-click-to-select
+
 ## Code Style
 
 - Component/page component should be the first thing in the file (after imports)

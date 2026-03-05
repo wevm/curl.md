@@ -63,6 +63,9 @@ jobs:
       - name: Setup
         uses: ./.github/actions/setup-pnpm
 
+      - name: Shellcheck
+        run: shellcheck public/install.sh
+
       - name: Lint
         run: pnpm check
 
@@ -132,13 +135,3 @@ jobs:
           printf '{"event_type":"preview-deploy","client_payload":{"sha":"%s","pr_number":"%s"}}' \
             "${{ inputs.dispatch_pro_sha }}" "${{ inputs.dispatch_preview_pr }}" \
             | gh api repos/wevm/curl.md.pro/dispatches --method POST --input -
-
-  shellcheck:
-    name: Shellcheck
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
-
-      - name: Shellcheck
-        run: shellcheck public/install.sh

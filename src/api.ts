@@ -57,7 +57,7 @@ export const api = new Hono<{
       })()
 
     // Try API key (curl_ prefix)
-    if (!cookie && sessionId?.startsWith('curl_')) {
+    if (!cookie && sessionId?.startsWith(ApiKey.prefix)) {
       const keyHash = await ApiKey.hash(sessionId)
       const apiKey = await c.var.db
         .selectFrom('api_key')
@@ -452,7 +452,7 @@ export const api = new Hono<{
     validator('json', z.object({ user_code: z.string() })),
     async (c) => {
       if (narrowValidation) return validationError(c)
-      if (!c.var.session) return c.json({ error: 'Unauthorized' }, 401)
+      if (!c.var.session) return c.json({ error: 'unauthorized' }, 401)
       const json = c.req.valid('json')
       const row = await c.var.db
         .selectFrom('device_code')
@@ -461,7 +461,7 @@ export const api = new Hono<{
         .where('expires_at', '>', new Date())
         .select('id')
         .executeTakeFirst()
-      if (!row) return c.json({ error: 'Invalid or expired code' }, 404)
+      if (!row) return c.json({ error: 'invalid_or_expired_code' }, 404)
       await c.var.db
         .updateTable('device_code')
         .set({
@@ -643,7 +643,7 @@ export const api = new Hono<{
     }
   })
   .get('/api/orgs', async (c) => {
-    if (!c.var.session) return c.json({ error: 'Unauthorized' }, 401)
+    if (!c.var.session) return c.json({ error: 'unauthorized' }, 401)
 
     const organizations = await c.var.db
       .selectFrom('organization_member')
@@ -665,7 +665,7 @@ export const api = new Hono<{
     return c.json({ organizations }, 200)
   })
   .get('/api/orgs/:id', async (c) => {
-    if (!c.var.session) return c.json({ error: 'Unauthorized' }, 401)
+    if (!c.var.session) return c.json({ error: 'unauthorized' }, 401)
 
     const organization = await c.var.db
       .selectFrom('organization')
@@ -706,7 +706,7 @@ export const api = new Hono<{
     ),
     async (c) => {
       if (narrowValidation) return validationError(c)
-      if (!c.var.session) return c.json({ error: 'Unauthorized' }, 401)
+      if (!c.var.session) return c.json({ error: 'unauthorized' }, 401)
 
       const json = c.req.valid('json')
 
@@ -718,7 +718,7 @@ export const api = new Hono<{
         'org',
       ])
       if (reservedLogins.has(json.login))
-        return c.json({ error: 'This login is reserved' }, 409)
+        return c.json({ error: 'login_reserved' }, 409)
 
       const [existingOrg, existingAccount] = await Promise.all([
         c.var.db
@@ -733,7 +733,7 @@ export const api = new Hono<{
           .executeTakeFirst(),
       ])
       if (existingOrg || existingAccount)
-        return c.json({ error: 'Login already taken' }, 409)
+        return c.json({ error: 'login_taken' }, 409)
 
       const accountId = c.var.session.account_id
       try {
@@ -753,12 +753,90 @@ export const api = new Hono<{
             .execute()
         })
       } catch {
-        return c.json({ error: 'Login already taken' }, 409)
+        return c.json({ error: 'login_taken' }, 409)
       }
 
       return c.json({ login: json.login }, 200)
     },
   )
+  .post(
+    '/api/tokens',
+    validator('json', z.object({ name: z.string().min(1).max(255) })),
+    async (c) => {
+      if (narrowValidation) return validationError(c)
+      if (!c.var.session) return c.json({ error: 'unauthorized' }, 401)
+      if (c.var.api_key_id) return c.json({ error: 'forbidden' }, 403)
+
+      const json = c.req.valid('json')
+
+      const existing = await c.var.db
+        .selectFrom('api_key')
+        .where('account_id', '=', c.var.session.account_id)
+        .where('name', '=', json.name)
+        .where('deleted_at', 'is', null)
+        .select('id')
+        .executeTakeFirst()
+      if (existing) return c.json({ error: 'name_taken' }, 409)
+
+      const token = ApiKey.generate()
+      const keyHash = await ApiKey.hash(token)
+      const keyPrefix = token.slice(0, 14)
+
+      const row = await c.var.db
+        .insertInto('api_key')
+        .values({
+          account_id: c.var.session.account_id,
+          organization_id: c.var.organization_id,
+          key_hash: keyHash,
+          key_prefix: keyPrefix,
+          name: json.name,
+        })
+        .returning([
+          'id',
+          'name',
+          'key_prefix',
+          'organization_id',
+          'created_at',
+        ])
+        .executeTakeFirstOrThrow()
+
+      return c.json({ api_key: { ...row, token } }, 201)
+    },
+  )
+  .get('/api/tokens', async (c) => {
+    if (!c.var.session) return c.json({ error: 'unauthorized' }, 401)
+
+    const api_keys = await c.var.db
+      .selectFrom('api_key')
+      .where('account_id', '=', c.var.session.account_id)
+      .where('deleted_at', 'is', null)
+      .select([
+        'id',
+        'name',
+        'key_prefix',
+        'organization_id',
+        'last_used_at',
+        'created_at',
+      ])
+      .orderBy('created_at', 'desc')
+      .execute()
+
+    return c.json({ api_keys }, 200)
+  })
+  .delete('/api/tokens/:id', async (c) => {
+    if (!c.var.session) return c.json({ error: 'unauthorized' }, 401)
+
+    const result = await c.var.db
+      .updateTable('api_key')
+      .set({ deleted_at: new Date() })
+      .where('id', '=', c.req.param('id'))
+      .where('account_id', '=', c.var.session.account_id)
+      .where('deleted_at', 'is', null)
+      .executeTakeFirst()
+
+    if (!result.numUpdatedRows) return c.json({ error: 'not_found' }, 404)
+    return c.json({ ok: true }, 200)
+  })
   .get(
     '/api/:url{.+}',
     validator(

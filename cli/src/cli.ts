@@ -619,6 +619,203 @@ const org = Cli.create('org', {
     },
   })
 
+const token = Cli.create('token', {
+  description: 'Manage API tokens',
+  vars,
+})
+  .command('create', {
+    description: 'Create a new API token',
+    middleware: [requireAuth],
+    args: z.object({
+      name: z.string().describe('Name for the token'),
+    }),
+    output: z.string(),
+    format: 'md',
+    async run(c) {
+      const res = await c.var.client.api.tokens.$post({
+        json: { name: c.args.name },
+      })
+
+      if (res.status === 401) {
+        Session.delete()
+        return c.error({
+          ...notAuthenticated,
+          cta: {
+            description: 'Log in:',
+            commands: [
+              {
+                command: `${c.name} auth login`,
+                description: `Authenticate with ${c.name}`,
+              },
+              ...c.var.commands,
+            ],
+          },
+        })
+      }
+
+      if (res.status === 403)
+        return c.error({
+          code: 'FORBIDDEN',
+          message: 'Cannot create tokens when authenticated with an API token.',
+        })
+
+      if (res.status === 409)
+        return c.error({
+          code: 'NAME_TAKEN',
+          message: `Token "${c.args.name}" already exists.`,
+        })
+
+      if (res.status !== 201)
+        return c.error({ code: 'UNKNOWN', message: 'Unexpected error.' })
+
+      const json = await res.json()
+      return c.ok(
+        [
+          `Token created: ${json.api_key.name}`,
+          '',
+          `  ${json.api_key.token}`,
+          '',
+          pc.yellow("Save this — it won't be shown again."),
+        ].join('\n'),
+      )
+    },
+  })
+  .command('list', {
+    description: 'List API tokens',
+    middleware: [requireAuth],
+    output: z.string(),
+    format: 'md',
+    async run(c) {
+      const res = await c.var.client.api.tokens.$get()
+
+      if (res.status === 401) {
+        Session.delete()
+        return c.error({
+          ...notAuthenticated,
+          cta: {
+            description: 'Log in:',
+            commands: [
+              {
+                command: `${c.name} auth login`,
+                description: `Authenticate with ${c.name}`,
+              },
+              ...c.var.commands,
+            ],
+          },
+        })
+      }
+
+      const json = await res.json()
+      if (!json.api_keys.length) return c.ok('No tokens found.')
+
+      const lines = json.api_keys.map((key) => {
+        const used = key.last_used_at
+          ? (relativeTime(new Date(key.last_used_at)) ?? 'just now')
+          : 'never'
+        return `  ${key.name}  ${pc.dim(`${key.key_prefix}•••`)}  ${pc.dim(`used ${used}`)}`
+      })
+      return c.ok(lines.join('\n'))
+    },
+  })
+  .command('delete', {
+    description: 'Delete an API token',
+    middleware: [requireAuth],
+    args: z.object({
+      name: z.string().optional().describe('Token name to delete'),
+    }),
+    output: z.string(),
+    format: 'md',
+    async run(c) {
+      const listRes = await c.var.client.api.tokens.$get()
+      if (listRes.status === 401) {
+        Session.delete()
+        return c.error({
+          ...notAuthenticated,
+          cta: {
+            description: 'Log in:',
+            commands: [
+              {
+                command: `${c.name} auth login`,
+                description: `Authenticate with ${c.name}`,
+              },
+              ...c.var.commands,
+            ],
+          },
+        })
+      }
+
+      const listJson = await listRes.json()
+      if (!listJson.api_keys.length)
+        return c.error({ code: 'NO_TOKENS', message: 'No tokens to delete.' })
+
+      let match: (typeof listJson.api_keys)[number] | undefined
+      if (c.args.name) {
+        match = listJson.api_keys.find((k) => k.name === c.args.name)
+        if (!match)
+          return c.error({
+            code: 'NOT_FOUND',
+            message: `Token "${c.args.name}" not found.`,
+          })
+      } else {
+        const choices = listJson.api_keys.map(
+          (k) => `${k.name}  ${pc.dim(`${k.key_prefix}•••`)}`,
+        )
+        const index = await select('Delete token:', choices)
+        if (index === -1)
+          return c.error({
+            code: 'INVALID_SELECTION',
+            message: 'Selection cancelled.',
+          })
+        match = listJson.api_keys[index]
+        if (!match)
+          return c.error({
+            code: 'INVALID_SELECTION',
+            message: 'Invalid selection.',
+          })
+      }
+
+      await new Promise<void>((resolve) => {
+        process.stdout.write(
+          `Press Enter to delete token "${match.name}" (${match.key_prefix}•••)`,
+        )
+        process.stdin.once('data', () => {
+          process.stdin.pause()
+          resolve()
+        })
+        process.stdin.resume()
+      })
+
+      const res = await c.var.client.api.tokens[':id'].$delete({
+        param: { id: match.id },
+      })
+
+      if (res.status === 401) {
+        Session.delete()
+        return c.error({
+          ...notAuthenticated,
+          cta: {
+            description: 'Log in:',
+            commands: [
+              {
+                command: `${c.name} auth login`,
+                description: `Authenticate with ${c.name}`,
+              },
+              ...c.var.commands,
+            ],
+          },
+        })
+      }
+
+      if (res.status === 404)
+        return c.error({
+          code: 'NOT_FOUND',
+          message: 'Token not found.',
+        })
+
+      return c.ok('Token deleted.')
+    },
+  })
+
 const update = Cli.create('update', {
   description: 'Update curl.md CLI',
   vars,
@@ -696,6 +893,7 @@ const update = Cli.create('update', {
 
 cli.command(auth)
 cli.command(org)
+cli.command(token)
 cli.command(update)
 
 export default cli

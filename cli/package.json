@@ -23,7 +23,7 @@
   ],
   "dependencies": {
     "hono": "^4.12.2",
-    "incur": "^0.1.16"
+    "incur": "^0.2.0"
   },
   "engines": {
     "node": ">=22.0.0"
