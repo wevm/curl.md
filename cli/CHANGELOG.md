@@ -1,5 +1,11 @@
 # curl.md
 
+## 0.0.5
+
+### Patch Changes
+
+- Added `token` command group for API token management (`token create`, `token list`, `token delete`). ([#16](https://github.com/wevm/curl.md/pull/16))
+
 ## 0.0.4
 
 ### Patch Changes
