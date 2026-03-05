@@ -1,5 +1,13 @@
 # curl.md
 
+## 0.0.6
+
+### Patch Changes
+
+- Added `org invite` command group for organization invite management (`org invite accept`, `org invite create`, `org invite list`, `org invite revoke`). ([#18](https://github.com/wevm/curl.md/pull/18))
+
+- Added `org member` command group for organization member management (`org member add`, `org member list`, `org member remove`, `org member role`). ([`bf88f63`](https://github.com/wevm/curl.md/commit/bf88f6380a32164912f28f82f4c0fbe82b2c4b05))
+
 ## 0.0.5
 
 ### Patch Changes
