@@ -13,6 +13,7 @@ import { Route as PlaygroundRouteImport } from './routes/playground'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as CheckRouteImport } from './routes/check'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as AuthErrorRouteImport } from './routes/auth/error'
 import { Route as AuthDeviceRouteImport } from './routes/auth/device'
 import { Route as Char126dashLoginRouteRouteImport } from './routes/~dash.$login/route'
@@ -36,6 +37,11 @@ const CheckRoute = CheckRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InviteTokenRoute = InviteTokenRouteImport.update({
+  id: '/invite/$token',
+  path: '/invite/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthErrorRoute = AuthErrorRouteImport.update({
@@ -67,6 +73,7 @@ export interface FileRoutesByFullPath {
   '/~dash/$login': typeof Char126dashLoginRouteRouteWithChildren
   '/auth/device': typeof AuthDeviceRoute
   '/auth/error': typeof AuthErrorRoute
+  '/invite/$token': typeof InviteTokenRoute
   '/~dash/$login/': typeof Char126dashLoginIndexRoute
 }
 export interface FileRoutesByTo {
@@ -76,6 +83,7 @@ export interface FileRoutesByTo {
   '/playground': typeof PlaygroundRoute
   '/auth/device': typeof AuthDeviceRoute
   '/auth/error': typeof AuthErrorRoute
+  '/invite/$token': typeof InviteTokenRoute
   '/~dash/$login': typeof Char126dashLoginIndexRoute
 }
 export interface FileRoutesById {
@@ -87,6 +95,7 @@ export interface FileRoutesById {
   '/~dash/$login': typeof Char126dashLoginRouteRouteWithChildren
   '/auth/device': typeof AuthDeviceRoute
   '/auth/error': typeof AuthErrorRoute
+  '/invite/$token': typeof InviteTokenRoute
   '/~dash/$login/': typeof Char126dashLoginIndexRoute
 }
 export interface FileRouteTypes {
@@ -99,6 +108,7 @@ export interface FileRouteTypes {
     | '/~dash/$login'
     | '/auth/device'
     | '/auth/error'
+    | '/invite/$token'
     | '/~dash/$login/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -108,6 +118,7 @@ export interface FileRouteTypes {
     | '/playground'
     | '/auth/device'
     | '/auth/error'
+    | '/invite/$token'
     | '/~dash/$login'
   id:
     | '__root__'
@@ -118,6 +129,7 @@ export interface FileRouteTypes {
     | '/~dash/$login'
     | '/auth/device'
     | '/auth/error'
+    | '/invite/$token'
     | '/~dash/$login/'
   fileRoutesById: FileRoutesById
 }
@@ -129,6 +141,7 @@ export interface RootRouteChildren {
   Char126dashLoginRouteRoute: typeof Char126dashLoginRouteRouteWithChildren
   AuthDeviceRoute: typeof AuthDeviceRoute
   AuthErrorRoute: typeof AuthErrorRoute
+  InviteTokenRoute: typeof InviteTokenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -159,6 +172,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/invite/$token': {
+      id: '/invite/$token'
+      path: '/invite/$token'
+      fullPath: '/invite/$token'
+      preLoaderRoute: typeof InviteTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth/error': {
@@ -213,6 +233,7 @@ const rootRouteChildren: RootRouteChildren = {
   Char126dashLoginRouteRoute: Char126dashLoginRouteRouteWithChildren,
   AuthDeviceRoute: AuthDeviceRoute,
   AuthErrorRoute: AuthErrorRoute,
+  InviteTokenRoute: InviteTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -1,4 +1,4 @@
-const routes = ['', 'auth', 'check', 'login', 'playground'] as const
+const routes = ['', 'auth', 'check', 'invite', 'login', 'playground'] as const
 
 export type Route = (typeof routes)[number]
 

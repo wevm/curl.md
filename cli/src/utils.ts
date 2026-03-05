@@ -292,6 +292,8 @@ export function isStandalone(): boolean {
   return !/^(node|bun)(\.exe)?$/.test(path.basename(process.execPath))
 }
 
+const standaloneAliases = ['md', 'curlmd'] as const
+
 export async function updateStandalone(version: string) {
   const os_ = (() => {
     if (process.platform === 'darwin') return 'darwin'
@@ -315,6 +317,27 @@ export async function updateStandalone(version: string) {
   const tmpPath = `${target}.tmp`
   fs.writeFileSync(tmpPath, buffer, { mode: 0o755 })
   fs.renameSync(tmpPath, target)
+
+  symlinkAliases(target)
+}
+
+function symlinkAliases(target: string) {
+  if (process.platform === 'win32') return
+  const dir = path.dirname(target)
+  for (const alias of standaloneAliases) {
+    const link = path.join(dir, alias)
+    if (link === target) continue
+    try {
+      const existing = fs.readlinkSync(link)
+      if (existing === target) continue
+    } catch {}
+    try {
+      fs.unlinkSync(link)
+    } catch {}
+    try {
+      fs.symlinkSync(target, link)
+    } catch {}
+  }
 }
 
 function hasBinary(name: string) {

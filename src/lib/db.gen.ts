@@ -15,6 +15,7 @@ export interface DB {
   api_key: api_key
   device_code: device_code
   organization: organization
+  organization_invite: organization_invite
   organization_member: organization_member
   request: request
   session: session
@@ -73,6 +74,19 @@ type organization = {
   name: string
 }
 
+type organization_invite = {
+  created_at: GeneratedTimestamp
+  created_by: string
+  deleted_at: Timestamp | null
+  expires_at: Timestamp
+  id: k.Generated<string>
+  max_uses: number | null
+  organization_id: string
+  role: k.Generated<'admin' | 'member' | 'owner'>
+  token: string
+  use_count: k.Generated<number>
+}
+
 type organization_member = {
   account_id: string
   created_at: GeneratedTimestamp
@@ -109,6 +123,7 @@ export declare namespace DB {
   type api_key = k.Selectable<DB['api_key']>
   type device_code = k.Selectable<DB['device_code']>
   type organization = k.Selectable<DB['organization']>
+  type organization_invite = k.Selectable<DB['organization_invite']>
   type organization_member = k.Selectable<DB['organization_member']>
   type request = k.Selectable<DB['request']>
   type session = k.Selectable<DB['session']>
@@ -119,6 +134,7 @@ export declare namespace DB {
     type api_key = k.Insertable<DB['api_key']>
     type device_code = k.Insertable<DB['device_code']>
     type organization = k.Insertable<DB['organization']>
+    type organization_invite = k.Insertable<DB['organization_invite']>
     type organization_member = k.Insertable<DB['organization_member']>
     type request = k.Insertable<DB['request']>
     type session = k.Insertable<DB['session']>
@@ -130,6 +146,7 @@ export declare namespace DB {
     type api_key = k.Selectable<DB['api_key']>
     type device_code = k.Selectable<DB['device_code']>
     type organization = k.Selectable<DB['organization']>
+    type organization_invite = k.Selectable<DB['organization_invite']>
     type organization_member = k.Selectable<DB['organization_member']>
     type request = k.Selectable<DB['request']>
     type session = k.Selectable<DB['session']>
@@ -141,6 +158,7 @@ export declare namespace DB {
     type api_key = k.Updateable<DB['api_key']>
     type device_code = k.Updateable<DB['device_code']>
     type organization = k.Updateable<DB['organization']>
+    type organization_invite = k.Updateable<DB['organization_invite']>
     type organization_member = k.Updateable<DB['organization_member']>
     type request = k.Updateable<DB['request']>
     type session = k.Updateable<DB['session']>

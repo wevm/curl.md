@@ -26,6 +26,7 @@ const vars = z.object({
 })
 
 const cli = Cli.create('curl.md', {
+  aliases: ['md', 'curlmd'],
   description: 'Fetch any URL as Markdown',
   version: pkg.version,
   env: z.object({
@@ -392,8 +393,346 @@ const auth = Cli.create('auth', {
     },
   })
 
+const invite = Cli.create('invite', {
+  description: 'Manage organization invites (accept, create, list, revoke)',
+  vars,
+})
+  .command('accept', {
+    description: 'Accept an invite',
+    middleware: [requireAuth],
+    args: z.object({
+      token: z.string().describe('Invite URL or token'),
+    }),
+    output: z.string(),
+    format: 'md',
+    async run(c) {
+      const inviteToken = (() => {
+        if (c.args.token.includes('/invite/'))
+          return c.args.token.split('/invite/').pop() ?? c.args.token
+        return c.args.token
+      })()
+
+      const res = await c.var.client.api.invites[':token'].accept.$post({
+        param: { token: inviteToken },
+      })
+
+      if (res.status === 401) {
+        Session.delete()
+        return c.error({
+          ...notAuthenticated,
+          cta: {
+            description: 'Log in:',
+            commands: [
+              {
+                command: `${c.name} auth login`,
+                description: `Authenticate with ${c.name}`,
+              },
+              ...c.var.commands,
+            ],
+          },
+        })
+      }
+
+      if (res.status === 404)
+        return c.error({
+          code: 'NOT_FOUND',
+          message: 'Invite not found, expired, or fully used.',
+        })
+
+      if (res.status === 409)
+        return c.error({
+          code: 'ALREADY_MEMBER',
+          message: 'Already a member of this organization.',
+        })
+
+      if (res.status !== 200)
+        return c.error({ code: 'UNKNOWN', message: 'Unexpected error.' })
+
+      const json = await res.json()
+      return c.ok(`Joined ${json.organization.login}.`, {
+        cta: {
+          description: 'Switch organization:',
+          commands: [
+            {
+              command: `${c.name} org switch ${json.organization.login}`,
+              description: `Switch to ${json.organization.login}`,
+            },
+            ...c.var.commands,
+          ],
+        },
+      })
+    },
+  })
+  .command('create', {
+    description: 'Create an invite link',
+    middleware: [requireAuth],
+    options: z.object({
+      'expires-in': z.number().default(604800).describe('Expiry in seconds'),
+      'max-uses': z.number().optional().describe('Maximum number of uses'),
+      role: z
+        .enum(['member', 'admin'])
+        .default('member')
+        .describe('Role for invited members'),
+    }),
+    alias: { 'expires-in': 'e', 'max-uses': 'm', role: 'r' },
+    output: z.string(),
+    format: 'md',
+    async run(c) {
+      const orgId = c.var.session?.organization_id
+      if (!orgId)
+        return c.error({
+          code: 'NO_ACTIVE_ORG',
+          message: 'No active organization. Switch first.',
+          cta: {
+            description: 'Switch organization:',
+            commands: [
+              {
+                command: `${c.name} org switch`,
+                description: 'Switch active organization',
+              },
+              ...c.var.commands,
+            ],
+          },
+        })
+
+      const res = await c.var.client.api.orgs[':id'].invites.$post({
+        param: { id: orgId },
+        json: {
+          role: c.options.role,
+          max_uses: c.options['max-uses'],
+          expires_in: c.options['expires-in'],
+        },
+      })
+
+      if (res.status === 401) {
+        Session.delete()
+        return c.error({
+          ...notAuthenticated,
+          cta: {
+            description: 'Log in:',
+            commands: [
+              {
+                command: `${c.name} auth login`,
+                description: `Authenticate with ${c.name}`,
+              },
+              ...c.var.commands,
+            ],
+          },
+        })
+      }
+
+      if (res.status === 403)
+        return c.error({
+          code: 'FORBIDDEN',
+          message: "You don't have permission to create invites.",
+        })
+
+      if (res.status !== 201)
+        return c.error({ code: 'UNKNOWN', message: 'Unexpected error.' })
+
+      const json = await res.json()
+      return c.ok(
+        [
+          `Invite created:`,
+          '',
+          `  ${json.invite.url}`,
+          '',
+          `Expires ${relativeTime(new Date(json.invite.expires_at)) ?? 'soon'} · role: ${json.invite.role}${json.invite.max_uses ? ` · max uses: ${json.invite.max_uses}` : ''}`,
+        ].join('\n'),
+      )
+    },
+  })
+  .command('list', {
+    description: 'List invites for the active organization',
+    middleware: [requireAuth],
+    output: z.string(),
+    format: 'md',
+    async run(c) {
+      const orgId = c.var.session?.organization_id
+      if (!orgId)
+        return c.error({
+          code: 'NO_ACTIVE_ORG',
+          message: 'No active organization. Switch first.',
+          cta: {
+            description: 'Switch organization:',
+            commands: [
+              {
+                command: `${c.name} org switch`,
+                description: 'Switch active organization',
+              },
+              ...c.var.commands,
+            ],
+          },
+        })
+
+      const res = await c.var.client.api.orgs[':id'].invites.$get({
+        param: { id: orgId },
+      })
+
+      if (res.status === 401) {
+        Session.delete()
+        return c.error({
+          ...notAuthenticated,
+          cta: {
+            description: 'Log in:',
+            commands: [
+              {
+                command: `${c.name} auth login`,
+                description: `Authenticate with ${c.name}`,
+              },
+              ...c.var.commands,
+            ],
+          },
+        })
+      }
+
+      if (res.status === 403)
+        return c.error({
+          code: 'FORBIDDEN',
+          message: "You don't have permission to view invites.",
+        })
+
+      const json = await res.json()
+      if (!json.invites.length) return c.ok('No invites found.')
+
+      const rows = json.invites.map((inv) => {
+        const tokenCol = inv.token.slice(0, 12)
+        const roleCol = inv.role
+        const usageCol = inv.max_uses
+          ? `${inv.use_count}/${inv.max_uses} uses`
+          : `${inv.use_count} uses`
+        const expired = new Date(inv.expires_at) < new Date()
+        const expiryCol = expired
+          ? pc.dim('expired')
+          : `expires ${relativeTime(new Date(inv.expires_at)) ?? 'soon'}`
+        return [tokenCol, roleCol, usageCol, expiryCol] as const
+      })
+
+      const widths = [0, 0, 0, 0] as number[]
+      for (const row of rows)
+        for (let i = 0; i < 4; i++)
+          widths[i] = Math.max(widths[i] ?? 0, row[i]?.length ?? 0)
+
+      const lines = rows.map(
+        (row) =>
+          `  ${row[0].padEnd(widths[0] ?? 0)}  ${row[1].padEnd(widths[1] ?? 0)}  ${row[2].padEnd(widths[2] ?? 0)}  ${row[3]}`,
+      )
+      return c.ok(lines.join('\n'))
+    },
+  })
+  .command('revoke', {
+    description: 'Revoke an invite',
+    middleware: [requireAuth],
+    args: z.object({
+      invite: z.string().optional().describe('Invite token or ID to revoke'),
+    }),
+    output: z.string(),
+    format: 'md',
+    async run(c) {
+      const orgId = c.var.session?.organization_id
+      if (!orgId)
+        return c.error({
+          code: 'NO_ACTIVE_ORG',
+          message: 'No active organization. Switch first.',
+          cta: {
+            description: 'Switch organization:',
+            commands: [
+              {
+                command: `${c.name} org switch`,
+                description: 'Switch active organization',
+              },
+              ...c.var.commands,
+            ],
+          },
+        })
+
+      let inviteId = c.args.invite
+      if (!inviteId) {
+        const listRes = await c.var.client.api.orgs[':id'].invites.$get({
+          param: { id: orgId },
+        })
+        if (listRes.status === 401) {
+          Session.delete()
+          return c.error({
+            ...notAuthenticated,
+            cta: {
+              description: 'Log in:',
+              commands: [
+                {
+                  command: `${c.name} auth login`,
+                  description: `Authenticate with ${c.name}`,
+                },
+                ...c.var.commands,
+              ],
+            },
+          })
+        }
+
+        if (listRes.status !== 200)
+          return c.error({ code: 'UNKNOWN', message: 'Unexpected error.' })
+        const listJson = await listRes.json()
+        if (!listJson.invites.length)
+          return c.error({
+            code: 'NO_INVITES',
+            message: 'No invites to revoke.',
+          })
+
+        const choices = listJson.invites.map(
+          (inv) =>
+            `${inv.token.slice(0, 12)}  ${pc.dim(inv.role)}  ${pc.dim(`${inv.use_count} uses`)}`,
+        )
+        const index = await select('Revoke invite:', choices)
+        if (index === -1)
+          return c.error({
+            code: 'INVALID_SELECTION',
+            message: 'Selection cancelled.',
+          })
+        const selected = listJson.invites[index]
+        if (!selected)
+          return c.error({
+            code: 'INVALID_SELECTION',
+            message: 'Invalid selection.',
+          })
+        inviteId = selected.id
+      }
+      if (!inviteId)
+        return c.error({
+          code: 'INVALID_SELECTION',
+          message: 'Invalid selection.',
+        })
+
+      const res = await c.var.client.api.orgs[':id'].invites[
+        ':inviteId'
+      ].$delete({
+        param: { id: orgId, inviteId },
+      })
+
+      if (res.status === 401) {
+        Session.delete()
+        return c.error({
+          ...notAuthenticated,
+          cta: {
+            description: 'Log in:',
+            commands: [
+              {
+                command: `${c.name} auth login`,
+                description: `Authenticate with ${c.name}`,
+              },
+              ...c.var.commands,
+            ],
+          },
+        })
+      }
+
+      if (res.status === 404)
+        return c.error({ code: 'NOT_FOUND', message: 'Invite not found.' })
+
+      return c.ok('Invite revoked.')
+    },
+  })
+
 const org = Cli.create('org', {
-  description: 'Manage organizations (create, list, show, switch)',
+  description: 'Manage organizations (create, invite, list, show, switch)',
   vars,
 })
   .command('create', {
@@ -480,8 +819,7 @@ const org = Cli.create('org', {
       }
 
       const json = await res.json()
-      // biome-ignore lint/style/noNonNullAssertion: middleware handles
-      let activeId = c.var.session!.organization_id
+      let activeId = c.var.session?.organization_id
 
       const lines: string[] = []
       if (activeId && !json.organizations.some((org) => org.id === activeId)) {
@@ -510,8 +848,7 @@ const org = Cli.create('org', {
     output: z.string(),
     format: 'md',
     async run(c) {
-      // biome-ignore lint/style/noNonNullAssertion: middleware handles
-      const orgId = c.var.session!.organization_id
+      const orgId = c.var.session?.organization_id
       if (!orgId) return c.ok(`personal ${pc.dim('(no organization)')}`)
 
       const res = await c.var.client.api.orgs[':id'].$get({
@@ -892,7 +1229,7 @@ const update = Cli.create('update', {
 })
 
 cli.command(auth)
-cli.command(org)
+cli.command(org.command(invite))
 cli.command(token)
 cli.command(update)
 

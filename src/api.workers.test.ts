@@ -1310,3 +1310,612 @@ test('GET /api/:url returns 429 when query limit exceeded', async () => {
   expect(res.headers.get('retry-after')).toBeTruthy()
   await expect(res.json()).resolves.toEqual({ error: 'rate_limit_exceeded' })
 })
+
+describe('GET /api/invites/:token', () => {
+  test('returns invite preview', async () => {
+    const account = await factory.account.insert({})
+    const org = await factory.organization.insert({})
+    await factory.organization_member.insert({
+      organization_id: org.id,
+      account_id: account.id,
+      role: 'owner',
+    })
+    const invite = await factory.organization_invite.insert({
+      organization_id: org.id,
+      created_by: account.id,
+      role: 'member',
+    })
+
+    const res = await client.api.invites[':token'].$get({
+      param: { token: invite.token },
+    })
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    assert('invite' in json, 'expected invite')
+    expect(json.invite.organization.login).toBe(org.login)
+    expect(json.invite.organization.name).toBe(org.name)
+    expect(json.invite.role).toBe('member')
+  })
+
+  test('returns 404 when expired', async () => {
+    const account = await factory.account.insert({})
+    const org = await factory.organization.insert({})
+    await factory.organization_member.insert({
+      organization_id: org.id,
+      account_id: account.id,
+      role: 'owner',
+    })
+    const invite = await factory.organization_invite.insert({
+      organization_id: org.id,
+      created_by: account.id,
+      expires_at: new Date(Date.now() - 1000).toISOString(),
+    })
+
+    const res = await client.api.invites[':token'].$get({
+      param: { token: invite.token },
+    })
+    expect(res.status).toBe(404)
+  })
+
+  test('returns 404 when deleted', async () => {
+    const account = await factory.account.insert({})
+    const org = await factory.organization.insert({})
+    await factory.organization_member.insert({
+      organization_id: org.id,
+      account_id: account.id,
+      role: 'owner',
+    })
+    const invite = await factory.organization_invite.insert({
+      organization_id: org.id,
+      created_by: account.id,
+      deleted_at: new Date().toISOString(),
+    })
+
+    const res = await client.api.invites[':token'].$get({
+      param: { token: invite.token },
+    })
+    expect(res.status).toBe(404)
+  })
+
+  test('returns 404 when exhausted', async () => {
+    const account = await factory.account.insert({})
+    const org = await factory.organization.insert({})
+    await factory.organization_member.insert({
+      organization_id: org.id,
+      account_id: account.id,
+      role: 'owner',
+    })
+    const invite = await factory.organization_invite.insert({
+      organization_id: org.id,
+      created_by: account.id,
+      max_uses: 1,
+      use_count: 1,
+    })
+
+    const res = await client.api.invites[':token'].$get({
+      param: { token: invite.token },
+    })
+    expect(res.status).toBe(404)
+  })
+})
+
+describe('POST /api/invites/:token/accept', () => {
+  test('accepts invite and creates membership', async () => {
+    const owner = await factory.account.insert({})
+    const org = await factory.organization.insert({})
+    await factory.organization_member.insert({
+      organization_id: org.id,
+      account_id: owner.id,
+      role: 'owner',
+    })
+    const invite = await factory.organization_invite.insert({
+      organization_id: org.id,
+      created_by: owner.id,
+      role: 'member',
+    })
+
+    const joiner = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: joiner.id })
+
+    const res = await client.api.invites[':token'].accept.$post(
+      { param: { token: invite.token } },
+      {
+        headers: {
+          Cookie: await Cookie.generateSigned(
+            'curl.session',
+            session.id,
+            env.COOKIE_SECRET,
+          ),
+        },
+      },
+    )
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    assert('organization' in json, 'expected organization')
+    expect(json.organization.id).toBe(org.id)
+    expect(json.organization.login).toBe(org.login)
+
+    const membership = await db
+      .selectFrom('organization_member')
+      .where('organization_id', '=', org.id)
+      .where('account_id', '=', joiner.id)
+      .selectAll()
+      .executeTakeFirstOrThrow()
+    expect(membership.role).toBe('member')
+
+    const updated = await db
+      .selectFrom('organization_invite')
+      .where('id', '=', invite.id)
+      .select('use_count')
+      .executeTakeFirstOrThrow()
+    expect(updated.use_count).toBe(1)
+  })
+
+  test('returns 401 when unauthenticated', async () => {
+    const account = await factory.account.insert({})
+    const org = await factory.organization.insert({})
+    await factory.organization_member.insert({
+      organization_id: org.id,
+      account_id: account.id,
+      role: 'owner',
+    })
+    const invite = await factory.organization_invite.insert({
+      organization_id: org.id,
+      created_by: account.id,
+    })
+
+    const res = await client.api.invites[':token'].accept.$post({
+      param: { token: invite.token },
+    })
+    expect(res.status).toBe(401)
+  })
+
+  test('returns 404 when expired', async () => {
+    const owner = await factory.account.insert({})
+    const org = await factory.organization.insert({})
+    await factory.organization_member.insert({
+      organization_id: org.id,
+      account_id: owner.id,
+      role: 'owner',
+    })
+    const invite = await factory.organization_invite.insert({
+      organization_id: org.id,
+      created_by: owner.id,
+      expires_at: new Date(Date.now() - 1000).toISOString(),
+    })
+
+    const joiner = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: joiner.id })
+
+    const res = await client.api.invites[':token'].accept.$post(
+      { param: { token: invite.token } },
+      {
+        headers: {
+          Cookie: await Cookie.generateSigned(
+            'curl.session',
+            session.id,
+            env.COOKIE_SECRET,
+          ),
+        },
+      },
+    )
+    expect(res.status).toBe(404)
+  })
+
+  test('returns 404 when deleted', async () => {
+    const owner = await factory.account.insert({})
+    const org = await factory.organization.insert({})
+    await factory.organization_member.insert({
+      organization_id: org.id,
+      account_id: owner.id,
+      role: 'owner',
+    })
+    const invite = await factory.organization_invite.insert({
+      organization_id: org.id,
+      created_by: owner.id,
+      deleted_at: new Date().toISOString(),
+    })
+
+    const joiner = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: joiner.id })
+
+    const res = await client.api.invites[':token'].accept.$post(
+      { param: { token: invite.token } },
+      {
+        headers: {
+          Cookie: await Cookie.generateSigned(
+            'curl.session',
+            session.id,
+            env.COOKIE_SECRET,
+          ),
+        },
+      },
+    )
+    expect(res.status).toBe(404)
+  })
+
+  test('returns 404 when exhausted', async () => {
+    const owner = await factory.account.insert({})
+    const org = await factory.organization.insert({})
+    await factory.organization_member.insert({
+      organization_id: org.id,
+      account_id: owner.id,
+      role: 'owner',
+    })
+    const invite = await factory.organization_invite.insert({
+      organization_id: org.id,
+      created_by: owner.id,
+      max_uses: 1,
+      use_count: 1,
+    })
+
+    const joiner = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: joiner.id })
+
+    const res = await client.api.invites[':token'].accept.$post(
+      { param: { token: invite.token } },
+      {
+        headers: {
+          Cookie: await Cookie.generateSigned(
+            'curl.session',
+            session.id,
+            env.COOKIE_SECRET,
+          ),
+        },
+      },
+    )
+    expect(res.status).toBe(404)
+  })
+
+  test('returns 409 when already a member', async () => {
+    const owner = await factory.account.insert({})
+    const org = await factory.organization.insert({})
+    await factory.organization_member.insert({
+      organization_id: org.id,
+      account_id: owner.id,
+      role: 'owner',
+    })
+    const invite = await factory.organization_invite.insert({
+      organization_id: org.id,
+      created_by: owner.id,
+    })
+
+    const joiner = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: joiner.id })
+    await factory.organization_member.insert({
+      organization_id: org.id,
+      account_id: joiner.id,
+      role: 'member',
+    })
+
+    const res = await client.api.invites[':token'].accept.$post(
+      { param: { token: invite.token } },
+      {
+        headers: {
+          Cookie: await Cookie.generateSigned(
+            'curl.session',
+            session.id,
+            env.COOKIE_SECRET,
+          ),
+        },
+      },
+    )
+    expect(res.status).toBe(409)
+    await expect(res.json()).resolves.toEqual({ error: 'already_member' })
+  })
+})
+
+describe('POST /api/orgs/:id/invites', () => {
+  test('creates invite as owner', async () => {
+    const account = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: account.id })
+    const org = await factory.organization.insert({})
+    await factory.organization_member.insert({
+      organization_id: org.id,
+      account_id: account.id,
+      role: 'owner',
+    })
+
+    const res = await client.api.orgs[':id'].invites.$post(
+      { param: { id: org.id }, json: {} },
+      {
+        headers: {
+          Cookie: await Cookie.generateSigned(
+            'curl.session',
+            session.id,
+            env.COOKIE_SECRET,
+          ),
+        },
+      },
+    )
+    expect(res.status).toBe(201)
+    const json = await res.json()
+    assert('invite' in json, 'expected invite')
+    expect(json.invite.token).toBeTruthy()
+    expect(json.invite.url).toContain(`/invite/${json.invite.token}`)
+    expect(json.invite.role).toBe('member')
+    expect(json.invite.expires_at).toBeTruthy()
+    expect(json.invite.max_uses).toBeNull()
+  })
+
+  test('returns 401 when unauthenticated', async () => {
+    const org = await factory.organization.insert({})
+    const res = await client.api.orgs[':id'].invites.$post({
+      param: { id: org.id },
+      json: {},
+    })
+    expect(res.status).toBe(401)
+  })
+
+  test('returns 403 when not owner/admin', async () => {
+    const account = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: account.id })
+    const org = await factory.organization.insert({})
+    await factory.organization_member.insert({
+      organization_id: org.id,
+      account_id: account.id,
+      role: 'member',
+    })
+
+    const res = await client.api.orgs[':id'].invites.$post(
+      { param: { id: org.id }, json: {} },
+      {
+        headers: {
+          Cookie: await Cookie.generateSigned(
+            'curl.session',
+            session.id,
+            env.COOKIE_SECRET,
+          ),
+        },
+      },
+    )
+    expect(res.status).toBe(403)
+  })
+
+  test('custom role, max_uses, expires_in', async () => {
+    const account = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: account.id })
+    const org = await factory.organization.insert({})
+    await factory.organization_member.insert({
+      organization_id: org.id,
+      account_id: account.id,
+      role: 'owner',
+    })
+
+    const res = await client.api.orgs[':id'].invites.$post(
+      {
+        param: { id: org.id },
+        json: { role: 'admin', max_uses: 5, expires_in: 3600 },
+      },
+      {
+        headers: {
+          Cookie: await Cookie.generateSigned(
+            'curl.session',
+            session.id,
+            env.COOKIE_SECRET,
+          ),
+        },
+      },
+    )
+    expect(res.status).toBe(201)
+    const json = await res.json()
+    assert('invite' in json, 'expected invite')
+    expect(json.invite.role).toBe('admin')
+    expect(json.invite.max_uses).toBe(5)
+  })
+})
+
+describe('GET /api/orgs/:id/invites', () => {
+  test('returns 401 when unauthenticated', async () => {
+    const org = await factory.organization.insert({})
+    const res = await client.api.orgs[':id'].invites.$get({
+      param: { id: org.id },
+    })
+    expect(res.status).toBe(401)
+  })
+
+  test('lists invites for org as owner', async () => {
+    const account = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: account.id })
+    const org = await factory.organization.insert({})
+    await factory.organization_member.insert({
+      organization_id: org.id,
+      account_id: account.id,
+      role: 'owner',
+    })
+    await factory.organization_invite.insert({
+      organization_id: org.id,
+      created_by: account.id,
+    })
+    await factory.organization_invite.insert({
+      organization_id: org.id,
+      created_by: account.id,
+    })
+
+    const res = await client.api.orgs[':id'].invites.$get(
+      { param: { id: org.id } },
+      {
+        headers: {
+          Cookie: await Cookie.generateSigned(
+            'curl.session',
+            session.id,
+            env.COOKIE_SECRET,
+          ),
+        },
+      },
+    )
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    assert('invites' in json, 'expected invites')
+    expect(json.invites).toHaveLength(2)
+  })
+
+  test('excludes soft-deleted invites', async () => {
+    const account = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: account.id })
+    const org = await factory.organization.insert({})
+    await factory.organization_member.insert({
+      organization_id: org.id,
+      account_id: account.id,
+      role: 'owner',
+    })
+    await factory.organization_invite.insert({
+      organization_id: org.id,
+      created_by: account.id,
+    })
+    await factory.organization_invite.insert({
+      organization_id: org.id,
+      created_by: account.id,
+      deleted_at: new Date().toISOString(),
+    })
+
+    const res = await client.api.orgs[':id'].invites.$get(
+      { param: { id: org.id } },
+      {
+        headers: {
+          Cookie: await Cookie.generateSigned(
+            'curl.session',
+            session.id,
+            env.COOKIE_SECRET,
+          ),
+        },
+      },
+    )
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    assert('invites' in json, 'expected invites')
+    expect(json.invites).toHaveLength(1)
+  })
+
+  test('returns 403 when not owner/admin', async () => {
+    const account = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: account.id })
+    const org = await factory.organization.insert({})
+    await factory.organization_member.insert({
+      organization_id: org.id,
+      account_id: account.id,
+      role: 'member',
+    })
+
+    const res = await client.api.orgs[':id'].invites.$get(
+      { param: { id: org.id } },
+      {
+        headers: {
+          Cookie: await Cookie.generateSigned(
+            'curl.session',
+            session.id,
+            env.COOKIE_SECRET,
+          ),
+        },
+      },
+    )
+    expect(res.status).toBe(403)
+  })
+})
+
+describe('DELETE /api/orgs/:id/invites/:inviteId', () => {
+  test('returns 401 when unauthenticated', async () => {
+    const org = await factory.organization.insert({})
+    const res = await client.api.orgs[':id'].invites[':inviteId'].$delete({
+      param: { id: org.id, inviteId: 'some-id' },
+    })
+    expect(res.status).toBe(401)
+  })
+
+  test('revokes invite', async () => {
+    const account = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: account.id })
+    const org = await factory.organization.insert({})
+    await factory.organization_member.insert({
+      organization_id: org.id,
+      account_id: account.id,
+      role: 'owner',
+    })
+    const invite = await factory.organization_invite.insert({
+      organization_id: org.id,
+      created_by: account.id,
+    })
+
+    const res = await client.api.orgs[':id'].invites[':inviteId'].$delete(
+      { param: { id: org.id, inviteId: invite.id } },
+      {
+        headers: {
+          Cookie: await Cookie.generateSigned(
+            'curl.session',
+            session.id,
+            env.COOKIE_SECRET,
+          ),
+        },
+      },
+    )
+    expect(res.status).toBe(200)
+    await expect(res.json()).resolves.toEqual({ ok: true })
+
+    const row = await db
+      .selectFrom('organization_invite')
+      .where('id', '=', invite.id)
+      .select('deleted_at')
+      .executeTakeFirstOrThrow()
+    expect(row.deleted_at).not.toBeNull()
+  })
+
+  test('returns 404 when invite does not exist', async () => {
+    const account = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: account.id })
+    const org = await factory.organization.insert({})
+    await factory.organization_member.insert({
+      organization_id: org.id,
+      account_id: account.id,
+      role: 'owner',
+    })
+
+    const res = await client.api.orgs[':id'].invites[':inviteId'].$delete(
+      { param: { id: org.id, inviteId: 'nonexistent' } },
+      {
+        headers: {
+          Cookie: await Cookie.generateSigned(
+            'curl.session',
+            session.id,
+            env.COOKIE_SECRET,
+          ),
+        },
+      },
+    )
+    expect(res.status).toBe(404)
+  })
+
+  test('returns 403 when not owner/admin', async () => {
+    const account = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: account.id })
+    const org = await factory.organization.insert({})
+    await factory.organization_member.insert({
+      organization_id: org.id,
+      account_id: account.id,
+      role: 'member',
+    })
+    const owner = await factory.account.insert({})
+    await factory.organization_member.insert({
+      organization_id: org.id,
+      account_id: owner.id,
+      role: 'owner',
+    })
+    const invite = await factory.organization_invite.insert({
+      organization_id: org.id,
+      created_by: owner.id,
+    })
+
+    const res = await client.api.orgs[':id'].invites[':inviteId'].$delete(
+      { param: { id: org.id, inviteId: invite.id } },
+      {
+        headers: {
+          Cookie: await Cookie.generateSigned(
+            'curl.session',
+            session.id,
+            env.COOKIE_SECRET,
+          ),
+        },
+      },
+    )
+    expect(res.status).toBe(403)
+  })
+})

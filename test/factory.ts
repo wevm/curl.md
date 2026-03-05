@@ -69,6 +69,12 @@ const defaultConfig: Partial<{
       name: `Key ${Nanoid.generate()}`,
     }
   },
+  organization_invite() {
+    return {
+      expires_at: new Date(Date.now() + 7 * 86400 * 1000).toISOString(), // 7 days
+      token: crypto.randomUUID(),
+    }
+  },
   session() {
     return {
       expires_at: new Date(Date.now() + 30 * 86400 * 1000).toISOString(), // 30 days

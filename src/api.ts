@@ -617,6 +617,89 @@ export const api = new Hono<{
     },
   )
   .get('/api/health', (c) => c.json({ ok: true }, 200))
+  .get('/api/invites/:token', async (c) => {
+    const invite = await c.var.db
+      .selectFrom('organization_invite')
+      .innerJoin(
+        'organization',
+        'organization.id',
+        'organization_invite.organization_id',
+      )
+      .where('organization_invite.token', '=', c.req.param('token'))
+      .where('organization_invite.deleted_at', 'is', null)
+      .where('organization_invite.expires_at', '>', new Date())
+      .where((eb) =>
+        eb.or([
+          eb('organization_invite.max_uses', 'is', null),
+          eb(
+            'organization_invite.use_count',
+            '<',
+            eb.ref('organization_invite.max_uses'),
+          ),
+        ]),
+      )
+      .select([
+        'organization.login',
+        'organization.name',
+        'organization_invite.role',
+      ])
+      .executeTakeFirst()
+
+    if (!invite) return c.json({ error: 'not_found' }, 404)
+    return c.json(
+      {
+        invite: {
+          organization: { login: invite.login, name: invite.name },
+          role: invite.role,
+        },
+      },
+      200,
+    )
+  })
+  .post('/api/invites/:token/accept', async (c) => {
+    if (!c.var.session) return c.json({ error: 'unauthorized' }, 401)
+
+    const claimed = await c.var.db
+      .updateTable('organization_invite')
+      .set({ use_count: sql`use_count + 1` })
+      .where('token', '=', c.req.param('token'))
+      .where('deleted_at', 'is', null)
+      .where('expires_at', '>', new Date())
+      .where((eb) =>
+        eb.or([
+          eb('max_uses', 'is', null),
+          eb('use_count', '<', eb.ref('max_uses')),
+        ]),
+      )
+      .returning(['organization_id', 'role'])
+      .executeTakeFirst()
+    if (!claimed) return c.json({ error: 'not_found' }, 404)
+
+    const existing = await c.var.db
+      .selectFrom('organization_member')
+      .where('organization_id', '=', claimed.organization_id)
+      .where('account_id', '=', c.var.session.account_id)
+      .select('id')
+      .executeTakeFirst()
+    if (existing) return c.json({ error: 'already_member' }, 409)
+
+    await c.var.db
+      .insertInto('organization_member')
+      .values({
+        account_id: c.var.session.account_id,
+        organization_id: claimed.organization_id,
+        role: claimed.role,
+      })
+      .execute()
+
+    const organization = await c.var.db
+      .selectFrom('organization')
+      .where('id', '=', claimed.organization_id)
+      .select(['id', 'login'])
+      .executeTakeFirstOrThrow()
+
+    return c.json({ organization }, 200)
+  })
   .get('/api/og.png', validator('query', Og.schema), async (c) => {
     if (narrowValidation) return validationError(c)
     const query = c.req.valid('query')
@@ -763,6 +846,114 @@ export const api = new Hono<{
       return c.json({ login: json.login }, 200)
     },
   )
+  .post(
+    '/api/orgs/:id/invites',
+    validator(
+      'json',
+      z.object({
+        expires_in: z.number().int().positive().optional(),
+        max_uses: z.number().int().positive().nullable().default(null),
+        role: z.enum(['member', 'admin']).default('member'),
+      }),
+    ),
+    async (c) => {
+      if (narrowValidation) return validationError(c)
+      if (!c.var.session) return c.json({ error: 'unauthorized' }, 401)
+
+      const member = await c.var.db
+        .selectFrom('organization_member')
+        .where('organization_id', '=', c.req.param('id'))
+        .where('account_id', '=', c.var.session.account_id)
+        .where('role', 'in', ['owner', 'admin'])
+        .select('id')
+        .executeTakeFirst()
+      if (!member) return c.json({ error: 'forbidden' }, 403)
+
+      const json = c.req.valid('json')
+      const token = customAlphabet('0123456789abcdefghijklmnopqrstuvwxyz', 32)()
+      const expires_at = new Date(
+        Date.now() + (json.expires_in ?? 604800) * 1000,
+      )
+
+      await c.var.db
+        .insertInto('organization_invite')
+        .values({
+          created_by: c.var.session.account_id,
+          expires_at,
+          max_uses: json.max_uses,
+          organization_id: c.req.param('id'),
+          role: json.role,
+          token,
+        })
+        .execute()
+
+      return c.json(
+        {
+          invite: {
+            expires_at: expires_at.toISOString(),
+            max_uses: json.max_uses,
+            role: json.role,
+            token,
+            url: `https://${c.env.HOST}/invite/${token}`,
+          },
+        },
+        201,
+      )
+    },
+  )
+  .get('/api/orgs/:id/invites', async (c) => {
+    if (!c.var.session) return c.json({ error: 'unauthorized' }, 401)
+
+    const member = await c.var.db
+      .selectFrom('organization_member')
+      .where('organization_id', '=', c.req.param('id'))
+      .where('account_id', '=', c.var.session.account_id)
+      .where('role', 'in', ['owner', 'admin'])
+      .select('id')
+      .executeTakeFirst()
+    if (!member) return c.json({ error: 'forbidden' }, 403)
+
+    const invites = await c.var.db
+      .selectFrom('organization_invite')
+      .where('organization_id', '=', c.req.param('id'))
+      .where('deleted_at', 'is', null)
+      .select([
+        'created_at',
+        'expires_at',
+        'id',
+        'max_uses',
+        'role',
+        'token',
+        'use_count',
+      ])
+      .orderBy('created_at', 'desc')
+      .execute()
+
+    return c.json({ invites }, 200)
+  })
+  .delete('/api/orgs/:id/invites/:inviteId', async (c) => {
+    if (!c.var.session) return c.json({ error: 'unauthorized' }, 401)
+
+    const member = await c.var.db
+      .selectFrom('organization_member')
+      .where('organization_id', '=', c.req.param('id'))
+      .where('account_id', '=', c.var.session.account_id)
+      .where('role', 'in', ['owner', 'admin'])
+      .select('id')
+      .executeTakeFirst()
+    if (!member) return c.json({ error: 'forbidden' }, 403)
+
+    const result = await c.var.db
+      .updateTable('organization_invite')
+      .set({ deleted_at: new Date() })
+      .where('id', '=', c.req.param('inviteId'))
+      .where('organization_id', '=', c.req.param('id'))
+      .where('deleted_at', 'is', null)
+      .executeTakeFirst()
+
+    if (!result.numUpdatedRows) return c.json({ error: 'not_found' }, 404)
+    return c.json({ ok: true }, 200)
+  })
   .post(
     '/api/tokens',
     validator('json', z.object({ name: z.string().min(1).max(255) })),

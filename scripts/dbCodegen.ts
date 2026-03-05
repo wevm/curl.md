@@ -43,6 +43,7 @@ const enums = await db
 const customTypes: Record<string, Record<string, string>> = {
   account: { role: "'crew' | 'user'" },
   device_code: { status: "'approved' | 'pending'" },
+  organization_invite: { role: "'admin' | 'member' | 'owner'" },
   organization_member: { role: "'admin' | 'member' | 'owner'" },
 }
 

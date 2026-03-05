@@ -42,6 +42,7 @@ test('help', async () => {
   const { output } = await serve(['--help'], { CURL_MD_BASE_URL: undefined })
   expect(output).toMatchInlineSnapshot(`
     "curl.md@x.y.z — Fetch any URL as Markdown
+    Aliases: md, curlmd
 
     Usage: curl.md <url> [options]
 
@@ -63,7 +64,7 @@ test('help', async () => {
 
     Commands:
       auth    Authentication commands (check, login, logout)
-      org     Manage organizations (create, list, show, switch)
+      org     Manage organizations (create, invite, list, show, switch)
       token   Manage API tokens (create, list, delete)
       update  Update curl.md CLI
 
@@ -561,6 +562,18 @@ describe('org', () => {
     expect(output).toContain('login')
   })
 
+  test('create - duplicate login', async () => {
+    const account = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: account.id })
+    Session.write({ session_id: session.id })
+
+    const login = `dup-org${Nanoid.generate()}`
+    await serve(['org', 'create', login])
+    const { exitCode, output } = await serve(['org', 'create', login])
+    expect(exitCode).toBe(1)
+    expect(output).toContain('CREATE_FAILED')
+  })
+
   test('create - expired session deletes session', async () => {
     Session.write({ session_id: 'expired-session-id' })
 
@@ -646,6 +659,372 @@ describe('org', () => {
     expect(exitCode).toBe(1)
     expect(output).toContain('no longer accessible')
     expect(Session.read()?.organization_id).toBeUndefined()
+  })
+})
+
+describe('org invite', () => {
+  describe('accept', () => {
+    test('accepts invite', async () => {
+      const owner = await factory.account.insert({})
+      const org = await factory.organization.insert({})
+      await factory.organization_member.insert({
+        organization_id: org.id,
+        account_id: owner.id,
+        role: 'owner',
+      })
+      const invite = await factory.organization_invite.insert({
+        organization_id: org.id,
+        created_by: owner.id,
+      })
+
+      const invitee = await factory.account.insert({})
+      const inviteeSession = await factory.session.insert({
+        account_id: invitee.id,
+      })
+      Session.write({ session_id: inviteeSession.id })
+
+      const { output } = await serve(['org', 'invite', 'accept', invite.token])
+      expect(output).toContain('Joined')
+      expect(output).toContain(org.login)
+      expect(output).toContain('org switch')
+    })
+
+    test('accepts invite from URL', async () => {
+      const owner = await factory.account.insert({})
+      const org = await factory.organization.insert({})
+      await factory.organization_member.insert({
+        organization_id: org.id,
+        account_id: owner.id,
+        role: 'owner',
+      })
+      const invite = await factory.organization_invite.insert({
+        organization_id: org.id,
+        created_by: owner.id,
+      })
+
+      const invitee = await factory.account.insert({})
+      const inviteeSession = await factory.session.insert({
+        account_id: invitee.id,
+      })
+      Session.write({ session_id: inviteeSession.id })
+
+      const { output } = await serve([
+        'org',
+        'invite',
+        'accept',
+        `https://curl.md/invite/${invite.token}`,
+      ])
+      expect(output).toContain('Joined')
+    })
+
+    test('expired session deletes session', async () => {
+      Session.write({ session_id: 'expired-session-id' })
+
+      const { exitCode, output } = await serve([
+        'org',
+        'invite',
+        'accept',
+        'some-token',
+      ])
+      expect(exitCode).toBe(1)
+      expect(output).toContain('NOT_AUTHENTICATED')
+      expect(Session.read()).toBeNull()
+    })
+
+    test('not found', async () => {
+      const account = await factory.account.insert({})
+      const session = await factory.session.insert({ account_id: account.id })
+      Session.write({ session_id: session.id })
+
+      const { exitCode, output } = await serve([
+        'org',
+        'invite',
+        'accept',
+        'fake-token',
+      ])
+      expect(exitCode).toBe(1)
+      expect(output).toContain('NOT_FOUND')
+    })
+
+    test('already member', async () => {
+      const owner = await factory.account.insert({})
+      const org = await factory.organization.insert({})
+      await factory.organization_member.insert({
+        organization_id: org.id,
+        account_id: owner.id,
+        role: 'owner',
+      })
+      const invite = await factory.organization_invite.insert({
+        organization_id: org.id,
+        created_by: owner.id,
+      })
+
+      const invitee = await factory.account.insert({})
+      const inviteeSession = await factory.session.insert({
+        account_id: invitee.id,
+      })
+      Session.write({ session_id: inviteeSession.id })
+
+      await serve(['org', 'invite', 'accept', invite.token])
+
+      const { exitCode, output } = await serve([
+        'org',
+        'invite',
+        'accept',
+        invite.token,
+      ])
+      expect(exitCode).toBe(1)
+      expect(output).toContain('ALREADY_MEMBER')
+    })
+  })
+
+  describe('create', () => {
+    test('requires auth', async () => {
+      const { exitCode, output } = await serve(['org', 'invite', 'create'])
+      expect(exitCode).toBe(1)
+      expect(output).toContain('NOT_AUTHENTICATED')
+    })
+
+    test('expired session deletes session', async () => {
+      Session.write({
+        session_id: 'expired-session-id',
+        organization_id: 'stale',
+      })
+
+      const { exitCode, output } = await serve(['org', 'invite', 'create'])
+      expect(exitCode).toBe(1)
+      expect(output).toContain('NOT_AUTHENTICATED')
+      expect(Session.read()).toBeNull()
+    })
+
+    test('requires active org', async () => {
+      const account = await factory.account.insert({})
+      const session = await factory.session.insert({ account_id: account.id })
+      Session.write({ session_id: session.id })
+
+      const { exitCode, output } = await serve(['org', 'invite', 'create'])
+      expect(exitCode).toBe(1)
+      expect(output).toContain('NO_ACTIVE_ORG')
+    })
+
+    test('creates invite', async () => {
+      const account = await factory.account.insert({})
+      const session = await factory.session.insert({ account_id: account.id })
+      const org = await factory.organization.insert({})
+      await factory.organization_member.insert({
+        organization_id: org.id,
+        account_id: account.id,
+        role: 'owner',
+      })
+      Session.write({ session_id: session.id, organization_id: org.id })
+
+      const { output } = await serve(['org', 'invite', 'create'])
+      expect(output).toContain('Invite created')
+      expect(output).toContain('/invite/')
+    })
+
+    test('with custom options', async () => {
+      const account = await factory.account.insert({})
+      const session = await factory.session.insert({ account_id: account.id })
+      const org = await factory.organization.insert({})
+      await factory.organization_member.insert({
+        organization_id: org.id,
+        account_id: account.id,
+        role: 'owner',
+      })
+      Session.write({ session_id: session.id, organization_id: org.id })
+
+      const { output } = await serve([
+        'org',
+        'invite',
+        'create',
+        '--role',
+        'admin',
+        '--max-uses',
+        '5',
+      ])
+      expect(output).toContain('admin')
+    })
+
+    test('forbidden (regular member)', async () => {
+      const account = await factory.account.insert({})
+      const session = await factory.session.insert({ account_id: account.id })
+      const org = await factory.organization.insert({})
+      await factory.organization_member.insert({
+        organization_id: org.id,
+        account_id: account.id,
+        role: 'member',
+      })
+      Session.write({ session_id: session.id, organization_id: org.id })
+
+      const { exitCode, output } = await serve(['org', 'invite', 'create'])
+      expect(exitCode).toBe(1)
+      expect(output).toContain('FORBIDDEN')
+    })
+  })
+
+  describe('list', () => {
+    test('requires active org', async () => {
+      const account = await factory.account.insert({})
+      const session = await factory.session.insert({ account_id: account.id })
+      Session.write({ session_id: session.id })
+
+      const { exitCode, output } = await serve(['org', 'invite', 'list'])
+      expect(exitCode).toBe(1)
+      expect(output).toContain('NO_ACTIVE_ORG')
+    })
+
+    test('expired session deletes session', async () => {
+      Session.write({
+        session_id: 'expired-session-id',
+        organization_id: 'stale',
+      })
+
+      const { exitCode, output } = await serve(['org', 'invite', 'list'])
+      expect(exitCode).toBe(1)
+      expect(output).toContain('NOT_AUTHENTICATED')
+      expect(Session.read()).toBeNull()
+    })
+
+    test('forbidden (regular member)', async () => {
+      const account = await factory.account.insert({})
+      const session = await factory.session.insert({ account_id: account.id })
+      const org = await factory.organization.insert({})
+      await factory.organization_member.insert({
+        organization_id: org.id,
+        account_id: account.id,
+        role: 'member',
+      })
+      Session.write({ session_id: session.id, organization_id: org.id })
+
+      const { exitCode, output } = await serve(['org', 'invite', 'list'])
+      expect(exitCode).toBe(1)
+      expect(output).toContain('FORBIDDEN')
+    })
+
+    test('empty list', async () => {
+      const account = await factory.account.insert({})
+      const session = await factory.session.insert({ account_id: account.id })
+      const org = await factory.organization.insert({})
+      await factory.organization_member.insert({
+        organization_id: org.id,
+        account_id: account.id,
+        role: 'owner',
+      })
+      Session.write({ session_id: session.id, organization_id: org.id })
+
+      const { output } = await serve(['org', 'invite', 'list'])
+      expect(output).toContain('No invites found')
+    })
+
+    test('lists invites', async () => {
+      const account = await factory.account.insert({})
+      const session = await factory.session.insert({ account_id: account.id })
+      const org = await factory.organization.insert({})
+      await factory.organization_member.insert({
+        organization_id: org.id,
+        account_id: account.id,
+        role: 'owner',
+      })
+      const invite = await factory.organization_invite.insert({
+        organization_id: org.id,
+        created_by: account.id,
+      })
+      Session.write({ session_id: session.id, organization_id: org.id })
+
+      const { output } = await serve(['org', 'invite', 'list'])
+      expect(output).toContain(invite.token.slice(0, 12))
+    })
+  })
+
+  describe('revoke', () => {
+    test('requires active org', async () => {
+      const account = await factory.account.insert({})
+      const session = await factory.session.insert({ account_id: account.id })
+      Session.write({ session_id: session.id })
+
+      const { exitCode, output } = await serve([
+        'org',
+        'invite',
+        'revoke',
+        'some-id',
+      ])
+      expect(exitCode).toBe(1)
+      expect(output).toContain('NO_ACTIVE_ORG')
+    })
+
+    test('expired session deletes session', async () => {
+      Session.write({
+        session_id: 'expired-session-id',
+        organization_id: 'stale',
+      })
+
+      const { exitCode, output } = await serve([
+        'org',
+        'invite',
+        'revoke',
+        'some-id',
+      ])
+      expect(exitCode).toBe(1)
+      expect(output).toContain('NOT_AUTHENTICATED')
+      expect(Session.read()).toBeNull()
+    })
+
+    test('no invites to revoke', async () => {
+      const account = await factory.account.insert({})
+      const session = await factory.session.insert({ account_id: account.id })
+      const org = await factory.organization.insert({})
+      await factory.organization_member.insert({
+        organization_id: org.id,
+        account_id: account.id,
+        role: 'owner',
+      })
+      Session.write({ session_id: session.id, organization_id: org.id })
+
+      const { exitCode, output } = await serve(['org', 'invite', 'revoke'])
+      expect(exitCode).toBe(1)
+      expect(output).toContain('NO_INVITES')
+    })
+
+    test('revokes invite by id', async () => {
+      const account = await factory.account.insert({})
+      const session = await factory.session.insert({ account_id: account.id })
+      const org = await factory.organization.insert({})
+      await factory.organization_member.insert({
+        organization_id: org.id,
+        account_id: account.id,
+        role: 'owner',
+      })
+      const invite = await factory.organization_invite.insert({
+        organization_id: org.id,
+        created_by: account.id,
+      })
+      Session.write({ session_id: session.id, organization_id: org.id })
+
+      const { output } = await serve(['org', 'invite', 'revoke', invite.id])
+      expect(output).toContain('revoked')
+    })
+
+    test('not found', async () => {
+      const account = await factory.account.insert({})
+      const session = await factory.session.insert({ account_id: account.id })
+      const org = await factory.organization.insert({})
+      await factory.organization_member.insert({
+        organization_id: org.id,
+        account_id: account.id,
+        role: 'owner',
+      })
+      Session.write({ session_id: session.id, organization_id: org.id })
+
+      const { exitCode, output } = await serve([
+        'org',
+        'invite',
+        'revoke',
+        'fake-id',
+      ])
+      expect(exitCode).toBe(1)
+      expect(output).toContain('NOT_FOUND')
+    })
   })
 })
 

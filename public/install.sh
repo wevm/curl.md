@@ -53,7 +53,8 @@ main() {
   base_url="https://github.com/${REPO}/releases/download/${tag}"
 
   # TODO: remove gh CLI fallback when repo is public (curl works for public release assets)
-  info "Downloading curl.md ${tag} (${os}/${arch})..."
+  version="${tag#curl.md@}"
+  info "Downloading curl.md ${version} (${os}/${arch})..."
   tmpfile="$(mktemp)"
   if has_gh_auth; then
     gh release download "$tag" --repo "$REPO" --pattern "$artifact" --output "$tmpfile" --clobber || error "Download failed. Binary may not exist for ${os}/${arch}."
@@ -92,8 +93,8 @@ main() {
   chmod +x "$target"
 
   # Create aliases matching package.json bin entries
-  ln -sf "$target" "${INSTALL_DIR}/curlmd"
   ln -sf "$target" "${INSTALL_DIR}/md"
+  ln -sf "$target" "${INSTALL_DIR}/curlmd"
 
   info "Installed curl.md to ${target}"
   info "Aliases: md, curlmd"
