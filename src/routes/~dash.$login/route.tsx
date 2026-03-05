@@ -9,6 +9,7 @@ import {
 import { createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
 import { getDb } from '#lib/db.ts'
+import { rpc } from '#lib/rpc.ts'
 import * as Session from '#lib/session.ts'
 
 export const Route = createFileRoute('/~dash/$login')({
@@ -30,7 +31,7 @@ function DashboardLayout() {
 
   const logout = useMutation({
     mutationFn: async () => {
-      await fetch('/api/auth/logout', { method: 'POST' })
+      await rpc.api.auth.logout.$post()
     },
     onSuccess: () => router.navigate({ to: '/' }),
   })

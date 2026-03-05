@@ -659,9 +659,8 @@ export const api = new Hono<{
   .post('/api/invites/:token/accept', async (c) => {
     if (!c.var.session) return c.json({ error: 'unauthorized' }, 401)
 
-    const claimed = await c.var.db
-      .updateTable('organization_invite')
-      .set({ use_count: sql`use_count + 1` })
+    const invite = await c.var.db
+      .selectFrom('organization_invite')
       .where('token', '=', c.req.param('token'))
       .where('deleted_at', 'is', null)
       .where('expires_at', '>', new Date())
@@ -671,30 +670,42 @@ export const api = new Hono<{
           eb('use_count', '<', eb.ref('max_uses')),
         ]),
       )
-      .returning(['organization_id', 'role'])
+      .select(['organization_id', 'role'])
       .executeTakeFirst()
-    if (!claimed) return c.json({ error: 'not_found' }, 404)
+    if (!invite) return c.json({ error: 'not_found' }, 404)
 
     const existing = await c.var.db
       .selectFrom('organization_member')
-      .where('organization_id', '=', claimed.organization_id)
+      .where('organization_id', '=', invite.organization_id)
       .where('account_id', '=', c.var.session.account_id)
       .select('id')
       .executeTakeFirst()
     if (existing) return c.json({ error: 'already_member' }, 409)
 
     await c.var.db
+      .updateTable('organization_invite')
+      .set({ use_count: sql`use_count + 1` })
+      .where('token', '=', c.req.param('token'))
+      .where((eb) =>
+        eb.or([
+          eb('max_uses', 'is', null),
+          eb('use_count', '<', eb.ref('max_uses')),
+        ]),
+      )
+      .execute()
+
+    await c.var.db
       .insertInto('organization_member')
       .values({
         account_id: c.var.session.account_id,
-        organization_id: claimed.organization_id,
-        role: claimed.role,
+        organization_id: invite.organization_id,
+        role: invite.role,
       })
       .execute()
 
     const organization = await c.var.db
       .selectFrom('organization')
-      .where('id', '=', claimed.organization_id)
+      .where('id', '=', invite.organization_id)
       .select(['id', 'login'])
       .executeTakeFirstOrThrow()
 

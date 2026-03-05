@@ -1602,6 +1602,13 @@ describe('POST /api/invites/:token/accept', () => {
     )
     expect(res.status).toBe(409)
     await expect(res.json()).resolves.toEqual({ error: 'already_member' })
+
+    const updated = await db
+      .selectFrom('organization_invite')
+      .where('id', '=', invite.id)
+      .select('use_count')
+      .executeTakeFirstOrThrow()
+    expect(updated.use_count).toBe(0)
   })
 })
 

@@ -25,8 +25,10 @@ const vars = z.object({
   session: z.custom<Session.Data | null>(),
 })
 
+const aliases = ['md', 'curlmd']
+
 const cli = Cli.create('curl.md', {
-  aliases: ['md', 'curlmd'],
+  aliases,
   description: 'Fetch any URL as Markdown',
   version: pkg.version,
   env: z.object({
@@ -596,11 +598,11 @@ const invite = Cli.create('invite', {
       if (!json.invites.length) return c.ok('No invites found.')
 
       const rows = json.invites.map((inv) => {
-        const tokenCol = inv.token.slice(0, 12)
+        const tokenCol = inv.token
         const roleCol = inv.role
         const usageCol = inv.max_uses
           ? `${inv.use_count}/${inv.max_uses} uses`
-          : `${inv.use_count} uses`
+          : `${inv.use_count}/∞ uses`
         const expired = new Date(inv.expires_at) < new Date()
         const expiryCol = expired
           ? pc.dim('expired')
@@ -1212,7 +1214,7 @@ const update = Cli.create('update', {
       `Updating ${c.name} ${pkg.version} → ${version}`,
     )
     try {
-      if (isStandalone()) await updateStandalone(version)
+      if (isStandalone()) await updateStandalone(version, aliases)
       else await installGlobal(c.name, version)
       spinner.stop()
       return c.ok(

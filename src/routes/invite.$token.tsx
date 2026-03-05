@@ -4,6 +4,7 @@ import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
 import { getDb } from '#lib/db.ts'
+import { rpc } from '#lib/rpc.ts'
 import * as Session from '#lib/session.ts'
 
 export const Route = createFileRoute('/invite/$token')({
@@ -21,19 +22,18 @@ function InvitePage() {
 
   const accept = useMutation({
     mutationFn: async () => {
-      const res = await fetch(`/api/invites/${token}/accept`, {
-        method: 'POST',
+      const res = await rpc.api.invites[':token'].accept.$post({
+        param: { token },
       })
       if (res.status === 409) throw new Error('already_member')
-      if (!res.ok) throw new Error('accept_failed')
-      return res.json() as Promise<{
-        organization: { id: string; login: string }
-      }>
+      if (res.status !== 200) throw new Error('accept_failed')
+      const json = await res.json()
+      return json.organization
     },
-    onSuccess: (data) =>
+    onSuccess: (organization) =>
       router.navigate({
         to: '/~dash/$login',
-        params: { login: data.organization.login },
+        params: { login: organization.login },
       }),
   })
 

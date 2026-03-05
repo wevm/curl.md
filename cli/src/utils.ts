@@ -218,14 +218,17 @@ export declare namespace UpdateCache {
 }
 
 export function relativeTime(date: Date) {
-  const seconds = Math.floor((Date.now() - date.getTime()) / 1000)
+  const diff = Math.floor((Date.now() - date.getTime()) / 1000)
+  const seconds = Math.abs(diff)
+  const suffix = diff < 0 ? '' : ' ago'
+  const prefix = diff < 0 ? 'in ' : ''
   if (seconds < 60) return 'just now'
   const minutes = Math.floor(seconds / 60)
-  if (minutes < 60) return `${minutes}m ago`
+  if (minutes < 60) return `${prefix}${minutes}m${suffix}`
   const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}h ago`
+  if (hours < 24) return `${prefix}${hours}h${suffix}`
   const days = Math.floor(hours / 24)
-  return `${days}d ago`
+  return `${prefix}${days}d${suffix}`
 }
 
 export function select(title: string, items: string[]): Promise<number> {
@@ -292,9 +295,7 @@ export function isStandalone(): boolean {
   return !/^(node|bun)(\.exe)?$/.test(path.basename(process.execPath))
 }
 
-const standaloneAliases = ['md', 'curlmd'] as const
-
-export async function updateStandalone(version: string) {
+export async function updateStandalone(version: string, aliases: string[]) {
   const os_ = (() => {
     if (process.platform === 'darwin') return 'darwin'
     if (process.platform === 'win32') return 'windows'
@@ -318,13 +319,13 @@ export async function updateStandalone(version: string) {
   fs.writeFileSync(tmpPath, buffer, { mode: 0o755 })
   fs.renameSync(tmpPath, target)
 
-  symlinkAliases(target)
+  symlinkAliases(target, aliases)
 }
 
-function symlinkAliases(target: string) {
+function symlinkAliases(target: string, aliases: string[]) {
   if (process.platform === 'win32') return
   const dir = path.dirname(target)
-  for (const alias of standaloneAliases) {
+  for (const alias of aliases) {
     const link = path.join(dir, alias)
     if (link === target) continue
     try {

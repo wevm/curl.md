@@ -91,20 +91,13 @@ function DeviceConfirmation() {
           onClick={async () => {
             setState('confirming')
             try {
-              const confirmUrl = rpc.api.auth.device.confirm.$url()
-              const res = await fetch(
-                `${confirmUrl.pathname}${confirmUrl.search}`,
-                {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ user_code }),
-                },
-              )
-              if (!res.ok) {
-                const body = await res.json().catch(() => null)
+              const res = await rpc.api.auth.device.confirm.$post({
+                json: { user_code },
+              })
+              if (res.status !== 200) {
+                const json = await res.json()
                 setErrorMessage(
-                  (body as { error?: string } | null)?.error ??
-                    'Failed to confirm device.',
+                  'error' in json ? json.error : 'Failed to confirm device.',
                 )
                 setState('error')
                 return
