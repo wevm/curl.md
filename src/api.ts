@@ -63,19 +63,23 @@ export const api = new Hono<{
         .selectFrom('api_key')
         .where('key_hash', '=', keyHash)
         .where('deleted_at', 'is', null)
-        .select(['id', 'account_id', 'organization_id'])
+        .select(['id', 'account_id', 'organization_id', 'last_used_at'])
         .executeTakeFirst()
       if (apiKey) {
         c.set('api_key_id', apiKey.id)
         c.set('organization_id', apiKey.organization_id)
         c.set('session', { account_id: apiKey.account_id })
-        c.executionCtx.waitUntil(
-          c.var.db
-            .updateTable('api_key')
-            .set('last_used_at', new Date())
-            .where('id', '=', apiKey.id)
-            .execute(),
+        if (
+          !apiKey.last_used_at ||
+          Date.now() - new Date(apiKey.last_used_at).getTime() > 3_600_000 // 1 hour
         )
+          c.executionCtx.waitUntil(
+            c.var.db
+              .updateTable('api_key')
+              .set('last_used_at', new Date())
+              .where('id', '=', apiKey.id)
+              .execute(),
+          )
         await next()
         return
       }

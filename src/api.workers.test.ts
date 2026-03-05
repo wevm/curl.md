@@ -320,43 +320,7 @@ describe('POST /api/auth/logout', () => {
   })
 })
 
-describe('GET /api/auth/me', () => {
-  test('returns null without session', async () => {
-    const res = await client.api.auth.me.$get()
-    expect(res.status).toBe(200)
-    await expect(res.json()).resolves.toEqual({ account: null })
-  })
-})
-
-describe('device auth flow', () => {
-  test('rejects missing user_code with validation_error', async () => {
-    const res = await client.api.auth.device.confirm.$post({
-      // @ts-expect-error -- testing missing required field
-      json: {},
-    })
-    expect(res.status).toBe(400)
-    await expect(res.json()).resolves.toEqual({
-      error: 'validation_error',
-      issues: expect.arrayContaining([
-        { path: expect.any(String), message: expect.any(String) },
-      ]),
-    })
-  })
-
-  test('rejects missing code with validation_error', async () => {
-    const res = await client.api.auth.device.token.$post({
-      // @ts-expect-error -- testing missing required field
-      json: {},
-    })
-    expect(res.status).toBe(400)
-    await expect(res.json()).resolves.toEqual({
-      error: 'validation_error',
-      issues: expect.arrayContaining([
-        { path: expect.any(String), message: expect.any(String) },
-      ]),
-    })
-  })
-
+describe('POST /api/auth/device', () => {
   test('returns device code and user code', async () => {
     const res = await client.api.auth.device.$post()
     expect(res.status).toBe(200)
@@ -365,53 +329,6 @@ describe('device auth flow', () => {
     expect(data.user_code).toMatch(/^[A-Z2-9]{8}$/)
     expect(data.verification_uri).toBe('https://curl.local/auth/device')
     expect(data.interval).toBe(1)
-  })
-
-  test('polling pending code returns authorization_pending', async () => {
-    const deviceRes = await client.api.auth.device.$post()
-    const device = await deviceRes.json()
-
-    const res = await client.api.auth.device.token.$post({
-      json: { code: device.code },
-    })
-    expect(res.status).toBe(400)
-    await expect(res.json()).resolves.toEqual({
-      error: 'authorization_pending',
-    })
-  })
-
-  test('polling invalid code returns expired_token', async () => {
-    const res = await client.api.auth.device.token.$post({
-      json: { code: 'nonexistent' },
-    })
-    expect(res.status).toBe(400)
-    await expect(res.json()).resolves.toEqual({ error: 'expired_token' })
-  })
-
-  test('confirm without session returns 401', async () => {
-    const res = await client.api.auth.device.confirm.$post({
-      json: { user_code: 'ABCD1234' },
-    })
-    expect(res.status).toBe(401)
-  })
-
-  test('confirm with invalid code returns 404', async () => {
-    const account = await factory.account.insert({})
-    const session = await factory.session.insert({ account_id: account.id })
-
-    const res = await client.api.auth.device.confirm.$post(
-      { json: { user_code: 'INVALID1' } },
-      {
-        headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
-        },
-      },
-    )
-    expect(res.status).toBe(404)
   })
 
   test('full flow: create, confirm, exchange for session', async () => {
@@ -471,11 +388,90 @@ describe('device auth flow', () => {
   })
 })
 
-describe('API key authentication', () => {
-  const apiClient = testClient(api, env, {
-    waitUntil: vi.fn((p: Promise<unknown>) => p),
-    passThroughOnException: vi.fn(),
-    props: {},
+describe('POST /api/auth/device/confirm', () => {
+  test('rejects missing user_code with validation_error', async () => {
+    const res = await client.api.auth.device.confirm.$post({
+      // @ts-expect-error -- testing missing required field
+      json: {},
+    })
+    expect(res.status).toBe(400)
+    await expect(res.json()).resolves.toEqual({
+      error: 'validation_error',
+      issues: expect.arrayContaining([
+        { path: expect.any(String), message: expect.any(String) },
+      ]),
+    })
+  })
+
+  test('without session returns 401', async () => {
+    const res = await client.api.auth.device.confirm.$post({
+      json: { user_code: 'ABCD1234' },
+    })
+    expect(res.status).toBe(401)
+  })
+
+  test('with invalid code returns 404', async () => {
+    const account = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: account.id })
+
+    const res = await client.api.auth.device.confirm.$post(
+      { json: { user_code: 'INVALID1' } },
+      {
+        headers: {
+          Cookie: await Cookie.generateSigned(
+            'curl.session',
+            session.id,
+            env.COOKIE_SECRET,
+          ),
+        },
+      },
+    )
+    expect(res.status).toBe(404)
+  })
+})
+
+describe('POST /api/auth/device/token', () => {
+  test('rejects missing code with validation_error', async () => {
+    const res = await client.api.auth.device.token.$post({
+      // @ts-expect-error -- testing missing required field
+      json: {},
+    })
+    expect(res.status).toBe(400)
+    await expect(res.json()).resolves.toEqual({
+      error: 'validation_error',
+      issues: expect.arrayContaining([
+        { path: expect.any(String), message: expect.any(String) },
+      ]),
+    })
+  })
+
+  test('polling pending code returns authorization_pending', async () => {
+    const deviceRes = await client.api.auth.device.$post()
+    const device = await deviceRes.json()
+
+    const res = await client.api.auth.device.token.$post({
+      json: { code: device.code },
+    })
+    expect(res.status).toBe(400)
+    await expect(res.json()).resolves.toEqual({
+      error: 'authorization_pending',
+    })
+  })
+
+  test('polling invalid code returns expired_token', async () => {
+    const res = await client.api.auth.device.token.$post({
+      json: { code: 'nonexistent' },
+    })
+    expect(res.status).toBe(400)
+    await expect(res.json()).resolves.toEqual({ error: 'expired_token' })
+  })
+})
+
+describe('GET /api/auth/me', () => {
+  test('returns null without session', async () => {
+    const res = await client.api.auth.me.$get()
+    expect(res.status).toBe(200)
+    await expect(res.json()).resolves.toEqual({ account: null })
   })
 
   test('resolves API key from bearer token', async () => {
@@ -494,7 +490,7 @@ describe('API key authentication', () => {
       name: 'test key',
     })
 
-    const res = await apiClient.api.auth.me.$get(
+    const res = await client.api.auth.me.$get(
       {},
       { headers: { Authorization: 'Bearer curl_test123456' } },
     )
@@ -521,7 +517,7 @@ describe('API key authentication', () => {
       deleted_at: new Date().toISOString(),
     })
 
-    const res = await apiClient.api.auth.me.$get(
+    const res = await client.api.auth.me.$get(
       {},
       { headers: { Authorization: 'Bearer curl_deleted789' } },
     )
@@ -545,7 +541,7 @@ describe('API key authentication', () => {
       name: 'lastused key',
     })
 
-    await apiClient.api.auth.me.$get(
+    await client.api.auth.me.$get(
       {},
       { headers: { Authorization: 'Bearer curl_lastused999' } },
     )
@@ -559,8 +555,8 @@ describe('API key authentication', () => {
   })
 })
 
-describe('Token management', () => {
-  test('POST /api/tokens creates token', async () => {
+describe('POST /api/tokens', () => {
+  test('creates token', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
 
@@ -584,14 +580,14 @@ describe('Token management', () => {
     expect(stored.key_hash).toBe(expectedHash)
   })
 
-  test('POST /api/tokens requires auth', async () => {
+  test('requires auth', async () => {
     const res = await client.api.tokens.$post({
       json: { name: 'test token' },
     })
     expect(res.status).toBe(401)
   })
 
-  test('POST /api/tokens blocks API key auth', async () => {
+  test('blocks API key auth', async () => {
     const account = await factory.account.insert({})
     const org = await factory.organization.insert({})
     await factory.organization_member.insert({
@@ -615,7 +611,7 @@ describe('Token management', () => {
     expect(res.status).toBe(403)
   })
 
-  test('POST /api/tokens associates with active organization', async () => {
+  test('associates with active organization', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
     const org = await factory.organization.insert({})
@@ -639,7 +635,7 @@ describe('Token management', () => {
     expect(data.api_key.organization_id).toBe(org.id)
   })
 
-  test('POST /api/tokens rejects duplicate name', async () => {
+  test('rejects duplicate name', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
 
@@ -655,8 +651,10 @@ describe('Token management', () => {
     const data = await res.json()
     expect(data).toEqual({ error: 'name_taken' })
   })
+})
 
-  test('GET /api/tokens lists tokens', async () => {
+describe('GET /api/tokens', () => {
+  test('lists tokens', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
     await factory.api_key.insert({
@@ -684,7 +682,7 @@ describe('Token management', () => {
     expect(data.api_keys).toHaveLength(2)
   })
 
-  test('GET /api/tokens excludes deleted tokens', async () => {
+  test('excludes deleted tokens', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
     await factory.api_key.insert({
@@ -713,12 +711,14 @@ describe('Token management', () => {
     expect(data.api_keys).toHaveLength(1)
   })
 
-  test('GET /api/tokens requires auth', async () => {
+  test('requires auth', async () => {
     const res = await client.api.tokens.$get()
     expect(res.status).toBe(401)
   })
+})
 
-  test('DELETE /api/tokens/:id soft deletes token', async () => {
+describe('DELETE /api/tokens/:id', () => {
+  test('soft deletes token', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
     const apiKey = await factory.api_key.insert({
@@ -743,7 +743,7 @@ describe('Token management', () => {
     expect(row.deleted_at).not.toBeNull()
   })
 
-  test('DELETE /api/tokens/:id returns 404 for nonexistent', async () => {
+  test('returns 404 for nonexistent', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
 
@@ -754,7 +754,7 @@ describe('Token management', () => {
     expect(res.status).toBe(404)
   })
 
-  test('DELETE /api/tokens/:id cannot delete another account token', async () => {
+  test('cannot delete another account token', async () => {
     const account1 = await factory.account.insert({})
     const account2 = await factory.account.insert({})
     const session2 = await factory.session.insert({ account_id: account2.id })
