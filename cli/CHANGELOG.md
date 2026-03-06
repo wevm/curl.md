@@ -1,5 +1,11 @@
 # curl.md
 
+## 0.0.7
+
+### Patch Changes
+
+- Added `credits` command group for prepaid credit management (`credits add`, `credits check`). Rate limit errors now suggest `credits add` for authenticated users. ([`2043e19`](https://github.com/wevm/curl.md/commit/2043e19ba248a3d60cf7b61561dddf83ecb5b05c))
+
 ## 0.0.6
 
 ### Patch Changes
