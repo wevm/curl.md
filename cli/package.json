@@ -1,6 +1,6 @@
 {
   "name": "curl.md",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "description": "Fetch any URL as Markdown",
   "scripts": {
     "build": "tsgo --noCheck -p tsconfig.build.json && find ../src -name '*.js' -delete",

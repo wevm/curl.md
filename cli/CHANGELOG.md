@@ -1,5 +1,11 @@
 # curl.md
 
+## 0.0.8
+
+### Patch Changes
+
+- Fixed `update` command failing with 404 due to malformed download URL. ([`47022d4`](https://github.com/wevm/curl.md/commit/47022d44fc55caaf38aca154f8ba8acc7d87016e))
+
 ## 0.0.7
 
 ### Patch Changes
