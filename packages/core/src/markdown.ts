@@ -6,7 +6,7 @@ import remarkStringify from 'remark-stringify'
 import { unified } from 'unified'
 import type { VFile } from 'vfile'
 
-export async function htmlToMarkdown(
+export async function fromHtml(
   html: string,
   options?: { baseUrl?: string },
 ): Promise<{ markdown: string; meta: Record<string, string> }> {
@@ -33,17 +33,13 @@ export async function htmlToMarkdown(
     .use(remarkStringify)
     .process(html)
   const meta = (file.data.meta as Record<string, string> | undefined) ?? {}
+  const filteredMeta: Record<string, string> = {}
+  for (const [k, v] of Object.entries(meta)) {
+    if (allowedFrontmatterKeys.has(k)) filteredMeta[k] = v.trim()
+  }
   const relatedLinks =
     (file.data.relatedLinks as Array<{ href: string; text: string }>) ?? []
-  const frontmatter = (() => {
-    const entries = Object.entries(meta)
-      .filter(([k]) => allowedFrontmatterKeys.has(k))
-      .map(([k, v]) => `${k}: ${JSON.stringify(v.trim())}`)
-    return entries.length > 0 ? entries.join('\n') : undefined
-  })()
-  let markdown = frontmatter
-    ? `---\n${frontmatter}\n---\n\n${String(file)}`
-    : String(file)
+  let markdown = String(file)
   if (relatedLinks.length > 0) {
     const links = relatedLinks
       .slice(0, 25)
@@ -51,7 +47,7 @@ export async function htmlToMarkdown(
       .join('\n')
     markdown += `\n<!--\nSitemap:\n${links}\n-->\n`
   }
-  return { markdown, meta }
+  return { markdown, meta: filteredMeta }
 }
 
 export const allowedFrontmatterKeys = new Set([

@@ -1,7 +1,7 @@
 import { hc } from 'hono/client'
 import { Cli, middleware, z } from 'incur'
 import pc from 'picocolors'
-import type { api } from '../../src/api.ts'
+import type { api } from '../../../src/api.ts'
 import pkg from '../package.json' with { type: 'json' }
 import {
   type Client,

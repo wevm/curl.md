@@ -1,7 +1,7 @@
 import { env, fetchMock } from 'cloudflare:test'
 import { estimateTokenCount } from 'tokenx'
 import { afterEach, expect, test, vi } from 'vitest'
-import { fetchPage } from './fetch-page.ts'
+import { fetchPage } from '#lib/fetch-page.ts'
 
 afterEach(() => {
   vi.restoreAllMocks()
@@ -31,8 +31,12 @@ test('converts html to markdown', async () => {
   expect(result.markdown).toContain('# Hello')
   expect(result.markdown).toContain('World')
   expect(result.tokensCount).toBe(estimateTokenCount(result.markdown))
+  const contentWithoutFrontmatter = result.markdown.replace(
+    /^---\n[\s\S]*?\n---\n\n/,
+    '',
+  )
   expect(result.tokensSaved).toBe(
-    estimateTokenCount(html) - estimateTokenCount(result.markdown),
+    estimateTokenCount(html) - estimateTokenCount(contentWithoutFrontmatter),
   )
 })
 

@@ -1,0 +1,29 @@
+{
+  "name": "@curl.md/core",
+  "version": "0.0.0",
+  "description": "Fetch any URL as Markdown",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wevm/curl.md.git",
+    "directory": "packages/core"
+  },
+  "license": "FSL-1.1-MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts"
+    }
+  },
+  "files": [
+    "src"
+  ],
+  "dependencies": {
+    "rehype-parse": "^9.0.1",
+    "rehype-remark": "^10.0.1",
+    "remark-gfm": "^4.0.1",
+    "remark-stringify": "^11.0.0",
+    "unified": "^11.0.5",
+    "vfile": "^6.0.3"
+  }
+}

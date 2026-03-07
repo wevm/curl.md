@@ -11,6 +11,9 @@ importers:
       '@cloudflare/vite-plugin':
         specifier: ^1.25.4
         version: 1.25.6(vite@7.3.1(@types/node@25.3.2)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.2))(workerd@1.20260305.0)(wrangler@4.69.0)
+      '@curl.md/core':
+        specifier: workspace:*
+        version: link:packages/core
       '@fontsource-variable/geist-mono':
         specifier: ^5.2.7
         version: 5.2.7
@@ -169,7 +172,7 @@ importers:
         specifier: ^4.68.0
         version: 4.69.0
 
-  cli:
+  packages/cli:
     dependencies:
       hono:
         specifier: ^4.12.2
@@ -180,6 +183,36 @@ importers:
       picocolors:
         specifier: ^1.1.1
         version: 1.1.1
+
+  packages/core:
+    dependencies:
+      rehype-parse:
+        specifier: ^9.0.1
+        version: 9.0.1
+      rehype-remark:
+        specifier: ^10.0.1
+        version: 10.0.1
+      remark-gfm:
+        specifier: ^4.0.1
+        version: 4.0.1
+      remark-stringify:
+        specifier: ^11.0.0
+        version: 11.0.0
+      unified:
+        specifier: ^11.0.5
+        version: 11.0.5
+      vfile:
+        specifier: ^6.0.3
+        version: 6.0.3
+
+  packages/curl.md:
+    dependencies:
+      '@curl.md/cli':
+        specifier: workspace:*
+        version: link:../cli
+      '@curl.md/core':
+        specifier: workspace:*
+        version: link:../core
 
 packages:
 

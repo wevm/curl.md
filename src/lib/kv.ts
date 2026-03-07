@@ -1,40 +1,45 @@
 /** Key-to-JSON-value mapping for typed KV access. */
-type ValueFor<K extends string> =
-  | (K extends `balance:${string}` ? number : never)
-  | (K extends 'stats:tokens_saved' ? number : never)
-  | (K extends `stats:tokens_saved:${string}` ? number : never)
-  | (K extends `page:${string}`
-      ? { content: string; contentType: string }
-      : never)
-  | (K extends `query:${string}` ? string : never)
-  | (K extends 'cli:latest'
-      ? { published_at: string | null; version: string }
-      : never)
-  | (K extends `ratelimit:${'fetch' | 'query'}:${string}`
-      ? { count: number; reset: number }
-      : never)
-  | (K extends `session:${string}` ? string : never)
+export namespace KV {
+  export type Value<K extends string> =
+    | (K extends `balance:${string}` ? number : never)
+    | (K extends 'stats:tokens_saved' ? number : never)
+    | (K extends `stats:tokens_saved:${string}` ? number : never)
+    | (K extends `page:${string}` ? { content: string; type: string } : never)
+    | (K extends `query:${string}` ? string : never)
+    | (K extends 'cli:latest'
+        ? { published_at: string | null; version: string }
+        : never)
+    | (K extends `ratelimit:${'fetch' | 'query'}:${string}`
+        ? { count: number; reset: number }
+        : never)
+    | (K extends `session:${string}` ? string : never)
 
-export type KVKey =
-  | `balance:${string}`
-  | 'cli:latest'
-  | `page:${string}`
-  | `query:${string}`
-  | `ratelimit:${'fetch' | 'query'}:${string}`
-  | `session:${string}`
-  | 'stats:tokens_saved'
-  | `stats:tokens_saved:${string}`
+  export type Key =
+    | `balance:${string}`
+    | 'cli:latest'
+    | `page:${string}`
+    | `query:${string}`
+    | `ratelimit:${'fetch' | 'query'}:${string}`
+    | `session:${string}`
+    | 'stats:tokens_saved'
+    | `stats:tokens_saved:${string}`
+}
 
 export interface TypedKV {
-  get<K extends KVKey>(key: K, type: 'json'): Promise<ValueFor<K> | null>
-  get(key: KVKey): Promise<string | null>
-  get(key: KVKey, type: 'text'): Promise<string | null>
-  get(key: KVKey, type: 'arrayBuffer'): Promise<ArrayBuffer | null>
-  get(key: KVKey, type: 'stream'): Promise<ReadableStream | null>
+  get<K extends KV.Key>(key: K, type: 'json'): Promise<KV.Value<K> | null>
+  get(key: KV.Key): Promise<string | null>
+  get(key: KV.Key, type: 'text'): Promise<string | null>
+  get(key: KV.Key, type: 'arrayBuffer'): Promise<ArrayBuffer | null>
+  get(key: KV.Key, type: 'stream'): Promise<ReadableStream | null>
 
-  put(
-    key: KVKey,
-    value: string | ArrayBuffer | ArrayBufferView | ReadableStream,
+  put<K extends KV.Key>(
+    key: K,
+    value:
+      | KV.Value<K>
+      | string
+      | ArrayBuffer
+      | ArrayBufferView
+      | ReadableStream,
     options?: {
       expiration?: number
       expirationTtl?: number
@@ -42,14 +47,14 @@ export interface TypedKV {
     },
   ): Promise<void>
 
-  delete(key: KVKey): Promise<void>
+  delete(key: KV.Key): Promise<void>
 
   list<Metadata = unknown>(options?: {
     prefix?: string
     limit?: number
     cursor?: string
   }): Promise<{
-    keys: { name: KVKey; expiration?: number; metadata?: Metadata }[]
+    keys: { name: KV.Key; expiration?: number; metadata?: Metadata }[]
     list_complete: boolean
     cursor?: string
     cacheStatus: string | null

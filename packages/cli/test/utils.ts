@@ -2,8 +2,14 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { inject, vi } from 'vitest'
-import { Env } from '../../test/env.ts'
-import cli from '../src/cli.ts'
+import { Env } from '../../../test/env.ts'
+
+vi.mock('../package.json', () => ({
+  default: { name: 'curl.md', version: 'x.y.z' },
+}))
+
+// Must import after mock
+const { default: cli } = await import('../src/cli.ts')
 
 const env = Env.parse(inject('env'))
 

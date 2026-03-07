@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
 
-import { chunkMarkdown, filterSectionsByKeywords } from './chunk-markdown.ts'
+import { chunkMarkdown, filterSectionsByKeywords } from '#lib/chunk-markdown.ts'
 
 test('returns single-element array for short content', () => {
   const result = chunkMarkdown('Hello world', 100)

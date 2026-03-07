@@ -1,18 +1,18 @@
 {
-  "name": "curl.md",
-  "version": "0.0.8",
+  "name": "@curl.md/cli",
+  "version": "0.0.0",
   "description": "Fetch any URL as Markdown",
   "scripts": {
-    "build": "tsgo --noCheck -p tsconfig.build.json && find ../src -name '*.js' -delete",
+    "build": "tsgo --noCheck -p tsconfig.build.json && find ../../src -name '*.js' -delete",
     "check:types": "tsgo --noEmit",
     "gen:types": "incur gen"
   },
   "repository": {
     "type": "git",
     "url": "https://github.com/wevm/curl.md.git",
-    "directory": "cli"
+    "directory": "packages/cli"
   },
-  "license": "MIT",
+  "license": "FSL-1.1-MIT",
   "type": "module",
   "bin": {
     "curl.md": "./dist/bin.js",

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { hc } from 'hono/client'
-import type { api } from '../../src/api.ts'
+import type { api } from '../../../src/api.ts'
 import cli from './cli.ts'
 import { UpdateCache } from './utils.ts'
 

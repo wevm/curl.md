@@ -1,0 +1,33 @@
+{
+  "name": "curl.md",
+  "version": "0.0.8",
+  "description": "Fetch any URL as Markdown",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wevm/curl.md.git",
+    "directory": "packages/curl.md"
+  },
+  "license": "FSL-1.1-MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts"
+    }
+  },
+  "bin": {
+    "curl.md": "../cli/dist/bin.js",
+    "curl.md.src": "../cli/src/cli.ts",
+    "curlmd": "../cli/dist/bin.js",
+    "curlmd.src": "../cli/src/cli.ts",
+    "md": "../cli/dist/bin.js",
+    "md.src": "../cli/src/cli.ts"
+  },
+  "files": [
+    "src"
+  ],
+  "dependencies": {
+    "@curl.md/cli": "workspace:*",
+    "@curl.md/core": "workspace:*"
+  }
+}

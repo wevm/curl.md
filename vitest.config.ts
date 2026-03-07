@@ -21,11 +21,18 @@ export default defineConfig({
       },
       {
         test: {
+          name: 'core',
+          include: ['packages/core/src/**/*.test.ts'],
+          root,
+        },
+      },
+      {
+        test: {
           name: 'cli',
           globalSetup: ['test/cli.globalSetup.ts'],
           setupFiles: ['test/cli.setup.ts'],
           hookTimeout: 120_000,
-          include: ['cli/src/**/*.test.ts'],
+          include: ['packages/cli/src/**/*.test.ts'],
           root,
           testTimeout: 30_000,
         },

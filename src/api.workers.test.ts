@@ -1415,7 +1415,7 @@ test('GET /api/:url with q= uses stricter query limit', async () => {
     'page:https://rl-query.example.com/',
     JSON.stringify({
       content: '<html><body><p>ok</p></body></html>',
-      contentType: 'text/html',
+      type: 'text/html',
     }),
   )
   await env.KV.put('query:https://rl-query.example.com/:test:', 'ok')
@@ -1605,7 +1605,7 @@ test('GET /api/:url query request cost scales with input size', async () => {
     'page:https://cost-query.example.com/',
     JSON.stringify({
       content: '<html><body><p>ok</p></body></html>',
-      contentType: 'text/html',
+      type: 'text/html',
     }),
   )
   await env.KV.put('query:https://cost-query.example.com/:test:', 'ok')
