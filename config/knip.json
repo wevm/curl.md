@@ -1,0 +1,15 @@
+{
+  "$schema": "https://unpkg.com/knip@latest/schema.json",
+  "ignoreWorkspaces": ["."],
+  "workspaces": {
+    "packages/core": {},
+    "packages/cli": {
+      "entry": ["src/bin.ts"]
+    },
+    "packages/curl.md": {
+      "ignoreDependencies": ["@curl.md/cli"]
+    }
+  },
+  "ignore": ["**/*.test.ts", "**/test/**"],
+  "exclude": ["binaries", "exports", "unlisted"]
+}

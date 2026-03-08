@@ -28,6 +28,6 @@
     "remark-stringify": "^11.0.0",
     "unified": "^11.0.5",
     "vfile": "^6.0.3",
-    "zod": "^4.3.6"
+    "zod": "catalog:"
   }
 }
