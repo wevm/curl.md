@@ -1,32 +1,31 @@
 import { describe, expect, test } from 'vitest'
-
 import { fromHtml } from './markdown.ts'
 
 describe('fromHtml', () => {
   test('basic html conversion', async () => {
-    const { markdown: result } = await fromHtml('<p>Hello</p>')
+    const { content: result } = await fromHtml('<p>Hello</p>')
     expect(result).toBe('Hello\n')
   })
 
   test('converts heading and paragraph', async () => {
-    const { markdown: result } = await fromHtml('<h1>Title</h1><p>Body</p>')
+    const { content: result } = await fromHtml('<h1>Title</h1><p>Body</p>')
     expect(result).toContain('# Title')
     expect(result).toContain('Body')
   })
 
   test('converts links', async () => {
-    const { markdown: result } = await fromHtml(
+    const { content: result } = await fromHtml(
       '<a href="https://example.com">link</a>',
     )
     expect(result).toContain('[link](https://example.com)')
   })
 
   test('extracts title as meta', async () => {
-    const { markdown, meta } = await fromHtml(
+    const { content, meta } = await fromHtml(
       html({ head: '<title>My Page</title>', body: '<p>content</p>' }),
     )
     expect(meta.title).toBe('My Page')
-    expect(markdown).not.toContain('---')
+    expect(content).not.toContain('---')
   })
 
   test('extracts meta description', async () => {
@@ -120,12 +119,12 @@ describe('fromHtml', () => {
   })
 
   test('no frontmatter when no head metadata', async () => {
-    const { markdown } = await fromHtml('<p>text</p>')
-    expect(markdown).not.toContain('---')
+    const { content } = await fromHtml('<p>text</p>')
+    expect(content).not.toContain('---')
   })
 
   test('full document with all metadata', async () => {
-    const { markdown, meta } = await fromHtml(
+    const { content, meta } = await fromHtml(
       html({
         head: [
           '<title>Full Page</title>',
@@ -137,20 +136,20 @@ describe('fromHtml', () => {
         body: '<h1>Welcome</h1><p>Hello world</p>',
       }),
     )
-    expect(markdown).not.toContain('---')
+    expect(content).not.toContain('---')
     expect(meta.title).toBe('Full Page')
     expect(meta.author).toBe('Jane')
     expect(meta.description).toBe('Full description')
     expect(meta.site).toBe('Full Site')
     expect(meta.url).toBe('https://example.com/full')
-    expect(markdown).toContain('# Welcome')
-    expect(markdown).toContain('Hello world')
+    expect(content).toContain('# Welcome')
+    expect(content).toContain('Hello world')
   })
 })
 
 describe('strips noise elements', () => {
   test('strips nav elements', async () => {
-    const { markdown: result } = await fromHtml(
+    const { content: result } = await fromHtml(
       html({ body: '<nav><a href="/">Home</a></nav><p>Content</p>' }),
     )
     expect(result).toContain('Content')
@@ -159,7 +158,7 @@ describe('strips noise elements', () => {
   })
 
   test('preserves header elements', async () => {
-    const { markdown: result } = await fromHtml(
+    const { content: result } = await fromHtml(
       html({
         body: '<header><h1>Site Title</h1></header><main><p>Content</p></main>',
       }),
@@ -169,7 +168,7 @@ describe('strips noise elements', () => {
   })
 
   test('strips footer elements', async () => {
-    const { markdown: result } = await fromHtml(
+    const { content: result } = await fromHtml(
       html({ body: '<p>Content</p><footer><p>Copyright 2024</p></footer>' }),
     )
     expect(result).toContain('Content')
@@ -177,7 +176,7 @@ describe('strips noise elements', () => {
   })
 
   test('strips aside elements', async () => {
-    const { markdown: result } = await fromHtml(
+    const { content: result } = await fromHtml(
       html({ body: '<aside><p>Sidebar</p></aside><p>Content</p>' }),
     )
     expect(result).toContain('Content')
@@ -185,7 +184,7 @@ describe('strips noise elements', () => {
   })
 
   test('strips script and style tags', async () => {
-    const { markdown: result } = await fromHtml(
+    const { content: result } = await fromHtml(
       html({
         body: '<script>alert("hi")</script><style>body{}</style><p>Content</p>',
       }),
@@ -196,7 +195,7 @@ describe('strips noise elements', () => {
   })
 
   test('strips noscript and iframe', async () => {
-    const { markdown: result } = await fromHtml(
+    const { content: result } = await fromHtml(
       html({
         body: '<noscript>Enable JS</noscript><iframe src="x"></iframe><p>Content</p>',
       }),
@@ -206,7 +205,7 @@ describe('strips noise elements', () => {
   })
 
   test('strips svg elements', async () => {
-    const { markdown: result } = await fromHtml(
+    const { content: result } = await fromHtml(
       html({
         body: '<svg><circle r="5"/></svg><p>Content</p>',
       }),
@@ -216,7 +215,7 @@ describe('strips noise elements', () => {
   })
 
   test('strips elements by role attribute', async () => {
-    const { markdown: result } = await fromHtml(
+    const { content: result } = await fromHtml(
       html({
         body: '<div role="navigation"><a href="/">Nav</a></div><div role="banner">Banner</div><div role="contentinfo">Info</div><div role="complementary">Side</div><p>Content</p>',
       }),
@@ -231,7 +230,7 @@ describe('strips noise elements', () => {
   })
 
   test('preserves main content', async () => {
-    const { markdown: result } = await fromHtml(
+    const { content: result } = await fromHtml(
       html({
         body: '<main><h1>Title</h1><p>Paragraph</p><ul><li>Item</li></ul></main>',
       }),
@@ -242,7 +241,7 @@ describe('strips noise elements', () => {
   })
 
   test('strips nested noise', async () => {
-    const { markdown: result } = await fromHtml(
+    const { content: result } = await fromHtml(
       html({
         body: '<nav><ul><li><a href="/">Home</a></li><li><a href="/about">About</a></li></ul></nav><article><p>Article content</p></article>',
       }),
@@ -260,7 +259,7 @@ describe('resolves relative links', () => {
   const baseUrl = 'https://example.com/docs/page'
 
   test('resolves relative href', async () => {
-    const { markdown: result } = await fromHtml(
+    const { content: result } = await fromHtml(
       html({ body: '<a href="/about">About</a>' }),
       { baseUrl },
     )
@@ -268,7 +267,7 @@ describe('resolves relative links', () => {
   })
 
   test('resolves relative src', async () => {
-    const { markdown: result } = await fromHtml(
+    const { content: result } = await fromHtml(
       html({ body: '<img src="/img/photo.jpg" alt="Photo">' }),
       { baseUrl },
     )
@@ -276,7 +275,7 @@ describe('resolves relative links', () => {
   })
 
   test('preserves absolute links', async () => {
-    const { markdown: result } = await fromHtml(
+    const { content: result } = await fromHtml(
       html({ body: '<a href="https://other.com">Other</a>' }),
       { baseUrl },
     )
@@ -284,7 +283,7 @@ describe('resolves relative links', () => {
   })
 
   test('unwraps hash-only links (keeps text, removes link)', async () => {
-    const { markdown: result } = await fromHtml(
+    const { content: result } = await fromHtml(
       html({ body: '<a href="#section">Jump</a><p>Content</p>' }),
       { baseUrl },
     )
@@ -294,7 +293,7 @@ describe('resolves relative links', () => {
   })
 
   test('resolves path-relative links', async () => {
-    const { markdown: result } = await fromHtml(
+    const { content: result } = await fromHtml(
       html({ body: '<a href="sibling">Sibling</a>' }),
       { baseUrl },
     )
@@ -302,7 +301,7 @@ describe('resolves relative links', () => {
   })
 
   test('no-op without baseUrl', async () => {
-    const { markdown: result } = await fromHtml(
+    const { content: result } = await fromHtml(
       html({ body: '<a href="/about">About</a>' }),
     )
     expect(result).toContain('(/about)')
@@ -311,7 +310,7 @@ describe('resolves relative links', () => {
 
 describe('strips empty elements', () => {
   test('strips empty paragraphs', async () => {
-    const { markdown: result } = await fromHtml(
+    const { content: result } = await fromHtml(
       html({ body: '<p></p><p>Content</p>' }),
     )
     expect(result).toContain('Content')
@@ -319,21 +318,21 @@ describe('strips empty elements', () => {
   })
 
   test('strips whitespace-only paragraphs', async () => {
-    const { markdown: result } = await fromHtml(
+    const { content: result } = await fromHtml(
       html({ body: '<p>   </p><p>Content</p>' }),
     )
     expect(result).toBe('Content\n')
   })
 
   test('strips empty headings', async () => {
-    const { markdown: result } = await fromHtml(
+    const { content: result } = await fromHtml(
       html({ body: '<h2></h2><p>Content</p>' }),
     )
     expect(result).toBe('Content\n')
   })
 
   test('strips empty list items', async () => {
-    const { markdown: result } = await fromHtml(
+    const { content: result } = await fromHtml(
       html({ body: '<ul><li></li><li>Item</li></ul>' }),
     )
     expect(result).toContain('Item')
@@ -341,7 +340,7 @@ describe('strips empty elements', () => {
   })
 
   test('preserves non-empty elements', async () => {
-    const { markdown: result } = await fromHtml(
+    const { content: result } = await fromHtml(
       html({ body: '<p>Keep</p><div>Also keep</div>' }),
     )
     expect(result).toContain('Keep')
@@ -351,7 +350,7 @@ describe('strips empty elements', () => {
 
 describe('strips HTML comments', () => {
   test('strips React SSR hydration markers', async () => {
-    const { markdown: result } = await fromHtml(
+    const { content: result } = await fromHtml(
       html({
         body: '<!--$--><p>Content</p><!--/$--><!--$!--><!--/$-->',
       }),
@@ -360,7 +359,7 @@ describe('strips HTML comments', () => {
   })
 
   test('strips arbitrary comments', async () => {
-    const { markdown: result } = await fromHtml(
+    const { content: result } = await fromHtml(
       html({
         body: '<!--gEFrenCoRRJPVzAxJzheZ--><h1>Title<!-- --> here</h1>',
       }),
@@ -371,7 +370,7 @@ describe('strips HTML comments', () => {
 
 describe('pre newlines', () => {
   test('does not double newlines in syntax-highlighted code blocks', async () => {
-    const { markdown: result } = await fromHtml(
+    const { content: result } = await fromHtml(
       html({
         body: '<pre><code><span>line1</span>\n<span>line2</span>\n<span>line3</span></code></pre>',
       }),
@@ -381,7 +380,7 @@ describe('pre newlines', () => {
   })
 
   test('strips extra blank lines from pretty-printed div code blocks', async () => {
-    const { markdown: result } = await fromHtml(
+    const { content: result } = await fromHtml(
       html({
         body: '<pre><code>\n<div>line1</div>\n<div>line2</div>\n<div>line3</div>\n</code></pre>',
       }),
@@ -391,7 +390,7 @@ describe('pre newlines', () => {
   })
 
   test('strips trailing br inside div-per-line code blocks', async () => {
-    const { markdown: result } = await fromHtml(
+    const { content: result } = await fromHtml(
       html({
         body: '<pre><code><div class="cm-line"><span>line1</span><br/></div><div class="cm-line"><span>line2</span><br/></div><div class="cm-line"><span>line3</span><br/></div></code></pre>',
       }),
@@ -403,7 +402,7 @@ describe('pre newlines', () => {
 
 describe('strips form elements', () => {
   test('strips form elements', async () => {
-    const { markdown: result } = await fromHtml(
+    const { content: result } = await fromHtml(
       html({
         body: '<form><input type="text"><button>Submit</button></form><p>Content</p>',
       }),
@@ -413,7 +412,7 @@ describe('strips form elements', () => {
   })
 
   test('strips elements with noise class names', async () => {
-    const { markdown: result } = await fromHtml(
+    const { content: result } = await fromHtml(
       html({
         body: '<div class="sidebar"><p>Side content</p></div><div class="ad-unit"><p>Buy now</p></div><p>Main content</p>',
       }),
@@ -425,7 +424,7 @@ describe('strips form elements', () => {
   })
 
   test('ignores noise tokens inside Tailwind utility classes', async () => {
-    const { markdown: result } = await fromHtml(
+    const { content: result } = await fromHtml(
       html({
         body: '<main class="flex md:[--fd-sidebar-width:268px] pe-(--fd-layout-offset)"><p>Content</p></main>',
       }),
@@ -434,7 +433,7 @@ describe('strips form elements', () => {
   })
 
   test('strips elements with noise id', async () => {
-    const { markdown: result } = await fromHtml(
+    const { content: result } = await fromHtml(
       html({
         body: '<div id="comments-section"><p>User comment</p></div><p>Article</p>',
       }),
@@ -445,7 +444,7 @@ describe('strips form elements', () => {
   })
 
   test('strips hidden elements', async () => {
-    const { markdown: result } = await fromHtml(
+    const { content: result } = await fromHtml(
       html({
         body: '<div hidden><p>Hidden</p></div><div aria-hidden="true"><p>AriaHidden</p></div><div style="display:none"><p>DisplayNone</p></div><p>Visible</p>',
       }),
@@ -461,7 +460,7 @@ describe('strips form elements', () => {
       { length: 10 },
       (_, i) => `<a href="/page${i}">Page ${i} link text</a>`,
     ).join(' ')
-    const { markdown: result } = await fromHtml(
+    const { content: result } = await fromHtml(
       html({
         body: `<div>${links}</div><p>Main content here</p>`,
       }),
@@ -473,7 +472,7 @@ describe('strips form elements', () => {
   })
 
   test('deduplicates related links', async () => {
-    const { markdown: result } = await fromHtml(
+    const { content: result } = await fromHtml(
       html({
         body: '<nav><a href="/home">Home</a></nav><footer><a href="/home">Home</a><a href="/about">About</a></footer><p>Content</p>',
       }),
@@ -483,7 +482,7 @@ describe('strips form elements', () => {
   })
 
   test('preserves mark elements', async () => {
-    const { markdown: result } = await fromHtml(
+    const { content: result } = await fromHtml(
       '<p>This is <mark>highlighted</mark> text</p>',
     )
     expect(result).toContain('<mark>highlighted</mark>')

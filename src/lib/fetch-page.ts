@@ -9,7 +9,7 @@ export async function fetchPage(
   url: URL,
   options: { fresh?: boolean; keywords?: string[]; objective?: string } = {},
 ) {
-  const resolved = md.resolve(url)
+  const resolved = md.resolve(url, md.rules)
   const cacheKey = `page:${url.href}` as const
   const isSelf = url.hostname === env.HOST
 
@@ -148,6 +148,7 @@ Objective: ${options.objective}`
   const excerptTokens = estimateTokenCount(excerpt)
   const frontmatter = (() => {
     const entries = Object.entries(parsed.meta)
+      .sort(([a], [b]) => metaKeyOrder(a) - metaKeyOrder(b))
       .map(([k, v]) => `${k}: ${yamlValue(v)}`)
       .join('\n')
     return entries ? `---\n${entries}\n---` : undefined
@@ -166,6 +167,19 @@ Objective: ${options.objective}`
     tokensCount: estimateTokenCount(markdown),
     tokensSaved: rawTokens - excerptTokens,
   }
+}
+
+const metaKeyPriority: Record<string, number> = {
+  title: 0,
+  description: 1,
+  url: 2,
+  site: 3,
+  author: 4,
+  publish_date: 5,
+}
+
+function metaKeyOrder(key: string): number {
+  return metaKeyPriority[key] ?? 99
 }
 
 function yamlValue(v: unknown): string {

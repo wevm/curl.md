@@ -9,7 +9,7 @@ import type { VFile } from 'vfile'
 export async function fromHtml(
   html: string,
   options?: { baseUrl?: string },
-): Promise<{ markdown: string; meta: Record<string, string> }> {
+): Promise<{ content: string; meta: Record<string, string> }> {
   const file = await unified()
     .use(rehypeParse)
     .use(rehypeExtractMeta, options?.baseUrl)
@@ -39,15 +39,15 @@ export async function fromHtml(
   }
   const relatedLinks =
     (file.data.relatedLinks as Array<{ href: string; text: string }>) ?? []
-  let markdown = String(file)
+  let content = String(file)
   if (relatedLinks.length > 0) {
     const links = relatedLinks
       .slice(0, 25)
       .map((l) => `- [${l.text.replace(/[[\]]/g, '\\$&')}](${l.href})`)
       .join('\n')
-    markdown += `\n<!--\nSitemap:\n${links}\n-->\n`
+    content += `\n<!--\nSitemap:\n${links}\n-->\n`
   }
-  return { markdown, meta: filteredMeta }
+  return { content, meta: filteredMeta }
 }
 
 export const allowedFrontmatterKeys = new Set([

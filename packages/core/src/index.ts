@@ -1,46 +1,5 @@
+export { defineRule, type Rule, type Rules } from './defineRule.ts'
 export { fromHtml } from './markdown.ts'
 export { parse } from './parse.ts'
 export { resolve } from './resolve.ts'
-export type { Rule } from './rules.ts'
-
-export {
-  aiSdk,
-  anthropic,
-  appendIndexMd,
-  appendMd,
-  appendMdWithIndex,
-  astral,
-  builtinRules,
-  bun,
-  claudeCode,
-  cloudflare,
-  defineRule,
-  deno,
-  github,
-  githubDocs,
-  githubRepo,
-  hono,
-  laravel,
-  nextjs,
-  nodejs,
-  openai,
-  openclaw,
-  planetscale,
-  prefixedWithIndex,
-  reactDev,
-  render,
-  rolldown,
-  routerVue,
-  rspack,
-  shadcn,
-  stripe,
-  tanstack,
-  tempo,
-  turbo,
-  vercel,
-  viem,
-  vite,
-  vitest,
-  vue,
-  wagmi,
-} from './rules.ts'
+export * as rules from './rules/index.ts'

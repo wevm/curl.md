@@ -1,6 +1,6 @@
+import { matchRule, type Rules, toRuleList } from './defineRule.ts'
 import { allowedFrontmatterKeys, fromHtml } from './markdown.ts'
 import type { resolve } from './resolve.ts'
-import { builtinRules } from './rules.ts'
 import type { Compute } from './types.ts'
 
 export async function parse(
@@ -13,15 +13,16 @@ export async function parse(
 
   const rule = (() => {
     if (options?.rule) return options.rule
-    const hostname = options?.source?.hostname
-    if (!hostname) return undefined
-    return builtinRules.get(hostname)
+    const source = options?.source
+    if (!source) return undefined
+    const rules = options?.rules ? toRuleList(options.rules) : []
+    return matchRule(rules, source)
   })()
 
   if (rule?.parse) {
     const response = typeof input === 'string' ? new Response(input) : input
     const result = await rule.parse(response)
-    content = result.markdown
+    content = result.content
     from = 'rule'
     meta = result.meta ?? {}
   } else {
@@ -29,24 +30,25 @@ export async function parse(
     const isMarkdown = (() => {
       if (options?.as) return options.as === 'md'
       if (typeof input === 'string') return !input.trimStart().startsWith('<')
-      return isMarkdownContentType(input.headers.get('content-type') ?? '')
+      const type = (input.headers.get('content-type') ?? '').toLowerCase()
+      return type.includes('text/markdown') || type.includes('text/x-markdown')
     })()
 
     if (isMarkdown) {
       const split = splitFrontmatter(text)
       content = split.body
+      from = 'markdown'
       meta = {}
       for (const [k, v] of Object.entries(split.meta)) {
         if (allowedFrontmatterKeys.has(k)) meta[k] = v
       }
-      from = 'markdown'
     } else {
       const baseUrl =
         options?.baseUrl ?? options?.source?.href ?? options?.url?.href
       const result = await fromHtml(text, { baseUrl })
-      content = result.markdown
-      meta = result.meta
+      content = result.content
       from = 'html'
+      meta = result.meta
     }
   }
 
@@ -66,18 +68,15 @@ export namespace parse {
     extractMeta?: boolean
     normalizeHeadings?: boolean
     resolveLinks?: boolean
+    rules?: Rules
     stripNoise?: boolean
   }
+
   export type ReturnType = {
     content: string
     from: 'html' | 'markdown' | 'rule'
     meta: Record<string, string>
   }
-}
-
-function isMarkdownContentType(contentType: string): boolean {
-  const ct = contentType.toLowerCase()
-  return ct.includes('text/markdown') || ct.includes('text/x-markdown')
 }
 
 function splitFrontmatter(markdown: string): {

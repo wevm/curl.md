@@ -14,30 +14,35 @@ npm install @curl.md/core
 import * as md from '@curl.md/core'
 
 // Resolve URL (applies builtin rules for known sites)
-const target = md.resolve('https://example.com/docs/getting-started')
+const resolved = md.resolve('https://example.com/docs/getting-started', md.rules)
 
 // Fetch and parse to markdown
-const response = await fetch(target.url, target)
-const result = await md.parse(response, target)
+const response = await fetch(resolved.url, resolved)
+const result = await md.parse(response, resolved)
 
 result.content // markdown string
 result.meta    // { title, description, url, ... }
 ```
 
+### Builtin Rules
+
+The `md.rules` namespace contains rules for known documentation sites (e.g. `md.rules.github`, `md.rules.cloudflare`, `md.rules.nextjs`). Pass them to `md.resolve()` to automatically resolve URLs to their raw markdown sources.
+
 ### Custom Rules
 
 ```ts
-import { resolve, parse, defineRule } from '@curl.md/core'
+import * as md from '@curl.md/core'
 
-const resolved = resolve('https://my-docs.dev/guide', {
-  rules: {
-    'my-docs.dev': defineRule((url) => {
-      const mdUrl = new URL(url.href)
-      mdUrl.pathname = `${url.pathname}.md`
-      return mdUrl
-    }),
+const myRule = md.defineRule({
+  patterns: ['my-docs.dev'],
+  resolve: (url) => {
+    const mdUrl = new URL(url.href)
+    mdUrl.pathname = `${url.pathname}.md`
+    return mdUrl
   },
 })
+
+const resolved = md.resolve('https://my-docs.dev/guide', [myRule])
 ```
 
 ### HTML to Markdown
@@ -45,7 +50,7 @@ const resolved = resolve('https://my-docs.dev/guide', {
 ```ts
 import { fromHtml } from '@curl.md/core'
 
-const { markdown, meta } = await fromHtml('<h1>Hello</h1><p>World</p>')
+const { content, meta } = await fromHtml('<h1>Hello</h1><p>World</p>')
 ```
 
 ## License
