@@ -1,11 +1,11 @@
 import path from 'node:path'
 import { defineWorkersProject } from '@cloudflare/vitest-pool-workers/config'
 import { defineConfig } from 'vitest/config'
-import { Env } from './test/env.ts'
+import { Env } from './env.ts'
 
-const root = path.resolve(import.meta.dirname)
+const root = path.resolve(import.meta.dirname, '..')
 const aliases = {
-  '#': new URL('./src/', import.meta.url).pathname,
+  '#': new URL('../src/', import.meta.url).pathname,
 }
 
 export default defineConfig({

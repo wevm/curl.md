@@ -7,6 +7,9 @@
     "url": "https://github.com/wevm/curl.md.git",
     "directory": "packages/core"
   },
+  "scripts": {
+    "check:types": "tsgo --noEmit"
+  },
   "license": "FSL-1.1-MIT",
   "type": "module",
   "exports": {
@@ -24,6 +27,7 @@
     "remark-gfm": "^4.0.1",
     "remark-stringify": "^11.0.0",
     "unified": "^11.0.5",
-    "vfile": "^6.0.3"
+    "vfile": "^6.0.3",
+    "zod": "^4.3.6"
   }
 }

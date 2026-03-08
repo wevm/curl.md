@@ -12,6 +12,7 @@ import * as Crypto from '#lib/crypto.ts'
 import type { DB } from '#lib/db.gen.ts'
 import { dialect } from '#lib/db.ts'
 import { fetchPage } from '#lib/fetch-page.ts'
+import { getGithubToken } from '#lib/github-token.ts'
 import { narrowValidation, validationError, validator } from '#lib/hono.ts'
 import * as Nanoid from '#lib/nanoid.ts'
 import * as Og from '#lib/og.tsx'
@@ -1560,10 +1561,22 @@ export const api = new Hono<{
         )
       }
 
+      // TODO: when do we do token refresh?
+      const github = c.var.session
+        ? await getGithubToken(
+            c.var.session.account_id,
+            c.var.db,
+            c.env.TOKEN_ENCRYPTION_KEY,
+          )
+            .then((t) => t ?? undefined)
+            .catch(() => undefined)
+        : undefined
+
       let page: Awaited<ReturnType<typeof fetchPage>>
       try {
         page = await fetchPage(url, {
           fresh: query.fresh !== undefined ? true : undefined,
+          tokens: { github },
           keywords: query.k,
           objective: query.q,
         })

@@ -102,3 +102,85 @@ test('keyword filtering is case insensitive', async () => {
   expect(result.markdown).not.toContain('Database')
   expect(result.markdown).not.toContain('Caching')
 })
+
+test('github issue fetches from api with token', async () => {
+  const issueJson = {
+    title: 'Bug report',
+    body: '## Description\n\nSomething is broken.',
+    state: 'open',
+    user: { login: 'octocat' },
+  }
+
+  fetchMock
+    .get('https://api.github.com')
+    .intercept({
+      path: '/repos/owner/repo/issues/42',
+      headers: { Accept: 'application/vnd.github.v3+json' },
+    })
+    .reply(200, JSON.stringify(issueJson), {
+      headers: { 'content-type': 'application/json; charset=utf-8' },
+    })
+
+  const result = await fetchPage(
+    new URL('https://github.com/owner/repo/issues/42'),
+  )
+  expect(result.markdown).toContain('Bug report')
+  expect(result.markdown).toContain('Something is broken')
+  expect(result.markdown).toContain('author: octocat')
+  expect(result.markdown).toContain('state: open')
+})
+
+test('github token uses graphql api', async () => {
+  const graphqlResponse = {
+    data: {
+      repository: {
+        issue: {
+          title: 'Private issue',
+          body: 'Secret content.',
+          state: 'OPEN',
+          author: { login: 'user' },
+          comments: {
+            nodes: [{ body: 'A comment.', author: { login: 'commenter' } }],
+          },
+        },
+      },
+    },
+  }
+
+  fetchMock
+    .get('https://api.github.com')
+    .intercept({ method: 'POST', path: '/graphql' })
+    .reply(200, JSON.stringify(graphqlResponse), {
+      headers: { 'content-type': 'application/json; charset=utf-8' },
+    })
+
+  const result = await fetchPage(
+    new URL('https://github.com/owner/repo/issues/1'),
+    { tokens: { github: 'user-oauth-token' } },
+  )
+  expect(result.markdown).toContain('Private issue')
+  expect(result.markdown).toContain('Secret content.')
+  expect(result.markdown).toContain('**commenter:**')
+  expect(result.markdown).toContain('A comment.')
+})
+
+test('github api rate limit falls back to html', async () => {
+  fetchMock
+    .get('https://api.github.com')
+    .intercept({ path: '/repos/owner/repo/issues/1' })
+    .reply(403, JSON.stringify({ message: 'rate limit exceeded' }))
+
+  fetchMock
+    .get('https://github.com')
+    .intercept({ path: '/owner/repo/issues/1' })
+    .reply(
+      200,
+      '<html><head><title>Issue Title</title></head><body><p>Fallback content</p></body></html>',
+      { headers: { 'content-type': 'text/html' } },
+    )
+
+  const result = await fetchPage(
+    new URL('https://github.com/owner/repo/issues/1'),
+  )
+  expect(result.markdown).toContain('Fallback content')
+})

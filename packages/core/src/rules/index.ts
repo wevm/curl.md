@@ -1,4 +1,4 @@
-import type { Rule } from '../defineRule.ts'
+import { defineRule } from '../defineRule.ts'
 import {
   appendIndexMd,
   appendMd,
@@ -7,6 +7,10 @@ import {
   githubRepo,
   prefixedWithIndex,
 } from './helpers.ts'
+
+export { githubBlob, githubIssue, githubPr } from './github.ts'
+export { githubDocs } from './github-docs.ts'
+export { mdn } from './mdn.ts'
 
 export const aiSdk = appendMd({ patterns: ['ai-sdk.dev'] })
 export const anthropic = appendMd({ patterns: ['docs.anthropic.com'] })
@@ -55,8 +59,10 @@ export const nodejs = prefixedWithIndex({
   prefix: '/docs',
   patterns: ['nodejs.org'],
 })
-// biome-ignore format: single-line rule
-export const planetscale = prefixedWithIndex({ prefix: '/docs', patterns: ['planetscale.com'] })
+export const planetscale = prefixedWithIndex({
+  prefix: '/docs',
+  patterns: ['planetscale.com'],
+})
 export const render = prefixedWithIndex({
   prefix: '/docs',
   patterns: ['render.com'],
@@ -66,61 +72,10 @@ export const vercel = prefixedWithIndex({
   patterns: ['vercel.com'],
 })
 
-export const reactDev = {
+export const reactDev = defineRule({
   patterns: ['react.dev'],
-  resolve: (url: URL) => {
+  resolve: (url) => {
     if (url.pathname === '/' || url.pathname === '') return
     return appendMdUrl(url)
   },
-} satisfies Rule
-
-export const github = {
-  patterns: ['github.com'],
-  resolve: (url: URL) => {
-    const match = url.pathname.match(/^\/([^/]+\/[^/]+)\/blob\/(.+)/)
-    if (!match) return
-    if (!/\.mdx?$/.test(match[2])) return
-    return new URL(`https://raw.githubusercontent.com/${match[1]}/${match[2]}`)
-  },
-} satisfies Rule
-
-const githubDocsLangs = new Set([
-  'cn',
-  'de',
-  'en',
-  'es',
-  'fr',
-  'ja',
-  'ko',
-  'pt',
-  'ru',
-  'zh',
-])
-
-export const githubDocs = {
-  patterns: ['docs.github.com'],
-  resolve: (url: URL) => {
-    const mdUrl = new URL(url.href)
-    mdUrl.pathname = '/api/article'
-    const firstSegment = url.pathname.split('/')[1]
-    const pathname =
-      firstSegment && githubDocsLangs.has(firstSegment)
-        ? url.pathname
-        : `/en${url.pathname}`
-    mdUrl.searchParams.set('pathname', pathname)
-    return mdUrl
-  },
-  parse: async (response: Response) => {
-    const json = (await response.json()) as {
-      body?: string
-      meta?: Record<string, string>
-    }
-    return {
-      content: typeof json.body === 'string' ? json.body : JSON.stringify(json),
-      meta: {
-        ...(json.meta?.title && { title: json.meta.title }),
-        ...(json.meta?.intro && { description: json.meta.intro }),
-      },
-    }
-  },
-} satisfies Rule
+})

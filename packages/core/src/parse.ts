@@ -19,12 +19,14 @@ export async function parse(
     return matchRule(rules, source)
   })()
 
-  if (rule?.parse) {
-    const response = typeof input === 'string' ? new Response(input) : input
-    const result = await rule.parse(response)
-    content = result.content
+  const ruleResult = rule?.parse
+    ? await rule.parse(typeof input === 'string' ? new Response(input) : input)
+    : null
+
+  if (ruleResult) {
+    content = ruleResult.content
     from = 'rule'
-    meta = result.meta ?? {}
+    meta = ruleResult.meta ?? {}
   } else {
     const text = typeof input === 'string' ? input : await input.text()
     const isMarkdown = (() => {

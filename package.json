@@ -12,12 +12,12 @@
     "pkg:publish": "pnpm pkg:format && pnpm changeset publish && pnpm pkg:restore",
     "pkg:restore": "node --experimental-strip-types scripts/restorePackageJson.ts",
     "check": "biome check .",
-    "check:types": "tsgo -b && pnpm --filter @curl.md/cli check:types",
+    "check:types": "tsgo -b && pnpm -r check:types",
     "db": "docker exec -it curl-db psql -U postgres -d curl_dev",
     "db:command": "docker exec curl-db psql -U postgres -d curl_dev -c",
     "db:codegen": "node --experimental-strip-types scripts/dbCodegen.ts",
-    "db:make": "kysely migrate make",
-    "db:migrate": "kysely migrate",
+    "db:make": "kysely migrate make --config config/kysely.config.ts",
+    "db:migrate": "kysely migrate --config config/kysely.config.ts",
     "deploy": "pnpm run build && wrangler deploy",
     "deps": "pnpx taze -r --no-ignore-other-workspaces --ignore-paths node_modules",
     "deps:ci": "pnpx actions-up --dir .github",
@@ -27,7 +27,7 @@
     "preinstall": "pnpx only-allow pnpm",
     "prepare": "pnpm gen:types && simple-git-hooks",
     "preview": "pnpm run build && vite preview",
-    "test": "vitest"
+    "test": "vitest --config test/vitest.config.ts"
   },
   "dependencies": {
     "@cloudflare/vite-plugin": "^1.25.4",

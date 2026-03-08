@@ -133,3 +133,28 @@ test('parses frontmatter from markdown string', async () => {
   expect(result.meta.title).toBe('My Page')
   expect(result.from).toBe('markdown')
 })
+
+test('rule parse meta is used as-is without allowlist filtering', async () => {
+  const rule = {
+    parse: async () => ({
+      content: '# Issue',
+      meta: { title: 'Bug report', author: 'octocat', state: 'open' },
+    }),
+  }
+  const res = new Response('')
+  const result = await parse(res, { rule })
+  expect(result.meta.title).toBe('Bug report')
+  expect(result.meta.author).toBe('octocat')
+  expect(result.meta.state).toBe('open')
+  expect(result.from).toBe('rule')
+})
+
+test('rule parse without meta returns empty meta', async () => {
+  const rule = {
+    parse: async () => ({ content: '# Hello' }),
+  }
+  const res = new Response('')
+  const result = await parse(res, { rule })
+  expect(result.content).toBe('# Hello')
+  expect(result.meta).toEqual({})
+})

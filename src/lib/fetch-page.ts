@@ -7,11 +7,17 @@ import type { KV } from '#lib/kv.ts'
 
 export async function fetchPage(
   url: URL,
-  options: { fresh?: boolean; keywords?: string[]; objective?: string } = {},
+  options: {
+    fresh?: boolean
+    tokens?: { github?: string }
+    keywords?: string[]
+    objective?: string
+  } = {},
 ) {
   const resolved = md.resolve(url, md.rules)
   const cacheKey = `page:${url.href}` as const
   const isSelf = url.hostname === env.HOST
+  const userAgent = `Mozilla/5.0 (compatible; ${env.HOST}/1.0; +https://${env.HOST})`
 
   const fetched = await (async () => {
     if (url.hostname === env.HOST)
@@ -26,13 +32,18 @@ export async function fetchPage(
     const cached = await env.KV.get(cacheKey, 'json')
     if (!options.fresh && cached) return cached
 
-    let res = await fetch(resolved.url, {
-      headers: {
-        ...resolved.headers,
-        'User-Agent': `Mozilla/5.0 (compatible; ${env.HOST}/1.0; +https://${env.HOST})`,
-      },
-      redirect: 'follow',
-    })
+    let res = resolved.rule?.fetch
+      ? await resolved.rule.fetch(url, resolved, {
+          tokens: options.tokens,
+          userAgent,
+        })
+      : await fetch(resolved.url, {
+          headers: {
+            ...resolved.headers,
+            'User-Agent': userAgent,
+          },
+          redirect: 'follow',
+        })
 
     // Retry with browser-like UA for sites that block bot User-Agents
     if (res.status === 403)
@@ -169,6 +180,9 @@ Objective: ${options.objective}`
   }
 }
 
+function metaKeyOrder(key: string): number {
+  return metaKeyPriority[key] ?? 99
+}
 const metaKeyPriority: Record<string, number> = {
   title: 0,
   description: 1,
@@ -176,10 +190,6 @@ const metaKeyPriority: Record<string, number> = {
   site: 3,
   author: 4,
   publish_date: 5,
-}
-
-function metaKeyOrder(key: string): number {
-  return metaKeyPriority[key] ?? 99
 }
 
 function yamlValue(v: unknown): string {
