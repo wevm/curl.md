@@ -1,5 +1,4 @@
 import { createMessageBatch, env, fetchMock } from 'cloudflare:test'
-import { estimateTokenCount } from 'tokenx'
 import { afterEach, beforeAll, expect, test } from 'vitest'
 import { getDb } from '#lib/db.ts'
 import * as Nanoid from '#lib/nanoid.ts'
@@ -30,7 +29,7 @@ test('inserts request record', async () => {
           api_key_id: null,
           billable: false,
           cost_mills: 0,
-          estimated: false,
+
           hostname: 'example.com',
           id: 'req_1',
           keywords: null,
@@ -60,51 +59,6 @@ test('inserts request record', async () => {
   expect(row.user_agent).toBe('test-agent')
 })
 
-test('updates tokens_saved when estimated', async () => {
-  const html = `<html><body>${'x'.repeat(1000)}</body></html>`
-  fetchMock
-    .get('https://example.com')
-    .intercept({ path: '/page' })
-    .reply(200, html, { headers: { 'content-type': 'text/html' } })
-
-  const batch = createMessageBatch<processRequestMessage.Body>(
-    processRequestMessage.queueName,
-    [
-      {
-        attempts: 1,
-        body: {
-          account_id: null,
-          api_key_id: null,
-          billable: false,
-          cost_mills: 0,
-          estimated: true,
-          hostname: 'example.com',
-          id: 'req_2',
-          keywords: null,
-          markdownTokens: 25,
-          objective: null,
-          organization_id: null,
-          path: '/page',
-          tokens_saved: 500,
-          url: 'https://example.com/page',
-          user_agent: 'test-agent',
-        },
-        id: crypto.randomUUID(),
-        timestamp: new Date(),
-      },
-    ],
-  )
-  await processRequestMessage(batch.messages[0]!, db)
-
-  const row = await db
-    .selectFrom('request')
-    .where('id', '=', 'req_2')
-    .selectAll()
-    .executeTakeFirstOrThrow()
-  const expectedTokensSaved = estimateTokenCount(html) - 25
-  expect(row.tokens_saved).toBe(expectedTokensSaved)
-})
-
 test('clears KV cache when tokens_saved is set', async () => {
   await env.KV.put('stats:tokens_saved', '1000')
 
@@ -118,7 +72,7 @@ test('clears KV cache when tokens_saved is set', async () => {
           api_key_id: null,
           billable: false,
           cost_mills: 0,
-          estimated: false,
+
           hostname: 'example.com',
           id: 'req_3',
           keywords: null,
@@ -157,7 +111,7 @@ test('skips tokens_saved update when fetch fails', async () => {
           api_key_id: null,
           billable: false,
           cost_mills: 0,
-          estimated: true,
+
           hostname: 'example.com',
           id: 'req_4',
           keywords: null,
@@ -203,7 +157,7 @@ test('deducts credits when billable', async () => {
           api_key_id: null,
           billable: true,
           cost_mills: 10,
-          estimated: false,
+
           hostname: 'example.com',
           id: requestId,
           keywords: null,
@@ -258,7 +212,7 @@ test('deducts credits for organization', async () => {
           api_key_id: null,
           billable: true,
           cost_mills: 30,
-          estimated: false,
+
           hostname: 'example.com',
           id: requestId,
           keywords: null,
@@ -304,7 +258,7 @@ test('does not create negative balance', async () => {
           api_key_id: null,
           billable: true,
           cost_mills: 30,
-          estimated: false,
+
           hostname: 'example.com',
           id: requestId,
           keywords: null,
@@ -357,7 +311,7 @@ test('skips deduction when not billable', async () => {
           api_key_id: null,
           billable: false,
           cost_mills: 1,
-          estimated: false,
+
           hostname: 'example.com',
           id: requestId,
           keywords: null,
@@ -404,7 +358,7 @@ test('deducts credits only once for same request', async () => {
             api_key_id: null,
             billable: true,
             cost_mills: 30,
-            estimated: false,
+
             hostname: 'example.com',
             id: requestId,
             keywords: null,

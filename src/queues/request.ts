@@ -1,6 +1,5 @@
 import { env } from 'cloudflare:workers'
 import type { Kysely } from 'kysely'
-import { estimateTokenCount } from 'tokenx'
 import type { DB } from '#lib/db.gen.ts'
 
 export async function processRequestMessage(
@@ -27,31 +26,6 @@ export async function processRequestMessage(
     })
     .onConflict((oc) => oc.column('id').doNothing())
     .execute()
-
-  // Update tokens_saved if estimated (best-effort, must not block billing)
-  if (body.estimated) {
-    try {
-      const res = await fetch(body.url, {
-        headers: {
-          Accept:
-            'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-          'User-Agent': `Mozilla/5.0 (compatible; ${env.HOST}/1.0; +https://${env.HOST})`,
-        },
-        redirect: 'follow',
-      })
-      if (res.ok) {
-        const html = await res.text()
-        const tokensSaved = estimateTokenCount(html) - body.markdownTokens
-        await db
-          .updateTable('request')
-          .set({ tokens_saved: tokensSaved })
-          .where('id', '=', body.id)
-          .execute()
-      }
-    } catch (error) {
-      console.warn('Failed to update tokens_saved', body.id, error)
-    }
-  }
 
   if (body.tokens_saved) await env.KV.delete('stats:tokens_saved')
 
@@ -117,7 +91,6 @@ export namespace processRequestMessage {
     api_key_id: string | null
     billable: boolean
     cost_mills: number
-    estimated: boolean
     hostname: string
     id: string
     keywords: string | null

@@ -17,8 +17,8 @@
     "db": "docker exec -it curl-db psql -U postgres -d curl_dev",
     "db:command": "docker exec curl-db psql -U postgres -d curl_dev -c",
     "db:codegen": "node --experimental-strip-types scripts/dbCodegen.ts",
-    "db:make": "kysely migrate make --config config/kysely.config.ts",
-    "db:migrate": "kysely migrate --config config/kysely.config.ts",
+    "db:make": "kysely migrate make",
+    "db:migrate": "kysely migrate latest",
     "deploy": "pnpm run build && wrangler deploy",
     "deps": "pnpx taze -r --no-ignore-other-workspaces --ignore-paths node_modules",
     "deps:ci": "pnpx actions-up --dir .github",
@@ -32,7 +32,6 @@
   },
   "dependencies": {
     "@cloudflare/vite-plugin": "^1.25.4",
-    "@curl.md/core": "workspace:*",
     "@fontsource-variable/geist-mono": "^5.2.7",
     "@hono/zod-validator": "^0.7.6",
     "@octokit/core": "^7.0.6",
@@ -40,6 +39,7 @@
     "@tanstack/react-router": "^1.132.0",
     "@tanstack/react-start": "^1.132.0",
     "@tanstack/router-plugin": "^1.132.0",
+    "curl.md": "workspace:*",
     "hono": "^4.12.2",
     "kysely": "^0.28.11",
     "kysely-postgres-js": "^3.0.0",
@@ -50,6 +50,7 @@
     "stripe": "^20.4.0",
     "tokenx": "^1.3.0",
     "workers-og": "^0.0.27",
+    "yaml": "^2.8.2",
     "zod": "catalog:"
   },
   "devDependencies": {

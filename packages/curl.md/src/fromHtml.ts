@@ -8,8 +8,8 @@ import type { VFile } from 'vfile'
 
 export async function fromHtml(
   html: string,
-  options?: { baseUrl?: string },
-): Promise<{ content: string; meta: Record<string, string> }> {
+  options?: fromHtml.Options,
+): Promise<fromHtml.ReturnType> {
   const file = await unified()
     .use(rehypeParse)
     .use(rehypeExtractMeta, options?.baseUrl)
@@ -32,11 +32,11 @@ export async function fromHtml(
     .use(remarkGfm)
     .use(remarkStringify)
     .process(html)
-  const meta = (file.data.meta as Record<string, string> | undefined) ?? {}
-  const filteredMeta: Record<string, string> = {}
-  for (const [k, v] of Object.entries(meta)) {
-    if (allowedFrontmatterKeys.has(k)) filteredMeta[k] = v.trim()
-  }
+
+  const meta = filterFrontmatterKeys(
+    (file.data.meta as Record<string, string> | undefined) ?? {},
+  )
+
   const relatedLinks =
     (file.data.relatedLinks as Array<{ href: string; text: string }>) ?? []
   let content = String(file)
@@ -47,17 +47,33 @@ export async function fromHtml(
       .join('\n')
     content += `\n<!--\nSitemap:\n${links}\n-->\n`
   }
-  return { content, meta: filteredMeta }
+
+  return { content, meta }
 }
 
-export const allowedFrontmatterKeys = new Set([
-  'author',
-  'description',
-  'publish_date',
-  'site',
-  'title',
-  'url',
-])
+export namespace fromHtml {
+  export type Options = { baseUrl?: string }
+  export type ReturnType = { content: string; meta: Record<string, string> }
+}
+
+export function filterFrontmatterKeys(
+  meta: Record<string, unknown>,
+): Record<string, string> {
+  const filtered: Record<string, string> = {}
+  const allowedFrontmatterKeys = new Set([
+    'author',
+    'description',
+    'publish_date',
+    'site',
+    'title',
+    'url',
+  ])
+  for (const [k, v] of Object.entries(meta)) {
+    if (!allowedFrontmatterKeys.has(k)) continue
+    if (typeof v === 'string') filtered[k] = v.trim()
+  }
+  return filtered
+}
 
 const metaPropertyMap: Record<string, string> = {
   'article:published_time': 'publish_date',

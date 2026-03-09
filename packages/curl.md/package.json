@@ -28,6 +28,12 @@
   ],
   "dependencies": {
     "@curl.md/cli": "workspace:*",
-    "@curl.md/core": "workspace:*"
+    "rehype-parse": "^9.0.1",
+    "rehype-remark": "^10.0.1",
+    "remark-gfm": "^4.0.1",
+    "remark-stringify": "^11.0.0",
+    "unified": "^11.0.5",
+    "vfile": "^6.0.3",
+    "zod": "catalog:"
   }
 }

@@ -17,9 +17,6 @@ importers:
       '@cloudflare/vite-plugin':
         specifier: ^1.25.4
         version: 1.25.6(vite@7.3.1(@types/node@25.3.2)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.2))(workerd@1.20260305.0)(wrangler@4.69.0)
-      '@curl.md/core':
-        specifier: workspace:*
-        version: link:packages/core
       '@fontsource-variable/geist-mono':
         specifier: ^5.2.7
         version: 5.2.7
@@ -41,6 +38,9 @@ importers:
       '@tanstack/router-plugin':
         specifier: ^1.132.0
         version: 1.163.2(@tanstack/react-router@1.163.2(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(vite@7.3.1(@types/node@25.3.2)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.2))
+      curl.md:
+        specifier: workspace:*
+        version: link:packages/curl.md
       hono:
         specifier: ^4.12.2
         version: 4.12.3
@@ -71,6 +71,9 @@ importers:
       workers-og:
         specifier: ^0.0.27
         version: 0.0.27
+      yaml:
+        specifier: ^2.8.2
+        version: 2.8.2
       zod:
         specifier: 'catalog:'
         version: 4.3.6
@@ -172,8 +175,11 @@ importers:
         specifier: ^1.1.1
         version: 1.1.1
 
-  packages/core:
+  packages/curl.md:
     dependencies:
+      '@curl.md/cli':
+        specifier: workspace:*
+        version: link:../cli
       rehype-parse:
         specifier: ^9.0.1
         version: 9.0.1
@@ -195,15 +201,6 @@ importers:
       zod:
         specifier: 'catalog:'
         version: 4.3.6
-
-  packages/curl.md:
-    dependencies:
-      '@curl.md/cli':
-        specifier: workspace:*
-        version: link:../cli
-      '@curl.md/core':
-        specifier: workspace:*
-        version: link:../core
 
 packages:
 

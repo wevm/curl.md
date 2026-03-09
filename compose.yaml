@@ -23,7 +23,7 @@ services:
         RUN corepack enable
         WORKDIR /app
     command: |
-      sh -c "pnpm install --ignore-scripts && pnpm db:migrate latest && pnpm dev --host 0.0.0.0"
+      sh -c "pnpm install --ignore-scripts && pnpm db:migrate && pnpm dev --host 0.0.0.0"
     container_name: curl
     depends_on: [db]
     restart: unless-stopped

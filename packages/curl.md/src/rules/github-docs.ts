@@ -1,9 +1,10 @@
 import { z } from 'zod'
-import { defineRule } from '../defineRule.ts'
+import { defineRule } from '../mod.ts'
 
 export const githubDocs = defineRule({
+  key: 'githubDocs',
   patterns: ['docs.github.com'],
-  resolve: (url) => {
+  rewrite(url) {
     const mdUrl = new URL(url.href)
     mdUrl.pathname = '/api/article'
     const firstSegment = url.pathname.split('/')[1]
@@ -17,7 +18,7 @@ export const githubDocs = defineRule({
     mdUrl.searchParams.set('pathname', pathname)
     return mdUrl
   },
-  parse: async (response) => {
+  async extract(response) {
     const json = z.parse(
       z.object({
         body: z.string().optional(),

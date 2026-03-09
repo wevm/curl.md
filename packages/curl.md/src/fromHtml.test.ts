@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { fromHtml } from './markdown.ts'
+import { fromHtml } from './fromHtml.ts'
 
 describe('fromHtml', () => {
   test('basic html conversion', async () => {

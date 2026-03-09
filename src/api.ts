@@ -1,18 +1,24 @@
+import * as Md from 'curl.md'
 import { Hono } from 'hono'
 import { html, raw } from 'hono/html'
 import { Kysely, sql } from 'kysely'
 import { jsonArrayFrom } from 'kysely/helpers/postgres'
 import { customAlphabet } from 'nanoid'
 import { estimateTokenCount } from 'tokenx'
+import { stringify as yamlStringify } from 'yaml'
 import { z } from 'zod'
 import * as ApiKey from '#lib/api-key.ts'
-import { attribution, packageName } from '#lib/constants.ts'
+import { chunkMarkdown, filterSectionsByKeywords } from '#lib/chunk-markdown.ts'
+import {
+  attribution,
+  packageName,
+  sentinalValue,
+  systemPrompt,
+} from '#lib/constants.ts'
 import * as Cookie from '#lib/cookie.ts'
 import * as Crypto from '#lib/crypto.ts'
 import type { DB } from '#lib/db.gen.ts'
 import { dialect } from '#lib/db.ts'
-import { fetchPage } from '#lib/fetch-page.ts'
-import { getGithubToken } from '#lib/github-token.ts'
 import { narrowValidation, validationError, validator } from '#lib/hono.ts'
 import * as Nanoid from '#lib/nanoid.ts'
 import * as Og from '#lib/og.tsx'
@@ -1447,7 +1453,10 @@ export const api = new Hono<{
     validator(
       'query',
       z.object({
-        fresh: z.string().optional(),
+        fresh: z
+          .union([z.literal('').transform(() => true), z.coerce.boolean()])
+          .optional()
+          .default(false),
         k: z
           .string()
           .transform((v) => v.split(/[\s,]+/).filter(Boolean))
@@ -1561,32 +1570,143 @@ export const api = new Hono<{
         )
       }
 
-      // TODO: when do we do token refresh?
-      const github = c.var.session
-        ? await getGithubToken(
-            c.var.session.account_id,
-            c.var.db,
-            c.env.TOKEN_ENCRYPTION_KEY,
-          )
-            .then((t) => t ?? undefined)
-            .catch(() => undefined)
-        : undefined
+      const md = Md.create({
+        headers: {
+          'User-Agent': `Mozilla/5.0 (compatible; ${c.env.HOST}/1.0; +https://${c.env.HOST})`,
+        },
+        rules: {
+          // TODO: curl.md rule (since worker cannot fetch itself)
+          ...Md.rules,
+          ...Md.sites.github({
+            token: c.var.session
+              ? await c.var.db
+                  .selectFrom('account_provider')
+                  .where('account_id', '=', c.var.session.account_id)
+                  .where('provider', '=', 'github')
+                  .select(['access_token', 'access_token_expires_at'])
+                  .executeTakeFirst()
+                  .then((provider) => {
+                    if (!provider?.access_token) return undefined
+                    if (
+                      provider.access_token_expires_at &&
+                      provider.access_token_expires_at < new Date()
+                    )
+                      return undefined
+                    return Crypto.decrypt(
+                      provider.access_token,
+                      c.env.TOKEN_ENCRYPTION_KEY,
+                    )
+                  })
+              : undefined,
+          }),
+        },
+        fallbacks: [
+          Md.fallbacks.browserUA(),
+          Md.fallbacks.cfBrowserRendering({
+            accountId: c.env.CLOUDFLARE_ACCOUNT_ID,
+            apiToken: c.env.CLOUDFLARE_API_TOKEN,
+          }),
+        ],
+      })
 
-      let page: Awaited<ReturnType<typeof fetchPage>>
-      try {
-        page = await fetchPage(url, {
-          fresh: query.fresh !== undefined ? true : undefined,
-          tokens: { github },
-          keywords: query.k,
-          objective: query.q,
-        })
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Unknown error'
-        return c.json({ error: 'fetch_failed', message }, 502)
+      const response = await (async () => {
+        const pageCacheKey = `page:${url.href}` as const
+        const cached = await c.env.KV.get(pageCacheKey, 'json')
+        if (!query.fresh && cached) return { ...cached, ok: true, status: 200 }
+        const result = await md.fetch(url)
+        if (!result.ok) return result
+        c.executionCtx.waitUntil(
+          c.env.KV.put(pageCacheKey, JSON.stringify(result), {
+            expirationTtl: 900,
+          }),
+        )
+        return result
+      })()
+
+      if (!response.ok)
+        return c.json(
+          {
+            error: 'fetch_failed',
+            message: `Upstream returned ${response.status}`,
+          },
+          502,
+        )
+
+      const filteredContent = (() => {
+        if (query.k && query.k.length > 0)
+          return filterSectionsByKeywords(response.content, query.k)
+        return response.content
+      })()
+
+      let inputTokens = 0
+      let excerpt = filteredContent
+      if (query.q) {
+        try {
+          const result = await (async () => {
+            const queryCacheKey =
+              `query:${url.href}:${query.q}:${query.k?.join(',') ?? ''}` as const
+            const cached = await c.env.KV.get(queryCacheKey)
+            if (!query.fresh && cached)
+              return { excerpt: cached, inputTokens: 0 }
+
+            const extractChunk = async (chunk: string) => {
+              const output = z.parse(
+                z.object({
+                  response: z.string().default(''),
+                  usage: z
+                    .object({ prompt_tokens: z.number().default(0) })
+                    .default({ prompt_tokens: 0 }),
+                }),
+                await c.env.AI.run('@cf/meta/llama-4-scout-17b-16e-instruct', {
+                  max_tokens: 4096,
+                  messages: [
+                    { role: 'system', content: systemPrompt },
+                    {
+                      role: 'user',
+                      content: `<page_content>\n${chunk}\n</page_content>\n\nObjective: ${query.q}`,
+                    },
+                  ],
+                }),
+              )
+              return output
+            }
+
+            const chunks = chunkMarkdown(filteredContent)
+            const results = await Promise.all(chunks.map(extractChunk))
+            const filtered = results
+              .filter((r) => r.response && r.response.trim() !== sentinalValue)
+              .map((r) => r.response)
+              .join('\n\n')
+            const promptTokens = results.reduce(
+              (sum, r) => sum + r.usage.prompt_tokens,
+              0,
+            )
+
+            c.executionCtx.waitUntil(
+              c.env.KV.put(queryCacheKey, filtered, { expirationTtl: 900 }),
+            )
+            return { excerpt: filtered, inputTokens: promptTokens }
+          })()
+          inputTokens = result.inputTokens
+          excerpt = result.excerpt
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : 'Unknown error'
+          return c.json({ error: 'ai_failed', message }, 502)
+        }
       }
 
+      const frontmatter = (() => {
+        const yaml = yamlStringify(response.meta, { lineWidth: 0 }).trimEnd()
+        return yaml ? `---\n${yaml}\n---` : undefined
+      })()
+      const markdown = frontmatter ? `${frontmatter}\n\n${excerpt}` : excerpt
+      const tokensCount = estimateTokenCount(markdown)
+      const tokensSaved =
+        estimateTokenCount(response.content) - estimateTokenCount(excerpt)
+
       // Fetch: 1 mill. Query: 1 mill base + 1 mill per 1K input tokens
-      const costMills = query.q ? 1 + Math.ceil(page.inputChars / 4000) : 1
+      const costMills = query.q ? 1 + Math.ceil(inputTokens / 1000) : 1
 
       const requestId = Nanoid.generate()
       c.env.REQUEST_QUEUE.send({
@@ -1594,30 +1714,29 @@ export const api = new Hono<{
         api_key_id: c.var.api_key_id,
         billable,
         cost_mills: costMills,
-        estimated: page.estimated,
         hostname: url.hostname,
         id: requestId,
         keywords: query.k?.join(',') || null,
-        markdownTokens: estimateTokenCount(page.markdown),
+        markdownTokens: tokensCount,
         objective: query.q || null,
         organization_id: c.var.organization_id,
         path: url.pathname,
-        tokens_saved: page.tokensSaved ?? null,
+        tokens_saved: tokensSaved,
         url: url.href,
         user_agent: c.req.header('user-agent'),
       })
 
       const content = c.var.session
-        ? page.markdown.trimEnd()
-        : `${page.markdown.trimEnd()}${attribution.suffix}`
+        ? markdown.trimEnd()
+        : `${markdown.trimEnd()}${attribution.suffix}`
       const commonHeaders: Record<string, string> = {
         ...rateLimitHeaders,
         'access-control-expose-headers':
           'retry-after, x-cost-mills, x-credits-remaining, x-ratelimit-limit, x-ratelimit-remaining, x-ratelimit-reset, x-request-id, x-tokens-count, x-tokens-saved',
         'x-cost-mills': String(costMills),
         'x-request-id': requestId,
-        'x-tokens-count': String(page.tokensCount),
-        'x-tokens-saved': String(page.tokensSaved),
+        'x-tokens-count': String(tokensCount),
+        'x-tokens-saved': String(tokensSaved),
       }
       if (billable) {
         const billingEntityId =

@@ -29,7 +29,7 @@
     "../config/wrangler.ts",
     "../test",
     "../scripts",
-    "../config/kysely.config.ts",
+    "../kysely.config.ts",
     "../vite.config.ts",
     "../test/vitest.config.ts"
   ],

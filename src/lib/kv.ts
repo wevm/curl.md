@@ -1,18 +1,20 @@
 /** Key-to-JSON-value mapping for typed KV access. */
 export namespace KV {
-  export type Value<K extends string> =
-    | (K extends `balance:${string}` ? number : never)
-    | (K extends 'stats:tokens_saved' ? number : never)
-    | (K extends `stats:tokens_saved:${string}` ? number : never)
-    | (K extends `page:${string}` ? { content: string; type: string } : never)
-    | (K extends `query:${string}` ? string : never)
-    | (K extends 'cli:latest'
+  export type Value<key extends string> =
+    | (key extends `balance:${string}` ? number : never)
+    | (key extends 'stats:tokens_saved' ? number : never)
+    | (key extends `stats:tokens_saved:${string}` ? number : never)
+    | (key extends `page:${string}`
+        ? { content: string; meta: Record<string, unknown> }
+        : never)
+    | (key extends `query:${string}` ? string : never)
+    | (key extends 'cli:latest'
         ? { published_at: string | null; version: string }
         : never)
-    | (K extends `ratelimit:${'fetch' | 'query'}:${string}`
+    | (key extends `ratelimit:${'fetch' | 'query'}:${string}`
         ? { count: number; reset: number }
         : never)
-    | (K extends `session:${string}` ? string : never)
+    | (key extends `session:${string}` ? string : never)
 
   export type Key =
     | `balance:${string}`
@@ -26,16 +28,16 @@ export namespace KV {
 }
 
 export interface TypedKV {
-  get<K extends KV.Key>(key: K, type: 'json'): Promise<KV.Value<K> | null>
+  get<key extends KV.Key>(key: key, type: 'json'): Promise<KV.Value<key> | null>
   get(key: KV.Key): Promise<string | null>
   get(key: KV.Key, type: 'text'): Promise<string | null>
   get(key: KV.Key, type: 'arrayBuffer'): Promise<ArrayBuffer | null>
   get(key: KV.Key, type: 'stream'): Promise<ReadableStream | null>
 
-  put<K extends KV.Key>(
-    key: K,
+  put<key extends KV.Key>(
+    key: key,
     value:
-      | KV.Value<K>
+      | KV.Value<key>
       | string
       | ArrayBuffer
       | ArrayBufferView
@@ -49,12 +51,12 @@ export interface TypedKV {
 
   delete(key: KV.Key): Promise<void>
 
-  list<Metadata = unknown>(options?: {
+  list<metadata = unknown>(options?: {
     prefix?: string
     limit?: number
     cursor?: string
   }): Promise<{
-    keys: { name: KV.Key; expiration?: number; metadata?: Metadata }[]
+    keys: { name: KV.Key; expiration?: number; metadata?: metadata }[]
     list_complete: boolean
     cursor?: string
     cacheStatus: string | null

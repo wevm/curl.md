@@ -1,8 +1,9 @@
-import { defineRule } from '../defineRule.ts'
+import { defineRule } from '../mod.ts'
 
 export const mdn = defineRule({
+  key: 'mdn',
   patterns: [/^https:\/\/developer\.mozilla\.org\/[a-zA-Z-]+\/docs\/.+/],
-  resolve: (url) => {
+  rewrite(url) {
     // biome-ignore lint/style/noNonNullAssertion: pattern guarantees match
     const [, locale, slug] = url.pathname.match(/^\/([a-zA-Z-]+)\/docs\/(.+)/)!
     const lowerLocale = locale.toLowerCase()
@@ -12,7 +13,7 @@ export const mdn = defineRule({
       `https://raw.githubusercontent.com/${repo}/main/files/${lowerLocale}/${slug.toLowerCase()}/index.md`,
     )
   },
-  parse: async (response) => {
+  async extract(response) {
     let text = await response.text()
 
     // Extract title from frontmatter
