@@ -1,5 +1,11 @@
 # curl.md
 
+## 0.0.9
+
+### Patch Changes
+
+- Added SDK, bumped CLI deps. ([`2afc602`](https://github.com/wevm/curl.md/commit/2afc6021178404d352ec7694310e8c1f732e550d))
+
 ## 0.0.8
 
 ### Patch Changes
