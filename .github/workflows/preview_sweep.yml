@@ -9,6 +9,7 @@ jobs:
   sweep:
     name: Sweep Orphaned Previews
     runs-on: ubuntu-latest
+    environment: preview
     permissions:
       pull-requests: write
     steps:
@@ -17,11 +18,11 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PLANETSCALE_SERVICE_TOKEN: ${{ secrets.PREVIEW_PLANETSCALE_SERVICE_TOKEN }}
-          PLANETSCALE_SERVICE_TOKEN_ID: ${{ secrets.PREVIEW_PLANETSCALE_SERVICE_TOKEN_ID }}
-          PLANETSCALE_ORG: ${{ secrets.PREVIEW_PLANETSCALE_ORG }}
-          PLANETSCALE_DB: ${{ secrets.PREVIEW_PLANETSCALE_DB }}
-          STRIPE_SECRET_KEY: ${{ secrets.PREVIEW_STRIPE_SECRET_KEY }}
+          PLANETSCALE_SERVICE_TOKEN: ${{ secrets.PLANETSCALE_SERVICE_TOKEN }}
+          PLANETSCALE_SERVICE_TOKEN_ID: ${{ secrets.PLANETSCALE_SERVICE_TOKEN_ID }}
+          PLANETSCALE_ORG: ${{ secrets.PLANETSCALE_ORG }}
+          PLANETSCALE_DB: ${{ secrets.PLANETSCALE_DB }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
         run: |
           # List all preview workers
           WORKERS=$(curl -sS \

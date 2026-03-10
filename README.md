@@ -26,17 +26,22 @@ OrbStack automatically resolves `curl.local` requests to the container.
 
 ### GitHub Actions Secrets
 
-Add the following secrets to your GitHub repository (Settings → Secrets and variables → Actions):
+Secrets are managed via [GitHub Environments](https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment) and repo-level secrets.
+
+**Repository secrets** ([Settings → Secrets and variables → Actions](https://github.com/wevm/curl.md/settings/secrets/actions)) — shared across all environments:
 
 * `CLOUDFLARE_ACCOUNT_ID` - Cloudflare account ID (found in the Workers dashboard URL)
 * `CLOUDFLARE_API_TOKEN` - Cloudflare API token for deployments (see [below](#creating-a-cloudflare-api-token))
 * `COOKIE_SECRET` - Secret for signing session cookies (`openssl rand -base64 32`)
-* `DB_URL` - PlanetScale Postgres connection string (for CI migrations)
 * `GH_CLIENT_ID` - GitHub App client ID (see [GitHub App Setup](#github-app-setup))
 * `GH_CLIENT_SECRET` - GitHub App client secret (see [GitHub App Setup](#github-app-setup))
-* `STRIPE_SECRET_KEY` - Stripe secret key (see [Stripe Setup](#stripe-setup))
-* `STRIPE_WEBHOOK_SECRET` - Stripe webhook signing secret (see [Stripe Setup](#stripe-setup))
 * `TOKEN_ENCRYPTION_KEY` - Base64-encoded 256-bit key for encrypting OAuth tokens (`openssl rand -base64 32`)
+
+**`production` environment** ([Settings → Environments → `production`](https://github.com/wevm/curl.md/settings/environments/12871461617/edit)):
+
+* `DB_URL` - PlanetScale Postgres connection string (for production migrations)
+* `STRIPE_SECRET_KEY` - Stripe live secret key (see [Stripe Setup](#stripe-setup))
+* `STRIPE_WEBHOOK_SECRET` - Stripe webhook signing secret (see [Stripe Setup](#stripe-setup))
 
 ### PlanetScale
 
@@ -117,15 +122,15 @@ Redirect `www.curl.md` to `curl.md` (non-www canonical) via [Bulk Redirects](htt
 
 Preview environments deploy per PR with isolated PlanetScale database branches and Cloudflare Hyperdrive configs. On PR close/draft, cleanup deletes the Worker, Hyperdrive config, PlanetScale branch, KV namespace, Queues, and Stripe webhook. A daily sweep catches orphans.
 
-### GitHub Actions Secrets
+### GitHub Environments
 
-Add the following secrets to your GitHub repository (Settings → Secrets and variables → Actions):
+Preview secrets are scoped via [GitHub Environments](https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment) ([Settings → Environments → `preview`](https://github.com/wevm/curl.md/settings/environments/12873481464/edit)). Add the following secrets to the `preview` environment:
 
-* `PREVIEW_PLANETSCALE_SERVICE_TOKEN` — PlanetScale service token (see [PlanetScale Branching](#planetscale-branching))
-* `PREVIEW_PLANETSCALE_SERVICE_TOKEN_ID` — PlanetScale service token ID (see [PlanetScale Branching](#planetscale-branching))
-* `PREVIEW_PLANETSCALE_ORG` — PlanetScale organization slug (e.g. `wevm`)
-* `PREVIEW_PLANETSCALE_DB` — PlanetScale database name (same as production, e.g. `curl`)
-* `PREVIEW_STRIPE_SECRET_KEY` — Stripe test mode secret key (see [Stripe](#stripe-1))
+* `PLANETSCALE_SERVICE_TOKEN` — PlanetScale service token (see [PlanetScale Branching](#planetscale-branching))
+* `PLANETSCALE_SERVICE_TOKEN_ID` — PlanetScale service token ID (see [PlanetScale Branching](#planetscale-branching))
+* `PLANETSCALE_ORG` — PlanetScale organization slug (e.g. `wevm`)
+* `PLANETSCALE_DB` — PlanetScale database name (same as production, e.g. `curl`)
+* `STRIPE_SECRET_KEY` — Stripe test mode secret key (see [Stripe](#stripe-1))
 
 ### PlanetScale Branching
 
@@ -134,19 +139,19 @@ Add the following secrets to your GitHub repository (Settings → Secrets and va
    - `delete_branch`
    - `read_branch`
    - `connect_branch`
-2. Add these repository secrets:
-   - `PREVIEW_PLANETSCALE_SERVICE_TOKEN` — the token value
-   - `PREVIEW_PLANETSCALE_SERVICE_TOKEN_ID` — the token ID
-   - `PREVIEW_PLANETSCALE_ORG` — your PlanetScale organization slug (e.g. `wevm`)
-   - `PREVIEW_PLANETSCALE_DB` — your database name (same as production, e.g. `curl`)
+2. Add these secrets to the `preview` environment:
+   - `PLANETSCALE_SERVICE_TOKEN` — the token value
+   - `PLANETSCALE_SERVICE_TOKEN_ID` — the token ID
+   - `PLANETSCALE_ORG` — your PlanetScale organization slug (e.g. `wevm`)
+   - `PLANETSCALE_DB` — your database name (same as production, e.g. `curl`)
 
 ### Stripe
 
 Preview environments use Stripe **test mode** keys so no real charges occur.
 
 1. Copy your **test mode** secret key from [API keys](https://dashboard.stripe.com/test/apikeys)
-2. Add the repository secret:
-   - `PREVIEW_STRIPE_SECRET_KEY` — Stripe test mode secret key (starts with `sk_test_`)
+2. Add to the `preview` environment:
+   - `STRIPE_SECRET_KEY` — Stripe test mode secret key (starts with `sk_test_`)
 
 ## License
 
