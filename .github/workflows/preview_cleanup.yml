@@ -71,10 +71,10 @@ jobs:
 
       - name: Delete PlanetScale branch
         env:
-          PLANETSCALE_SERVICE_TOKEN: ${{ secrets.PLANETSCALE_SERVICE_TOKEN }}
-          PLANETSCALE_SERVICE_TOKEN_ID: ${{ secrets.PLANETSCALE_SERVICE_TOKEN_ID }}
-          PLANETSCALE_ORG: ${{ secrets.PLANETSCALE_ORG }}
-          PLANETSCALE_DB: ${{ secrets.PLANETSCALE_DB }}
+          PLANETSCALE_SERVICE_TOKEN: ${{ secrets.PREVIEW_PLANETSCALE_SERVICE_TOKEN }}
+          PLANETSCALE_SERVICE_TOKEN_ID: ${{ secrets.PREVIEW_PLANETSCALE_SERVICE_TOKEN_ID }}
+          PLANETSCALE_ORG: ${{ secrets.PREVIEW_PLANETSCALE_ORG }}
+          PLANETSCALE_DB: ${{ secrets.PREVIEW_PLANETSCALE_DB }}
         run: |
           curl -sS -X DELETE \
             -H "Authorization: $PLANETSCALE_SERVICE_TOKEN_ID:$PLANETSCALE_SERVICE_TOKEN" \
@@ -99,7 +99,7 @@ jobs:
 
       - name: Delete Stripe webhook endpoint
         env:
-          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_SECRET_KEY: ${{ secrets.PREVIEW_STRIPE_SECRET_KEY }}
         run: |
           APEX="pr${{ github.event.pull_request.number }}"
           ENDPOINT_ID=$(curl -sS https://api.stripe.com/v1/webhook_endpoints \

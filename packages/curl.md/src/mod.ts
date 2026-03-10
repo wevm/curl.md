@@ -94,7 +94,7 @@ export function create(options: create.Options = {}): create.ReturnType {
       return {
         ok: true as const,
         status: response.status,
-        content: result.content,
+        content: normalizeMarkdown(result.content),
         meta: sortMeta(result.meta),
       }
     },
@@ -243,4 +243,12 @@ function splitFrontmatter(markdown: string): {
     if (key && value) meta[key] = value
   }
   return { body, meta }
+}
+
+function normalizeMarkdown(content: string): string {
+  // Normalize GFM table separator rows to use `| --- |`
+  return content.replace(
+    /^(\| *:?)-+([ :]*\|(?:[ :]*-+[ :]*\|)*)\s*$/gm,
+    (match) => match.replace(/\| *(:?)-+(:?) */g, '| $1---$2 '),
+  )
 }

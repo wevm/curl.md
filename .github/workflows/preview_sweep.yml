@@ -17,10 +17,11 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PLANETSCALE_SERVICE_TOKEN: ${{ secrets.PLANETSCALE_SERVICE_TOKEN }}
-          PLANETSCALE_SERVICE_TOKEN_ID: ${{ secrets.PLANETSCALE_SERVICE_TOKEN_ID }}
-          PLANETSCALE_ORG: ${{ secrets.PLANETSCALE_ORG }}
-          PLANETSCALE_DB: ${{ secrets.PLANETSCALE_DB }}
+          PLANETSCALE_SERVICE_TOKEN: ${{ secrets.PREVIEW_PLANETSCALE_SERVICE_TOKEN }}
+          PLANETSCALE_SERVICE_TOKEN_ID: ${{ secrets.PREVIEW_PLANETSCALE_SERVICE_TOKEN_ID }}
+          PLANETSCALE_ORG: ${{ secrets.PREVIEW_PLANETSCALE_ORG }}
+          PLANETSCALE_DB: ${{ secrets.PREVIEW_PLANETSCALE_DB }}
+          STRIPE_SECRET_KEY: ${{ secrets.PREVIEW_STRIPE_SECRET_KEY }}
         run: |
           # List all preview workers
           WORKERS=$(curl -sS \
@@ -118,6 +119,18 @@ jobs:
                 -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
                 "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/queues/$QUEUE_ID" || true
             done
+
+            # Delete Stripe webhook endpoint
+            echo "  Deleting Stripe webhook..."
+            APEX="pr${PR_NUM}"
+            ENDPOINT_ID=$(curl -sS https://api.stripe.com/v1/webhook_endpoints \
+              -u "$STRIPE_SECRET_KEY:" \
+              -G -d "limit=100" \
+              | jq -r --arg apex "$APEX" '.data[] | select(.metadata.preview == $apex) | .id')
+            if [ -n "$ENDPOINT_ID" ]; then
+              curl -sS -X DELETE "https://api.stripe.com/v1/webhook_endpoints/$ENDPOINT_ID" \
+                -u "$STRIPE_SECRET_KEY:" || true
+            fi
 
             # Update PR comment to shut-down status
             SHA=$(gh api "repos/${{ github.repository }}/pulls/$PR_NUM" --jq '.head.sha' 2>/dev/null || echo "")

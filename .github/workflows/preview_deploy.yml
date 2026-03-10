@@ -88,10 +88,10 @@ jobs:
           echo "::add-mask::$DB_URL"
           echo "db_url=$DB_URL" >> "$GITHUB_OUTPUT"
         env:
-          PLANETSCALE_SERVICE_TOKEN: ${{ secrets.PLANETSCALE_SERVICE_TOKEN }}
-          PLANETSCALE_SERVICE_TOKEN_ID: ${{ secrets.PLANETSCALE_SERVICE_TOKEN_ID }}
-          PLANETSCALE_ORG: ${{ secrets.PLANETSCALE_ORG }}
-          PLANETSCALE_DB: ${{ secrets.PLANETSCALE_DB }}
+          PLANETSCALE_SERVICE_TOKEN: ${{ secrets.PREVIEW_PLANETSCALE_SERVICE_TOKEN }}
+          PLANETSCALE_SERVICE_TOKEN_ID: ${{ secrets.PREVIEW_PLANETSCALE_SERVICE_TOKEN_ID }}
+          PLANETSCALE_ORG: ${{ secrets.PREVIEW_PLANETSCALE_ORG }}
+          PLANETSCALE_DB: ${{ secrets.PREVIEW_PLANETSCALE_DB }}
 
       - name: Setup preview Hyperdrive
         id: hyperdrive
@@ -143,7 +143,7 @@ jobs:
       - name: Setup Stripe webhook endpoint
         id: stripe
         env:
-          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_SECRET_KEY: ${{ secrets.PREVIEW_STRIPE_SECRET_KEY }}
         run: |
           APEX="pr${{ inputs.pr_number }}"
           RESPONSE=$(curl -sS https://api.stripe.com/v1/webhook_endpoints \
@@ -226,7 +226,7 @@ jobs:
           COOKIE_SECRET: ${{ secrets.COOKIE_SECRET }}
           GH_CLIENT_ID: ${{ secrets.GH_CLIENT_ID }}
           GH_CLIENT_SECRET: ${{ secrets.GH_CLIENT_SECRET }}
-          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_SECRET_KEY: ${{ secrets.PREVIEW_STRIPE_SECRET_KEY }}
           STRIPE_WEBHOOK_SECRET: ${{ steps.stripe.outputs.secret }}
           TOKEN_ENCRYPTION_KEY: ${{ secrets.TOKEN_ENCRYPTION_KEY }}
 

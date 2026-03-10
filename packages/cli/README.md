@@ -29,7 +29,3 @@ md developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch -q "streaming 
 # Force fresh fetch (bypass cache)
 md developers.cloudflare.com/d1/get-started -q "how to query D1 from a worker" -f
 ```
-
-## License
-
-MIT

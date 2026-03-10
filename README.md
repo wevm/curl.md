@@ -24,7 +24,21 @@ OrbStack automatically resolves `curl.local` requests to the container.
 
 ## Deploy
 
-### Database (PlanetScale)
+### GitHub Actions Secrets
+
+Add the following secrets to your GitHub repository (Settings → Secrets and variables → Actions):
+
+* `CLOUDFLARE_ACCOUNT_ID` - Cloudflare account ID (found in the Workers dashboard URL)
+* `CLOUDFLARE_API_TOKEN` - Cloudflare API token for deployments (see [below](#creating-a-cloudflare-api-token))
+* `COOKIE_SECRET` - Secret for signing session cookies (`openssl rand -base64 32`)
+* `DB_URL` - PlanetScale Postgres connection string (for CI migrations)
+* `GH_CLIENT_ID` - GitHub App client ID (see [GitHub App Setup](#github-app-setup))
+* `GH_CLIENT_SECRET` - GitHub App client secret (see [GitHub App Setup](#github-app-setup))
+* `STRIPE_SECRET_KEY` - Stripe secret key (see [Stripe Setup](#stripe-setup))
+* `STRIPE_WEBHOOK_SECRET` - Stripe webhook signing secret (see [Stripe Setup](#stripe-setup))
+* `TOKEN_ENCRYPTION_KEY` - Base64-encoded 256-bit key for encrypting OAuth tokens (`openssl rand -base64 32`)
+
+### PlanetScale
 
 1. Create a [PlanetScale](https://planetscale.com) account and organization
 2. Create a new database with the **Postgres** engine:
@@ -44,20 +58,6 @@ Connect PlanetScale to Cloudflare Workers via [Hyperdrive](https://developers.cl
 2. Click "Create Configuration"
 3. Paste the PlanetScale connection string
 4. Copy the Hyperdrive ID into `wrangler.jsonc` under `env.production.hyperdrive[0].id`
-
-### GitHub Actions Secrets
-
-Add the following secrets to your GitHub repository (Settings → Secrets and variables → Actions):
-
-* `CLOUDFLARE_ACCOUNT_ID` - Cloudflare account ID (found in the Workers dashboard URL)
-* `CLOUDFLARE_API_TOKEN` - Cloudflare API token for deployments (see [below](#creating-a-cloudflare-api-token))
-* `COOKIE_SECRET` - Secret for signing session cookies (`openssl rand -base64 32`)
-* `DB_URL` - PlanetScale Postgres connection string (for CI migrations)
-* `GH_CLIENT_ID` - GitHub App client ID (see [GitHub App Setup](#github-app-setup))
-* `GH_CLIENT_SECRET` - GitHub App client secret (see [GitHub App Setup](#github-app-setup))
-* `STRIPE_SECRET_KEY` - Stripe secret key (see [Stripe Setup](#stripe-setup))
-* `STRIPE_WEBHOOK_SECRET` - Stripe webhook signing secret (see [Stripe Setup](#stripe-setup))
-* `TOKEN_ENCRYPTION_KEY` - Base64-encoded 256-bit key for encrypting OAuth tokens (`openssl rand -base64 32`)
 
 ### Creating a Cloudflare API Token
 
@@ -98,13 +98,7 @@ Stripe powers prepaid credit billing. A single Stripe account is used with test 
 
 1. Go to [Stripe Dashboard](https://dashboard.stripe.com)
 2. Copy your **Secret key** from [API keys](https://dashboard.stripe.com/test/apikeys) → `STRIPE_SECRET_KEY` in `.env`
-3. Run `docker compose up -d` — the `stripe` service auto-forwards webhooks to the app
-4. Grab the webhook signing secret:
-   ```bash
-   docker logs curl-stripe 2>&1 | grep -o 'whsec_[a-zA-Z0-9]*'
-   ```
-   Copy it → `STRIPE_WEBHOOK_SECRET` in `.env`, then restart: `docker compose up -d`
-5. For **production**:
+3. Set callback webhook URL and get webhook secret:
    - Go to [Webhooks](https://dashboard.stripe.com/webhooks) → "Add endpoint"
    - Set URL to `https://curl.md/api/stripe/webhook`
    - Select events: `checkout.session.completed`, `charge.dispute.created`, `charge.refunded`
@@ -118,3 +112,42 @@ Redirect `www.curl.md` to `curl.md` (non-www canonical) via [Bulk Redirects](htt
 2. Add a proxied A record: `www` → `192.0.2.1` (placeholder; the redirect fires before it's reached)
 3. Go to [Bulk Redirects](https://dash.cloudflare.com/?to=/:account/bulk-redirects)
 4. Create a bulk redirect list with: `www.curl.md` → `https://curl.md` (301, preserve query string, subpath matching, preserve path suffix)
+
+## Preview
+
+Preview environments deploy per PR with isolated PlanetScale database branches and Cloudflare Hyperdrive configs. On PR close/draft, cleanup deletes the Worker, Hyperdrive config, PlanetScale branch, KV namespace, Queues, and Stripe webhook. A daily sweep catches orphans.
+
+### GitHub Actions Secrets
+
+Add the following secrets to your GitHub repository (Settings → Secrets and variables → Actions):
+
+* `PREVIEW_PLANETSCALE_SERVICE_TOKEN` — PlanetScale service token (see [PlanetScale Branching](#planetscale-branching))
+* `PREVIEW_PLANETSCALE_SERVICE_TOKEN_ID` — PlanetScale service token ID (see [PlanetScale Branching](#planetscale-branching))
+* `PREVIEW_PLANETSCALE_ORG` — PlanetScale organization slug (e.g. `wevm`)
+* `PREVIEW_PLANETSCALE_DB` — PlanetScale database name (same as production, e.g. `curl`)
+* `PREVIEW_STRIPE_SECRET_KEY` — Stripe test mode secret key (see [Stripe](#stripe-1))
+
+### PlanetScale Branching
+
+1. Create a [service token](https://app.planetscale.com/~/settings/service-tokens) in PlanetScale with the following access on your database:
+   - `create_branch`
+   - `delete_branch`
+   - `read_branch`
+   - `connect_branch`
+2. Add these repository secrets:
+   - `PREVIEW_PLANETSCALE_SERVICE_TOKEN` — the token value
+   - `PREVIEW_PLANETSCALE_SERVICE_TOKEN_ID` — the token ID
+   - `PREVIEW_PLANETSCALE_ORG` — your PlanetScale organization slug (e.g. `wevm`)
+   - `PREVIEW_PLANETSCALE_DB` — your database name (same as production, e.g. `curl`)
+
+### Stripe
+
+Preview environments use Stripe **test mode** keys so no real charges occur.
+
+1. Copy your **test mode** secret key from [API keys](https://dashboard.stripe.com/test/apikeys)
+2. Add the repository secret:
+   - `PREVIEW_STRIPE_SECRET_KEY` — Stripe test mode secret key (starts with `sk_test_`)
+
+## License
+
+[FSL-1.1-MIT](LICENSE)
