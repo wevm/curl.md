@@ -25,6 +25,7 @@
     "rules": {
       "recommended": true,
       "nursery": {
+        "noFloatingPromises": "error",
         "useSortedClasses": "warn"
       }
     }
