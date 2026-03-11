@@ -213,7 +213,7 @@ const cli = Cli.create('curl.md', {
       return c.error({ code: 'FETCH_FAILED', message })
     }
 
-    if (!c.options.objective)
+    if (!c.options.objective && text.length > 10_000)
       return c.ok(text, {
         cta: {
           description: 'Narrow results with an objective:',
@@ -227,6 +227,11 @@ const cli = Cli.create('curl.md', {
             ...c.var.commands,
           ],
         },
+      })
+
+    if (!c.options.objective)
+      return c.ok(text, {
+        cta: { commands: c.var.commands },
       })
 
     return c.ok(text, {

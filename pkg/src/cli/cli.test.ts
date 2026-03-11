@@ -256,6 +256,30 @@ describe('fetch', () => {
     expect(exitCode).toBe(1)
     expect(output).toContain('FETCH_FAILED')
   })
+
+  test('fetch - objective cta shown for long responses', async () => {
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = async () =>
+      new Response('x'.repeat(15_000), { status: 200 })
+    onTestFinished(() => {
+      globalThis.fetch = originalFetch
+    })
+
+    const { output } = await serve(['example.com', '--verbose'])
+    expect(output).toContain('Narrow results with an objective')
+  })
+
+  test('fetch - objective cta hidden for short responses', async () => {
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = async () =>
+      new Response('short content', { status: 200 })
+    onTestFinished(() => {
+      globalThis.fetch = originalFetch
+    })
+
+    const { output } = await serve(['example.com', '--verbose'])
+    expect(output).not.toContain('Narrow results with an objective')
+  })
 })
 
 describe('update check middleware', () => {
