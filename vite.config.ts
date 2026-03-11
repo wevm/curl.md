@@ -59,6 +59,7 @@ export default defineConfig({
         })(),
     ),
     __HOST__: JSON.stringify(getWranglerVar('HOST')),
+    __SENTRY_DSN__: JSON.stringify(process.env.SENTRY_DSN ?? ''),
     __INITIAL_TOKENS_SAVED__: (() => {
       try {
         return child

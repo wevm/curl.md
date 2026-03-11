@@ -33,7 +33,7 @@ export default defineConfig({
       {
         test: {
           name: 'sdk',
-          include: ['pkg/src/*.test.ts'],
+          include: ['pkg/src/**/*.test.ts', '!pkg/src/cli/**'],
           root,
         },
       },

@@ -10,6 +10,7 @@ import {
 export { githubBlob, githubIssue, githubPr } from './rules/github.ts'
 export { githubDocs } from './rules/github-docs.ts'
 export { mdn } from './rules/mdn.ts'
+export { tailwind } from './rules/tailwind.ts'
 
 export const aiSdk = appendMd({ key: 'aiSdk', patterns: ['ai-sdk.dev'] })
 export const anthropic = appendMd({

@@ -29,8 +29,8 @@ jobs:
           QUEUE_IDS=$(curl -sS \
             -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
             "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/queues" \
-            | jq -r --arg suffix "-pr${{ github.event.pull_request.number }}" \
-              '.result[] | select(.queue_name | endswith($suffix)) | .queue_id')
+            | jq -r --arg prefix "-pr${{ github.event.pull_request.number }}" \
+              '.result[] | select(.queue_name | test($prefix + "(-dlq)?$")) | .queue_id')
           for QUEUE_ID in $QUEUE_IDS; do
             CONSUMER_ID=$(curl -sS \
               -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
@@ -120,8 +120,8 @@ jobs:
           QUEUE_IDS=$(curl -sS \
             -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
             "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/queues" \
-            | jq -r --arg suffix "-pr${{ github.event.pull_request.number }}" \
-              '.result[] | select(.queue_name | endswith($suffix)) | .queue_id')
+            | jq -r --arg prefix "-pr${{ github.event.pull_request.number }}" \
+              '.result[] | select(.queue_name | test($prefix + "(-dlq)?$")) | .queue_id')
           for QUEUE_ID in $QUEUE_IDS; do
             curl -sS -X DELETE \
               -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \

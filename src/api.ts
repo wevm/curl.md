@@ -1483,6 +1483,26 @@ export const api = new Hono<{
 
     return c.json({ received: true }, 200)
   })
+  // TODO: remove after verifying Sentry is working in production
+  .get('/api/debug/sentry', () => {
+    throw new Error('Sentry test error')
+  })
+  .post('/api/sentry/tunnel', async (c) => {
+    const body = await c.req.text()
+    const header = body.split('\n')[0]
+    if (!header) return c.json({ error: 'invalid_envelope' }, 400)
+    const dsn = JSON.parse(header).dsn as string | undefined
+    if (!dsn) return c.json({ error: 'missing_dsn' }, 400)
+    const url = new URL(dsn)
+    const project = url.pathname.replace(/^\//, '')
+    const sentryUrl = `https://${url.hostname}/api/${project}/envelope/`
+    const res = await fetch(sentryUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-sentry-envelope' },
+      body,
+    })
+    return c.json({ ok: true }, res.ok ? 200 : 502)
+  })
   .get(
     '/api/:url{.+}',
     validator(

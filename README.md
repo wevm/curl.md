@@ -35,6 +35,7 @@ Secrets are managed via [GitHub Environments](https://docs.github.com/en/actions
 * `COOKIE_SECRET` - Secret for signing session cookies (`openssl rand -base64 32`)
 * `GH_CLIENT_ID` - GitHub App client ID (see [GitHub App Setup](#github-app-setup))
 * `GH_CLIENT_SECRET` - GitHub App client secret (see [GitHub App Setup](#github-app-setup))
+* `SENTRY_DSN` - Sentry DSN for error tracking (see [Sentry](#sentry))
 * `TOKEN_ENCRYPTION_KEY` - Base64-encoded 256-bit key for encrypting OAuth tokens (`openssl rand -base64 32`)
 
 **`production` environment** ([Settings → Environments → `production`](https://github.com/wevm/curl.md/settings/environments/12871461617/edit)):
@@ -109,6 +110,13 @@ Stripe powers prepaid credit billing. A single Stripe account is used with test 
    - Set URL to `https://curl.md/api/stripe/webhook`
    - Select events: `checkout.session.completed`, `charge.dispute.created`, `charge.refunded`
    - Copy the signing secret → `STRIPE_WEBHOOK_SECRET`
+
+### Sentry
+
+Error tracking for both server-side (Worker: API, queues, crons) and client-side (React).
+
+1. Create a [Sentry](https://sentry.io) project (JavaScript / Cloudflare)
+2. Copy the **DSN** from Project Settings → Client Keys (DSN)
 
 ### WWW Redirect
 

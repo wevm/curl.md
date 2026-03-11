@@ -29,7 +29,7 @@ export async function fromHtml(
         },
       },
     })
-    .use(remarkGfm)
+    .use(remarkGfm, { tablePipeAlign: false })
     .use(remarkStringify)
     .process(html)
 

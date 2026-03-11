@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/cloudflare'
 import serverEntry from '@tanstack/react-start/server-entry'
 import { z } from 'zod'
 import { api } from '#api.ts'
@@ -7,72 +8,91 @@ import { processRequestMessage } from '#queues/request.ts'
 import { processStripeWebhookMessage } from '#queues/stripe-webhook.ts'
 import { cleanupExpired } from '#tasks/cleanup.ts'
 
-export default {
-  fetch(request, env, ctx) {
-    const url = new URL(request.url)
-    // Route API requests to the Hono API handler
-    if (url.pathname.startsWith('/api/'))
-      return api.fetch(new Request(url, request), env, ctx)
-    // Route dot-segment paths (e.g. curl.md/example.com) or protocol-prefixed paths (e.g. curl.md/https://example.com) to the API handler under /api prefix
-    if (isApiPath(url.pathname)) {
-      url.pathname = `/api${url.pathname}`
-      return api.fetch(new Request(url, request), env, ctx)
-    }
-    // Serve known static assets directly from Workers Assets binding
-    const path = url.pathname.replace(/\/+$/, '')
-    const staticAssets = {
-      '/llms.txt': '/llms.txt',
-      '/skills': '/.well-known/skills/index.json',
-      '/.well-known/skills': '/.well-known/skills/index.json',
-      '/.well-known/skills/curl-md': '/.well-known/skills/curl-md/SKILL.md',
-    } as const
-    if (path in staticAssets)
-      return env.ASSETS.fetch(
-        new URL(staticAssets[path as keyof typeof staticAssets], url),
-      )
-    // Fall through to TanStack Start SSR handler for all other routes (app pages)
-    return serverEntry.fetch(request, { context: { ctx, env, request } })
-  },
-  queue: async (batch, env) => {
-    if (batch.queue.endsWith('-dlq')) {
-      for (const message of batch.messages) {
-        const { ack: _, retry: __, ...rest } = message
-        console.error(`DLQ message [${batch.queue}]`, rest)
-        message.ack()
+export default Sentry.withSentry(
+  (env: Env) => ({
+    dsn: env.SENTRY_DSN,
+    tracesSampleRate: 0.01,
+    sendDefaultPii: true,
+  }),
+  {
+    fetch(request, env, ctx) {
+      const url = new URL(request.url)
+      // Route API requests to the Hono API handler
+      if (url.pathname.startsWith('/api/'))
+        return api.fetch(new Request(url, request), env, ctx)
+      // Redirect protocol-prefixed paths (e.g. /https://example.com/path → /example.com/path)
+      const protocolMatch = url.pathname.match(/^\/(https?:\/\/)(.+)/)
+      if (protocolMatch) {
+        url.pathname = `/${protocolMatch[2]}`
+        return Response.redirect(url.toString(), 301)
       }
-      return
-    }
+      // Route dot-segment paths (e.g. curl.md/example.com) to the API handler under /api prefix
+      if (isApiPath(url.pathname)) {
+        url.pathname = `/api${url.pathname}`
+        return api.fetch(new Request(url, request), env, ctx)
+      }
+      // Serve known static assets directly from Workers Assets binding
+      const path = url.pathname.replace(/\/+$/, '')
+      const staticAssets = {
+        '/llms.txt': '/llms.txt',
+        '/skills': '/.well-known/skills/index.json',
+        '/.well-known/skills': '/.well-known/skills/index.json',
+        '/.well-known/skills/curl-md': '/.well-known/skills/curl-md/SKILL.md',
+      } as const
+      if (path in staticAssets)
+        return env.ASSETS.fetch(
+          new URL(staticAssets[path as keyof typeof staticAssets], url),
+        )
+      // Fall through to TanStack Start SSR handler for all other routes (app pages)
+      return serverEntry.fetch(request, { context: { ctx, env, request } })
+    },
+    queue: async (batch, env) => {
+      if (batch.queue.endsWith('-dlq')) {
+        for (const message of batch.messages) {
+          const { ack: _, retry: __, ...rest } = message
+          console.error(`DLQ message [${batch.queue}]`, rest)
+          message.ack()
+        }
+        return
+      }
 
-    const queue = z.parse(
-      z.enum([
-        processRequestMessage.queueName,
-        processStripeWebhookMessage.queueName,
-      ]),
-      batch.queue,
-    )
-    const handler = {
-      [processRequestMessage.queueName]: processRequestMessage,
-      [processStripeWebhookMessage.queueName]: processStripeWebhookMessage,
-    }[queue]
-    const db = getDb(env.DB.connectionString)
-    for (const message of batch.messages) {
-      try {
-        await handler(message as never, db)
-        message.ack()
-      } catch (error) {
-        console.error(`Queue message ${message.id} failed:`, error)
-        message.retry()
+      const queueName = (() => {
+        // Preview queues have a suffix (e.g. `stripe-webhook-pr25`), strip it
+        const previewApex = env.HOST.replace('.curl.md', '')
+        if (previewApex) return batch.queue.replace(`-${previewApex}`, '')
+        return batch.queue
+      })()
+      const queue = z.parse(
+        z.enum([
+          processRequestMessage.queueName,
+          processStripeWebhookMessage.queueName,
+        ]),
+        queueName,
+      )
+      const handler = {
+        [processRequestMessage.queueName]: processRequestMessage,
+        [processStripeWebhookMessage.queueName]: processStripeWebhookMessage,
+      }[queue]
+      const db = getDb(env.DB.connectionString)
+      for (const message of batch.messages) {
+        try {
+          await handler(message as never, db)
+          message.ack()
+        } catch (error) {
+          console.error(`Queue message ${message.id} failed:`, error)
+          message.retry()
+        }
       }
-    }
-  },
-  scheduled(controller, env, ctx) {
-    const crons = {
-      '0 * * * *': cleanupExpired,
-    } as const
-    const task = crons[controller.cron as keyof typeof crons]
-    if (task) ctx.waitUntil(task(env, ctx))
-  },
-} satisfies ExportedHandler<Env>
+    },
+    scheduled(controller, env, ctx) {
+      const crons = {
+        '0 * * * *': cleanupExpired,
+      } as const
+      const task = crons[controller.cron as keyof typeof crons]
+      if (task) ctx.waitUntil(task(env, ctx))
+    },
+  } satisfies ExportedHandler<Env>,
+)
 
 declare module '@tanstack/react-start' {
   interface Register {
