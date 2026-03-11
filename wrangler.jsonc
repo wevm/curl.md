@@ -130,6 +130,9 @@
           }
         ]
       },
+      "version_metadata": {
+        "binding": "CF_VERSION_METADATA"
+      },
       "vars": {
         "HOST": "curl.md"
       },
@@ -202,6 +205,9 @@
             "max_retries": 0
           }
         ]
+      },
+      "version_metadata": {
+        "binding": "CF_VERSION_METADATA"
       },
       "vars": {
         "HOST": "__PREVIEW_APEX__.curl.md"

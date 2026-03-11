@@ -528,7 +528,19 @@ const credits = Cli.create('credits', {
               delay = Math.min(delay * 2, 5_000)
             }
             spinner.stop()
-            return c.ok('Credits added!')
+            return c.ok(
+              'Checkout completed, but credits may take a moment to appear.',
+              {
+                cta: {
+                  commands: [
+                    {
+                      command: `${c.name} credits check`,
+                      description: 'Check your balance',
+                    },
+                  ],
+                },
+              },
+            )
           }
           if (checkJson.status === 'expired') {
             spinner.stop()
