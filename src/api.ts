@@ -1488,10 +1488,6 @@ export const api = new Hono<{
 
     return c.json({ received: true }, 200)
   })
-  // TODO: remove after verifying Sentry is working in production
-  .get('/api/debug/sentry', () => {
-    throw new Error('Sentry test error')
-  })
   .post('/api/sentry/tunnel', async (c) => {
     const body = await c.req.text()
     const header = body.split('\n')[0]
