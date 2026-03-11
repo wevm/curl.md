@@ -108,7 +108,7 @@ Stripe powers prepaid credit billing. A single Stripe account is used with test 
 3. Set callback webhook URL and get webhook secret:
    - Go to [Webhooks](https://dashboard.stripe.com/webhooks) → "Add endpoint"
    - Set URL to `https://curl.md/api/stripe/webhook`
-   - Select events: `checkout.session.completed`, `charge.dispute.created`, `charge.refunded`
+   - Select events: `checkout.session.completed`, `charge.dispute.created`, `refund.created`
    - Copy the signing secret → `STRIPE_WEBHOOK_SECRET`
 
 ### Sentry

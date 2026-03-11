@@ -1468,14 +1468,17 @@ export const api = new Hono<{
           })
         break
       }
-      case 'charge.refunded': {
-        const charge = event.data.object as import('stripe').Stripe.Charge
-        const refund = charge.refunds?.data?.[0]
+      case 'refund.created': {
+        const refund = event.data.object as import('stripe').Stripe.Refund
+        const charge =
+          typeof refund.charge === 'string'
+            ? await stripe.charges.retrieve(refund.charge)
+            : refund.charge
         const customer =
-          typeof charge.customer === 'string' ? charge.customer : null
-        if (refund && customer)
+          charge && typeof charge.customer === 'string' ? charge.customer : null
+        if (customer)
           await c.env.STRIPE_WEBHOOK_QUEUE.send({
-            type: event.type,
+            type: 'charge.refunded',
             data: {
               amount_total: refund.amount,
               customer,
