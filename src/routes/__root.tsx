@@ -31,6 +31,13 @@ export const Route = createRootRoute({
         content: 'width=device-width, initial-scale=1, maximum-scale=1',
       },
     ],
+    scripts: [
+      {
+        src: 'https://cdn.usefathom.com/script.js',
+        'data-site': 'GPMOZIWR',
+        defer: true,
+      },
+    ],
   }),
   component: RootComponent,
   notFoundComponent: NotFound,
