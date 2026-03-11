@@ -147,10 +147,22 @@ jobs:
           STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
         run: |
           APEX="pr${{ inputs.pr_number }}"
+
+          # Delete existing webhook endpoints for this preview
+          EXISTING=$(curl -sS https://api.stripe.com/v1/webhook_endpoints?limit=100 \
+            -u "$STRIPE_SECRET_KEY:" \
+            | jq -r --arg apex "$APEX" '.data[] | select(.metadata.preview == $apex) | .id')
+          for id in $EXISTING; do
+            curl -sS -X DELETE "https://api.stripe.com/v1/webhook_endpoints/$id" \
+              -u "$STRIPE_SECRET_KEY:" > /dev/null
+          done
+
           RESPONSE=$(curl -sS https://api.stripe.com/v1/webhook_endpoints \
             -u "$STRIPE_SECRET_KEY:" \
             -d "url=https://${APEX}.curl.md/api/stripe/webhook" \
             -d "enabled_events[]=checkout.session.completed" \
+            -d "enabled_events[]=charge.dispute.created" \
+            -d "enabled_events[]=charge.refunded" \
             -d "metadata[preview]=${APEX}")
           ENDPOINT_ID=$(echo "$RESPONSE" | jq -r '.id')
           WEBHOOK_SECRET=$(echo "$RESPONSE" | jq -r '.secret')

@@ -513,7 +513,7 @@ const credits = Cli.create('credits', {
               if (newBalanceRes.status === 200) {
                 const newBalanceJson = await newBalanceRes.json()
                 if (
-                  initialBalance === null ||
+                  initialBalance !== null &&
                   newBalanceJson.balance_mills > initialBalance
                 ) {
                   spinner.stop()
