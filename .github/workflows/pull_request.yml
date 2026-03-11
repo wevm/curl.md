@@ -38,13 +38,8 @@ jobs:
       - name: Setup pnpm
         uses: ./.github/actions/setup-pnpm
 
-      - name: Set preview base URL
-        run: sed -i'' -e "s|https://curl.md|https://pr${PR_NUMBER}.curl.md|" cli/src/cli.ts
-        env:
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-
       - name: Build CLI
         run: pnpm build:cli
 
       - name: Publish preview
-        run: pnpx pkg-pr-new publish ./cli
+        run: pnpx pkg-pr-new publish ./pkg
