@@ -1438,7 +1438,7 @@ export const api = new Hono<{
         const customer =
           typeof session.customer === 'string' ? session.customer : null
         if (customer && session.amount_total)
-          c.env.STRIPE_WEBHOOK_QUEUE.send({
+          await c.env.STRIPE_WEBHOOK_QUEUE.send({
             type: event.type,
             data: {
               amount_total: session.amount_total,
@@ -1458,7 +1458,7 @@ export const api = new Hono<{
         const customer =
           typeof charge.customer === 'string' ? charge.customer : null
         if (customer)
-          c.env.STRIPE_WEBHOOK_QUEUE.send({
+          await c.env.STRIPE_WEBHOOK_QUEUE.send({
             type: event.type,
             data: {
               amount_total: dispute.amount,
@@ -1474,7 +1474,7 @@ export const api = new Hono<{
         const customer =
           typeof charge.customer === 'string' ? charge.customer : null
         if (refund && customer)
-          c.env.STRIPE_WEBHOOK_QUEUE.send({
+          await c.env.STRIPE_WEBHOOK_QUEUE.send({
             type: event.type,
             data: {
               amount_total: refund.amount,
@@ -1788,7 +1788,7 @@ export const api = new Hono<{
       })()
 
       const requestId = Nanoid.generate()
-      c.env.REQUEST_QUEUE.send({
+      await c.env.REQUEST_QUEUE.send({
         account_id: c.var.session?.account_id ?? null,
         api_key_id: c.var.api_key_id,
         billable,
