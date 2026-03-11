@@ -100,28 +100,39 @@ jobs:
           API="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/hyperdrive/configs"
           AUTH="Authorization: Bearer $CLOUDFLARE_API_TOKEN"
 
-          # Delete existing Hyperdrive config (if any)
+          # Parse connection string components
+          ORIGIN_USER=$(echo "$DB_URL" | sed -n 's|^postgresql://\([^:]*\):.*|\1|p')
+          ORIGIN_PASS=$(echo "$DB_URL" | sed -n 's|^postgresql://[^:]*:\([^@]*\)@.*|\1|p')
+          ORIGIN_HOST=$(echo "$DB_URL" | sed -n 's|^postgresql://[^@]*@\([^/]*\)/.*|\1|p')
+          ORIGIN_DB=$(echo "$DB_URL" | sed -n 's|^postgresql://[^/]*/\([^?]*\).*|\1|p')
+
+          # Check for existing Hyperdrive config
           OLD_ID=$(curl -sS -H "$AUTH" "$API" \
             | jq -r --arg name "$PREVIEW_HYPERDRIVE_NAME" '(.result // [])[] | select(.name == $name) | .id' 2>/dev/null || true)
+
           if [ -n "$OLD_ID" ]; then
-            echo "Deleting existing Hyperdrive $OLD_ID"
-            curl -sS -X DELETE -H "$AUTH" "$API/$OLD_ID" > /dev/null || true
+            # Update existing config (avoids downtime from delete+create)
+            echo "Updating existing Hyperdrive $OLD_ID"
+            curl -sS -X PATCH -H "$AUTH" -H "Content-Type: application/json" \
+              "$API/$OLD_ID" \
+              -d "{\"origin\":{\"scheme\":\"postgresql\",\"host\":\"$ORIGIN_HOST\",\"port\":5432,\"database\":\"$ORIGIN_DB\",\"user\":\"$ORIGIN_USER\",\"password\":\"$ORIGIN_PASS\"}}" > /dev/null
+            HD_ID="$OLD_ID"
+          else
+            # Create new Hyperdrive config (retry up to 5 times for DNS propagation)
+            for i in 1 2 3 4 5; do
+              OUTPUT=$(pnpm exec wrangler hyperdrive create "$PREVIEW_HYPERDRIVE_NAME" \
+                --connection-string="$DB_URL" 2>&1) && break
+              echo "Attempt $i failed, retrying in 10s: $OUTPUT"
+              sleep 10
+            done
+            HD_ID=$(echo "$OUTPUT" | grep -oE '[0-9a-f]{32}' | head -1)
+            if [ -z "$HD_ID" ]; then
+              echo "::error::Failed to create Hyperdrive config after 5 attempts: $OUTPUT"
+              exit 1
+            fi
           fi
 
-          # Create new Hyperdrive config (retry up to 5 times for DNS propagation)
-          for i in 1 2 3 4 5; do
-            OUTPUT=$(pnpm exec wrangler hyperdrive create "$PREVIEW_HYPERDRIVE_NAME" \
-              --connection-string="$DB_URL" 2>&1) && break
-            echo "Attempt $i failed, retrying in 10s: $OUTPUT"
-            sleep 10
-          done
-
-          HD_ID=$(echo "$OUTPUT" | grep -oE '[0-9a-f]{32}' | head -1)
-          if [ -z "$HD_ID" ]; then
-            echo "::error::Failed to create Hyperdrive config after 5 attempts: $OUTPUT"
-            exit 1
-          fi
-          echo "Created Hyperdrive $HD_ID"
+          echo "Hyperdrive $HD_ID"
           echo "id=$HD_ID" >> "$GITHUB_OUTPUT"
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
