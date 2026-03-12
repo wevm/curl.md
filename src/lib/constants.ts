@@ -16,6 +16,8 @@ export const modes = {
 
 export type Mode = keyof typeof modes
 
+export const creditAmounts = ['500', '1000', '2000', '5000'] as const
+
 export const pricing = {
   fetchCostMills: 1,
   queryBaseCostMills: 1,

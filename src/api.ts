@@ -5,13 +5,16 @@ import { html, raw } from 'hono/html'
 import { Kysely, sql } from 'kysely'
 import { jsonArrayFrom } from 'kysely/helpers/postgres'
 import { customAlphabet } from 'nanoid'
+import type Stripe from 'stripe'
 import { estimateTokenCount } from 'tokenx'
 import { stringify as yamlStringify } from 'yaml'
 import { z } from 'zod'
 import * as ApiKey from '#lib/api-key.ts'
+import { resolveBillingEntity } from '#lib/billing.ts'
 import { chunkMarkdown, filterSectionsByKeywords } from '#lib/chunk-markdown.ts'
 import {
   attribution,
+  creditAmounts,
   type Mode,
   modes,
   packageName,
@@ -662,34 +665,34 @@ export const api = new Hono<{
   .get('/api/credits', async (c) => {
     if (!c.var.session) return c.json({ error: 'unauthorized' }, 401)
 
-    const orgId = c.req.header('x-organization-id')
-    if (orgId) {
-      if (!c.var.organization_id)
-        return c.json({ error: 'organization_access_denied' }, 403)
-      const org = await c.var.db
-        .selectFrom('organization')
-        .where('id', '=', orgId)
-        .select(['balance_mills', 'stripe_customer_id'])
-        .executeTakeFirst()
-      return c.json(
-        {
-          balance_mills: org?.balance_mills ?? 0,
-          payment_method: await getPaymentMethod(c, org?.stripe_customer_id),
-        },
-        200,
-      )
+    const organizationId = c.req.header('x-organization-id')
+    const entity = await resolveBillingEntity(
+      c.var.db,
+      organizationId
+        ? {
+            type: 'organization',
+            accountId: c.var.session.account_id,
+            organizationId,
+          }
+        : { type: 'account', accountId: c.var.session.account_id },
+    )
+    if (!entity.ok) return c.json({ error: entity.error }, entity.status)
+
+    let method: Pick<Stripe.PaymentMethod.Card, 'brand' | 'last4'> | null = null
+    if (entity.stripeCustomerId) {
+      const { default: Stripe } = await import('stripe')
+      const stripe = new Stripe(c.env.STRIPE_SECRET_KEY)
+      const methods = await stripe.paymentMethods.list({
+        customer: entity.stripeCustomerId,
+        type: 'card',
+        limit: 1,
+      })
+      const card = methods.data[0]?.card
+      if (card) method = { brand: card.brand, last4: card.last4 }
     }
 
-    const account = await c.var.db
-      .selectFrom('account')
-      .where('id', '=', c.var.session.account_id)
-      .select(['balance_mills', 'stripe_customer_id'])
-      .executeTakeFirst()
     return c.json(
-      {
-        balance_mills: account?.balance_mills ?? 0,
-        payment_method: await getPaymentMethod(c, account?.stripe_customer_id),
-      },
+      { balance_mills: entity.balanceMills, payment_method: method },
       200,
     )
   })
@@ -698,7 +701,7 @@ export const api = new Hono<{
     validator(
       'json',
       z.object({
-        amount: z.enum(['500', '1000', '2000', '5000']),
+        amount: z.enum(creditAmounts),
         locked: z.boolean().optional(),
         organization_id: z.string().optional(),
         save: z.boolean().optional(),
@@ -711,45 +714,20 @@ export const api = new Hono<{
       const json = c.req.valid('json')
       const amount = Number(json.amount)
 
-      // Determine billing entity
-      let stripeCustomerId: string | null = null
-      let entityId: string
-      let entityType: 'account' | 'organization'
+      const entity = await resolveBillingEntity(
+        c.var.db,
+        json.organization_id
+          ? {
+              type: 'organization',
+              accountId: c.var.session.account_id,
+              organizationId: json.organization_id,
+            }
+          : { type: 'account', accountId: c.var.session.account_id },
+      )
+      if (!entity.ok) return c.json({ error: entity.error }, entity.status)
 
-      if (json.organization_id) {
-        // Check org membership + role
-        const member = await c.var.db
-          .selectFrom('organization_member')
-          .where('organization_id', '=', json.organization_id)
-          .where('account_id', '=', c.var.session.account_id)
-          .select('role')
-          .executeTakeFirst()
-        if (!member) return c.json({ error: 'organization_access_denied' }, 403)
-        if (member.role !== 'owner' && member.role !== 'admin')
-          return c.json({ error: 'organization_access_denied' }, 403)
-
-        const org = await c.var.db
-          .selectFrom('organization')
-          .where('id', '=', json.organization_id)
-          .select('stripe_customer_id')
-          .executeTakeFirst()
-        if (!org) return c.json({ error: 'not_found' }, 404)
-
-        stripeCustomerId = org.stripe_customer_id
-        entityId = json.organization_id
-        entityType = 'organization'
-      } else {
-        const account = await c.var.db
-          .selectFrom('account')
-          .where('id', '=', c.var.session.account_id)
-          .select('stripe_customer_id')
-          .executeTakeFirst()
-        if (!account) return c.json({ error: 'not_found' }, 404)
-
-        stripeCustomerId = account.stripe_customer_id
-        entityId = c.var.session.account_id
-        entityType = 'account'
-      }
+      let { stripeCustomerId } = entity
+      const { entityId, entityType } = entity
 
       const { default: Stripe } = await import('stripe')
       const stripe = new Stripe(c.env.STRIPE_SECRET_KEY)
@@ -832,7 +810,7 @@ export const api = new Hono<{
     validator(
       'json',
       z.object({
-        amount: z.enum(['500', '1000', '2000', '5000']),
+        amount: z.enum(creditAmounts),
         organization_id: z.string().optional(),
       }),
     ),
@@ -843,44 +821,19 @@ export const api = new Hono<{
       const json = c.req.valid('json')
       const amount = Number(json.amount)
 
-      let stripeCustomerId: string | null = null
-      let entityId: string
-      let entityType: 'account' | 'organization'
+      const entity = await resolveBillingEntity(
+        c.var.db,
+        json.organization_id
+          ? {
+              type: 'organization',
+              accountId: c.var.session.account_id,
+              organizationId: json.organization_id,
+            }
+          : { type: 'account', accountId: c.var.session.account_id },
+      )
+      if (!entity.ok) return c.json({ error: entity.error }, entity.status)
 
-      if (json.organization_id) {
-        const member = await c.var.db
-          .selectFrom('organization_member')
-          .where('organization_id', '=', json.organization_id)
-          .where('account_id', '=', c.var.session.account_id)
-          .select('role')
-          .executeTakeFirst()
-        if (!member) return c.json({ error: 'organization_access_denied' }, 403)
-        if (member.role !== 'owner' && member.role !== 'admin')
-          return c.json({ error: 'organization_access_denied' }, 403)
-
-        const org = await c.var.db
-          .selectFrom('organization')
-          .where('id', '=', json.organization_id)
-          .select('stripe_customer_id')
-          .executeTakeFirst()
-        if (!org) return c.json({ error: 'not_found' }, 404)
-
-        stripeCustomerId = org.stripe_customer_id
-        entityId = json.organization_id
-        entityType = 'organization'
-      } else {
-        const account = await c.var.db
-          .selectFrom('account')
-          .where('id', '=', c.var.session.account_id)
-          .select('stripe_customer_id')
-          .executeTakeFirst()
-        if (!account) return c.json({ error: 'not_found' }, 404)
-
-        stripeCustomerId = account.stripe_customer_id
-        entityId = c.var.session.account_id
-        entityType = 'account'
-      }
-
+      const { stripeCustomerId, entityId, entityType } = entity
       if (!stripeCustomerId) return c.json({ error: 'no_payment_method' }, 400)
 
       const { default: Stripe } = await import('stripe')
@@ -2013,22 +1966,3 @@ export const api = new Hono<{
       })
     },
   )
-
-async function getPaymentMethod(
-  c: { env: Cloudflare.Env },
-  stripeCustomerId: string | null | undefined,
-): Promise<{ brand: string; last4: string } | null> {
-  if (!stripeCustomerId) return null
-  const { default: Stripe } = await import('stripe')
-  const stripe = new Stripe(c.env.STRIPE_SECRET_KEY)
-  const methods = await stripe.paymentMethods.list({
-    customer: stripeCustomerId,
-    type: 'card',
-    limit: 1,
-  })
-  if (!methods.data[0]?.card) return null
-  return {
-    brand: methods.data[0].card.brand,
-    last4: methods.data[0].card.last4,
-  }
-}

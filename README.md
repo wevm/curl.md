@@ -28,23 +28,23 @@ OrbStack automatically resolves `curl.local` requests to the container.
 
 Secrets are managed via [GitHub Environments](https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment) and repo-level secrets.
 
-**Repository secrets** ([Settings → Secrets and variables → Actions](https://github.com/wevm/curl.md/settings/secrets/actions)) — shared across all environments:
+[**Repository secrets**](https://github.com/wevm/curl.md/settings/secrets/actions) — shared across all environments:
 
 * `CLOUDFLARE_ACCOUNT_ID` - Cloudflare account ID (found in the Workers dashboard URL)
-* `CLOUDFLARE_API_TOKEN` - Cloudflare API token for deployments (see [below](#creating-a-cloudflare-api-token))
-* `COOKIE_SECRET` - Secret for signing session cookies (`openssl rand -base64 32`)
+* `CLOUDFLARE_API_TOKEN` - Cloudflare API token for deployments (see [Creating a Cloudflare API Token](#creating-a-cloudflare-api-token))
+* `COOKIE_SECRET` - Secret for signing session cookies `openssl rand -base64 32`
 * `GH_CLIENT_ID` - GitHub App client ID (see [GitHub App Setup](#github-app-setup))
 * `GH_CLIENT_SECRET` - GitHub App client secret (see [GitHub App Setup](#github-app-setup))
 * `SENTRY_DSN` - Sentry DSN for error tracking (see [Sentry](#sentry))
-* `TOKEN_ENCRYPTION_KEY` - Base64-encoded 256-bit key for encrypting OAuth tokens (`openssl rand -base64 32`)
+* `TOKEN_ENCRYPTION_KEY` - Base64-encoded 256-bit key for encrypting OAuth tokens `openssl rand -base64 32`
 
-**`production` environment secrets** ([Settings → Environments → `production`](https://github.com/wevm/curl.md/settings/environments/12871461617/edit)):
+**[`production`](https://github.com/wevm/curl.md/settings/environments/12871461617/edit) environment secrets**:
 
 * `DB_URL` - PlanetScale Postgres connection string (for production migrations)
 * `STRIPE_SECRET_KEY` - Stripe live secret key (see [Stripe Setup](#stripe-setup))
 * `STRIPE_WEBHOOK_SECRET` - Stripe webhook signing secret (see [Stripe Setup](#stripe-setup))
 
-**`production` environment variables** ([Settings → Environments → `production`](https://github.com/wevm/curl.md/settings/environments/12871461617/edit)):
+**[`production`](https://github.com/wevm/curl.md/settings/environments/12871461617/edit) environment variables**:
 
 * `STRIPE_PUBLISHABLE_KEY` - Stripe live publishable key (`pk_live_...`) (see [Stripe Setup](#stripe-setup))
 
@@ -59,15 +59,7 @@ Secrets are managed via [GitHub Environments](https://docs.github.com/en/actions
    - **App role** (for Hyperdrive/production) — select `pg_read_all_data` + `pg_write_all_data`
    - **Migrations role** (for CI) — select `postgres` (full DDL access for `kysely migrate`)
 4. Record the connection strings (`postgres://<user>:<password>@<host>:5432/postgres?sslmode=require`)
-
-### Cloudflare Hyperdrive
-
-Connect PlanetScale to Cloudflare Workers via [Hyperdrive](https://developers.cloudflare.com/hyperdrive/):
-
-1. Go to [Hyperdrive](https://dash.cloudflare.com/?to=/:account/workers/hyperdrive) in the Cloudflare dashboard
-2. Click "Create Configuration"
-3. Paste the PlanetScale connection string
-4. Copy the Hyperdrive ID into `wrangler.jsonc` under `env.production.hyperdrive[0].id`
+5. Connect to Cloudflare Workers via the [PlanetScale Hyperdrive integration](https://developers.cloudflare.com/hyperdrive/examples/connect-to-postgres/postgres-database-providers/planetscale-postgres/) and copy the Hyperdrive ID into `wrangler.jsonc` under `env.production.hyperdrive[0].id`
 
 ### Creating a Cloudflare API Token
 
@@ -138,9 +130,9 @@ Preview environments deploy per PR with isolated PlanetScale database branches a
 
 ### GitHub Environments
 
-Preview secrets are scoped via [GitHub Environments](https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment) ([Settings → Environments → `preview`](https://github.com/wevm/curl.md/settings/environments/12873481464/edit)).
+Preview secrets are scoped via [GitHub Environments](https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment)
 
-**`preview` environment secrets** ([Settings → Environments → `preview`](https://github.com/wevm/curl.md/settings/environments/12873481464/edit)):
+**[`preview`](https://github.com/wevm/curl.md/settings/environments/12873481464/edit) environment secrets**:
 
 * `PLANETSCALE_SERVICE_TOKEN` — PlanetScale service token (see [PlanetScale Branching](#planetscale-branching))
 * `PLANETSCALE_SERVICE_TOKEN_ID` — PlanetScale service token ID (see [PlanetScale Branching](#planetscale-branching))
@@ -148,7 +140,7 @@ Preview secrets are scoped via [GitHub Environments](https://docs.github.com/en/
 * `PLANETSCALE_DB` — PlanetScale database name (same as production, e.g. `curl`)
 * `STRIPE_SECRET_KEY` — Stripe test mode secret key (see [Stripe](#stripe-1))
 
-**`preview` environment variables** ([Settings → Environments → `preview`](https://github.com/wevm/curl.md/settings/environments/12873481464/edit)):
+**[`preview`](https://github.com/wevm/curl.md/settings/environments/12873481464/edit) environment variables**:
 
 * `STRIPE_PUBLISHABLE_KEY` — Stripe test mode publishable key (`pk_test_...`)
 

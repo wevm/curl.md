@@ -57,6 +57,8 @@ jobs:
             echo "GH_CLIENT_ID=dummy"
             echo "COOKIE_SECRET=dummy"
             echo "GH_CLIENT_SECRET=dummy"
+            echo "SENTRY_DSN=https://fake@o0.ingest.sentry.io/0"
+            echo "STRIPE_PUBLISHABLE_KEY=pk_test_fake"
             echo "STRIPE_SECRET_KEY=sk_test_fake"
             echo "STRIPE_WEBHOOK_SECRET=whsec_test_fake"
             echo "TOKEN_ENCRYPTION_KEY=dGVzdC1lbmNyeXB0aW9uLWtleXRlc3QtZW5jcnlwdGk="
@@ -73,6 +75,8 @@ jobs:
 
       - name: Test
         run: pnpm test
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
 
       - name: Build
         run: pnpm build

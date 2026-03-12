@@ -373,3 +373,27 @@ function hasBinary(name: string) {
     return false
   }
 }
+
+export async function pollForBalance(
+  client: Client,
+  initialBalance: number,
+  spinner: ReturnType<typeof createSpinner>,
+): Promise<string> {
+  let delay = 500
+  const timeout = Date.now() + 120_000
+  while (Date.now() < timeout) {
+    await new Promise((r) => setTimeout(r, delay))
+    const res = await client.api.credits.$get()
+    if (res.status === 200) {
+      const json = await res.json()
+      if (json.balance_mills > initialBalance) {
+        spinner.stop()
+        const dollars = (json.balance_mills / 1000).toFixed(3)
+        return `Credits added! New balance: ${pc.green(`$${dollars}`)}`
+      }
+    }
+    delay = Math.min(delay * 2, 5_000)
+  }
+  spinner.stop()
+  return 'Payment may still be processing. Run `credits check` to verify.'
+}

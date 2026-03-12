@@ -11,6 +11,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import * as React from 'react'
 import { z } from 'zod/mini'
+import { creditAmounts } from '#lib/constants.ts'
 
 export const Route = createFileRoute('/credits/add/$id')({
   head: () => ({
@@ -60,7 +61,7 @@ function AddCreditsPage() {
   )
 }
 
-const amounts = [500, 1000, 2000, 5000] as const
+const amounts = creditAmounts.map(Number)
 
 function CheckoutForm(props: { amount: number; id: string; locked: boolean }) {
   const stripe = useStripe()
@@ -166,11 +167,14 @@ const getPayment = createServerFn({ method: 'GET' })
     return { ...data, publishable_key: env.STRIPE_PUBLISHABLE_KEY }
   })
 
+const allowedAmounts = new Set(amounts)
+
 const changeAmount = createServerFn({ method: 'POST' })
   .inputValidator((data) =>
     z.parse(z.object({ id: z.string(), amount: z.number() }), data),
   )
   .handler(async (c) => {
+    if (!allowedAmounts.has(c.data.amount)) throw new Error('invalid_amount')
     const data = await env.KV.get(`payment:${c.data.id}`, 'json')
     if (!data || data.locked) throw new Error('not_found')
     const { default: Stripe } = await import('stripe')

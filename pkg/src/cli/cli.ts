@@ -12,6 +12,7 @@ import {
   installGlobal,
   isStandalone,
   openUrl,
+  pollForBalance,
   relativeTime,
   Session,
   select,
@@ -491,8 +492,6 @@ const credits = Cli.create('credits', {
     output: z.string(),
     format: 'md',
     async run(c) {
-      const amount = c.args.amount
-
       // Check for saved payment method
       const creditsRes = await c.var.client.api.credits.$get()
       if (creditsRes.status === 401) return expiredSession(c)
@@ -500,17 +499,13 @@ const credits = Cli.create('credits', {
         return c.error({ code: 'UNKNOWN', message: 'Unexpected error.' })
 
       const credits = await creditsRes.json()
-
       // If saved card exists, prompt and charge
+      let selectedAmount = c.args.amount
       if (credits.payment_method) {
-        let selectedAmount = amount
-        const { brand, last4 } = credits.payment_method
-        const label = `${brand} ending in ${last4}`
-
         while (true) {
           const dollars = (Number(selectedAmount) / 100).toFixed(2)
           const choice = await select(`Charge $${dollars} to:`, [
-            label,
+            `${credits.payment_method.brand} ending in ${credits.payment_method.last4}`,
             'Change amount',
             'Add new payment method',
           ])
@@ -591,7 +586,7 @@ const credits = Cli.create('credits', {
       // No saved card or user chose "Add new" — browser flow
       const addRes = await c.var.client.api.credits.add.$post({
         json: {
-          amount,
+          amount: selectedAmount,
           organization_id: c.var.session?.organization_id,
         },
       })
@@ -642,30 +637,6 @@ const credits = Cli.create('credits', {
       return c.ok(msg)
     },
   })
-
-async function pollForBalance(
-  client: Client,
-  initialBalance: number,
-  spinner: ReturnType<typeof createSpinner>,
-): Promise<string> {
-  let delay = 500
-  const timeout = Date.now() + 120_000
-  while (Date.now() < timeout) {
-    await new Promise((r) => setTimeout(r, delay))
-    const res = await client.api.credits.$get()
-    if (res.status === 200) {
-      const json = await res.json()
-      if (json.balance_mills > initialBalance) {
-        spinner.stop()
-        const dollars = (json.balance_mills / 1000).toFixed(3)
-        return `Credits added! New balance: ${pc.green(`$${dollars}`)}`
-      }
-    }
-    delay = Math.min(delay * 2, 5_000)
-  }
-  spinner.stop()
-  return 'Payment may still be processing. Run `credits check` to verify.'
-}
 
 const invite = Cli.create('invite', {
   description: 'Manage organization invites (accept, create, list, revoke)',
