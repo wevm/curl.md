@@ -1,5 +1,5 @@
 import { createMessageBatch, env } from 'cloudflare:test'
-import { expect, test } from 'vitest'
+import { afterAll, expect, test } from 'vitest'
 import { getDb } from '#lib/db.ts'
 import * as Nanoid from '#lib/nanoid.ts'
 import { processRequestMessage } from '#queues/request.ts'
@@ -7,6 +7,8 @@ import { createFactory } from '../../test/factory.ts'
 
 const db = getDb(env.DB.connectionString, { max: 1 })
 const factory = createFactory(db)
+
+afterAll(() => db.destroy())
 
 test('inserts request record', async () => {
   const batch = createMessageBatch<processRequestMessage.Body>(

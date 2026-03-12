@@ -669,17 +669,29 @@ export const api = new Hono<{
       const org = await c.var.db
         .selectFrom('organization')
         .where('id', '=', orgId)
-        .select('balance_mills')
+        .select(['balance_mills', 'stripe_customer_id'])
         .executeTakeFirst()
-      return c.json({ balance_mills: org?.balance_mills ?? 0 }, 200)
+      return c.json(
+        {
+          balance_mills: org?.balance_mills ?? 0,
+          payment_method: await getPaymentMethod(c, org?.stripe_customer_id),
+        },
+        200,
+      )
     }
 
     const account = await c.var.db
       .selectFrom('account')
       .where('id', '=', c.var.session.account_id)
-      .select('balance_mills')
+      .select(['balance_mills', 'stripe_customer_id'])
       .executeTakeFirst()
-    return c.json({ balance_mills: account?.balance_mills ?? 0 }, 200)
+    return c.json(
+      {
+        balance_mills: account?.balance_mills ?? 0,
+        payment_method: await getPaymentMethod(c, account?.stripe_customer_id),
+      },
+      200,
+    )
   })
   .post(
     '/api/credits/add',
@@ -687,7 +699,9 @@ export const api = new Hono<{
       'json',
       z.object({
         amount: z.enum(['500', '1000', '2000', '5000']),
+        locked: z.boolean().optional(),
         organization_id: z.string().optional(),
+        save: z.boolean().optional(),
       }),
     ),
     async (c) => {
@@ -769,40 +783,175 @@ export const api = new Hono<{
 
       if (!stripeCustomerId) return c.json({ error: 'not_found' }, 404)
 
-      const session = await stripe.checkout.sessions.create({
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount,
+        currency: 'usd',
         customer: stripeCustomerId,
-        line_items: [
-          {
-            price_data: {
-              currency: 'usd',
-              product_data: { name: `${amount} credits` },
-              unit_amount: amount,
-            },
-            quantity: 1,
-          },
-        ],
         metadata: { entity_type: entityType, entity_id: entityId },
-        mode: 'payment',
-        success_url: `https://${c.env.HOST}`,
-        cancel_url: `https://${c.env.HOST}`,
+        ...(json.save ? { setup_future_usage: 'off_session' } : {}),
       })
 
-      return c.json({ url: session.url, checkout_id: session.id }, 200)
+      const customerSession = await stripe.customerSessions.create({
+        components: {
+          payment_element: {
+            enabled: true,
+            features: {
+              payment_method_redisplay: 'enabled',
+              payment_method_remove: 'disabled',
+              payment_method_save: 'enabled',
+              payment_method_save_usage: 'off_session',
+            },
+          },
+        },
+        customer: stripeCustomerId,
+      })
+
+      const paymentId = Nanoid.generate()
+      await c.env.KV.put(
+        `payment:${paymentId}`,
+        JSON.stringify({
+          amount,
+          cs_secret: customerSession.client_secret,
+          locked: json.locked ?? false,
+          pi_secret: paymentIntent.client_secret,
+          publishable_key: c.env.STRIPE_PUBLISHABLE_KEY,
+        }),
+        { expirationTtl: 1800 },
+      )
+
+      return c.json(
+        {
+          url: `https://${c.env.HOST}/credits/add/${paymentId}`,
+          payment_id: paymentId,
+        },
+        200,
+      )
     },
   )
-  .get('/api/credits/checkout/:id', async (c) => {
-    if (!c.var.session) return c.json({ error: 'unauthorized' }, 401)
+  .post(
+    '/api/credits/charge',
+    validator(
+      'json',
+      z.object({
+        amount: z.enum(['500', '1000', '2000', '5000']),
+        organization_id: z.string().optional(),
+      }),
+    ),
+    async (c) => {
+      if (narrowValidation) return validationError(c)
+      if (!c.var.session) return c.json({ error: 'unauthorized' }, 401)
 
-    const { default: Stripe } = await import('stripe')
-    const stripe = new Stripe(c.env.STRIPE_SECRET_KEY)
+      const json = c.req.valid('json')
+      const amount = Number(json.amount)
 
-    try {
-      const session = await stripe.checkout.sessions.retrieve(c.req.param('id'))
-      return c.json({ status: session.status }, 200)
-    } catch {
-      return c.json({ error: 'not_found' }, 404)
-    }
-  })
+      let stripeCustomerId: string | null = null
+      let entityId: string
+      let entityType: 'account' | 'organization'
+
+      if (json.organization_id) {
+        const member = await c.var.db
+          .selectFrom('organization_member')
+          .where('organization_id', '=', json.organization_id)
+          .where('account_id', '=', c.var.session.account_id)
+          .select('role')
+          .executeTakeFirst()
+        if (!member) return c.json({ error: 'organization_access_denied' }, 403)
+        if (member.role !== 'owner' && member.role !== 'admin')
+          return c.json({ error: 'organization_access_denied' }, 403)
+
+        const org = await c.var.db
+          .selectFrom('organization')
+          .where('id', '=', json.organization_id)
+          .select('stripe_customer_id')
+          .executeTakeFirst()
+        if (!org) return c.json({ error: 'not_found' }, 404)
+
+        stripeCustomerId = org.stripe_customer_id
+        entityId = json.organization_id
+        entityType = 'organization'
+      } else {
+        const account = await c.var.db
+          .selectFrom('account')
+          .where('id', '=', c.var.session.account_id)
+          .select('stripe_customer_id')
+          .executeTakeFirst()
+        if (!account) return c.json({ error: 'not_found' }, 404)
+
+        stripeCustomerId = account.stripe_customer_id
+        entityId = c.var.session.account_id
+        entityType = 'account'
+      }
+
+      if (!stripeCustomerId) return c.json({ error: 'no_payment_method' }, 400)
+
+      const { default: Stripe } = await import('stripe')
+      const stripe = new Stripe(c.env.STRIPE_SECRET_KEY)
+
+      const methods = await stripe.paymentMethods.list({
+        customer: stripeCustomerId,
+        type: 'card',
+        limit: 1,
+      })
+      if (!methods.data[0]) return c.json({ error: 'no_payment_method' }, 400)
+
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount,
+        confirm: true,
+        currency: 'usd',
+        customer: stripeCustomerId,
+        metadata: { entity_type: entityType, entity_id: entityId },
+        off_session: true,
+        payment_method: methods.data[0].id,
+      })
+
+      if (paymentIntent.status === 'succeeded')
+        return c.json(
+          { payment_id: paymentIntent.id, status: 'succeeded' },
+          200,
+        )
+
+      if (paymentIntent.status === 'requires_action') {
+        const customerSession = await stripe.customerSessions.create({
+          components: {
+            payment_element: {
+              enabled: true,
+              features: {
+                payment_method_redisplay: 'enabled',
+                payment_method_remove: 'disabled',
+                payment_method_save: 'enabled',
+                payment_method_save_usage: 'off_session',
+              },
+            },
+          },
+          customer: stripeCustomerId,
+        })
+
+        const paymentId = Nanoid.generate()
+        await c.env.KV.put(
+          `payment:${paymentId}`,
+          JSON.stringify({
+            amount,
+            cs_secret: customerSession.client_secret,
+            locked: true,
+            pi_secret: paymentIntent.client_secret,
+            publishable_key: c.env.STRIPE_PUBLISHABLE_KEY,
+          }),
+          { expirationTtl: 1800 },
+        )
+
+        return c.json(
+          {
+            payment_id: paymentId,
+            status: 'requires_action',
+            url: `https://${c.env.HOST}/credits/add/${paymentId}`,
+          },
+          200,
+        )
+      }
+
+      return c.json({ error: 'payment_failed' }, 400)
+    },
+  )
   .get('/api/health', (c) => c.json({ ok: true }, 200))
   .get('/api/stats', async (c) => {
     try {
@@ -1438,18 +1587,20 @@ export const api = new Hono<{
     }
 
     switch (event.type) {
-      case 'checkout.session.completed': {
-        const session = event.data
-          .object as import('stripe').Stripe.Checkout.Session
+      case 'payment_intent.succeeded': {
+        const paymentIntent = event.data
+          .object as import('stripe').Stripe.PaymentIntent
         const customer =
-          typeof session.customer === 'string' ? session.customer : null
-        if (customer && session.amount_total)
+          typeof paymentIntent.customer === 'string'
+            ? paymentIntent.customer
+            : null
+        if (customer && paymentIntent.amount)
           await c.env.STRIPE_WEBHOOK_QUEUE.send({
             type: event.type,
             data: {
-              amount_total: session.amount_total,
+              amount_total: paymentIntent.amount,
               customer,
-              id: session.id,
+              id: paymentIntent.id,
             },
           })
         break
@@ -1864,3 +2015,22 @@ export const api = new Hono<{
       })
     },
   )
+
+async function getPaymentMethod(
+  c: { env: Cloudflare.Env },
+  stripeCustomerId: string | null | undefined,
+): Promise<{ brand: string; last4: string } | null> {
+  if (!stripeCustomerId) return null
+  const { default: Stripe } = await import('stripe')
+  const stripe = new Stripe(c.env.STRIPE_SECRET_KEY)
+  const methods = await stripe.paymentMethods.list({
+    customer: stripeCustomerId,
+    type: 'card',
+    limit: 1,
+  })
+  if (!methods.data[0]?.card) return null
+  return {
+    brand: methods.data[0].card.brand,
+    last4: methods.data[0].card.last4,
+  }
+}

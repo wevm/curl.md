@@ -663,7 +663,7 @@ describe('credits', () => {
     expect(output).toContain('NOT_AUTHENTICATED')
   })
 
-  test('add - full flow', async () => {
+  test('add - browser flow (no saved card)', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
     Session.write({ session_id: session.id })
@@ -671,41 +671,37 @@ describe('credits', () => {
     const openUrlSpy = vi.spyOn(utils, 'openUrl').mockImplementation(() => {})
     const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
-    let callCount = 0
+    let creditsCallCount = 0
     const originalFetch = globalThis.fetch
     globalThis.fetch = async (input, init) => {
       const url = input.toString()
 
-      // 1) POST /api/credits/add → return mock checkout URL + id
-      if (url.includes('/api/credits/add') && init?.method === 'POST')
+      // GET /api/credits — first call: no saved card, subsequent: updated balance
+      if (
+        url.includes('/api/credits') &&
+        !url.includes('/add') &&
+        !url.includes('/charge') &&
+        !url.includes('/payment')
+      ) {
+        creditsCallCount++
         return new Response(
           JSON.stringify({
-            url: 'https://checkout.stripe.com/test_session',
-            checkout_id: 'cs_test_123',
+            balance_mills: creditsCallCount <= 1 ? 0 : 10_000,
+            payment_method: null,
           }),
           { status: 200, headers: { 'content-type': 'application/json' } },
         )
-
-      // 2) GET /api/credits/checkout/:id → return 'complete'
-      if (url.includes('/api/credits/checkout/cs_test_123'))
-        return new Response(JSON.stringify({ status: 'complete' }), {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        })
-
-      // 3) GET /api/credits → first call returns initial balance, subsequent returns updated
-      if (
-        url.includes('/api/credits') &&
-        !url.includes('checkout') &&
-        !url.includes('add')
-      ) {
-        callCount++
-        const balance_mills = callCount <= 1 ? 0 : 10_000
-        return new Response(JSON.stringify({ balance_mills }), {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        })
       }
+
+      // POST /api/credits/add
+      if (url.includes('/api/credits/add') && init?.method === 'POST')
+        return new Response(
+          JSON.stringify({
+            url: 'https://curl.local/credits/add/pay_test',
+            payment_id: 'pay_test',
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        )
 
       return originalFetch(input, init)
     }
@@ -718,10 +714,181 @@ describe('credits', () => {
 
     const { output } = await serve(['credits', 'add', '1000'])
     expect(openUrlSpy).toHaveBeenCalledWith(
-      'https://checkout.stripe.com/test_session',
+      'https://curl.local/credits/add/pay_test',
     )
     expect(output).toContain('Credits added')
     expect(output).toContain('$10.000')
+  })
+
+  test('add - charges saved card', async () => {
+    const account = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: account.id })
+    Session.write({ session_id: session.id })
+
+    const selectSpy = vi.spyOn(utils, 'select').mockResolvedValue(0)
+    const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    let creditsCallCount = 0
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = async (input, init) => {
+      const url = input.toString()
+
+      // GET /api/credits
+      if (
+        url.includes('/api/credits') &&
+        !url.includes('/add') &&
+        !url.includes('/charge') &&
+        !url.includes('/payment')
+      ) {
+        creditsCallCount++
+        return new Response(
+          JSON.stringify({
+            balance_mills: creditsCallCount <= 1 ? 5_000 : 15_000,
+            payment_method: { brand: 'visa', last4: '4242' },
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        )
+      }
+
+      // POST /api/credits/charge
+      if (url.includes('/api/credits/charge') && init?.method === 'POST')
+        return new Response(
+          JSON.stringify({ payment_id: 'pi_test', status: 'succeeded' }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        )
+
+      return originalFetch(input, init)
+    }
+
+    onTestFinished(() => {
+      selectSpy.mockRestore()
+      consoleLogSpy.mockRestore()
+      globalThis.fetch = originalFetch
+    })
+
+    const { output } = await serve(['credits', 'add', '1000'])
+    expect(selectSpy).toHaveBeenCalled()
+    expect(output).toContain('Credits added')
+    expect(output).toContain('$15.000')
+  })
+
+  test('add - falls back to browser on requires_action', async () => {
+    const account = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: account.id })
+    Session.write({ session_id: session.id })
+
+    const selectSpy = vi.spyOn(utils, 'select').mockResolvedValue(0)
+    const openUrlSpy = vi.spyOn(utils, 'openUrl').mockImplementation(() => {})
+    const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    let creditsCallCount = 0
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = async (input, init) => {
+      const url = input.toString()
+
+      // GET /api/credits
+      if (
+        url.includes('/api/credits') &&
+        !url.includes('/add') &&
+        !url.includes('/charge') &&
+        !url.includes('/payment')
+      ) {
+        creditsCallCount++
+        return new Response(
+          JSON.stringify({
+            balance_mills: creditsCallCount <= 1 ? 5_000 : 15_000,
+            payment_method: { brand: 'visa', last4: '4242' },
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        )
+      }
+
+      // POST /api/credits/charge → requires_action
+      if (url.includes('/api/credits/charge') && init?.method === 'POST')
+        return new Response(
+          JSON.stringify({
+            payment_id: 'pay_3ds',
+            status: 'requires_action',
+            url: 'https://curl.local/credits/add/pay_3ds',
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        )
+
+      return originalFetch(input, init)
+    }
+
+    onTestFinished(() => {
+      selectSpy.mockRestore()
+      openUrlSpy.mockRestore()
+      consoleLogSpy.mockRestore()
+      globalThis.fetch = originalFetch
+    })
+
+    const { output } = await serve(['credits', 'add', '1000'])
+    expect(openUrlSpy).toHaveBeenCalledWith(
+      'https://curl.local/credits/add/pay_3ds',
+    )
+    expect(output).toContain('Credits added')
+    expect(output).toContain('$15.000')
+  })
+
+  test('add - user selects new payment method', async () => {
+    const account = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: account.id })
+    Session.write({ session_id: session.id })
+
+    const selectSpy = vi.spyOn(utils, 'select').mockResolvedValue(1)
+    const openUrlSpy = vi.spyOn(utils, 'openUrl').mockImplementation(() => {})
+    const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    let creditsCallCount = 0
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = async (input, init) => {
+      const url = input.toString()
+
+      // GET /api/credits
+      if (
+        url.includes('/api/credits') &&
+        !url.includes('/add') &&
+        !url.includes('/charge') &&
+        !url.includes('/payment')
+      ) {
+        creditsCallCount++
+        return new Response(
+          JSON.stringify({
+            balance_mills: creditsCallCount <= 1 ? 5_000 : 15_000,
+            payment_method: { brand: 'visa', last4: '4242' },
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        )
+      }
+
+      // POST /api/credits/add
+      if (url.includes('/api/credits/add') && init?.method === 'POST')
+        return new Response(
+          JSON.stringify({
+            url: 'https://curl.local/credits/add/pay_new',
+            payment_id: 'pay_new',
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        )
+
+      return originalFetch(input, init)
+    }
+
+    onTestFinished(() => {
+      selectSpy.mockRestore()
+      openUrlSpy.mockRestore()
+      consoleLogSpy.mockRestore()
+      globalThis.fetch = originalFetch
+    })
+
+    const { output } = await serve(['credits', 'add', '1000'])
+    expect(openUrlSpy).toHaveBeenCalledWith(
+      'https://curl.local/credits/add/pay_new',
+    )
+    expect(output).toContain('Credits added')
+    expect(output).toContain('$15.000')
   })
 
   test('add - expired session deletes session', async () => {

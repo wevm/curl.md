@@ -1,5 +1,5 @@
 import { createMessageBatch, env } from 'cloudflare:test'
-import { expect, test } from 'vitest'
+import { afterAll, expect, test } from 'vitest'
 import { getDb } from '#lib/db.ts'
 import { processStripeWebhookMessage } from '#queues/stripe-webhook.ts'
 import { createFactory } from '../../test/factory.ts'
@@ -7,9 +7,11 @@ import { createFactory } from '../../test/factory.ts'
 const db = getDb(env.DB.connectionString, { max: 1 })
 const factory = createFactory(db)
 
-test('processes checkout.session.completed for account', async () => {
+afterAll(() => db.destroy())
+
+test('processes payment_intent.succeeded for account', async () => {
   const customerId = `cus_${crypto.randomUUID()}`
-  const sessionId = `cs_${crypto.randomUUID()}`
+  const sessionId = `pi_${crypto.randomUUID()}`
   const account = await factory.account.insert({})
   await db
     .updateTable('account')
@@ -23,7 +25,7 @@ test('processes checkout.session.completed for account', async () => {
       {
         attempts: 1,
         body: {
-          type: 'checkout.session.completed',
+          type: 'payment_intent.succeeded',
           data: { customer: customerId, amount_total: 2000, id: sessionId },
         },
         id: crypto.randomUUID(),
@@ -51,9 +53,9 @@ test('processes checkout.session.completed for account', async () => {
   expect(tx.account_id).toBe(account.id)
 })
 
-test('processes checkout.session.completed for organization', async () => {
+test('processes payment_intent.succeeded for organization', async () => {
   const customerId = `cus_${crypto.randomUUID()}`
-  const sessionId = `cs_${crypto.randomUUID()}`
+  const sessionId = `pi_${crypto.randomUUID()}`
   const account = await factory.account.insert({})
   const org = await factory.organization.insert({})
   await factory.organization_member.insert({
@@ -73,7 +75,7 @@ test('processes checkout.session.completed for organization', async () => {
       {
         attempts: 1,
         body: {
-          type: 'checkout.session.completed',
+          type: 'payment_intent.succeeded',
           data: { customer: customerId, amount_total: 5000, id: sessionId },
         },
         id: crypto.randomUUID(),
@@ -103,7 +105,7 @@ test('processes checkout.session.completed for organization', async () => {
 
 test('idempotency - same session processed twice', async () => {
   const customerId = `cus_${crypto.randomUUID()}`
-  const sessionId = `cs_${crypto.randomUUID()}`
+  const sessionId = `pi_${crypto.randomUUID()}`
   const account = await factory.account.insert({})
   await db
     .updateTable('account')
@@ -112,7 +114,7 @@ test('idempotency - same session processed twice', async () => {
     .execute()
 
   const makeBody = () => ({
-    type: 'checkout.session.completed' as const,
+    type: 'payment_intent.succeeded' as const,
     data: { customer: customerId, amount_total: 3000, id: sessionId },
   })
 
@@ -481,14 +483,14 @@ test('refund with zero balance records zero deduction', async () => {
 })
 
 test('ignores missing customer', async () => {
-  const sessionId = `cs_${crypto.randomUUID()}`
+  const sessionId = `pi_${crypto.randomUUID()}`
   const batch = createMessageBatch<processStripeWebhookMessage.Body>(
     processStripeWebhookMessage.queueName,
     [
       {
         attempts: 1,
         body: {
-          type: 'checkout.session.completed',
+          type: 'payment_intent.succeeded',
           data: { customer: null, amount_total: 1000, id: sessionId },
         },
         id: crypto.randomUUID(),
@@ -507,14 +509,14 @@ test('ignores missing customer', async () => {
 })
 
 test('ignores unknown customer', async () => {
-  const sessionId = `cs_${crypto.randomUUID()}`
+  const sessionId = `pi_${crypto.randomUUID()}`
   const batch = createMessageBatch<processStripeWebhookMessage.Body>(
     processStripeWebhookMessage.queueName,
     [
       {
         attempts: 1,
         body: {
-          type: 'checkout.session.completed',
+          type: 'payment_intent.succeeded',
           data: {
             customer: `cus_unknown_${crypto.randomUUID()}`,
             amount_total: 1000,

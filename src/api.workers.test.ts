@@ -1,7 +1,7 @@
 import { env, fetchMock } from 'cloudflare:test'
 import { testClient } from 'hono/testing'
 import { Kysely } from 'kysely'
-import { afterEach, describe, expect, test, vi } from 'vitest'
+import { afterAll, afterEach, describe, expect, test, vi } from 'vitest'
 import { api } from '#api.ts'
 import * as ApiKey from '#lib/api-key.ts'
 import { assert } from '#lib/assert.ts'
@@ -22,6 +22,8 @@ const db = new Kysely<DB>({
   dialect: dialect(env.DB.connectionString, { max: 1 }),
 })
 const factory = createFactory(db)
+
+afterAll(() => db.destroy())
 
 describe('GET /api/auth/github', () => {
   test('redirects to GitHub', async () => {
@@ -621,7 +623,10 @@ describe('GET /api/credits', () => {
       },
     )
     expect(res.status).toBe(200)
-    await expect(res.json()).resolves.toEqual({ balance_mills: 50000 })
+    await expect(res.json()).resolves.toEqual({
+      balance_mills: 50000,
+      payment_method: null,
+    })
   })
 
   test('returns organization balance', async () => {
@@ -653,7 +658,99 @@ describe('GET /api/credits', () => {
       },
     )
     expect(res.status).toBe(200)
-    await expect(res.json()).resolves.toEqual({ balance_mills: 30000 })
+    await expect(res.json()).resolves.toEqual({
+      balance_mills: 30000,
+      payment_method: null,
+    })
+  })
+
+  test('returns balance with payment_method when card exists', async () => {
+    const account = await factory.account.insert({})
+    await db
+      .updateTable('account')
+      .set({ stripe_customer_id: 'cus_test_pm' })
+      .where('id', '=', account.id)
+      .execute()
+    const session = await factory.session.insert({ account_id: account.id })
+
+    fetchMock
+      .get('https://api.stripe.com')
+      .intercept({
+        method: 'GET',
+        path: '/v1/payment_methods?customer=cus_test_pm&type=card&limit=1',
+      })
+      .reply(
+        200,
+        {
+          object: 'list',
+          data: [
+            {
+              id: 'pm_test',
+              object: 'payment_method',
+              card: { brand: 'visa', last4: '4242' },
+            },
+          ],
+        },
+        { headers: { 'content-type': 'application/json' } },
+      )
+
+    const res = await client.api.credits.$get(
+      {},
+      {
+        headers: {
+          Cookie: await Cookie.generateSigned(
+            'curl.session',
+            session.id,
+            env.COOKIE_SECRET,
+          ),
+        },
+      },
+    )
+    expect(res.status).toBe(200)
+    await expect(res.json()).resolves.toEqual({
+      balance_mills: 0,
+      payment_method: { brand: 'visa', last4: '4242' },
+    })
+  })
+
+  test('returns balance with null payment_method when no cards on file', async () => {
+    const account = await factory.account.insert({})
+    await db
+      .updateTable('account')
+      .set({ stripe_customer_id: 'cus_test_empty' })
+      .where('id', '=', account.id)
+      .execute()
+    const session = await factory.session.insert({ account_id: account.id })
+
+    fetchMock
+      .get('https://api.stripe.com')
+      .intercept({
+        method: 'GET',
+        path: '/v1/payment_methods?customer=cus_test_empty&type=card&limit=1',
+      })
+      .reply(
+        200,
+        { object: 'list', data: [] },
+        { headers: { 'content-type': 'application/json' } },
+      )
+
+    const res = await client.api.credits.$get(
+      {},
+      {
+        headers: {
+          Cookie: await Cookie.generateSigned(
+            'curl.session',
+            session.id,
+            env.COOKIE_SECRET,
+          ),
+        },
+      },
+    )
+    expect(res.status).toBe(200)
+    await expect(res.json()).resolves.toEqual({
+      balance_mills: 0,
+      payment_method: null,
+    })
   })
 })
 
@@ -665,7 +762,7 @@ describe('POST /api/credits/add', () => {
     expect(res.status).toBe(401)
   })
 
-  test('creates checkout session for account', async () => {
+  test('creates payment intent for account', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
 
@@ -679,14 +776,22 @@ describe('POST /api/credits/add', () => {
       )
     fetchMock
       .get('https://api.stripe.com')
-      .intercept({ method: 'POST', path: '/v1/checkout/sessions' })
+      .intercept({ method: 'POST', path: '/v1/payment_intents' })
       .reply(
         200,
         {
-          id: 'cs_test_123',
-          object: 'checkout.session',
-          url: 'https://checkout.stripe.com/pay/cs_test_123',
+          id: 'pi_test_123',
+          object: 'payment_intent',
+          client_secret: 'pi_test_123_secret',
         },
+        { headers: { 'content-type': 'application/json' } },
+      )
+    fetchMock
+      .get('https://api.stripe.com')
+      .intercept({ method: 'POST', path: '/v1/customer_sessions' })
+      .reply(
+        200,
+        { client_secret: 'cs_session_test_123', object: 'customer_session' },
         { headers: { 'content-type': 'application/json' } },
       )
 
@@ -703,10 +808,13 @@ describe('POST /api/credits/add', () => {
       },
     )
     expect(res.status).toBe(200)
-    await expect(res.json()).resolves.toEqual({
-      url: 'https://checkout.stripe.com/pay/cs_test_123',
-      checkout_id: 'cs_test_123',
-    })
+    const json = await res.json()
+    assert('payment_id' in json, 'expected payment_id')
+    expect(json.payment_id).toEqual(expect.any(String))
+    expect(json.url).toMatch(/^https:\/\/curl\.local\/credits\/add\//)
+
+    const kvData = await env.KV.get(`payment:${json.payment_id}`, 'json')
+    expect(kvData).toBeTruthy()
 
     const updated = await db
       .selectFrom('account')
@@ -714,6 +822,55 @@ describe('POST /api/credits/add', () => {
       .select('stripe_customer_id')
       .executeTakeFirstOrThrow()
     expect(updated.stripe_customer_id).toBe('cus_test_123')
+  })
+
+  test('creates payment intent with save flag', async () => {
+    const account = await factory.account.insert({})
+    await db
+      .updateTable('account')
+      .set({ stripe_customer_id: 'cus_save_test' })
+      .where('id', '=', account.id)
+      .execute()
+    const session = await factory.session.insert({ account_id: account.id })
+
+    fetchMock
+      .get('https://api.stripe.com')
+      .intercept({ method: 'POST', path: '/v1/payment_intents' })
+      .reply(
+        200,
+        {
+          id: 'pi_save_123',
+          object: 'payment_intent',
+          client_secret: 'pi_save_123_secret',
+        },
+        { headers: { 'content-type': 'application/json' } },
+      )
+    fetchMock
+      .get('https://api.stripe.com')
+      .intercept({ method: 'POST', path: '/v1/customer_sessions' })
+      .reply(
+        200,
+        { client_secret: 'cs_save_session_123', object: 'customer_session' },
+        { headers: { 'content-type': 'application/json' } },
+      )
+
+    const res = await client.api.credits.add.$post(
+      { json: { amount: '1000', save: true } },
+      {
+        headers: {
+          Cookie: await Cookie.generateSigned(
+            'curl.session',
+            session.id,
+            env.COOKIE_SECRET,
+          ),
+        },
+      },
+    )
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    assert('payment_id' in json, 'expected payment_id')
+    expect(json.payment_id).toEqual(expect.any(String))
+    expect(json.url).toMatch(/^https:\/\/curl\.local\/credits\/add\//)
   })
 
   test('returns 403 for org when not owner/admin', async () => {
@@ -727,6 +884,218 @@ describe('POST /api/credits/add', () => {
     })
 
     const res = await client.api.credits.add.$post(
+      { json: { amount: '500', organization_id: org.id } },
+      {
+        headers: {
+          Cookie: await Cookie.generateSigned(
+            'curl.session',
+            session.id,
+            env.COOKIE_SECRET,
+          ),
+        },
+      },
+    )
+    expect(res.status).toBe(403)
+  })
+})
+
+describe('POST /api/credits/charge', () => {
+  test('returns 401 when unauthenticated', async () => {
+    const res = await client.api.credits.charge.$post({
+      json: { amount: '1000' },
+    })
+    expect(res.status).toBe(401)
+  })
+
+  test('returns 400 when no stripe customer', async () => {
+    const account = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: account.id })
+
+    const res = await client.api.credits.charge.$post(
+      { json: { amount: '1000' } },
+      {
+        headers: {
+          Cookie: await Cookie.generateSigned(
+            'curl.session',
+            session.id,
+            env.COOKIE_SECRET,
+          ),
+        },
+      },
+    )
+    expect(res.status).toBe(400)
+    await expect(res.json()).resolves.toEqual({ error: 'no_payment_method' })
+  })
+
+  test('returns 400 when no payment methods on file', async () => {
+    const account = await factory.account.insert({})
+    await db
+      .updateTable('account')
+      .set({ stripe_customer_id: 'cus_test_no_cards' })
+      .where('id', '=', account.id)
+      .execute()
+    const session = await factory.session.insert({ account_id: account.id })
+
+    fetchMock
+      .get('https://api.stripe.com')
+      .intercept({
+        method: 'GET',
+        path: '/v1/payment_methods?customer=cus_test_no_cards&type=card&limit=1',
+      })
+      .reply(
+        200,
+        { data: [], object: 'list' },
+        { headers: { 'content-type': 'application/json' } },
+      )
+
+    const res = await client.api.credits.charge.$post(
+      { json: { amount: '1000' } },
+      {
+        headers: {
+          Cookie: await Cookie.generateSigned(
+            'curl.session',
+            session.id,
+            env.COOKIE_SECRET,
+          ),
+        },
+      },
+    )
+    expect(res.status).toBe(400)
+    await expect(res.json()).resolves.toEqual({ error: 'no_payment_method' })
+  })
+
+  test('charges saved card successfully', async () => {
+    const account = await factory.account.insert({})
+    await db
+      .updateTable('account')
+      .set({ stripe_customer_id: 'cus_test_charge' })
+      .where('id', '=', account.id)
+      .execute()
+    const session = await factory.session.insert({ account_id: account.id })
+
+    fetchMock
+      .get('https://api.stripe.com')
+      .intercept({
+        method: 'GET',
+        path: '/v1/payment_methods?customer=cus_test_charge&type=card&limit=1',
+      })
+      .reply(
+        200,
+        {
+          data: [{ id: 'pm_test', card: { brand: 'visa', last4: '4242' } }],
+          object: 'list',
+        },
+        { headers: { 'content-type': 'application/json' } },
+      )
+    fetchMock
+      .get('https://api.stripe.com')
+      .intercept({ method: 'POST', path: '/v1/payment_intents' })
+      .reply(
+        200,
+        { id: 'pi_charge_test', status: 'succeeded', object: 'payment_intent' },
+        { headers: { 'content-type': 'application/json' } },
+      )
+
+    const res = await client.api.credits.charge.$post(
+      { json: { amount: '1000' } },
+      {
+        headers: {
+          Cookie: await Cookie.generateSigned(
+            'curl.session',
+            session.id,
+            env.COOKIE_SECRET,
+          ),
+        },
+      },
+    )
+    expect(res.status).toBe(200)
+    await expect(res.json()).resolves.toEqual({
+      payment_id: 'pi_charge_test',
+      status: 'succeeded',
+    })
+  })
+
+  test('returns requires_action with fallback URL when 3DS required', async () => {
+    const account = await factory.account.insert({})
+    await db
+      .updateTable('account')
+      .set({ stripe_customer_id: 'cus_test_3ds' })
+      .where('id', '=', account.id)
+      .execute()
+    const session = await factory.session.insert({ account_id: account.id })
+
+    fetchMock
+      .get('https://api.stripe.com')
+      .intercept({
+        method: 'GET',
+        path: '/v1/payment_methods?customer=cus_test_3ds&type=card&limit=1',
+      })
+      .reply(
+        200,
+        {
+          data: [{ id: 'pm_3ds', card: { brand: 'visa', last4: '4242' } }],
+          object: 'list',
+        },
+        { headers: { 'content-type': 'application/json' } },
+      )
+    fetchMock
+      .get('https://api.stripe.com')
+      .intercept({ method: 'POST', path: '/v1/payment_intents' })
+      .reply(
+        200,
+        {
+          id: 'pi_3ds_test',
+          status: 'requires_action',
+          client_secret: 'pi_3ds_secret',
+          object: 'payment_intent',
+        },
+        { headers: { 'content-type': 'application/json' } },
+      )
+    fetchMock
+      .get('https://api.stripe.com')
+      .intercept({ method: 'POST', path: '/v1/customer_sessions' })
+      .reply(
+        200,
+        { client_secret: 'cs_3ds_session', object: 'customer_session' },
+        { headers: { 'content-type': 'application/json' } },
+      )
+
+    const res = await client.api.credits.charge.$post(
+      { json: { amount: '1000' } },
+      {
+        headers: {
+          Cookie: await Cookie.generateSigned(
+            'curl.session',
+            session.id,
+            env.COOKIE_SECRET,
+          ),
+        },
+      },
+    )
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    assert('payment_id' in json, 'expected payment_id')
+    expect(json).toEqual({
+      payment_id: expect.any(String),
+      status: 'requires_action',
+      url: expect.stringContaining('/credits/add/'),
+    })
+
+    const kvData = await env.KV.get(`payment:${json.payment_id}`, 'json')
+    expect(kvData).toBeTruthy()
+  })
+
+  test('returns 403 for org when not owner/admin', async () => {
+    const account = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: account.id })
+    const org = await factory.organization.insert({})
+    await factory.organization_member.insert({
+      organization_id: org.id,
+      account_id: account.id,
+      role: 'member',
+    })
+
+    const res = await client.api.credits.charge.$post(
       { json: { amount: '500', organization_id: org.id } },
       {
         headers: {

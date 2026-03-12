@@ -12,7 +12,14 @@ type FirstSegment<path> = path extends `/${infer segment}`
 type KnownRoute = FirstSegment<keyof FileRoutesByTo>
 
 test('knownRoutes is exhaustive', () => {
-  const expected = ['', 'auth', 'invite', 'login', 'playground'] as const
+  const expected = [
+    '',
+    'auth',
+    'credits',
+    'invite',
+    'login',
+    'playground',
+  ] as const
   true satisfies Exclude<KnownRoute, (typeof expected)[number]> extends never
     ? true
     : Exclude<KnownRoute, (typeof expected)[number]>

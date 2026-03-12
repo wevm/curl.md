@@ -14,12 +14,22 @@ export namespace KV {
     | (key extends `ratelimit:${string}`
         ? { count: number; reset: number }
         : never)
+    | (key extends `payment:${string}`
+        ? {
+            amount: number
+            cs_secret: string
+            locked: boolean
+            pi_secret: string
+            publishable_key: string
+          }
+        : never)
     | (key extends `session:${string}` ? string : never)
 
   export type Key =
     | `balance:${string}`
     | 'cli:latest'
     | `page:${string}`
+    | `payment:${string}`
     | `query:${string}`
     | `ratelimit:${string}`
     | `session:${string}`

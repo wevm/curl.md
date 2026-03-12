@@ -17,6 +17,7 @@ import { Route as AuthErrorRouteImport } from './routes/auth/error'
 import { Route as AuthDeviceRouteImport } from './routes/auth/device'
 import { Route as Char126dashLoginRouteRouteImport } from './routes/~dash.$login/route'
 import { Route as Char126dashLoginIndexRouteImport } from './routes/~dash.$login/index'
+import { Route as CreditsAddIdRouteImport } from './routes/credits.add.$id'
 
 const PlaygroundRoute = PlaygroundRouteImport.update({
   id: '/playground',
@@ -58,6 +59,11 @@ const Char126dashLoginIndexRoute = Char126dashLoginIndexRouteImport.update({
   path: '/',
   getParentRoute: () => Char126dashLoginRouteRoute,
 } as any)
+const CreditsAddIdRoute = CreditsAddIdRouteImport.update({
+  id: '/credits/add/$id',
+  path: '/credits/add/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -67,6 +73,7 @@ export interface FileRoutesByFullPath {
   '/auth/device': typeof AuthDeviceRoute
   '/auth/error': typeof AuthErrorRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/credits/add/$id': typeof CreditsAddIdRoute
   '/~dash/$login/': typeof Char126dashLoginIndexRoute
 }
 export interface FileRoutesByTo {
@@ -76,6 +83,7 @@ export interface FileRoutesByTo {
   '/auth/device': typeof AuthDeviceRoute
   '/auth/error': typeof AuthErrorRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/credits/add/$id': typeof CreditsAddIdRoute
   '/~dash/$login': typeof Char126dashLoginIndexRoute
 }
 export interface FileRoutesById {
@@ -87,6 +95,7 @@ export interface FileRoutesById {
   '/auth/device': typeof AuthDeviceRoute
   '/auth/error': typeof AuthErrorRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/credits/add/$id': typeof CreditsAddIdRoute
   '/~dash/$login/': typeof Char126dashLoginIndexRoute
 }
 export interface FileRouteTypes {
@@ -99,6 +108,7 @@ export interface FileRouteTypes {
     | '/auth/device'
     | '/auth/error'
     | '/invite/$token'
+    | '/credits/add/$id'
     | '/~dash/$login/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -108,6 +118,7 @@ export interface FileRouteTypes {
     | '/auth/device'
     | '/auth/error'
     | '/invite/$token'
+    | '/credits/add/$id'
     | '/~dash/$login'
   id:
     | '__root__'
@@ -118,6 +129,7 @@ export interface FileRouteTypes {
     | '/auth/device'
     | '/auth/error'
     | '/invite/$token'
+    | '/credits/add/$id'
     | '/~dash/$login/'
   fileRoutesById: FileRoutesById
 }
@@ -129,6 +141,7 @@ export interface RootRouteChildren {
   AuthDeviceRoute: typeof AuthDeviceRoute
   AuthErrorRoute: typeof AuthErrorRoute
   InviteTokenRoute: typeof InviteTokenRoute
+  CreditsAddIdRoute: typeof CreditsAddIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -189,6 +202,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof Char126dashLoginIndexRouteImport
       parentRoute: typeof Char126dashLoginRouteRoute
     }
+    '/credits/add/$id': {
+      id: '/credits/add/$id'
+      path: '/credits/add/$id'
+      fullPath: '/credits/add/$id'
+      preLoaderRoute: typeof CreditsAddIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -213,6 +233,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthDeviceRoute: AuthDeviceRoute,
   AuthErrorRoute: AuthErrorRoute,
   InviteTokenRoute: InviteTokenRoute,
+  CreditsAddIdRoute: CreditsAddIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

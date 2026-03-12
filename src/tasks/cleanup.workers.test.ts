@@ -3,13 +3,15 @@ import {
   env,
   waitOnExecutionContext,
 } from 'cloudflare:test'
-import { expect, test } from 'vitest'
+import { afterAll, expect, test } from 'vitest'
 import { getDb } from '#lib/db.ts'
 import { cleanupExpired } from '#tasks/cleanup.ts'
 import { createFactory } from '../../test/factory.ts'
 
 const db = getDb(env.DB.connectionString, { max: 1 })
 const factory = createFactory(db)
+
+afterAll(() => db.destroy())
 
 async function runCleanup() {
   const ctx = createExecutionContext()

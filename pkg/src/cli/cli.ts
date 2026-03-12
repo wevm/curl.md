@@ -484,108 +484,138 @@ const credits = Cli.create('credits', {
       amount: z
         .enum(['500', '1000', '2000', '5000'])
         .default('1000')
-        .describe('Amount in cents ($5, $10, $20, $50)'),
+        .describe(
+          'Amount in cents: 500 ($5), 1000 ($10), 2000 ($20), 5000 ($50)',
+        ),
     }),
     output: z.string(),
     format: 'md',
     async run(c) {
-      const res = await c.var.client.api.credits.add.$post({
+      const amount = c.args.amount
+
+      // Check for saved payment method
+      const creditsRes = await c.var.client.api.credits.$get()
+      if (creditsRes.status === 401) return expiredSession(c)
+      if (creditsRes.status !== 200)
+        return c.error({ code: 'UNKNOWN', message: 'Unexpected error.' })
+
+      const credits = await creditsRes.json()
+
+      // If saved card exists, prompt and charge
+      if (credits.payment_method) {
+        let selectedAmount = amount
+        const { brand, last4 } = credits.payment_method
+        const label = `${brand} ending in ${last4}`
+
+        while (true) {
+          const dollars = (Number(selectedAmount) / 100).toFixed(2)
+          const choice = await select(`Charge $${dollars} to:`, [
+            label,
+            'Change amount',
+            'Add new payment method',
+          ])
+
+          if (choice === -1) return c.ok('Cancelled.')
+          if (choice === 2) break // falls through to browser flow
+
+          if (choice === 1) {
+            const amounts = ['$5', '$10', '$20', '$50'] as const
+            const amountChoice = await select('Amount:', [...amounts])
+            if (amountChoice === -1) return c.ok('Cancelled.')
+            selectedAmount = (['500', '1000', '2000', '5000'] as const)[
+              amountChoice
+            ]
+            continue
+          }
+
+          const chargeRes = await c.var.client.api.credits.charge.$post({
+            json: {
+              amount: selectedAmount,
+              organization_id: c.var.session?.organization_id,
+            },
+          })
+
+          if (chargeRes.status === 401) return expiredSession(c)
+          if (chargeRes.status !== 200)
+            return c.error({ code: 'UNKNOWN', message: 'Unexpected error.' })
+
+          const chargeJson = await chargeRes.json()
+
+          if ('error' in chargeJson) {
+            const msg =
+              typeof chargeJson.error === 'string'
+                ? chargeJson.error
+                : 'Payment failed.'
+            return c.error({ code: 'PAYMENT_FAILED', message: msg })
+          }
+
+          if (chargeJson.status === 'succeeded') {
+            const spinner = createSpinner('Waiting for balance update...')
+            try {
+              return c.ok(
+                await pollForBalance(
+                  c.var.client,
+                  credits.balance_mills,
+                  spinner,
+                ),
+              )
+            } catch (error) {
+              spinner.stop()
+              throw error
+            }
+          }
+
+          if (chargeJson.status === 'requires_action' && 'url' in chargeJson) {
+            const url = chargeJson.url as string
+            openUrl(url)
+            console.log(
+              `\nIf something goes wrong, copy and paste this URL into your browser:\n${pc.bold(url)}\n`,
+            )
+            const spinner = createSpinner('Waiting for payment...')
+            try {
+              return c.ok(
+                await pollForBalance(
+                  c.var.client,
+                  credits.balance_mills,
+                  spinner,
+                ),
+              )
+            } catch (error) {
+              spinner.stop()
+              throw error
+            }
+          }
+        }
+      }
+
+      // No saved card or user chose "Add new" — browser flow
+      const addRes = await c.var.client.api.credits.add.$post({
         json: {
-          amount: c.args.amount,
+          amount,
           organization_id: c.var.session?.organization_id,
         },
       })
 
-      if (res.status === 401) return expiredSession(c)
-
-      if (res.status === 403)
+      if (addRes.status === 401) return expiredSession(c)
+      if (addRes.status === 403)
         return c.error({
           code: 'FORBIDDEN',
           message:
             'You must be an owner or admin to add credits to this organization.',
         })
-
-      if (res.status !== 200)
+      if (addRes.status !== 200)
         return c.error({ code: 'UNKNOWN', message: 'Unexpected error.' })
 
-      const json = await res.json()
-      if (!json.url)
-        return c.error({ code: 'UNKNOWN', message: 'Unexpected error.' })
-
-      // Get current balance before opening checkout
-      const balanceRes = await c.var.client.api.credits.$get()
-      const initialBalance =
-        balanceRes.status === 200
-          ? (await balanceRes.json()).balance_mills
-          : null
-
-      openUrl(json.url)
+      const addJson = await addRes.json()
+      openUrl(addJson.url)
       console.log(
-        `\nIf something goes wrong, copy and paste this URL into your browser:\n${pc.bold(json.url)}\n`,
+        `\nIf something goes wrong, copy and paste this URL into your browser:\n${pc.bold(addJson.url)}\n`,
       )
 
-      const spinner = createSpinner('Waiting for checkout to complete...')
-      const interval = 3_000
-      const timeout = 10 * 60 * 1000
-      const start = Date.now()
+      const spinner = createSpinner('Waiting for payment...')
       try {
-        while (Date.now() - start < timeout) {
-          await new Promise((r) => setTimeout(r, interval))
-          const checkRes = await c.var.client.api.credits.checkout[':id'].$get({
-            param: { id: json.checkout_id },
-          })
-          if (checkRes.status !== 200) continue
-          const checkJson = await checkRes.json()
-          if (checkJson.status === 'complete') {
-            // Wait for webhook to process and update balance
-            let delay = 500
-            const webhookTimeout = Date.now() + 60_000
-            while (Date.now() < webhookTimeout) {
-              await new Promise((r) => setTimeout(r, delay))
-              const newBalanceRes = await c.var.client.api.credits.$get()
-              if (newBalanceRes.status === 200) {
-                const newBalanceJson = await newBalanceRes.json()
-                if (
-                  initialBalance !== null &&
-                  newBalanceJson.balance_mills > initialBalance
-                ) {
-                  spinner.stop()
-                  const dollars = (newBalanceJson.balance_mills / 1000).toFixed(
-                    3,
-                  )
-                  return c.ok(
-                    `Credits added! New balance: ${pc.green(`$${dollars}`)}`,
-                  )
-                }
-              }
-              delay = Math.min(delay * 2, 5_000)
-            }
-            spinner.stop()
-            return c.ok(
-              'Checkout completed, but credits may take a moment to appear.',
-              {
-                cta: {
-                  commands: [
-                    {
-                      command: `${c.name} credits check`,
-                      description: 'Check your balance',
-                    },
-                  ],
-                },
-              },
-            )
-          }
-          if (checkJson.status === 'expired') {
-            spinner.stop()
-            return c.error({
-              code: 'CHECKOUT_EXPIRED',
-              message: 'Checkout session expired.',
-            })
-          }
-        }
-        spinner.stop()
         return c.ok(
-          'Checkout may still be processing. Run `credits check` to verify.',
+          await pollForBalance(c.var.client, credits.balance_mills, spinner),
         )
       } catch (error) {
         spinner.stop()
@@ -606,9 +636,36 @@ const credits = Cli.create('credits', {
 
       const json = await res.json()
       const dollars = (json.balance_mills / 1000).toFixed(3)
-      return c.ok(`Credit balance: ${pc.green(`$${dollars}`)}`)
+      let msg = `Credit balance: ${pc.green(`$${dollars}`)}`
+      if (json.payment_method)
+        msg += `\nPayment method: ${json.payment_method.brand} ending in ${json.payment_method.last4}`
+      return c.ok(msg)
     },
   })
+
+async function pollForBalance(
+  client: Client,
+  initialBalance: number,
+  spinner: ReturnType<typeof createSpinner>,
+): Promise<string> {
+  let delay = 500
+  const timeout = Date.now() + 120_000
+  while (Date.now() < timeout) {
+    await new Promise((r) => setTimeout(r, delay))
+    const res = await client.api.credits.$get()
+    if (res.status === 200) {
+      const json = await res.json()
+      if (json.balance_mills > initialBalance) {
+        spinner.stop()
+        const dollars = (json.balance_mills / 1000).toFixed(3)
+        return `Credits added! New balance: ${pc.green(`$${dollars}`)}`
+      }
+    }
+    delay = Math.min(delay * 2, 5_000)
+  }
+  spinner.stop()
+  return 'Payment may still be processing. Run `credits check` to verify.'
+}
 
 const invite = Cli.create('invite', {
   description: 'Manage organization invites (accept, create, list, revoke)',

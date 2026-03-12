@@ -8,7 +8,7 @@ export async function processStripeWebhookMessage(
 ) {
   const body = message.body
   switch (body.type) {
-    case 'checkout.session.completed':
+    case 'payment_intent.succeeded':
       return processPurchase(body.data, db)
     case 'charge.dispute.created':
       return processReversal(body.data, 'chargeback', db)
@@ -20,7 +20,7 @@ export async function processStripeWebhookMessage(
 async function processPurchase(
   data: Extract<
     processStripeWebhookMessage.Body,
-    { type: 'checkout.session.completed' }
+    { type: 'payment_intent.succeeded' }
   >['data'],
   db: Kysely<DB>,
 ) {
@@ -164,7 +164,7 @@ processStripeWebhookMessage.queueName = 'curl-stripe-webhook' as const
 export namespace processStripeWebhookMessage {
   export type Body =
     | {
-        type: 'checkout.session.completed'
+        type: 'payment_intent.succeeded'
         data: {
           amount_total: number
           customer: string

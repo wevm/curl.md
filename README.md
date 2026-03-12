@@ -38,11 +38,15 @@ Secrets are managed via [GitHub Environments](https://docs.github.com/en/actions
 * `SENTRY_DSN` - Sentry DSN for error tracking (see [Sentry](#sentry))
 * `TOKEN_ENCRYPTION_KEY` - Base64-encoded 256-bit key for encrypting OAuth tokens (`openssl rand -base64 32`)
 
-**`production` environment** ([Settings → Environments → `production`](https://github.com/wevm/curl.md/settings/environments/12871461617/edit)):
+**`production` environment secrets** ([Settings → Environments → `production`](https://github.com/wevm/curl.md/settings/environments/12871461617/edit)):
 
 * `DB_URL` - PlanetScale Postgres connection string (for production migrations)
 * `STRIPE_SECRET_KEY` - Stripe live secret key (see [Stripe Setup](#stripe-setup))
 * `STRIPE_WEBHOOK_SECRET` - Stripe webhook signing secret (see [Stripe Setup](#stripe-setup))
+
+**`production` environment variables** ([Settings → Environments → `production`](https://github.com/wevm/curl.md/settings/environments/12871461617/edit)):
+
+* `STRIPE_PUBLISHABLE_KEY` - Stripe live publishable key (`pk_live_...`) (see [Stripe Setup](#stripe-setup))
 
 ### PlanetScale
 
@@ -104,11 +108,12 @@ Connect PlanetScale to Cloudflare Workers via [Hyperdrive](https://developers.cl
 Stripe powers prepaid credit billing. A single Stripe account is used with test mode for development and live mode for production.
 
 1. Go to [Stripe Dashboard](https://dashboard.stripe.com)
-2. Copy your **Secret key** from [API keys](https://dashboard.stripe.com/test/apikeys) → `STRIPE_SECRET_KEY` in `.env`
-3. Set callback webhook URL and get webhook secret:
+2. Copy your **Publishable key** from [API keys](https://dashboard.stripe.com/apikeys) → `STRIPE_PUBLISHABLE_KEY` repository variable
+3. Copy your **Secret key** from [API keys](https://dashboard.stripe.com/apikeys) → `STRIPE_SECRET_KEY` secret
+4. Set callback webhook URL and get webhook secret:
    - Go to [Webhooks](https://dashboard.stripe.com/webhooks) → "Add endpoint"
    - Set URL to `https://curl.md/api/stripe/webhook`
-   - Select events: `checkout.session.completed`, `charge.dispute.created`, `refund.created`
+   - Select events: `payment_intent.succeeded`, `charge.dispute.created`, `charge.refunded`
    - Copy the signing secret → `STRIPE_WEBHOOK_SECRET`
 
 ### Sentry
@@ -133,13 +138,19 @@ Preview environments deploy per PR with isolated PlanetScale database branches a
 
 ### GitHub Environments
 
-Preview secrets are scoped via [GitHub Environments](https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment) ([Settings → Environments → `preview`](https://github.com/wevm/curl.md/settings/environments/12873481464/edit)). Add the following secrets to the `preview` environment:
+Preview secrets are scoped via [GitHub Environments](https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment) ([Settings → Environments → `preview`](https://github.com/wevm/curl.md/settings/environments/12873481464/edit)).
+
+**`preview` environment secrets** ([Settings → Environments → `preview`](https://github.com/wevm/curl.md/settings/environments/12873481464/edit)):
 
 * `PLANETSCALE_SERVICE_TOKEN` — PlanetScale service token (see [PlanetScale Branching](#planetscale-branching))
 * `PLANETSCALE_SERVICE_TOKEN_ID` — PlanetScale service token ID (see [PlanetScale Branching](#planetscale-branching))
 * `PLANETSCALE_ORG` — PlanetScale organization slug (e.g. `wevm`)
 * `PLANETSCALE_DB` — PlanetScale database name (same as production, e.g. `curl`)
 * `STRIPE_SECRET_KEY` — Stripe test mode secret key (see [Stripe](#stripe-1))
+
+**`preview` environment variables** ([Settings → Environments → `preview`](https://github.com/wevm/curl.md/settings/environments/12873481464/edit)):
+
+* `STRIPE_PUBLISHABLE_KEY` — Stripe test mode publishable key (`pk_test_...`)
 
 ### PlanetScale Branching
 
