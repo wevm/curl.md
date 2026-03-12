@@ -18,7 +18,7 @@ jobs:
     secrets: inherit
 
   preview:
-    name: Preview Deploy
+    name: Preview
     needs: check
     if: ${{ !github.event.pull_request.draft && contains(fromJSON('["COLLABORATOR", "MEMBER", "OWNER"]'), github.event.pull_request.author_association) }}
     uses: ./.github/workflows/preview_deploy.yml
@@ -28,7 +28,7 @@ jobs:
     secrets: inherit
 
   cli:
-    name: Publish CLI Preview
+    name: Publish
     if: ${{ contains(fromJSON('["COLLABORATOR", "MEMBER", "OWNER"]'), github.event.pull_request.author_association) }}
     runs-on: ubuntu-latest
     steps:

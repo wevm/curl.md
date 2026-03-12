@@ -253,7 +253,7 @@ test('processes charge.dispute.created for organization', async () => {
   expect(tx.organization_id).toBe(org.id)
 })
 
-test('processes charge.refunded for account', async () => {
+test('processes refund.created for account', async () => {
   const customerId = `cus_${crypto.randomUUID()}`
   const chargeId = `ch_${crypto.randomUUID()}`
   const account = await factory.account.insert({})
@@ -269,7 +269,7 @@ test('processes charge.refunded for account', async () => {
       {
         attempts: 1,
         body: {
-          type: 'charge.refunded',
+          type: 'refund.created',
           data: { customer: customerId, amount_total: 3000, id: chargeId },
         },
         id: crypto.randomUUID(),
@@ -369,7 +369,7 @@ test('refund clamps balance at zero', async () => {
       {
         attempts: 1,
         body: {
-          type: 'charge.refunded',
+          type: 'refund.created',
           data: { customer: customerId, amount_total: 2000, id: refundId },
         },
         id: crypto.randomUUID(),
@@ -455,7 +455,7 @@ test('refund with zero balance records zero deduction', async () => {
       {
         attempts: 1,
         body: {
-          type: 'charge.refunded',
+          type: 'refund.created',
           data: { customer: customerId, amount_total: 1000, id: refundId },
         },
         id: crypto.randomUUID(),

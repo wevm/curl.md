@@ -1587,7 +1587,7 @@ export const api = new Hono<{
           charge && typeof charge.customer === 'string' ? charge.customer : null
         if (customer)
           await c.env.STRIPE_WEBHOOK_QUEUE.send({
-            type: 'charge.refunded',
+            type: 'refund.created',
             data: {
               amount_total: refund.amount,
               customer,

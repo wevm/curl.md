@@ -27,7 +27,7 @@ env:
 
 jobs:
   deploy:
-    name: Deploy Preview
+    name: Deploy
     runs-on: ubuntu-latest
     environment: preview
     steps:
@@ -173,7 +173,7 @@ jobs:
             -d "url=https://${APEX}.curl.md/api/stripe/webhook" \
             -d "enabled_events[]=payment_intent.succeeded" \
             -d "enabled_events[]=charge.dispute.created" \
-            -d "enabled_events[]=charge.refunded" \
+            -d "enabled_events[]=refund.created" \
             -d "metadata[preview]=${APEX}")
           ENDPOINT_ID=$(echo "$RESPONSE" | jq -r '.id')
           WEBHOOK_SECRET=$(echo "$RESPONSE" | jq -r '.secret')

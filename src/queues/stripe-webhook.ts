@@ -12,7 +12,7 @@ export async function processStripeWebhookMessage(
       return processPurchase(body.data, db)
     case 'charge.dispute.created':
       return processReversal(body.data, 'chargeback', db)
-    case 'charge.refunded':
+    case 'refund.created':
       return processReversal(body.data, 'refund', db)
   }
 }
@@ -180,7 +180,7 @@ export namespace processStripeWebhookMessage {
         }
       }
     | {
-        type: 'charge.refunded'
+        type: 'refund.created'
         data: {
           amount_total: number
           customer: string
