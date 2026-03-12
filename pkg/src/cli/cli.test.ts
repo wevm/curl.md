@@ -15,7 +15,7 @@ import { dialect } from '#lib/db.ts'
 import * as Nanoid from '#lib/nanoid.ts'
 import { Env } from '../../../test/env.ts'
 import { createFactory } from '../../../test/factory.ts'
-import { serve, useTempHome } from '../../test/utils.ts'
+import { serve, useTempHome } from '../../test/cli.ts'
 import * as utils from './utils.ts'
 import { Session, UpdateCache } from './utils.ts'
 

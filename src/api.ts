@@ -1533,7 +1533,8 @@ export const api = new Hono<{
         signature,
         c.env.STRIPE_WEBHOOK_SECRET,
       )
-    } catch {
+    } catch (error) {
+      Sentry.captureException(error)
       return c.json({ error: 'invalid_signature' }, 400)
     }
 

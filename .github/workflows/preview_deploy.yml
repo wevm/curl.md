@@ -64,7 +64,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
 
       - name: Setup pscale
-        uses: planetscale/setup-pscale-action@v1
+        uses: planetscale/setup-pscale-action@d0c2789e7018488bae9d469592876b3428fa03f6 # v1
 
       - name: Setup PlanetScale branch
         id: ps
