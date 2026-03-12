@@ -20,7 +20,6 @@ export namespace KV {
             cs_secret: string
             locked: boolean
             pi_secret: string
-            publishable_key: string
           }
         : never)
     | (key extends `session:${string}` ? string : never)

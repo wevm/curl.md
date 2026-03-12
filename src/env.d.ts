@@ -2,6 +2,7 @@ declare namespace Cloudflare {
   interface Env {
     KV: import('#lib/kv.ts').TypedKV
     SENTRY_DSN: string
+    STRIPE_PUBLISHABLE_KEY: string
     STRIPE_SECRET_KEY: string
     STRIPE_WEBHOOK_SECRET: string
     TOKEN_ENCRYPTION_KEY: string

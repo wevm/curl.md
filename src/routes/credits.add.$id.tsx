@@ -161,7 +161,9 @@ const paymentInput = z.object({ id: z.string() })
 const getPayment = createServerFn({ method: 'GET' })
   .inputValidator((data) => z.parse(paymentInput, data))
   .handler(async (c) => {
-    return await env.KV.get(`payment:${c.data.id}`, 'json')
+    const data = await env.KV.get(`payment:${c.data.id}`, 'json')
+    if (!data) return null
+    return { ...data, publishable_key: env.STRIPE_PUBLISHABLE_KEY }
   })
 
 const changeAmount = createServerFn({ method: 'POST' })

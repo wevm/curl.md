@@ -814,7 +814,6 @@ export const api = new Hono<{
           cs_secret: customerSession.client_secret,
           locked: json.locked ?? false,
           pi_secret: paymentIntent.client_secret,
-          publishable_key: c.env.STRIPE_PUBLISHABLE_KEY,
         }),
         { expirationTtl: 1800 },
       )
@@ -934,7 +933,6 @@ export const api = new Hono<{
             cs_secret: customerSession.client_secret,
             locked: true,
             pi_secret: paymentIntent.client_secret,
-            publishable_key: c.env.STRIPE_PUBLISHABLE_KEY,
           }),
           { expirationTtl: 1800 },
         )
