@@ -837,7 +837,7 @@ describe('credits', () => {
     const session = await factory.session.insert({ account_id: account.id })
     Session.write({ session_id: session.id })
 
-    const selectSpy = vi.spyOn(utils, 'select').mockResolvedValue(1)
+    const selectSpy = vi.spyOn(utils, 'select').mockResolvedValue(2)
     const openUrlSpy = vi.spyOn(utils, 'openUrl').mockImplementation(() => {})
     const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
