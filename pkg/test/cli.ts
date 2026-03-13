@@ -64,5 +64,6 @@ export async function serve(
       exitCode = code
     },
   })
-  return { output, exitCode }
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: strip ANSI escape codes for assertions
+  return { output: output.replace(/\x1b\[[0-9;]*m/g, ''), exitCode }
 }

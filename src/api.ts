@@ -456,7 +456,7 @@ export const api = new Hono<{
     const rl = await rateLimit(c.env.KV, c.executionCtx, {
       ip: c.req.header('cf-connecting-ip') ?? 'unknown',
       key: 'device',
-      max: 5,
+      max: 15,
       window: 60,
     })
     if (rl.error)
@@ -858,7 +858,7 @@ export const api = new Hono<{
 
       if (paymentIntent.status === 'succeeded')
         return c.json(
-          { payment_id: paymentIntent.id, status: 'succeeded' },
+          { payment_id: paymentIntent.id, status: 'succeeded' } as const,
           200,
         )
 
@@ -893,7 +893,7 @@ export const api = new Hono<{
         return c.json(
           {
             payment_id: paymentId,
-            status: 'requires_action',
+            status: 'requires_action' as const,
             url: `https://${c.env.HOST}/credits/add/${paymentId}`,
           },
           200,

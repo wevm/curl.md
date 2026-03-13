@@ -329,22 +329,6 @@ describe('repo', () => {
     const result = rules.deno().rewrite?.(new URL('https://docs.deno.com/'))
     expect(result).toBeUndefined()
   })
-
-  test('hono rewrites to raw.githubusercontent.com', () => {
-    const rule = rules.hono()
-    expect(rule.patterns).toContain('hono.dev')
-    const result = rule.rewrite?.(
-      new URL('https://hono.dev/docs/getting-started'),
-    )
-    expect(result?.href).toBe(
-      'https://raw.githubusercontent.com/honojs/website/main/docs/getting-started.md',
-    )
-  })
-
-  test('hono returns undefined for root', () => {
-    const result = rules.hono().rewrite?.(new URL('https://hono.dev/'))
-    expect(result).toBeUndefined()
-  })
 })
 
 describe('reactDev', () => {

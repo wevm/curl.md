@@ -42,9 +42,9 @@ test('help', async () => {
   const { output } = await serve(['--help'], { CURLMD_BASE_URL: undefined })
   expect(output).toMatchInlineSnapshot(`
     "curl.md@x.y.z — Fetch any URL as Markdown
-    Aliases: md, curlmd
 
     Usage: curl.md <url> [options]
+    Aliases: md, curlmd
 
     Arguments:
       url  URL to fetch
@@ -54,7 +54,7 @@ test('help', async () => {
       --keywords, -k <array>    Pre-filter by keywords (comma-separated)
       --mode, -m <rush|smart>   Mode when narrowing content with --objective
       --objective, -o <string>  Narrow content to a specific objective
-      --api-key <string>        API key for authentication (overrides CURLMD_API_KEY)
+      --token, -t <string>      API token for authentication (env: CURLMD_API_KEY)
 
     Examples:
       curl.md example.com
@@ -65,7 +65,7 @@ test('help', async () => {
       curl.md zod.dev/error-formatting --objective tree error formatting --keywords treeifyError
 
     Commands:
-      auth     Authentication commands (check, login, logout)
+      auth     Authenticate with curl.md (check, login, logout)
       credits  Manage prepaid credits (add, check)
       org      Manage organizations (create, invite, list, members, show, switch)
       token    Manage API tokens (create, list, delete)
@@ -96,215 +96,212 @@ test('help', async () => {
   `)
 })
 
-describe('fetch', () => {
-  test('fetch - markdown', async () => {
-    const { output } = await serve(['example.com'])
-    expect(output).toContain('Example Domain')
-  }, 30_000)
+test('markdown', async () => {
+  const { output } = await serve(['example.com'])
+  expect(output).toContain('Example Domain')
+}, 30_000)
 
-  test('fetch - json', async () => {
-    const { output } = await serve(['example.com', '--json'])
-    const json = JSON.parse(output)
-    const content = json.data ?? json.content ?? json
-    expect(
-      typeof content === 'string' ? content : JSON.stringify(content),
-    ).toContain('Example Domain')
-  }, 30_000)
+test('json', async () => {
+  const { output } = await serve(['example.com', '--json'])
+  const json = JSON.parse(output)
+  const content = json.data ?? json.content ?? json
+  expect(
+    typeof content === 'string' ? content : JSON.stringify(content),
+  ).toContain('Example Domain')
+}, 30_000)
 
-  test('fetch - invalid url', async () => {
-    const { exitCode, output } = await serve(['!!!invalid'])
-    expect(exitCode).toBe(1)
-    expect(output).toMatchInlineSnapshot(`
-      "## code
+test('invalid url', async () => {
+  const { exitCode, output } = await serve(['!!!invalid'])
+  expect(exitCode).toBe(1)
+  expect(output).toMatchInlineSnapshot(`
+    "## code
 
-      INVALID_URL
+    INVALID_URL
 
-      ## message
+    ## message
 
-      Invalid URL: !!!invalid
+    Invalid URL: !!!invalid
 
-      ## cta.description
+    ## cta.description
 
-      URL must be a valid HTTP(S) address:
+    URL must be a valid HTTP(S) address:
 
-      ## cta.commands
+    ## cta.commands
 
-      | command                          | description             |
-      |----------------------------------|-------------------------|
-      | curl.md example.com              | Domain without protocol |
-      | curl.md https://example.com/path | Full URL with protocol  |
-      "
-    `)
-  })
+    | command                          | description             |
+    |----------------------------------|-------------------------|
+    | curl.md example.com              | Domain without protocol |
+    | curl.md https://example.com/path | Full URL with protocol  |
+    "
+  `)
+})
 
-  test('fetch - missing url', async () => {
-    const { exitCode, output } = await serve([])
-    expect(exitCode).toBe(1)
-    expect(output).toContain('VALIDATION_ERROR')
-  })
+test('missing url', async () => {
+  const { exitCode, output } = await serve([])
+  expect(exitCode).toBe(1)
+  expect(output).toContain('VALIDATION_ERROR')
+})
 
-  test('fetch - rate limit 429', async () => {
-    const originalFetch = globalThis.fetch
-    globalThis.fetch = async () =>
-      new Response(JSON.stringify({ error: 'rate_limit_exceeded' }), {
-        status: 429,
-        headers: {
-          'content-type': 'application/json',
-          'retry-after': '3600',
-        },
-      })
-    onTestFinished(() => {
-      globalThis.fetch = originalFetch
+test('rate limit 429', async () => {
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async () =>
+    new Response(JSON.stringify({ error: 'rate_limit_exceeded' }), {
+      status: 429,
+      headers: {
+        'content-type': 'application/json',
+        'retry-after': '3600',
+      },
     })
-
-    const { exitCode, output } = await serve(['example.com'])
-    expect(exitCode).toBe(1)
-    expect(output).toContain('RATE_LIMITED')
-    expect(output).toContain('3600s')
+  onTestFinished(() => {
+    globalThis.fetch = originalFetch
   })
 
-  test('fetch - rate limit 429 without retry-after', async () => {
-    const originalFetch = globalThis.fetch
-    globalThis.fetch = async () =>
-      new Response(JSON.stringify({ error: 'rate_limit_exceeded' }), {
-        status: 429,
-        headers: { 'content-type': 'application/json' },
-      })
-    onTestFinished(() => {
-      globalThis.fetch = originalFetch
+  const { exitCode, output } = await serve(['example.com'])
+  expect(exitCode).toBe(1)
+  expect(output).toContain('RATE_LIMITED')
+  expect(output).toContain('3600s')
+})
+
+test('rate limit 429 without retry-after', async () => {
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async () =>
+    new Response(JSON.stringify({ error: 'rate_limit_exceeded' }), {
+      status: 429,
+      headers: { 'content-type': 'application/json' },
     })
-
-    const { exitCode, output } = await serve(['example.com'])
-    expect(exitCode).toBe(1)
-    expect(output).toContain('RATE_LIMITED')
-    expect(output).toContain('Try again later')
+  onTestFinished(() => {
+    globalThis.fetch = originalFetch
   })
 
-  test('fetch - rate limit 429 login cta when unauthenticated', async () => {
-    const originalFetch = globalThis.fetch
-    globalThis.fetch = async () =>
-      new Response(JSON.stringify({ error: 'rate_limit_exceeded' }), {
-        status: 429,
-        headers: { 'content-type': 'application/json' },
-      })
-    onTestFinished(() => {
-      globalThis.fetch = originalFetch
+  const { exitCode, output } = await serve(['example.com'])
+  expect(exitCode).toBe(1)
+  expect(output).toContain('RATE_LIMITED')
+  expect(output).toContain('Try again later')
+})
+
+test('rate limit 429 login cta when unauthenticated', async () => {
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async () =>
+    new Response(JSON.stringify({ error: 'rate_limit_exceeded' }), {
+      status: 429,
+      headers: { 'content-type': 'application/json' },
     })
-
-    const { output } = await serve(['example.com'])
-    expect(output).toContain('auth login')
+  onTestFinished(() => {
+    globalThis.fetch = originalFetch
   })
 
-  test('fetch - rate limit 429 credits add cta when authenticated', async () => {
-    Session.write({ session_id: 'test' })
-    const originalFetch = globalThis.fetch
-    globalThis.fetch = async () =>
-      new Response(JSON.stringify({ error: 'rate_limit_exceeded' }), {
-        status: 429,
-        headers: { 'content-type': 'application/json' },
-      })
-    onTestFinished(() => {
-      globalThis.fetch = originalFetch
+  const { output } = await serve(['example.com'])
+  expect(output).toContain('auth login')
+})
+
+test('rate limit 429 credits add cta when authenticated', async () => {
+  Session.write({ session_id: 'test' })
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async () =>
+    new Response(JSON.stringify({ error: 'rate_limit_exceeded' }), {
+      status: 429,
+      headers: { 'content-type': 'application/json' },
     })
-
-    const { output } = await serve(['example.com'])
-    expect(output).toContain('credits add')
-    expect(output).not.toContain('auth login')
+  onTestFinished(() => {
+    globalThis.fetch = originalFetch
   })
 
-  test('fetch - invalid api key 401', async () => {
-    const originalFetch = globalThis.fetch
-    globalThis.fetch = async () =>
-      new Response(JSON.stringify({ error: 'invalid_api_key' }), {
-        status: 401,
-        headers: { 'content-type': 'application/json' },
-      })
-    onTestFinished(() => {
-      globalThis.fetch = originalFetch
+  const { output } = await serve(['example.com'])
+  expect(output).toContain('credits add')
+  expect(output).not.toContain('auth login')
+})
+
+test('invalid api key 401', async () => {
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async () =>
+    new Response(JSON.stringify({ error: 'invalid_api_key' }), {
+      status: 401,
+      headers: { 'content-type': 'application/json' },
     })
-
-    const { exitCode, output } = await serve(['example.com'])
-    expect(exitCode).toBe(1)
-    expect(output).toContain('INVALID_API_KEY')
-    expect(output).toContain('token create')
+  onTestFinished(() => {
+    globalThis.fetch = originalFetch
   })
 
-  test('fetch - validation error 400', async () => {
-    const originalFetch = globalThis.fetch
-    globalThis.fetch = async () =>
-      new Response(
-        JSON.stringify({
-          error: 'validation_error',
-          issues: [{ path: 'url', message: 'Invalid url' }],
-        }),
-        { status: 400, headers: { 'content-type': 'application/json' } },
-      )
-    onTestFinished(() => {
-      globalThis.fetch = originalFetch
-    })
+  const { exitCode, output } = await serve(['example.com'])
+  expect(exitCode).toBe(1)
+  expect(output).toContain('INVALID_API_KEY')
+  expect(output).toContain('token create')
+})
 
-    const { exitCode, output } = await serve(['example.com'])
-    expect(exitCode).toBe(1)
-    expect(output).toContain('VALIDATION_ERROR')
-    expect(output).toContain('url')
+test('validation error 400', async () => {
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async () =>
+    new Response(
+      JSON.stringify({
+        error: 'validation_error',
+        issues: [{ path: 'url', message: 'Invalid url' }],
+      }),
+      { status: 400, headers: { 'content-type': 'application/json' } },
+    )
+  onTestFinished(() => {
+    globalThis.fetch = originalFetch
   })
 
-  test('fetch - fetch_failed 502', async () => {
-    const originalFetch = globalThis.fetch
-    globalThis.fetch = async () =>
-      new Response(
-        JSON.stringify({
-          error: 'fetch_failed',
-          message: 'Connection refused',
-        }),
-        { status: 502, headers: { 'content-type': 'application/json' } },
-      )
-    onTestFinished(() => {
-      globalThis.fetch = originalFetch
-    })
+  const { exitCode, output } = await serve(['example.com'])
+  expect(exitCode).toBe(1)
+  expect(output).toContain('VALIDATION_ERROR')
+  expect(output).toContain('url')
+})
 
-    const { exitCode, output } = await serve(['example.com'])
-    expect(exitCode).toBe(1)
-    expect(output).toContain('FETCH_FAILED')
-    expect(output).toContain('Connection refused')
+test('fetch_failed 502', async () => {
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async () =>
+    new Response(
+      JSON.stringify({
+        error: 'fetch_failed',
+        message: 'Connection refused',
+      }),
+      { status: 502, headers: { 'content-type': 'application/json' } },
+    )
+  onTestFinished(() => {
+    globalThis.fetch = originalFetch
   })
 
-  test('fetch - unexpected 500', async () => {
-    const originalFetch = globalThis.fetch
-    globalThis.fetch = async () =>
-      new Response('Internal Server Error', { status: 500 })
-    onTestFinished(() => {
-      globalThis.fetch = originalFetch
-    })
+  const { exitCode, output } = await serve(['example.com'])
+  expect(exitCode).toBe(1)
+  expect(output).toContain('FETCH_FAILED')
+  expect(output).toContain('Connection refused')
+})
 
-    const { exitCode, output } = await serve(['example.com'])
-    expect(exitCode).toBe(1)
-    expect(output).toContain('FETCH_FAILED')
+test('unexpected 500', async () => {
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async () =>
+    new Response('Internal Server Error', { status: 500 })
+  onTestFinished(() => {
+    globalThis.fetch = originalFetch
   })
 
-  test('fetch - objective cta shown for long responses', async () => {
-    const originalFetch = globalThis.fetch
-    globalThis.fetch = async () =>
-      new Response('x'.repeat(15_000), { status: 200 })
-    onTestFinished(() => {
-      globalThis.fetch = originalFetch
-    })
+  const { exitCode, output } = await serve(['example.com'])
+  expect(exitCode).toBe(1)
+  expect(output).toContain('FETCH_FAILED')
+})
 
-    const { output } = await serve(['example.com', '--verbose'])
-    expect(output).toContain('Narrow results with an objective')
+test('objective cta shown for long responses', async () => {
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async () =>
+    new Response('x'.repeat(15_000), { status: 200 })
+  onTestFinished(() => {
+    globalThis.fetch = originalFetch
   })
 
-  test('fetch - objective cta hidden for short responses', async () => {
-    const originalFetch = globalThis.fetch
-    globalThis.fetch = async () =>
-      new Response('short content', { status: 200 })
-    onTestFinished(() => {
-      globalThis.fetch = originalFetch
-    })
+  const { output } = await serve(['example.com', '--verbose'])
+  expect(output).toContain('Narrow results with an objective')
+})
 
-    const { output } = await serve(['example.com', '--verbose'])
-    expect(output).not.toContain('Narrow results with an objective')
+test('objective cta hidden for short responses', async () => {
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async () => new Response('short content', { status: 200 })
+  onTestFinished(() => {
+    globalThis.fetch = originalFetch
   })
+
+  const { output } = await serve(['example.com', '--verbose'])
+  expect(output).not.toContain('Narrow results with an objective')
 })
 
 describe('update check middleware', () => {
@@ -420,6 +417,49 @@ describe('auth', () => {
     const { output } = await serve(['auth', 'logout'])
     expect(output).toContain('Successfully logged out')
     expect(Session.read()).toBeNull()
+  })
+
+  test('check - with --token', async () => {
+    const account = await factory.account.insert({})
+    const org = await factory.organization.insert({})
+    await factory.organization_member.insert({
+      organization_id: org.id,
+      account_id: account.id,
+    })
+    const suffix = Nanoid.generate()
+    const token = `curl_${suffix}`
+    const { hash } = await import('#lib/api-key.ts')
+    await factory.api_key.insert({
+      organization_id: org.id,
+      account_id: account.id,
+      key_hash: await hash(token),
+      key_prefix: token.slice(0, 9),
+      name: `check-test-${suffix}`,
+    })
+
+    const origArgv = process.argv
+    process.argv = [...origArgv, '--token', token]
+    onTestFinished(() => {
+      process.argv = origArgv
+    })
+
+    const { output } = await serve(['auth', 'check', '--token', token])
+    expect(output).toContain('Authenticated as')
+    expect(output).toContain(account.login)
+    expect(output).toContain('via token')
+    expect(output).toContain(token.slice(0, 12))
+  })
+
+  test('check - with invalid --token', async () => {
+    const invalidToken = 'curl_invalidtoken'
+    const origArgv = process.argv
+    process.argv = [...origArgv, '--token', invalidToken]
+    onTestFinished(() => {
+      process.argv = origArgv
+    })
+
+    const { output } = await serve(['auth', 'check', '--token', invalidToken])
+    expect(output).toContain('You are not authenticated')
   })
 
   test('check - expired session', async () => {
@@ -542,7 +582,7 @@ describe('auth', () => {
     expect(output).toContain('30s')
   })
 
-  test('login - rate limit on token polling', async () => {
+  test('login - rate limit on token polling retries', async () => {
     vi.mock('node:child_process', () => ({
       default: { exec: vi.fn(), spawn: vi.fn(() => ({ unref: vi.fn() })) },
       exec: vi.fn(),
@@ -552,33 +592,56 @@ describe('auth', () => {
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
     onTestFinished(() => consoleSpy.mockRestore())
 
+    const account = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: account.id })
+
+    let tokenPollCount = 0
     const originalFetch = globalThis.fetch
-    let callCount = 0
-    globalThis.fetch = async () => {
-      callCount++
-      if (callCount === 1)
-        return new Response(
-          JSON.stringify({
-            code: 'test-code',
-            interval: 0,
-            user_code: 'TESTCODE',
-            verification_uri: 'https://curl.local/auth/device',
-          }),
-          { status: 200, headers: { 'content-type': 'application/json' } },
-        )
-      return new Response(JSON.stringify({ error: 'rate_limit_exceeded' }), {
-        status: 429,
-        headers: { 'content-type': 'application/json' },
-      })
+    globalThis.fetch = async (input, init) => {
+      const url =
+        typeof input === 'string'
+          ? input
+          : input instanceof URL
+            ? input.href
+            : input.url
+      if (url.includes('/api/auth/device/token')) {
+        tokenPollCount++
+        if (tokenPollCount === 1)
+          return new Response(
+            JSON.stringify({ error: 'rate_limit_exceeded' }),
+            {
+              status: 429,
+              headers: {
+                'content-type': 'application/json',
+                'retry-after': '0',
+              },
+            },
+          )
+      }
+      return originalFetch(input, init)
     }
     onTestFinished(() => {
       globalThis.fetch = originalFetch
     })
 
-    const { exitCode, output } = await serve(['auth', 'login'])
-    expect(exitCode).toBe(1)
-    expect(output).toContain('RATE_LIMITED')
-    expect(output).toContain('Try again later')
+    const loginPromise = serve(['auth', 'login'])
+
+    const deviceCode = await vi.waitFor(() =>
+      db
+        .selectFrom('device_code')
+        .where('status', '=', 'pending')
+        .select(['user_code', 'id'])
+        .orderBy('created_at', 'desc')
+        .executeTakeFirstOrThrow(),
+    )
+
+    await client.api.auth.device.confirm.$post(
+      { json: { user_code: deviceCode.user_code } },
+      { headers: { Authorization: `Bearer ${session.id}` } },
+    )
+
+    const { output } = await loginPromise
+    expect(output).toContain('Successfully logged in as')
   })
 
   test('login - full device flow', async () => {
@@ -611,11 +674,11 @@ describe('auth', () => {
     )
 
     const { output } = await loginPromise
-    expect(output).toContain('Successfully logged in')
+    expect(output).toContain('Successfully logged in as')
     expect(Session.read()).not.toBeNull()
 
     const { output: checkOutput } = await serve(['auth', 'check'])
-    expect(checkOutput).toContain('You are authenticated')
+    expect(checkOutput).toContain('Authenticated as')
   })
 })
 
@@ -657,8 +720,40 @@ describe('credits', () => {
     expect(output).toContain('$0.000')
   })
 
+  test('check - forbidden for non-admin org member', async () => {
+    const account = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: account.id })
+    const org = await factory.organization.insert({})
+    await factory.organization_member.insert({
+      organization_id: org.id,
+      account_id: account.id,
+      role: 'member',
+    })
+    Session.write({ session_id: session.id, organization_id: org.id })
+
+    const { exitCode, output } = await serve(['credits', 'check'])
+    expect(exitCode).toBe(1)
+    expect(output).toContain('FORBIDDEN')
+  })
+
+  test('add - forbidden for non-admin org member', async () => {
+    const account = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: account.id })
+    const org = await factory.organization.insert({})
+    await factory.organization_member.insert({
+      organization_id: org.id,
+      account_id: account.id,
+      role: 'member',
+    })
+    Session.write({ session_id: session.id, organization_id: org.id })
+
+    const { exitCode, output } = await serve(['credits', 'add', '5'])
+    expect(exitCode).toBe(1)
+    expect(output).toContain('FORBIDDEN')
+  })
+
   test('add - requires auth', async () => {
-    const { exitCode, output } = await serve(['credits', 'add', '500'])
+    const { exitCode, output } = await serve(['credits', 'add', '5'])
     expect(exitCode).toBe(1)
     expect(output).toContain('NOT_AUTHENTICATED')
   })
@@ -712,11 +807,11 @@ describe('credits', () => {
       globalThis.fetch = originalFetch
     })
 
-    const { output } = await serve(['credits', 'add', '1000'])
+    const { output } = await serve(['credits', 'add', '10'])
     expect(openUrlSpy).toHaveBeenCalledWith(
       'https://curl.local/credits/add/pay_test',
     )
-    expect(output).toContain('Credits added')
+    expect(output).toContain('Successfully added credits')
     expect(output).toContain('$10.000')
   })
 
@@ -766,9 +861,9 @@ describe('credits', () => {
       globalThis.fetch = originalFetch
     })
 
-    const { output } = await serve(['credits', 'add', '1000'])
+    const { output } = await serve(['credits', 'add', '10'])
     expect(selectSpy).toHaveBeenCalled()
-    expect(output).toContain('Credits added')
+    expect(output).toContain('Successfully added credits')
     expect(output).toContain('$15.000')
   })
 
@@ -824,11 +919,11 @@ describe('credits', () => {
       globalThis.fetch = originalFetch
     })
 
-    const { output } = await serve(['credits', 'add', '1000'])
+    const { output } = await serve(['credits', 'add', '10'])
     expect(openUrlSpy).toHaveBeenCalledWith(
       'https://curl.local/credits/add/pay_3ds',
     )
-    expect(output).toContain('Credits added')
+    expect(output).toContain('Successfully added credits')
     expect(output).toContain('$15.000')
   })
 
@@ -883,17 +978,17 @@ describe('credits', () => {
       globalThis.fetch = originalFetch
     })
 
-    const { output } = await serve(['credits', 'add', '1000'])
+    const { output } = await serve(['credits', 'add', '10'])
     expect(openUrlSpy).toHaveBeenCalledWith(
       'https://curl.local/credits/add/pay_new',
     )
-    expect(output).toContain('Credits added')
+    expect(output).toContain('Successfully added credits')
     expect(output).toContain('$15.000')
   })
 
   test('add - expired session deletes session', async () => {
     Session.write({ session_id: 'expired-session-id' })
-    const { exitCode, output } = await serve(['credits', 'add', '500'])
+    const { exitCode, output } = await serve(['credits', 'add', '5'])
     expect(exitCode).toBe(1)
     expect(output).toContain('NOT_AUTHENTICATED')
     expect(Session.read()).toBeNull()
@@ -907,22 +1002,38 @@ describe('org', () => {
     expect(output).toContain('NOT_AUTHENTICATED')
   })
 
-  test('list - shows personal when no orgs', async () => {
+  test('list - empty when no orgs', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
     Session.write({ session_id: session.id })
 
     const { output } = await serve(['org', 'list'])
-    expect(output).toContain('personal')
+    expect(output).toContain('No organizations.')
   })
 
-  test('show - defaults to personal', async () => {
+  test('show - no active org, no orgs', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
     Session.write({ session_id: session.id })
 
     const { output } = await serve(['org', 'show'])
-    expect(output).toContain('personal')
+    expect(output).toContain('No active organization')
+    expect(output).toContain('org create')
+  })
+
+  test('show - no active org, has orgs', async () => {
+    const account = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: account.id })
+    const org = await factory.organization.insert({})
+    await factory.organization_member.insert({
+      organization_id: org.id,
+      account_id: account.id,
+    })
+    Session.write({ session_id: session.id })
+
+    const { output } = await serve(['org', 'show'])
+    expect(output).toContain('No active organization')
+    expect(output).toContain('org switch')
   })
 
   test('create, list, switch, show - full flow', async () => {
@@ -938,11 +1049,11 @@ describe('org', () => {
       '--name',
       'Test Org',
     ])
-    expect(createOutput).toContain(`Created organization ${login}`)
+    expect(createOutput).toContain('Created organization')
+    expect(createOutput).toContain(login)
 
     const { output: listOutput } = await serve(['org', 'list'])
     expect(listOutput).toContain(login)
-    expect(listOutput).toContain('personal')
 
     const { output: switchOutput } = await serve(['org', 'switch', login])
     expect(switchOutput).toContain(`Switched to ${login}`)
@@ -953,9 +1064,10 @@ describe('org', () => {
     const { output: switchBackOutput } = await serve([
       'org',
       'switch',
-      'personal',
+      'account',
     ])
-    expect(switchBackOutput).toContain('Switched to personal')
+    expect(switchBackOutput).toContain('Switched to')
+    expect(switchBackOutput).toContain('(account)')
   })
 
   test('create - invalid login', async () => {
@@ -1034,18 +1146,18 @@ describe('org', () => {
     expect(output).toContain('ORG_NOT_FOUND')
   })
 
-  test('list - stale org resets to personal', async () => {
+  test('list - stale org resets to account', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
     const org = await factory.organization.insert({})
     Session.write({ session_id: session.id, organization_id: org.id })
 
     const { output } = await serve(['org', 'list'])
-    expect(output).toContain('no longer accessible')
+    expect(output).toContain('No organizations.')
     expect(Session.read()?.organization_id).toBeUndefined()
   })
 
-  test('show - stale org resets to personal', async () => {
+  test('show - stale org resets to account', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
     const org = await factory.organization.insert({})
@@ -1228,6 +1340,9 @@ describe('org invite', () => {
       const { output } = await serve(['org', 'invite', 'create'])
       expect(output).toContain('Invite created')
       expect(output).toContain('/invite/')
+      expect(output).toContain('role: member')
+      expect(output).toContain('uses: 0/')
+      expect(output).toContain('expires:')
     })
 
     test('with custom options', async () => {
@@ -1250,7 +1365,11 @@ describe('org invite', () => {
         '--max-uses',
         '5',
       ])
-      expect(output).toContain('admin')
+      expect(output).toContain('Invite created')
+      expect(output).toContain('/invite/')
+      expect(output).toContain('role: admin')
+      expect(output).toContain('uses: 0/5')
+      expect(output).toContain('expires:')
     })
 
     test('forbidden (regular member)', async () => {
@@ -1321,7 +1440,7 @@ describe('org invite', () => {
       Session.write({ session_id: session.id, organization_id: org.id })
 
       const { output } = await serve(['org', 'invite', 'list'])
-      expect(output).toContain('No invites found')
+      expect(output).toContain('No organization invites found')
     })
 
     test('lists invites', async () => {
@@ -1988,6 +2107,16 @@ describe('token', () => {
     expect(output).toContain('NOT_AUTHENTICATED')
   })
 
+  test('list - empty shows create cta', async () => {
+    const account = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: account.id })
+    Session.write({ session_id: session.id })
+
+    const { output } = await serve(['token', 'list'])
+    expect(output).toContain('No tokens found')
+    expect(output).toContain('token create')
+  })
+
   test('create, list - full flow', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
@@ -1998,7 +2127,7 @@ describe('token', () => {
       'create',
       'my-token',
     ])
-    expect(createOutput).toContain('Token created: my-token')
+    expect(createOutput).toContain('Token my-token created.')
     expect(createOutput).toContain('curl_')
     expect(createOutput).toContain("won't be shown again")
 
@@ -2076,7 +2205,7 @@ describe('token', () => {
 
     setTimeout(() => process.stdin.emit('data', '\n'), 100)
     const { output } = await serve(['token', 'delete', 'to-delete'])
-    expect(output).toContain('Token deleted')
+    expect(output).toContain('Token to-delete deleted.')
 
     const { output: listOutput } = await serve(['token', 'list'])
     expect(listOutput).toContain('No tokens found')
@@ -2094,7 +2223,7 @@ describe('token', () => {
 })
 
 describe('update', () => {
-  test('update - install fails', async () => {
+  test('install fails', async () => {
     const standaloneSpy = vi.spyOn(utils, 'isStandalone').mockReturnValue(false)
     const spy = vi
       .spyOn(utils, 'installGlobal')
@@ -2110,7 +2239,7 @@ describe('update', () => {
     expect(output).toContain('permission denied')
   })
 
-  test('update - standalone download failure', async () => {
+  test('standalone download failure', async () => {
     const standaloneSpy = vi.spyOn(utils, 'isStandalone').mockReturnValue(true)
     const updateSpy = vi
       .spyOn(utils, 'updateStandalone')
@@ -2126,7 +2255,7 @@ describe('update', () => {
     expect(output).toContain('Download failed')
   })
 
-  test('update - already up to date', async () => {
+  test('already up to date', async () => {
     const spy = vi.spyOn(utils, 'compareVersions').mockReturnValue(0)
     onTestFinished(() => spy.mockRestore())
 
@@ -2134,7 +2263,7 @@ describe('update', () => {
     expect(output).toContain('Already up-to-date')
   })
 
-  test('update - cannot determine latest version', async () => {
+  test('cannot determine latest version', async () => {
     const fetchSpy = vi
       .spyOn(globalThis, 'fetch')
       .mockRejectedValue(new Error())

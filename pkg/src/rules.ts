@@ -1,5 +1,6 @@
 import { defineRule } from './mod.ts'
 import {
+  acceptMarkdown,
   appendIndexMd,
   appendMd,
   appendMdWithIndex,
@@ -84,9 +85,8 @@ export const deno = repo({
   repo: 'denoland/docs',
   patterns: ['docs.deno.com'],
 })
-export const hono = repo({
+export const hono = acceptMarkdown({
   key: 'hono',
-  repo: 'honojs/website',
   patterns: ['hono.dev'],
 })
 

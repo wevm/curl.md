@@ -231,40 +231,83 @@ export function relativeTime(date: Date) {
   return `${prefix}${days}d${suffix}`
 }
 
-export function select(title: string, items: string[]): Promise<number> {
+export function select(
+  title: string,
+  items: string[],
+  options?: { doneLabels?: string[] },
+): Promise<number> {
   return new Promise((resolve) => {
     let cursor = 0
+    let filter = ''
+    let filtered = items.map((_, i) => i)
     const write = (s: string) => process.stderr.write(s)
 
-    function renderItem(i: number) {
-      const item = items[i] ?? ''
-      const indicator = i === cursor ? pc.cyan('❯') : ' '
-      const label = i === cursor ? pc.cyan(item) : item
-      return `  ${indicator} ${label}\n`
+    function renderItem(fi: number) {
+      const idx = filtered[fi] as number
+      const item = items[idx] ?? ''
+      const indicator = fi === cursor ? pc.cyan('>') : ' '
+      const label = fi === cursor ? pc.cyan(item) : item
+      return `${indicator} ${label}\n`
     }
+
+    const hint = pc.dim('[Use arrows to move, type to filter]')
+    let prevLines = 0
 
     function render() {
-      write(`\x1b[${items.length}A`)
-      for (let i = 0; i < items.length; i++) write(`\x1b[2K${renderItem(i)}`)
+      if (prevLines > 0) write(`\x1b[${prevLines}A`)
+      for (let i = 0; i < prevLines; i++) write(`\x1b[2K\n`)
+      if (prevLines > 0) write(`\x1b[${prevLines}A`)
+
+      const header = filter
+        ? `${pc.green('?')} ${pc.bold(title)} ${pc.cyan(filter)}`
+        : `${pc.green('?')} ${pc.bold(title)}   ${hint}`
+      write(`\x1b[2K${header}\n`)
+      for (let i = 0; i < filtered.length; i++) write(`\x1b[2K${renderItem(i)}`)
+      prevLines = 1 + filtered.length
     }
 
-    write(`\n${title}\n`)
-    for (let i = 0; i < items.length; i++) write(renderItem(i))
+    write('\x1b[?25l')
+    prevLines = 0
+    render()
 
     process.stdin.setRawMode(true)
     process.stdin.resume()
 
+    function applyFilter() {
+      const lower = filter.toLowerCase()
+      filtered = items
+        .map((item, i) => ({ item, i }))
+        .filter(({ item }) => item.toLowerCase().includes(lower))
+        .map(({ i }) => i)
+      cursor = Math.min(cursor, Math.max(0, filtered.length - 1))
+    }
+
     function onData(buf: Buffer) {
       const key = buf.toString()
       if (key === '\x1b[A') cursor = Math.max(0, cursor - 1)
-      else if (key === '\x1b[B') cursor = Math.min(items.length - 1, cursor + 1)
-      else if (key === '\r' || key === '\n') return done(cursor)
-      else if (key === '\x03' || key === '\x1b') return done(-1)
-      else return
+      else if (key === '\x1b[B')
+        cursor = Math.min(filtered.length - 1, cursor + 1)
+      else if (key === '\r' || key === '\n') {
+        if (filtered.length > 0) return done(filtered[cursor] as number)
+      } else if (key === '\x03' || key === '\x1b') return done(-1)
+      else if (key === '\x7f' || key === '\b') {
+        filter = filter.slice(0, -1)
+        applyFilter()
+      } else if (key.length === 1 && key >= ' ') {
+        filter += key
+        applyFilter()
+      } else return
       render()
     }
 
     function done(index: number) {
+      if (prevLines > 0) write(`\x1b[${prevLines}A`)
+      for (let i = 0; i < prevLines; i++) write(`\x1b[2K\n`)
+      if (prevLines > 0) write(`\x1b[${prevLines}A`)
+      const selected =
+        index >= 0 ? (options?.doneLabels?.[index] ?? items[index] ?? '') : ''
+      write(`\x1b[2K${pc.green('?')} ${pc.bold(title)} ${pc.cyan(selected)}\n`)
+      write('\x1b[?25h')
       process.stdin.off('data', onData)
       process.stdin.setRawMode(false)
       process.stdin.pause()
@@ -378,22 +421,57 @@ export async function pollForBalance(
   client: Client,
   initialBalance: number,
   spinner: ReturnType<typeof createSpinner>,
-): Promise<string> {
+  signal?: AbortSignal,
+): Promise<string | null> {
   let delay = 500
   const timeout = Date.now() + 120_000
   while (Date.now() < timeout) {
-    await new Promise((r) => setTimeout(r, delay))
+    if (signal?.aborted) {
+      spinner.stop()
+      return null
+    }
+    await new Promise((r) => {
+      const t = setTimeout(r, delay)
+      signal?.addEventListener('abort', () => {
+        clearTimeout(t)
+        r(undefined)
+      })
+    })
+    if (signal?.aborted) {
+      spinner.stop()
+      return null
+    }
     const res = await client.api.credits.$get()
     if (res.status === 200) {
       const json = await res.json()
       if (json.balance_mills > initialBalance) {
         spinner.stop()
         const dollars = (json.balance_mills / 1000).toFixed(3)
-        return `Credits added! New balance: ${pc.green(`$${dollars}`)}`
+        return `Successfully added credits. New balance: ${pc.bold(pc.green(`$${dollars}`))}`
       }
     }
     delay = Math.min(delay * 2, 5_000)
   }
   spinner.stop()
   return 'Payment may still be processing. Run `credits check` to verify.'
+}
+
+export async function pollWithCancel(
+  client: Client,
+  initialBalance: number,
+  spinnerOrMessage?: ReturnType<typeof createSpinner> | string,
+) {
+  const spinner =
+    typeof spinnerOrMessage === 'object'
+      ? spinnerOrMessage
+      : createSpinner(spinnerOrMessage ?? 'Adding credits')
+  const abort = new AbortController()
+  const onSignal = () => abort.abort()
+  process.on('SIGINT', onSignal)
+  try {
+    return await pollForBalance(client, initialBalance, spinner, abort.signal)
+  } finally {
+    process.off('SIGINT', onSignal)
+    spinner.stop()
+  }
 }

@@ -55,6 +55,9 @@
       "includes": ["**/*.test.ts", "**/*.test.tsx"],
       "linter": {
         "rules": {
+          "complexity": {
+            "noUselessLoneBlockStatements": "off"
+          },
           "style": {
             "noNonNullAssertion": "off"
           }

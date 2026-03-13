@@ -494,7 +494,7 @@ describe('POST /api/auth/device/token', () => {
 test('POST /api/auth/device returns 429 when rate limit exceeded', async () => {
   await env.KV.put(
     'ratelimit:device:192.0.2.11',
-    JSON.stringify({ count: 5, reset: Math.floor(Date.now() / 1000) + 60 }),
+    JSON.stringify({ count: 15, reset: Math.floor(Date.now() / 1000) + 60 }),
     { expirationTtl: 60 },
   )
 

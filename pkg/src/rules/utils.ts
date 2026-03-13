@@ -65,6 +65,18 @@ export function prefixedWithIndex(options: Options & { prefix: string }) {
   })
 }
 
+export function acceptMarkdown(options: Options) {
+  return defineRule({
+    ...options,
+    fetch(url, init, { fetch }) {
+      return fetch(url, {
+        ...init,
+        headers: { ...init?.headers, Accept: 'text/markdown' },
+      })
+    },
+  })
+}
+
 export function repo(
   options: Options & {
     repo: string
