@@ -1,8 +1,5 @@
-import {
-  createExecutionContext,
-  env,
-  waitOnExecutionContext,
-} from 'cloudflare:test'
+import { createExecutionContext, waitOnExecutionContext } from 'cloudflare:test'
+import { env } from 'cloudflare:workers'
 import { afterAll, expect, test } from 'vitest'
 import { getDb } from '#lib/db.ts'
 import { cleanupExpired } from '#tasks/cleanup.ts'

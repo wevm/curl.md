@@ -1,4 +1,5 @@
-import { createMessageBatch, env } from 'cloudflare:test'
+import { createMessageBatch } from 'cloudflare:test'
+import { env } from 'cloudflare:workers'
 import { afterAll, expect, test } from 'vitest'
 import { getDb } from '#lib/db.ts'
 import { processStripeWebhookMessage } from '#queues/stripe-webhook.ts'

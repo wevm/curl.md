@@ -88,6 +88,8 @@ export default Sentry.withSentry<
       }
     },
     scheduled(controller, env, ctx) {
+      // TODO: cron union type gen
+      // https://github.com/cloudflare/workers-sdk/pull/12740
       const crons = {
         '0 * * * *': cleanupExpired,
       } as const
