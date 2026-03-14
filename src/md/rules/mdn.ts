@@ -7,8 +7,7 @@ export const mdn = defineRule({
     const match = url.pathname.match(/^\/([a-zA-Z-]+)\/docs\/(.+)/)
     if (!match?.[1] || !match[2]) return
     const lowerLocale = match[1].toLowerCase()
-    const repo =
-      lowerLocale === 'en-us' ? 'mdn/content' : 'mdn/translated-content'
+    const repo = lowerLocale === 'en-us' ? 'mdn/content' : 'mdn/translated-content'
     return new URL(
       `https://raw.githubusercontent.com/${repo}/main/files/${lowerLocale}/${match[2].toLowerCase()}/index.md`,
     )

@@ -17,9 +17,9 @@ function AuthError() {
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col items-center justify-center px-6">
-      <h1 className="font-bold text-lg">{error}</h1>
-      <p className="mt-2 text-gray11">{error_description}</p>
-      <a className="mt-6 text-gray11 underline hover:text-gray12" href="/login">
+      <h1 className="text-lg font-bold">{error}</h1>
+      <p className="text-gray11 mt-2">{error_description}</p>
+      <a className="text-gray11 hover:text-gray12 mt-6 underline" href="/login">
         Try again
       </a>
     </div>

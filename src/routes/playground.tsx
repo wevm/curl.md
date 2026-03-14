@@ -5,7 +5,6 @@ import { z } from 'zod'
 import { attribution } from '#lib/constants.ts'
 import { formatCost } from '#lib/format.ts'
 import { rpc } from '#lib/rpc.ts'
-import { urlSchema } from '#lib/schemas.ts'
 
 const searchSchema = z.object({
   k: z.string().optional(),
@@ -15,9 +14,7 @@ const searchSchema = z.object({
 
 export const Route = createFileRoute('/playground')({
   head: () => {
-    const ogImage = rpc.api['og.png']
-      .$url({ query: { page: 'playground' } })
-      .toString()
+    const ogImage = rpc.api['og.png'].$url({ query: { page: 'playground' } }).toString()
     return {
       meta: [
         { title: `Playground - ${__HOST__}` },
@@ -55,16 +52,26 @@ function Playground() {
   }, [])
 
   const mutation = Query.useMutation({
-    mutationFn: async (input: {
-      k?: string | undefined
-      q?: string | undefined
-      url: string
-    }) => {
+    mutationFn: async (input: { k?: string | undefined; q?: string | undefined; url: string }) => {
       abortRef.current?.abort()
       const controller = new AbortController()
       abortRef.current = controller
 
-      const validatedUrl = new URL(z.parse(urlSchema, input.url.trim()))
+      const validatedUrl = new URL(
+        z.parse(
+          z
+            .string()
+            .transform((arg) => (arg.includes('://') ? arg : `https://${arg}`))
+            .pipe(
+              z.url({
+                hostname: z.regexes.domain,
+                normalize: true,
+                protocol: /^https?$/,
+              }),
+            ),
+          input.url.trim(),
+        ),
+      )
       const params = new URLSearchParams()
       if (input.q?.trim()) params.set('q', input.q.trim())
       if (input.k?.trim()) params.set('k', input.k.trim())
@@ -89,11 +96,7 @@ function Playground() {
   })
 
   const syncToUrl = React.useCallback(
-    (values: {
-      k?: string | undefined
-      q?: string | undefined
-      url?: string | undefined
-    }) => {
+    (values: { k?: string | undefined; q?: string | undefined; url?: string | undefined }) => {
       navigate({
         to: '/playground',
         search: () => {
@@ -114,10 +117,9 @@ function Playground() {
   }, [url, objective, keywords, syncToUrl])
 
   // Auto-submit on load if URL is present
-  // biome-ignore lint/correctness/useExhaustiveDependencies: run once on mount
+  // oxlint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
   React.useEffect(() => {
-    if (search.url?.trim())
-      mutation.mutate({ url: search.url, q: search.q, k: search.k })
+    if (search.url?.trim()) mutation.mutate({ url: search.url, q: search.q, k: search.k })
   }, [])
 
   const setInputs = (values: {
@@ -184,30 +186,25 @@ function Playground() {
       <div className="mx-auto flex min-h-0 w-full max-w-7xl grow flex-col gap-4">
         <div className="flex flex-col gap-1">
           <a
-            className="w-max text-gray9 hover:text-gray10 hover:underline dark:text-gray6"
+            className="text-gray9 hover:text-gray10 dark:text-gray6 w-max hover:underline"
             href="/"
           >
             &larr; Home
           </a>
           <h1 className="mt-4 font-bold">Playground</h1>
-          <p className="text-gray9 dark:text-gray6">
-            Try fetching any URL as Markdown
-          </p>
+          <p className="text-gray9 dark:text-gray6">Try fetching any URL as Markdown</p>
         </div>
 
         <div className="flex min-h-0 grow flex-col gap-6 md:flex-row">
           <div className="flex w-full flex-col gap-4 md:basis-2/5">
             <form onSubmit={handleSubmit} className="flex flex-col gap-3">
               <div className="flex items-center">
-                <label
-                  className="shrink-0 text-gray9 dark:text-gray6"
-                  htmlFor="url"
-                >
+                <label className="text-gray9 dark:text-gray6 shrink-0" htmlFor="url">
                   {__HOST__}/
                 </label>
                 <input
                   ref={inputRef}
-                  className="w-full bg-gray-a1 px-2 py-1 text-gray10 placeholder:text-gray9 dark:placeholder:text-gray6"
+                  className="bg-gray-a1 text-gray10 placeholder:text-gray9 dark:placeholder:text-gray6 w-full px-2 py-1"
                   id="url"
                   onBlur={() => {
                     const stripped = url.replace(/^https?:\/\//, '')
@@ -220,14 +217,11 @@ function Playground() {
                 />
               </div>
               <div className="flex items-center">
-                <label
-                  className="shrink-0 text-gray9 dark:text-gray6"
-                  htmlFor="objective"
-                >
+                <label className="text-gray9 dark:text-gray6 shrink-0" htmlFor="objective">
                   q=
                 </label>
                 <input
-                  className="w-full bg-gray-a1 px-2 py-1 text-gray10 placeholder:text-gray9 dark:placeholder:text-gray6"
+                  className="bg-gray-a1 text-gray10 placeholder:text-gray9 dark:placeholder:text-gray6 w-full px-2 py-1"
                   id="objective"
                   onChange={(e) => setObjective(e.target.value)}
                   placeholder="objective (optional)"
@@ -236,14 +230,11 @@ function Playground() {
                 />
               </div>
               <div className="flex items-center">
-                <label
-                  className="shrink-0 text-gray9 dark:text-gray6"
-                  htmlFor="keywords"
-                >
+                <label className="text-gray9 dark:text-gray6 shrink-0" htmlFor="keywords">
                   k=
                 </label>
                 <input
-                  className="w-full bg-gray-a1 px-2 py-1 text-gray10 placeholder:text-gray9 dark:placeholder:text-gray6"
+                  className="bg-gray-a1 text-gray10 placeholder:text-gray9 dark:placeholder:text-gray6 w-full px-2 py-1"
                   id="keywords"
                   onChange={(e) => setKeywords(e.target.value)}
                   placeholder="keywords (optional)"
@@ -253,7 +244,7 @@ function Playground() {
               </div>
               <div className="flex gap-2">
                 <button
-                  className="bg-gray10 px-3 py-1 text-bg1 not-disabled:hover:bg-gray9 disabled:opacity-50"
+                  className="bg-gray10 text-bg1 not-disabled:hover:bg-gray9 px-3 py-1 disabled:opacity-50"
                   disabled={mutation.isPending || !url.trim()}
                   type="submit"
                 >
@@ -261,7 +252,7 @@ function Playground() {
                 </button>
                 {mutation.isPending && (
                   <button
-                    className="px-3 py-1 text-gray9 hover:text-gray10 dark:text-gray6"
+                    className="text-gray9 hover:text-gray10 dark:text-gray6 px-3 py-1"
                     onClick={() => abortRef.current?.abort()}
                     type="button"
                   >
@@ -270,7 +261,7 @@ function Playground() {
                 )}
                 {hasResult && (
                   <button
-                    className="px-3 py-1 text-gray9 hover:text-gray10 dark:text-gray6"
+                    className="text-gray9 hover:text-gray10 dark:text-gray6 px-3 py-1"
                     onClick={() => {
                       mutation.reset()
                       setInputs({ url: '', q: '', k: '' })
@@ -290,7 +281,7 @@ function Playground() {
                 </p>
                 {examples.map((example) => (
                   <button
-                    className="break-all bg-gray-a2 p-3 text-start text-gray9 not-disabled:hover:bg-gray-a3 disabled:opacity-50 dark:text-gray6"
+                    className="bg-gray-a2 text-gray9 not-disabled:hover:bg-gray-a3 dark:text-gray6 p-3 text-start break-all disabled:opacity-50"
                     disabled={mutation.isPending}
                     key={example.url}
                     onClick={() => {
@@ -299,14 +290,9 @@ function Playground() {
                     }}
                     type="button"
                   >
-                    <span className="text-gray9 dark:text-gray6">
-                      {__HOST__}/
-                    </span>
-                    <span className="text-gray10">
-                      {example.url.split('/')[0]}
-                    </span>
-                    {example.url.includes('/') &&
-                      `/${example.url.split('/').slice(1).join('/')}`}
+                    <span className="text-gray9 dark:text-gray6">{__HOST__}/</span>
+                    <span className="text-gray10">{example.url.split('/')[0]}</span>
+                    {example.url.includes('/') && `/${example.url.split('/').slice(1).join('/')}`}
                     {example.q && (
                       <>
                         ?q=
@@ -325,7 +311,7 @@ function Playground() {
             )}
 
             {hasResult && (
-              <div className="flex flex-col gap-1 text-gray9 dark:text-gray6">
+              <div className="text-gray9 dark:text-gray6 flex flex-col gap-1">
                 <code className="break-all">{fetchedUrl}</code>
                 {stats && (
                   <>
@@ -344,15 +330,11 @@ function Playground() {
                           tokens saved
                         </span>
                         <span>
-                          <span className="text-green9">
-                            ${formatCost(stats.tokensSaved, 3)}
-                          </span>{' '}
+                          <span className="text-green9">${formatCost(stats.tokensSaved, 3)}</span>{' '}
                           saved (frontier)
                         </span>
                         <span>
-                          <span className="text-green9">
-                            ${formatCost(stats.tokensSaved, 0.5)}
-                          </span>{' '}
+                          <span className="text-green9">${formatCost(stats.tokensSaved, 0.5)}</span>{' '}
                           saved (budget)
                         </span>
                       </>
@@ -363,16 +345,14 @@ function Playground() {
             )}
 
             {hasResult && (
-              <div className="-mx-6 flex flex-col gap-1 text-gray9 md:hidden dark:text-gray6">
+              <div className="text-gray9 dark:text-gray6 -mx-6 flex flex-col gap-1 md:hidden">
                 {markdown && (
-                  <pre className="minimal-scrollbar whitespace-pre-wrap break-words bg-bg2 px-6 py-4 text-gray10">
+                  <pre className="minimal-scrollbar bg-bg2 text-gray10 px-6 py-4 break-words whitespace-pre-wrap">
                     {markdown}
                   </pre>
                 )}
                 {error && (
-                  <pre className="overflow-x-auto whitespace-pre-wrap text-red9">
-                    {error}
-                  </pre>
+                  <pre className="text-red9 overflow-x-auto whitespace-pre-wrap">{error}</pre>
                 )}
               </div>
             )}
@@ -380,7 +360,7 @@ function Playground() {
 
           <div className="relative hidden max-h-[calc(100dvh-10rem)] min-h-[calc(100dvh-10rem)] w-full min-w-0 flex-col gap-2 md:flex md:basis-3/5">
             {error ? (
-              <pre className="overflow-x-auto whitespace-pre-wrap text-red9 [scrollbar-gutter:stable]">
+              <pre className="text-red9 overflow-x-auto whitespace-pre-wrap [scrollbar-gutter:stable]">
                 {error}
               </pre>
             ) : markdown ? (
@@ -388,16 +368,16 @@ function Playground() {
                 <div className="absolute end-2 top-2 z-10">
                   <CopyButton text={markdown} />
                 </div>
-                <pre className="minimal-scrollbar min-h-0 grow overflow-auto whitespace-pre-wrap break-words bg-bg2 p-4 text-gray10 [scrollbar-gutter:stable]">
+                <pre className="minimal-scrollbar bg-bg2 text-gray10 min-h-0 grow overflow-auto p-4 break-words whitespace-pre-wrap [scrollbar-gutter:stable]">
                   {markdown}
                 </pre>
               </>
             ) : (
-              <div className="flex min-h-0 grow flex-col gap-4 bg-bg2 p-4 text-gray9 [scrollbar-gutter:stable] dark:text-gray6">
+              <div className="bg-bg2 text-gray9 dark:text-gray6 flex min-h-0 grow flex-col gap-4 p-4 [scrollbar-gutter:stable]">
                 <p>Enter a URL and click Fetch, or try an example:</p>
                 {examples.map((example) => (
                   <button
-                    className="bg-gray-a2 p-3 text-start text-gray9 not-disabled:hover:bg-gray-a3 disabled:opacity-50 dark:text-gray6"
+                    className="bg-gray-a2 text-gray9 not-disabled:hover:bg-gray-a3 dark:text-gray6 p-3 text-start disabled:opacity-50"
                     disabled={mutation.isPending}
                     key={example.url}
                     onClick={() => {
@@ -406,14 +386,9 @@ function Playground() {
                     }}
                     type="button"
                   >
-                    <span className="text-gray9 dark:text-gray6">
-                      {__HOST__}/
-                    </span>
-                    <span className="text-gray10">
-                      {example.url.split('/')[0]}
-                    </span>
-                    {example.url.includes('/') &&
-                      `/${example.url.split('/').slice(1).join('/')}`}
+                    <span className="text-gray9 dark:text-gray6">{__HOST__}/</span>
+                    <span className="text-gray10">{example.url.split('/')[0]}</span>
+                    {example.url.includes('/') && `/${example.url.split('/').slice(1).join('/')}`}
                     {example.q && (
                       <>
                         ?q=
@@ -443,7 +418,7 @@ function CopyButton(props: { text: string }) {
 
   return (
     <button
-      className="flex items-center gap-1 text-gray9 hover:text-gray10 dark:text-gray6"
+      className="text-gray9 hover:text-gray10 dark:text-gray6 flex items-center gap-1"
       onClick={() => {
         navigator.clipboard.writeText(text)
         setCopied(true)

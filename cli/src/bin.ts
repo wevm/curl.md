@@ -5,9 +5,7 @@ import cli from './cli.ts'
 import { UpdateCache } from './utils.ts'
 
 if (process.env.__CURLMD_UPDATE_CACHE) {
-  const client = hc<typeof api>(
-    process.env.CURLMD_BASE_URL || 'https://curl.md',
-  )
+  const client = hc<typeof api>(process.env.CURLMD_BASE_URL || 'https://curl.md')
   await UpdateCache.runUpdate(client)
   process.exit(0)
 }

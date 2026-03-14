@@ -1,8 +1,8 @@
-import { env } from 'cloudflare:workers'
 import * as Query from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { createServerFn, useServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
+import { env } from 'cloudflare:workers'
 import * as React from 'react'
 import { createClient } from '#db/client.ts'
 import { formatCost, formatNumber } from '#lib/format.ts'
@@ -10,9 +10,7 @@ import { rpc } from '#lib/rpc.ts'
 
 export const Route = createFileRoute('/')({
   head: () => {
-    const ogImage = rpc.api['og.png']
-      .$url({ query: { page: 'index' } })
-      .toString()
+    const ogImage = rpc.api['og.png'].$url({ query: { page: 'index' } }).toString()
     return {
       meta: [
         { title: `${__HOST__}: Fetch any URL as Markdown` },
@@ -40,23 +38,18 @@ function Home() {
     <div className="mx-auto flex max-w-2xl flex-col gap-1 px-6 pt-16 pb-16 text-lg">
       <h1 className="font-bold">curl.md</h1>
       <p className="text-gray9 dark:text-gray6">
-        Fetch any URL as Markdown via{' '}
-        <code className="text-teal9">{__HOST__}/&lt;url&gt;</code>
+        Fetch any URL as Markdown via <code className="text-teal9">{__HOST__}/&lt;url&gt;</code>
       </p>
       <TokensSaved />
       <div className="mt-4">
-        <code className="block text-gray9 dark:text-gray6">
-          # Fetch full page
-        </code>
+        <code className="text-gray9 dark:text-gray6 block"># Fetch full page</code>
         <code className="block">
           <span className="text-gray12">curl</span> {__HOST__}
           /example.com
         </code>
       </div>
       <div>
-        <code className="block text-gray9 dark:text-gray6">
-          # Filter by objective
-        </code>
+        <code className="text-gray9 dark:text-gray6 block"># Filter by objective</code>
         <code className="block">
           <span className="text-gray12">curl</span> {__HOST__}
           /example.com?
@@ -64,9 +57,7 @@ function Home() {
         </code>
       </div>
       <div>
-        <code className="block text-gray9 dark:text-gray6">
-          # Filter by keywords
-        </code>
+        <code className="text-gray9 dark:text-gray6 block"># Filter by keywords</code>
         <code className="block">
           <span className="text-gray12">curl</span> {__HOST__}
           /example.com?
@@ -75,23 +66,21 @@ function Home() {
       </div>
 
       <div className="mt-4">
-        <code className="block text-gray9 dark:text-gray6">
-          # Install agent skill
-        </code>
+        <code className="text-gray9 dark:text-gray6 block"># Install agent skill</code>
         <code className="block">
           <span className="text-gray12">npx curl.md</span>{' '}
           <span className="text-gray10">skills add</span>
         </code>
       </div>
       <div>
-        <code className="block text-gray9 dark:text-gray6"># Use via CLI</code>
+        <code className="text-gray9 dark:text-gray6 block"># Use via CLI</code>
         <code className="block">
           <span className="text-gray12">npx curl.md</span>{' '}
           <span className="text-gray10">example.com</span>
         </code>
       </div>
 
-      <footer className="mt-4 flex flex-wrap gap-x-3 gap-y-1 text-gray9 dark:text-gray6">
+      <footer className="text-gray9 dark:text-gray6 mt-4 flex flex-wrap gap-x-3 gap-y-1">
         <a
           className="hover:underline"
           href="https://github.com/wevm/curl.md"
@@ -139,16 +128,12 @@ function TokensSaved() {
   return (
     <>
       <p className="text-gray9 dark:text-gray6">
-        <span className="text-teal9 tabular-nums">
-          {formatNumber(Math.round(animated))}
-        </span>{' '}
-        tokens saved
+        <span className="text-teal9 tabular-nums">{formatNumber(Math.round(animated))}</span> tokens
+        saved
       </p>
       <p className="text-gray9 dark:text-gray6">
-        <span className="text-teal9 tabular-nums">
-          ${formatCost(animated, 3)}
-        </span>{' '}
-        saved @ $3/M input tokens
+        <span className="text-teal9 tabular-nums">${formatCost(animated, 3)}</span> saved @ $3/M
+        input tokens
       </p>
     </>
   )

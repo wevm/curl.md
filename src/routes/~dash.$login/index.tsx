@@ -8,10 +8,8 @@ function Dashboard() {
   const { entity } = Route.useRouteContext()
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="font-bold text-lg">Dashboard</h1>
-      <p className="text-gray9 dark:text-gray6">
-        Usage overview for {entity.name ?? entity.login}
-      </p>
+      <h1 className="text-lg font-bold">Dashboard</h1>
+      <p className="text-gray9 dark:text-gray6">Usage overview for {entity.name ?? entity.login}</p>
     </div>
   )
 }

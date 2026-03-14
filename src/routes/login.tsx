@@ -1,7 +1,7 @@
-import { env } from 'cloudflare:workers'
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
+import { env } from 'cloudflare:workers'
 import { z } from 'zod'
 import { createClient } from '#db/client.ts'
 import * as Session from '#lib/session.ts'
@@ -28,9 +28,9 @@ function Login() {
       : '/api/auth/github'
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col items-center justify-center px-6">
-      <h1 className="font-bold text-lg">Sign in to {__HOST__}</h1>
+      <h1 className="text-lg font-bold">Sign in to {__HOST__}</h1>
       <a
-        className="mt-6 flex items-center gap-2 bg-gray12 px-4 py-2 text-gray1 hover:bg-gray11"
+        className="bg-gray12 text-gray1 hover:bg-gray11 mt-6 flex items-center gap-2 px-4 py-2"
         href={href}
       >
         <IconOcticonMarkGithub16 className="size-5" />

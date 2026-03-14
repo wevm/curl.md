@@ -16,11 +16,8 @@ export function createFactory(db: Kysely<DB>) {
         const values = this.attrs(...args)
         const rows = Array.isArray(values) ? values : [values]
 
-        // biome-ignore lint/suspicious/noExplicitAny: dynamic table name
-        const result = await (db.insertInto(table) as any)
-          .values(rows)
-          .returningAll()
-          .execute()
+        // oxlint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic table name
+        const result = await (db.insertInto(table) as any).values(rows).returningAll().execute()
 
         return rows.length === 1 ? result[0] : result
       },
@@ -86,25 +83,15 @@ type Factory = {
   [table in keyof DB]: {
     attrs: <const values extends readonly Record<string, unknown>[]>(
       ...args: values & AttrsValidation<table, values>
-    ) => values['length'] extends 1
-      ? Selectable<DB[table]>
-      : Selectable<DB[table]>[]
+    ) => values['length'] extends 1 ? Selectable<DB[table]> : Selectable<DB[table]>[]
     insert: <const values extends readonly Record<string, unknown>[]>(
       ...args: values & AttrsValidation<table, values>
-    ) => Promise<
-      values['length'] extends 1
-        ? Selectable<DB[table]>
-        : Selectable<DB[table]>[]
-    >
+    ) => Promise<values['length'] extends 1 ? Selectable<DB[table]> : Selectable<DB[table]>[]>
   }
 }
 
-type AttrsValidation<
-  table extends keyof DB,
-  values extends readonly Record<string, unknown>[],
-> = {
-  [index in keyof values]: Partial<Insertable<DB[table]>> &
-    RequiredForeignKeys<DB[table]>
+type AttrsValidation<table extends keyof DB, values extends readonly Record<string, unknown>[]> = {
+  [index in keyof values]: Partial<Insertable<DB[table]>> & RequiredForeignKeys<DB[table]>
 }
 
 type RequiredForeignKeys<row> = {

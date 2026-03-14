@@ -22,11 +22,7 @@ const publicTables = tables
 const enums = await db
   .selectFrom('pg_type as type')
   .innerJoin('pg_enum as enum', 'type.oid', 'enum.enumtypid')
-  .innerJoin(
-    'pg_catalog.pg_namespace as namespace',
-    'namespace.oid',
-    'type.typnamespace',
-  )
+  .innerJoin('pg_catalog.pg_namespace as namespace', 'namespace.oid', 'type.typnamespace')
   .select(['namespace.nspname', 'type.typname', 'enum.enumlabel'])
   .execute()
   .then((rows) => {
@@ -98,9 +94,7 @@ for (const table of publicTables) {
 output += '}\n\n'
 
 for (const table of publicTables) {
-  const columns = [...table.columns].sort((a, b) =>
-    a.name.localeCompare(b.name),
-  )
+  const columns = [...table.columns].sort((a, b) => a.name.localeCompare(b.name))
 
   output += `type ${table.name} = {\n`
   for (const col of columns) {
@@ -158,7 +152,7 @@ output += '\t}\n}\n'
 
 const outputPath = path.resolve(import.meta.dirname, '../db/types.gen.ts')
 fs.writeFileSync(outputPath, `${output.trimEnd()}\n`)
-execSync(`pnpm exec biome format --write ${outputPath}`, {
+execSync(`pnpm exec oxfmt ${outputPath}`, {
   cwd: path.resolve(import.meta.dirname, '..'),
   stdio: 'inherit',
 })

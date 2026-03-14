@@ -32,10 +32,10 @@ curl curl.md/<url>?fresh=
 
 ### Parameters
 
-| Parameter | Description |
-|-----------|-------------|
-| `q` | Optional query to extract only relevant sections from the page using AI. Reduces output size and keeps responses focused. |
-| `fresh` | Bypass the 15-minute cache to fetch the latest content. |
+| Parameter | Description                                                                                                               |
+| --------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `q`       | Optional query to extract only relevant sections from the page using AI. Reduces output size and keeps responses focused. |
+| `fresh`   | Bypass the 15-minute cache to fetch the latest content.                                                                   |
 
 No protocol needed — `curl curl.md/example.com` automatically uses HTTPS.
 
@@ -82,7 +82,7 @@ npx add-mcp curl.md/mcp
 
 ### `fetch_page` Tool
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `url` | string | Yes | URL of the web page to fetch (e.g. `"https://example.com"` or `"example.com"`) |
-| `query` | string | No | Query to narrow down the returned content to relevant sections |
+| Parameter | Type   | Required | Description                                                                    |
+| --------- | ------ | -------- | ------------------------------------------------------------------------------ |
+| `url`     | string | Yes      | URL of the web page to fetch (e.g. `"https://example.com"` or `"example.com"`) |
+| `query`   | string | No       | Query to narrow down the returned content to relevant sections                 |

@@ -1,14 +1,8 @@
-import { env } from 'cloudflare:workers'
 import { useMutation } from '@tanstack/react-query'
-import {
-  createFileRoute,
-  notFound,
-  Outlet,
-  redirect,
-  useRouter,
-} from '@tanstack/react-router'
+import { createFileRoute, notFound, Outlet, redirect, useRouter } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
+import { env } from 'cloudflare:workers'
 import { createClient } from '#db/client.ts'
 import { rpc } from '#lib/rpc.ts'
 import * as Session from '#lib/session.ts'
@@ -52,14 +46,11 @@ function DashboardLayout() {
           <span className="font-bold">{account.name ?? account.login}</span>
         </div>
         <div className="flex items-center gap-3">
-          <a
-            className="text-gray9 hover:text-gray10 hover:underline dark:text-gray6"
-            href="/"
-          >
+          <a className="text-gray9 hover:text-gray10 dark:text-gray6 hover:underline" href="/">
             Home
           </a>
           <button
-            className="text-gray9 hover:text-gray10 hover:underline disabled:opacity-50 dark:text-gray6"
+            className="text-gray9 hover:text-gray10 dark:text-gray6 hover:underline disabled:opacity-50"
             disabled={logout.isPending}
             onClick={() => logout.mutate()}
             type="button"
@@ -97,11 +88,7 @@ const getLayoutData = createServerFn({ method: 'GET' })
     // Check if login matches an organization the user belongs to
     const org = await db
       .selectFrom('organization')
-      .innerJoin(
-        'organization_member',
-        'organization_member.organization_id',
-        'organization.id',
-      )
+      .innerJoin('organization_member', 'organization_member.organization_id', 'organization.id')
       .where('organization.login', '=', login)
       .where('organization.deleted_at', 'is', null)
       .where('organization_member.account_id', '=', accountId)

@@ -25,17 +25,11 @@ import {
 } from '#lib/constants.ts'
 import * as Cookie from '#lib/cookie.ts'
 import * as Crypto from '#lib/crypto.ts'
-import {
-  invalidApiKey,
-  narrowValidation,
-  validationError,
-  validator,
-} from '#lib/hono.ts'
+import { invalidApiKey, narrowValidation, validationError, validator } from '#lib/hono.ts'
 import * as Nanoid from '#lib/nanoid.ts'
 import * as Og from '#lib/og.tsx'
 import { rateLimit } from '#lib/rate-limit.ts'
 import { knownRoutes } from '#lib/routes.ts'
-import { urlSchema } from '#lib/schemas.ts'
 import type { OneOf } from '#lib/types.ts'
 import * as Md from '#md/index.ts'
 
@@ -65,11 +59,7 @@ export const api = new Hono<{
     c.set('session', null)
 
     // Try cookie → session lookup
-    const cookie = await Cookie.getSigned(
-      c,
-      c.env.COOKIE_SECRET,
-      'curl.session',
-    )
+    const cookie = await Cookie.getSigned(c, c.env.COOKIE_SECRET, 'curl.session')
     const sessionId =
       cookie ??
       (() => {
@@ -158,10 +148,7 @@ export const api = new Hono<{
       if (query.next) {
         try {
           const nextUrl = new URL(query.next, origin)
-          if (
-            nextUrl.origin === origin ||
-            nextUrl.hostname.endsWith(Cookie.getDomain(c.env.HOST))
-          )
+          if (nextUrl.origin === origin || nextUrl.hostname.endsWith(Cookie.getDomain(c.env.HOST)))
             callbackUrl.searchParams.set('next', query.next)
         } catch {}
       }
@@ -196,10 +183,7 @@ export const api = new Hono<{
             nextUrl.hostname !== c.env.HOST &&
             nextUrl.hostname.endsWith(Cookie.getDomain(c.env.HOST))
           ) {
-            const previewCallback = new URL(
-              '/api/auth/github/callback',
-              nextUrl.origin,
-            )
+            const previewCallback = new URL('/api/auth/github/callback', nextUrl.origin)
             previewCallback.searchParams.set('code', query.code)
             previewCallback.searchParams.set('state', query.state)
             return c.redirect(previewCallback.toString())
@@ -249,10 +233,7 @@ export const api = new Hono<{
         >
         if (json.error) {
           errorUrl.searchParams.set('error', json.error)
-          errorUrl.searchParams.set(
-            'error_description',
-            'Failed to get access token',
-          )
+          errorUrl.searchParams.set('error_description', 'Failed to get access token')
           return c.redirect(errorUrl.toString())
         }
         tokenData = json
@@ -285,14 +266,10 @@ export const api = new Hono<{
         return c.redirect(errorUrl.toString())
       }
 
-      const primaryEmail =
-        emailsRes.data.find((e) => e.primary)?.email ?? emailsRes.data[0]?.email
+      const primaryEmail = emailsRes.data.find((e) => e.primary)?.email ?? emailsRes.data[0]?.email
       if (!primaryEmail) {
         errorUrl.searchParams.set('error', 'no_email')
-        errorUrl.searchParams.set(
-          'error_description',
-          'No email found on GitHub account',
-        )
+        errorUrl.searchParams.set('error_description', 'No email found on GitHub account')
         return c.redirect(errorUrl.toString())
       }
 
@@ -362,19 +339,14 @@ export const api = new Hono<{
             ? new Date(now.getTime() + tokenData.expires_in * 1000)
             : null
           const refresh_token_expires_at = tokenData.refresh_token_expires_in
-            ? new Date(
-                now.getTime() + tokenData.refresh_token_expires_in * 1000,
-              )
+            ? new Date(now.getTime() + tokenData.refresh_token_expires_in * 1000)
             : null
           const encryptedAccessToken = await Crypto.encrypt(
             tokenData.access_token,
             c.env.TOKEN_ENCRYPTION_KEY,
           )
           const encryptedRefreshToken = tokenData.refresh_token
-            ? await Crypto.encrypt(
-                tokenData.refresh_token,
-                c.env.TOKEN_ENCRYPTION_KEY,
-              )
+            ? await Crypto.encrypt(tokenData.refresh_token, c.env.TOKEN_ENCRYPTION_KEY)
             : null
           await tx
             .insertInto('account_provider')
@@ -411,35 +383,23 @@ export const api = new Hono<{
       } catch (error) {
         console.error('OAuth callback error:', error)
         errorUrl.searchParams.set('error', 'server_error')
-        errorUrl.searchParams.set(
-          'error_description',
-          'Something went wrong creating your account',
-        )
+        errorUrl.searchParams.set('error_description', 'Something went wrong creating your account')
         return c.redirect(errorUrl.toString())
       }
 
-      await Cookie.setSigned(
-        c,
-        'curl.session',
-        result.sessionId,
-        c.env.COOKIE_SECRET,
-        {
-          domain: Cookie.getDomain(c.env.HOST),
-          httpOnly: true,
-          maxAge: 2592000, // 30 days
-          sameSite: 'Lax',
-          secure: true,
-        },
-      )
+      await Cookie.setSigned(c, 'curl.session', result.sessionId, c.env.COOKIE_SECRET, {
+        domain: Cookie.getDomain(c.env.HOST),
+        httpOnly: true,
+        maxAge: 2592000, // 30 days
+        sameSite: 'Lax',
+        secure: true,
+      })
 
       const origin = `https://${c.env.HOST}`
       if (query.next) {
         try {
           const nextUrl = new URL(query.next, origin)
-          if (
-            nextUrl.origin === origin ||
-            nextUrl.hostname.endsWith(Cookie.getDomain(c.env.HOST))
-          )
+          if (nextUrl.origin === origin || nextUrl.hostname.endsWith(Cookie.getDomain(c.env.HOST)))
             return c.redirect(nextUrl.toString())
         } catch {}
       }
@@ -511,57 +471,44 @@ export const api = new Hono<{
       return c.json({ ok: true }, 200)
     },
   )
-  .post(
-    '/api/auth/device/token',
-    validator('json', z.object({ code: z.string() })),
-    async (c) => {
-      if (narrowValidation) return validationError(c)
+  .post('/api/auth/device/token', validator('json', z.object({ code: z.string() })), async (c) => {
+    if (narrowValidation) return validationError(c)
 
-      const rl = await rateLimit(c.env.KV, c.executionCtx, {
-        ip: c.req.header('cf-connecting-ip') ?? 'unknown',
-        key: 'device_token',
-        max: 30,
-        window: 60,
+    const rl = await rateLimit(c.env.KV, c.executionCtx, {
+      ip: c.req.header('cf-connecting-ip') ?? 'unknown',
+      key: 'device_token',
+      max: 30,
+      window: 60,
+    })
+    if (rl.error)
+      return c.json({ error: 'rate_limit_exceeded' }, 429, {
+        'retry-after': String(rl.reset - Math.floor(Date.now() / 1000)),
       })
-      if (rl.error)
-        return c.json({ error: 'rate_limit_exceeded' }, 429, {
-          'retry-after': String(rl.reset - Math.floor(Date.now() / 1000)),
-        })
 
-      const json = c.req.valid('json')
-      const deviceCode = await c.var.db
-        .selectFrom('device_code')
-        .where('code', '=', json.code)
-        .select(['account_id', 'expires_at', 'id', 'status'])
-        .executeTakeFirst()
-      if (!deviceCode || deviceCode.expires_at <= new Date())
-        return c.json({ error: 'expired_token' }, 400)
-      if (deviceCode.status === 'pending')
-        return c.json({ error: 'authorization_pending' }, 400)
-      if (!deviceCode.account_id) return c.json({ error: 'expired_token' }, 400)
-      const session = await c.var.db
-        .insertInto('session')
-        .values({
-          account_id: deviceCode.account_id,
-          expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
-        })
-        .returning('id')
-        .executeTakeFirstOrThrow()
-      await c.var.db
-        .deleteFrom('device_code')
-        .where('id', '=', deviceCode.id)
-        .execute()
-      return c.json({ session_id: session.id }, 200)
-    },
-  )
+    const json = c.req.valid('json')
+    const deviceCode = await c.var.db
+      .selectFrom('device_code')
+      .where('code', '=', json.code)
+      .select(['account_id', 'expires_at', 'id', 'status'])
+      .executeTakeFirst()
+    if (!deviceCode || deviceCode.expires_at <= new Date())
+      return c.json({ error: 'expired_token' }, 400)
+    if (deviceCode.status === 'pending') return c.json({ error: 'authorization_pending' }, 400)
+    if (!deviceCode.account_id) return c.json({ error: 'expired_token' }, 400)
+    const session = await c.var.db
+      .insertInto('session')
+      .values({
+        account_id: deviceCode.account_id,
+        expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+      })
+      .returning('id')
+      .executeTakeFirstOrThrow()
+    await c.var.db.deleteFrom('device_code').where('id', '=', deviceCode.id).execute()
+    return c.json({ session_id: session.id }, 200)
+  })
   .post('/api/auth/logout', async (c) => {
-    const sessionId = await Cookie.getSigned(
-      c,
-      c.env.COOKIE_SECRET,
-      'curl.session',
-    )
-    if (sessionId)
-      await c.var.db.deleteFrom('session').where('id', '=', sessionId).execute()
+    const sessionId = await Cookie.getSigned(c, c.env.COOKIE_SECRET, 'curl.session')
+    if (sessionId) await c.var.db.deleteFrom('session').where('id', '=', sessionId).execute()
     Cookie.destroy(c, 'curl.session', {
       domain: Cookie.getDomain(c.env.HOST),
       httpOnly: true,
@@ -587,18 +534,10 @@ export const api = new Hono<{
         jsonArrayFrom(
           eb
             .selectFrom('organization_member')
-            .innerJoin(
-              'organization',
-              'organization.id',
-              'organization_member.organization_id',
-            )
+            .innerJoin('organization', 'organization.id', 'organization_member.organization_id')
             .whereRef('organization_member.account_id', '=', 'account.id')
             .where('organization.deleted_at', 'is', null)
-            .select([
-              'organization.id',
-              'organization.login',
-              'organization.name',
-            ]),
+            .select(['organization.id', 'organization.login', 'organization.name']),
         ).as('organizations'),
       ])
       .executeTakeFirst()
@@ -691,10 +630,7 @@ export const api = new Hono<{
       if (card) method = { brand: card.brand, last4: card.last4 }
     }
 
-    return c.json(
-      { balance_mills: entity.balanceMills, payment_method: method },
-      200,
-    )
+    return c.json({ balance_mills: entity.balanceMills, payment_method: method }, 200)
   })
   .post(
     '/api/credits/add',
@@ -857,10 +793,7 @@ export const api = new Hono<{
       })
 
       if (paymentIntent.status === 'succeeded')
-        return c.json(
-          { payment_id: paymentIntent.id, status: 'succeeded' } as const,
-          200,
-        )
+        return c.json({ payment_id: paymentIntent.id, status: 'succeeded' } as const, 200)
 
       if (paymentIntent.status === 'requires_action') {
         const customerSession = await stripe.customerSessions.create({
@@ -927,29 +860,17 @@ export const api = new Hono<{
   .get('/api/invites/:token', async (c) => {
     const invite = await c.var.db
       .selectFrom('organization_invite')
-      .innerJoin(
-        'organization',
-        'organization.id',
-        'organization_invite.organization_id',
-      )
+      .innerJoin('organization', 'organization.id', 'organization_invite.organization_id')
       .where('organization_invite.token', '=', c.req.param('token'))
       .where('organization_invite.deleted_at', 'is', null)
       .where('organization_invite.expires_at', '>', new Date())
       .where((eb) =>
         eb.or([
           eb('organization_invite.max_uses', 'is', null),
-          eb(
-            'organization_invite.use_count',
-            '<',
-            eb.ref('organization_invite.max_uses'),
-          ),
+          eb('organization_invite.use_count', '<', eb.ref('organization_invite.max_uses')),
         ]),
       )
-      .select([
-        'organization.login',
-        'organization.name',
-        'organization_invite.role',
-      ])
+      .select(['organization.login', 'organization.name', 'organization_invite.role'])
       .executeTakeFirst()
 
     if (!invite) return c.json({ error: 'not_found' }, 404)
@@ -971,12 +892,7 @@ export const api = new Hono<{
       .where('token', '=', c.req.param('token'))
       .where('deleted_at', 'is', null)
       .where('expires_at', '>', new Date())
-      .where((eb) =>
-        eb.or([
-          eb('max_uses', 'is', null),
-          eb('use_count', '<', eb.ref('max_uses')),
-        ]),
-      )
+      .where((eb) => eb.or([eb('max_uses', 'is', null), eb('use_count', '<', eb.ref('max_uses'))]))
       .select(['organization_id', 'role'])
       .executeTakeFirst()
     if (!invite) return c.json({ error: 'not_found' }, 404)
@@ -988,9 +904,7 @@ export const api = new Hono<{
         organization_id: invite.organization_id,
         role: invite.role,
       })
-      .onConflict((oc) =>
-        oc.columns(['organization_id', 'account_id']).doNothing(),
-      )
+      .onConflict((oc) => oc.columns(['organization_id', 'account_id']).doNothing())
       .returning('id')
       .executeTakeFirst()
     if (!inserted) return c.json({ error: 'already_member' }, 409)
@@ -999,12 +913,7 @@ export const api = new Hono<{
       .updateTable('organization_invite')
       .set({ use_count: sql`use_count + 1` })
       .where('token', '=', c.req.param('token'))
-      .where((eb) =>
-        eb.or([
-          eb('max_uses', 'is', null),
-          eb('use_count', '<', eb.ref('max_uses')),
-        ]),
-      )
+      .where((eb) => eb.or([eb('max_uses', 'is', null), eb('use_count', '<', eb.ref('max_uses'))]))
       .execute()
 
     const organization = await c.var.db
@@ -1044,10 +953,7 @@ export const api = new Hono<{
         ],
         format: 'png',
         headers: {
-          'cache-control':
-            query.page === 'url'
-              ? 'public, max-age=3600'
-              : 'public, max-age=300',
+          'cache-control': query.page === 'url' ? 'public, max-age=3600' : 'public, max-age=300',
         },
         height: 630,
         width: 1200,
@@ -1062,11 +968,7 @@ export const api = new Hono<{
 
     const organizations = await c.var.db
       .selectFrom('organization_member')
-      .innerJoin(
-        'organization',
-        'organization.id',
-        'organization_member.organization_id',
-      )
+      .innerJoin('organization', 'organization.id', 'organization_member.organization_id')
       .where('organization_member.account_id', '=', c.var.session.account_id)
       .where('organization.deleted_at', 'is', null)
       .select([
@@ -1084,11 +986,7 @@ export const api = new Hono<{
 
     const organization = await c.var.db
       .selectFrom('organization')
-      .innerJoin(
-        'organization_member',
-        'organization_member.organization_id',
-        'organization.id',
-      )
+      .innerJoin('organization_member', 'organization_member.organization_id', 'organization.id')
       .where('organization.id', '=', c.req.param('id'))
       .where('organization_member.account_id', '=', c.var.session.account_id)
       .where('organization.deleted_at', 'is', null)
@@ -1125,15 +1023,8 @@ export const api = new Hono<{
 
       const json = c.req.valid('json')
 
-      const reservedLogins = new Set([
-        ...knownRoutes,
-        'api',
-        'curl',
-        'dash',
-        'org',
-      ])
-      if (reservedLogins.has(json.login))
-        return c.json({ error: 'login_reserved' }, 409)
+      const reservedLogins = new Set([...knownRoutes, 'api', 'curl', 'dash', 'org'])
+      if (reservedLogins.has(json.login)) return c.json({ error: 'login_reserved' }, 409)
 
       const existingLogin = await c.var.db
         .selectFrom((eb) =>
@@ -1141,12 +1032,7 @@ export const api = new Hono<{
             .selectFrom('account')
             .select('id')
             .where('login', '=', json.login)
-            .unionAll(
-              eb
-                .selectFrom('organization')
-                .select('id')
-                .where('login', '=', json.login),
-            )
+            .unionAll(eb.selectFrom('organization').select('id').where('login', '=', json.login))
             .as('existing'),
         )
         .select('id')
@@ -1203,9 +1089,7 @@ export const api = new Hono<{
 
       const json = c.req.valid('json')
       const token = customAlphabet('0123456789abcdefghijklmnopqrstuvwxyz', 32)()
-      const expires_at = new Date(
-        Date.now() + (json.expires_in ?? 604800) * 1000,
-      )
+      const expires_at = new Date(Date.now() + (json.expires_in ?? 604800) * 1000)
 
       await c.var.db
         .insertInto('organization_invite')
@@ -1249,15 +1133,7 @@ export const api = new Hono<{
       .selectFrom('organization_invite')
       .where('organization_id', '=', c.req.param('id'))
       .where('deleted_at', 'is', null)
-      .select([
-        'created_at',
-        'expires_at',
-        'id',
-        'max_uses',
-        'role',
-        'token',
-        'use_count',
-      ])
+      .select(['created_at', 'expires_at', 'id', 'max_uses', 'role', 'token', 'use_count'])
       .orderBy('created_at', 'desc')
       .execute()
 
@@ -1356,17 +1232,12 @@ export const api = new Hono<{
           organization_id: c.req.param('id'),
           role: json.role,
         })
-        .onConflict((oc) =>
-          oc.columns(['organization_id', 'account_id']).doNothing(),
-        )
+        .onConflict((oc) => oc.columns(['organization_id', 'account_id']).doNothing())
         .returning('id')
         .executeTakeFirst()
       if (!member) return c.json({ error: 'already_member' }, 409)
 
-      return c.json(
-        { member: { id: member.id, login: json.login, role: json.role } },
-        201,
-      )
+      return c.json({ member: { id: member.id, login: json.login, role: json.role } }, 201)
     },
   )
   .patch(
@@ -1384,8 +1255,7 @@ export const api = new Hono<{
         .select(['id', 'role'])
         .executeTakeFirst()
       if (!currentMember) return c.json({ error: 'forbidden' }, 403)
-      if (currentMember.id === c.req.param('memberId'))
-        return c.json({ error: 'forbidden' }, 403)
+      if (currentMember.id === c.req.param('memberId')) return c.json({ error: 'forbidden' }, 403)
 
       const member = await c.var.db
         .selectFrom('organization_member')
@@ -1394,8 +1264,7 @@ export const api = new Hono<{
         .select('role')
         .executeTakeFirst()
       if (!member) return c.json({ error: 'not_found' }, 404)
-      if (member.role === 'owner')
-        return c.json({ error: 'cannot_change_owner' }, 403)
+      if (member.role === 'owner') return c.json({ error: 'cannot_change_owner' }, 403)
 
       const json = c.req.valid('json')
       await c.var.db
@@ -1429,8 +1298,7 @@ export const api = new Hono<{
       .select('role')
       .executeTakeFirst()
     if (!member) return c.json({ error: 'not_found' }, 404)
-    if (member.role === 'owner')
-      return c.json({ error: 'cannot_remove_owner' }, 403)
+    if (member.role === 'owner') return c.json({ error: 'cannot_remove_owner' }, 403)
 
     await c.var.db
       .deleteFrom('organization_member')
@@ -1472,13 +1340,7 @@ export const api = new Hono<{
           key_prefix: keyPrefix,
           name: json.name,
         })
-        .returning([
-          'id',
-          'name',
-          'key_prefix',
-          'organization_id',
-          'created_at',
-        ])
+        .returning(['id', 'name', 'key_prefix', 'organization_id', 'created_at'])
         .executeTakeFirstOrThrow()
 
       return c.json({ api_key: { ...row, token } }, 201)
@@ -1491,14 +1353,7 @@ export const api = new Hono<{
       .selectFrom('api_key')
       .where('account_id', '=', c.var.session.account_id)
       .where('deleted_at', 'is', null)
-      .select([
-        'id',
-        'name',
-        'key_prefix',
-        'organization_id',
-        'last_used_at',
-        'created_at',
-      ])
+      .select(['id', 'name', 'key_prefix', 'organization_id', 'last_used_at', 'created_at'])
       .orderBy('created_at', 'desc')
       .execute()
 
@@ -1540,12 +1395,8 @@ export const api = new Hono<{
 
     switch (event.type) {
       case 'payment_intent.succeeded': {
-        const paymentIntent = event.data
-          .object as import('stripe').Stripe.PaymentIntent
-        const customer =
-          typeof paymentIntent.customer === 'string'
-            ? paymentIntent.customer
-            : null
+        const paymentIntent = event.data.object as import('stripe').Stripe.PaymentIntent
+        const customer = typeof paymentIntent.customer === 'string' ? paymentIntent.customer : null
         if (customer && paymentIntent.amount)
           await c.env.STRIPE_WEBHOOK_QUEUE.send({
             type: event.type,
@@ -1564,8 +1415,7 @@ export const api = new Hono<{
           typeof dispute.charge === 'string'
             ? await stripe.charges.retrieve(dispute.charge)
             : dispute.charge
-        const customer =
-          typeof charge.customer === 'string' ? charge.customer : null
+        const customer = typeof charge.customer === 'string' ? charge.customer : null
         if (customer)
           await c.env.STRIPE_WEBHOOK_QUEUE.send({
             type: event.type,
@@ -1583,8 +1433,7 @@ export const api = new Hono<{
           typeof refund.charge === 'string'
             ? await stripe.charges.retrieve(refund.charge)
             : refund.charge
-        const customer =
-          charge && typeof charge.customer === 'string' ? charge.customer : null
+        const customer = charge && typeof charge.customer === 'string' ? charge.customer : null
         if (customer)
           await c.env.STRIPE_WEBHOOK_QUEUE.send({
             type: 'refund.created',
@@ -1621,12 +1470,22 @@ export const api = new Hono<{
     validator(
       'param',
       z.object({
-        url: urlSchema.refine(
-          (url) =>
-            !/\.(action|aspx?|cgi|css|eot|gif|html?|ico|jpe?g|json|jsx?|map|php|png|svg|tsx?|ttf|webp|woff2?|xml|ya?ml)$/i.test(
-              new URL(url).hostname,
-            ),
-        ),
+        url: z
+          .string()
+          .transform((arg) => (arg.includes('://') ? arg : `https://${arg}`))
+          .pipe(
+            z.url({
+              hostname: z.regexes.domain,
+              normalize: true,
+              protocol: /^https?$/,
+            }),
+          )
+          .refine(
+            (url) =>
+              !/\.(action|aspx?|cgi|css|eot|gif|html?|ico|jpe?g|json|jsx?|map|php|png|svg|tsx?|ttf|webp|woff2?|xml|ya?ml)$/i.test(
+                new URL(url).hostname,
+              ),
+          ),
       }),
     ),
     validator(
@@ -1640,9 +1499,7 @@ export const api = new Hono<{
           .string()
           .transform((v) => v.split(/[\s,]+/).filter(Boolean))
           .optional(),
-        mode: z
-          .enum(['rush', 'smart'] satisfies [Mode, ...Mode[]])
-          .default('smart'),
+        mode: z.enum(['rush', 'smart'] satisfies [Mode, ...Mode[]]).default('smart'),
         q: z.string().optional(),
       }),
     ),
@@ -1693,8 +1550,7 @@ export const api = new Hono<{
       // Check balance for paid tier
       let billable = false
       if (c.var.session) {
-        const billingEntityId =
-          c.var.organization_id ?? c.var.session?.account_id
+        const billingEntityId = c.var.organization_id ?? c.var.session?.account_id
         const cached = await c.env.KV.get(`balance:${billingEntityId}`)
         const balanceMills = cached !== null ? Number(cached) : 0
         if (balanceMills > 0) billable = true
@@ -1721,8 +1577,7 @@ export const api = new Hono<{
         const now = Math.floor(Date.now() / 1000)
         const record = await c.env.KV.get(kvKey, 'json')
 
-        const reset =
-          record && record.reset > now ? record.reset : now + limit.window
+        const reset = record && record.reset > now ? record.reset : now + limit.window
         const count = record && record.reset > now ? record.count + 1 : 1
 
         rateLimitHeaders = {
@@ -1777,10 +1632,7 @@ export const api = new Hono<{
                       provider.access_token_expires_at < new Date()
                     )
                       return undefined
-                    return Crypto.decrypt(
-                      provider.access_token,
-                      c.env.TOKEN_ENCRYPTION_KEY,
-                    )
+                    return Crypto.decrypt(provider.access_token, c.env.TOKEN_ENCRYPTION_KEY)
                   })
               : undefined,
           }),
@@ -1867,26 +1719,17 @@ export const api = new Hono<{
               .filter((r) => r.response && r.response.trim() !== sentinelValue)
               .map((r) => r.response)
               .join('\n\n')
-            const promptTokens = results.reduce(
-              (sum, r) => sum + r.usage.prompt_tokens,
-              0,
-            )
-            const completionTokens = results.reduce(
-              (sum, r) => sum + r.usage.completion_tokens,
-              0,
-            )
+            const promptTokens = results.reduce((sum, r) => sum + r.usage.prompt_tokens, 0)
+            const completionTokens = results.reduce((sum, r) => sum + r.usage.completion_tokens, 0)
 
-            c.executionCtx.waitUntil(
-              c.env.KV.put(queryCacheKey, filtered, { expirationTtl: 900 }),
-            )
+            c.executionCtx.waitUntil(c.env.KV.put(queryCacheKey, filtered, { expirationTtl: 900 }))
             return { completionTokens, excerpt: filtered, promptTokens }
           })()
           inputTokens = result.promptTokens
           outputTokens = result.completionTokens
           excerpt = result.excerpt || filteredContent
         } catch (error) {
-          const message =
-            error instanceof Error ? error.message : 'Unknown error'
+          const message = error instanceof Error ? error.message : 'Unknown error'
           return c.json({ error: 'ai_failed', message }, 502)
         }
       }
@@ -1898,20 +1741,15 @@ export const api = new Hono<{
         return excerpt
       })()
       const tokensCount = estimateTokenCount(markdown)
-      const tokensSaved =
-        estimateTokenCount(response.content) - estimateTokenCount(excerpt)
+      const tokensSaved = estimateTokenCount(response.content) - estimateTokenCount(excerpt)
 
       const costMills = (() => {
         if (query.q) {
           // CF cost in mills: tokens * pricePerMToken / 1000
           const cfCostMills =
-            (inputTokens * mode.inputPricePerMToken +
-              outputTokens * mode.outputPricePerMToken) /
+            (inputTokens * mode.inputPricePerMToken + outputTokens * mode.outputPricePerMToken) /
             1000
-          return (
-            pricing.queryBaseCostMills +
-            Math.ceil(cfCostMills * pricing.queryMarkup)
-          )
+          return pricing.queryBaseCostMills + Math.ceil(cfCostMills * pricing.queryMarkup)
         }
         return pricing.fetchCostMills
       })()
@@ -1948,13 +1786,10 @@ export const api = new Hono<{
         'x-tokens-saved': String(tokensSaved),
       }
       if (billable) {
-        const billingEntityId =
-          c.var.organization_id ?? c.var.session?.account_id
+        const billingEntityId = c.var.organization_id ?? c.var.session?.account_id
         const cached = await c.env.KV.get(`balance:${billingEntityId}`)
         if (cached !== null)
-          commonHeaders['x-credits-remaining'] = String(
-            Math.max(0, Number(cached) - costMills),
-          )
+          commonHeaders['x-credits-remaining'] = String(Math.max(0, Number(cached) - costMills))
       }
 
       // TODO: toon response

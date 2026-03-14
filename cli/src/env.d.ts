@@ -6,7 +6,7 @@
 // This file provides minimal ambient declarations so the CLI can type-check without
 // pulling in the full Workers type package.
 //
-// biome-ignore-all lint/suspicious/noExplicitAny: intentionally loose stubs
+// oxlint-disable @typescript-eslint/no-explicit-any -- intentionally loose stubs
 declare namespace Cloudflare {
   interface Env {
     ASSETS: { fetch(input: any): Promise<Response> }

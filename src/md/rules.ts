@@ -1,10 +1,5 @@
 import { defineRule } from './mod.ts'
-import {
-  githubBlob,
-  githubIssue,
-  githubPr,
-  githubRepo,
-} from './rules/github.ts'
+import { githubBlob, githubIssue, githubPr, githubRepo } from './rules/github.ts'
 import {
   acceptMarkdown,
   appendIndexMd,

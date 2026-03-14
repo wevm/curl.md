@@ -4,9 +4,7 @@ export function create(options: create.Options = {}): create.ReturnType {
   const rules = (() => {
     if (!options.rules) return []
     if (Array.isArray(options.rules)) return options.rules
-    return Object.values(options.rules).map((r) =>
-      typeof r === 'function' ? r() : r,
-    )
+    return Object.values(options.rules).map((r) => (typeof r === 'function' ? r() : r))
   })()
 
   return {
@@ -41,8 +39,7 @@ export function create(options: create.Options = {}): create.ReturnType {
       } satisfies FetchContext
 
       let response: Response
-      if (rule?.fetch)
-        response = await rule.fetch(rewrittenUrl, requestInit, context)
+      if (rule?.fetch) response = await rule.fetch(rewrittenUrl, requestInit, context)
       else if (options.transport) {
         const result = await options.transport(rewrittenUrl, requestInit, {
           ...context,
@@ -65,12 +62,9 @@ export function create(options: create.Options = {}): create.ReturnType {
         if (rule?.extract) return rule.extract(response)
 
         const text = await response.text()
-        const contentType = (
-          response.headers.get('content-type') ?? ''
-        ).toLowerCase()
+        const contentType = (response.headers.get('content-type') ?? '').toLowerCase()
         const isMarkdown =
-          contentType.includes('text/markdown') ||
-          contentType.includes('text/x-markdown')
+          contentType.includes('text/markdown') || contentType.includes('text/x-markdown')
 
         if (isMarkdown) {
           const split = splitFrontmatter(text)
@@ -124,9 +118,7 @@ export type Rule = {
     init: RequestInit | undefined,
     context: FetchContext,
   ) => Promise<Response>
-  extract?: (
-    response: Response,
-  ) => Promise<{ content: string; meta?: Meta | undefined }>
+  extract?: (response: Response) => Promise<{ content: string; meta?: Meta | undefined }>
 }
 
 export function defineRule<options = void>(
@@ -139,11 +131,7 @@ export function defineRule<options = void>(
       ...(config.rewrite && { rewrite: config.rewrite }),
       ...(config.extract && { extract: config.extract }),
       ...(configFetch && {
-        fetch(
-          input: RequestInfo | URL,
-          init: RequestInit | undefined,
-          context: FetchContext,
-        ) {
+        fetch(input: RequestInfo | URL, init: RequestInit | undefined, context: FetchContext) {
           return configFetch(input, init, {
             ...context,
             options: options as options,
@@ -193,13 +181,7 @@ export function defineTransport<options = void>(
 export type FetchContext = { fetch: typeof globalThis.fetch }
 
 export type Meta = Record<string, YamlValue>
-type YamlValue =
-  | string
-  | number
-  | boolean
-  | null
-  | YamlValue[]
-  | { [key: string]: YamlValue }
+type YamlValue = string | number | boolean | null | YamlValue[] | { [key: string]: YamlValue }
 
 const metaKeyPriority: Record<string, number> = {
   title: 0,

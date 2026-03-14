@@ -4,14 +4,10 @@ import { nanoid, now } from '../client.ts'
 export async function up(db: Kysely<unknown>): Promise<void> {
   await db.schema
     .createTable('device_code')
-    .addColumn('id', 'varchar(20)', (col) =>
-      col.primaryKey().defaultTo(nanoid()),
-    )
+    .addColumn('id', 'varchar(20)', (col) => col.primaryKey().defaultTo(nanoid()))
     .addColumn('code', 'varchar(255)', (col) => col.notNull().unique())
     .addColumn('user_code', 'varchar(8)', (col) => col.notNull().unique())
-    .addColumn('account_id', 'varchar(20)', (col) =>
-      col.references('account.id'),
-    )
+    .addColumn('account_id', 'varchar(20)', (col) => col.references('account.id'))
     .addColumn('status', 'varchar(20)', (col) =>
       col
         .notNull()
@@ -19,9 +15,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         .check(sql`status in ('approved', 'pending')`),
     )
     .addColumn('expires_at', 'timestamptz', (col) => col.notNull())
-    .addColumn('created_at', 'timestamptz', (col) =>
-      col.notNull().defaultTo(now()),
-    )
+    .addColumn('created_at', 'timestamptz', (col) => col.notNull().defaultTo(now()))
     .execute()
 
   await db.schema

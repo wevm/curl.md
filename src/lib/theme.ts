@@ -13,8 +13,7 @@ export function useTheme() {
     setMounted(true)
   }, [])
 
-  const [systemTheme, setSystemTheme] =
-    React.useState<Exclude<Theme, 'system'>>(getSystemTheme)
+  const [systemTheme, setSystemTheme] = React.useState<Exclude<Theme, 'system'>>(getSystemTheme)
 
   const resolvedTheme = theme === 'system' ? systemTheme : theme
 
@@ -53,9 +52,7 @@ export function useTheme() {
 
 function getSystemTheme(): Exclude<Theme, 'system'> {
   if (typeof window === 'undefined') return 'light'
-  return window.matchMedia('(prefers-color-scheme: dark)').matches
-    ? 'dark'
-    : 'light'
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
 }
 
 function getStoredTheme(): Theme {

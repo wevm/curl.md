@@ -16,8 +16,7 @@ function exec(
       args,
       { timeout: 30_000, env: { ...process.env, ...options?.env } },
       (error, stdout, stderr) => {
-        if (error)
-          reject(new Error(stderr?.trim() || stdout?.trim() || error.message))
+        if (error) reject(new Error(stderr?.trim() || stdout?.trim() || error.message))
         else resolve({ stdout, stderr })
       },
     )
@@ -32,13 +31,7 @@ describe('bun build --compile', () => {
     dir = await mkdtemp(join(tmpdir(), 'curl-md-bun-'))
     bin = join(dir, 'curl-md')
 
-    await exec('bun', [
-      'build',
-      join(import.meta.dirname, 'bin.ts'),
-      '--compile',
-      '--outfile',
-      bin,
-    ])
+    await exec('bun', ['build', join(import.meta.dirname, 'bin.ts'), '--compile', '--outfile', bin])
   }, 120_000)
 
   afterAll(async () => {
@@ -87,9 +80,7 @@ describe('bun build --compile', () => {
   test('fetches example.com', async () => {
     const server = createServer((_, res) => {
       res.writeHead(200, { 'content-type': 'text/markdown' })
-      res.end(
-        '# Example Domain\n\nThis domain is for use in illustrative examples.',
-      )
+      res.end('# Example Domain\n\nThis domain is for use in illustrative examples.')
     })
     await new Promise<void>((resolve) => server.listen(0, resolve))
     const port = (server.address() as { port: number }).port

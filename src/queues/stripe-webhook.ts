@@ -18,10 +18,7 @@ export async function processStripeWebhookMessage(
 }
 
 async function processPurchase(
-  data: Extract<
-    processStripeWebhookMessage.Body,
-    { type: 'payment_intent.succeeded' }
-  >['data'],
+  data: Extract<processStripeWebhookMessage.Body, { type: 'payment_intent.succeeded' }>['data'],
   db: Kysely<DB>,
 ) {
   const amountMills = data.amount_total * 10
@@ -71,10 +68,7 @@ async function processPurchase(
 }
 
 async function processReversal(
-  data: Extract<
-    processStripeWebhookMessage.Body,
-    { type: 'charge.dispute.created' }
-  >['data'],
+  data: Extract<processStripeWebhookMessage.Body, { type: 'charge.dispute.created' }>['data'],
   type: 'chargeback' | 'refund',
   db: Kysely<DB>,
 ) {
@@ -101,9 +95,7 @@ async function processReversal(
       .executeTakeFirstOrThrow()
 
     const deduction =
-      type === 'refund'
-        ? Math.min(amountMills, Math.max(0, current.balance_mills))
-        : amountMills
+      type === 'refund' ? Math.min(amountMills, Math.max(0, current.balance_mills)) : amountMills
 
     const updated = await tx
       .updateTable(entity.table)

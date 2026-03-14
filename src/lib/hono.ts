@@ -49,7 +49,5 @@ function validationHook(
     )
 }
 
-export const validator = ((
-  target: keyof ValidationTargets,
-  schema: z.ZodType,
-) => zValidator(target, schema, validationHook)) as typeof zValidator
+export const validator = ((target: keyof ValidationTargets, schema: z.ZodType) =>
+  zValidator(target, schema, validationHook)) as typeof zValidator

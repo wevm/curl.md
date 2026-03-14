@@ -4,25 +4,17 @@ import { nanoid, now } from '../client.ts'
 export async function up(db: Kysely<unknown>): Promise<void> {
   await db.schema
     .createTable('organization_invite')
-    .addColumn('id', 'varchar(20)', (col) =>
-      col.primaryKey().defaultTo(nanoid()),
-    )
+    .addColumn('id', 'varchar(20)', (col) => col.primaryKey().defaultTo(nanoid()))
     .addColumn('organization_id', 'varchar(20)', (col) =>
       col.notNull().references('organization.id'),
     )
     .addColumn('token', 'varchar(64)', (col) => col.notNull().unique())
-    .addColumn('role', 'varchar(20)', (col) =>
-      col.notNull().defaultTo('member'),
-    )
-    .addColumn('created_by', 'varchar(20)', (col) =>
-      col.notNull().references('account.id'),
-    )
+    .addColumn('role', 'varchar(20)', (col) => col.notNull().defaultTo('member'))
+    .addColumn('created_by', 'varchar(20)', (col) => col.notNull().references('account.id'))
     .addColumn('expires_at', 'timestamptz', (col) => col.notNull())
     .addColumn('max_uses', 'integer')
     .addColumn('use_count', 'integer', (col) => col.notNull().defaultTo(0))
-    .addColumn('created_at', 'timestamptz', (col) =>
-      col.notNull().defaultTo(now()),
-    )
+    .addColumn('created_at', 'timestamptz', (col) => col.notNull().defaultTo(now()))
     .addColumn('deleted_at', 'timestamptz')
     .execute()
 

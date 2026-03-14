@@ -10,9 +10,7 @@ export const githubDocs = defineRule({
     const firstSegment = url.pathname.split('/')[1]
     const pathname =
       firstSegment &&
-      new Set(['cn', 'de', 'en', 'es', 'fr', 'ja', 'ko', 'pt', 'ru', 'zh']).has(
-        firstSegment,
-      )
+      new Set(['cn', 'de', 'en', 'es', 'fr', 'ja', 'ko', 'pt', 'ru', 'zh']).has(firstSegment)
         ? url.pathname
         : `/en${url.pathname}`
     mdUrl.searchParams.set('pathname', pathname)

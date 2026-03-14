@@ -18,9 +18,7 @@ export function appendIndexMd(options: Options) {
     ...options,
     rewrite(url) {
       const mdUrl = new URL(url.href)
-      const base = mdUrl.pathname.endsWith('/')
-        ? mdUrl.pathname
-        : `${mdUrl.pathname}/`
+      const base = mdUrl.pathname.endsWith('/') ? mdUrl.pathname : `${mdUrl.pathname}/`
       mdUrl.pathname = `${base}index.md`
       return mdUrl
     },
@@ -41,19 +39,12 @@ export function appendMdWithIndex(options: Options) {
 }
 
 export function prefixedWithIndex(options: Options & { prefix: string }) {
-  const { prefix, ...rest } = options
+  const { prefix: _, ...rest } = options
   return defineRule({
     ...rest,
     rewrite(url) {
-      if (
-        !url.pathname.startsWith(`${options.prefix}/`) &&
-        url.pathname !== options.prefix
-      )
-        return
-      if (
-        url.pathname === options.prefix ||
-        url.pathname === `${options.prefix}/`
-      ) {
+      if (!url.pathname.startsWith(`${options.prefix}/`) && url.pathname !== options.prefix) return
+      if (url.pathname === options.prefix || url.pathname === `${options.prefix}/`) {
         const mdUrl = new URL(url.href)
         mdUrl.pathname = `${options.prefix}/index.md`
         return mdUrl

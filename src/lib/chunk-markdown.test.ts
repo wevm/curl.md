@@ -8,8 +8,7 @@ describe('filterSectionsByKeywords', () => {
   })
 
   test('filters h2 sections by keyword', () => {
-    const md =
-      '## Apples\nRed fruit\n## Bananas\nYellow fruit\n## Carrots\nOrange veggie'
+    const md = '## Apples\nRed fruit\n## Bananas\nYellow fruit\n## Carrots\nOrange veggie'
     const result = filterSectionsByKeywords(md, ['banana'])
     expect(result).toContain('## Bananas')
     expect(result).toContain('Yellow fruit')

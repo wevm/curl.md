@@ -51,10 +51,7 @@ export default defineConfig({
       process.env.GIT_SHA ??
         (() => {
           try {
-            return child
-              .execSync('git rev-parse HEAD', { stdio: 'pipe' })
-              .toString()
-              .trim()
+            return child.execSync('git rev-parse HEAD', { stdio: 'pipe' }).toString().trim()
           } catch {
             return 'dev'
           }
@@ -65,10 +62,7 @@ export default defineConfig({
     __INITIAL_TOKENS_SAVED__: (() => {
       try {
         return child
-          .execSync(
-            'node --experimental-strip-types scripts/getTokensSaved.ts',
-            { stdio: 'pipe' },
-          )
+          .execSync('node --experimental-strip-types scripts/getTokensSaved.ts', { stdio: 'pipe' })
           .toString()
           .trim()
       } catch {

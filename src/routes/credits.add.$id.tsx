@@ -1,14 +1,9 @@
-import { env } from 'cloudflare:workers'
-import {
-  Elements,
-  PaymentElement,
-  useElements,
-  useStripe,
-} from '@stripe/react-stripe-js'
+import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js'
 import { loadStripe } from '@stripe/stripe-js'
 import { useMutation } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
+import { env } from 'cloudflare:workers'
 import * as React from 'react'
 import { z } from 'zod/mini'
 import { creditAmounts } from '#lib/constants.ts'
@@ -33,9 +28,7 @@ function AddCreditsPage() {
   if (!data || !stripePromise)
     return (
       <PageWrapper>
-        <p className="text-gray9 dark:text-gray6">
-          Payment session not found or expired.
-        </p>
+        <p className="text-gray9 dark:text-gray6">Payment session not found or expired.</p>
       </PageWrapper>
     )
 
@@ -83,8 +76,7 @@ function CheckoutForm(props: { amount: number; id: string; locked: boolean }) {
         elements,
         redirect: 'if_required',
       })
-      if (result.error)
-        throw new Error(result.error.message ?? 'Payment failed.')
+      if (result.error) throw new Error(result.error.message ?? 'Payment failed.')
     },
     onSuccess: () => {
       void deletePayment({ data: { id: props.id } })
@@ -94,8 +86,8 @@ function CheckoutForm(props: { amount: number; id: string; locked: boolean }) {
   if (payment.isSuccess)
     return (
       <div className="flex flex-col items-center gap-3 py-8">
-        <IconLucideCircleCheck className="size-12 text-green9" />
-        <p className="font-bold text-lg">Payment successful!</p>
+        <IconLucideCircleCheck className="text-green9 size-12" />
+        <p className="text-lg font-bold">Payment successful!</p>
         <p className="text-gray9 dark:text-gray6">You can close this page.</p>
       </div>
     )
@@ -109,14 +101,12 @@ function CheckoutForm(props: { amount: number; id: string; locked: boolean }) {
       }}
     >
       {props.locked ? (
-        <p className="text-gray9 dark:text-gray6">
-          Amount: ${(amount / 100).toFixed(2)}
-        </p>
+        <p className="text-gray9 dark:text-gray6">Amount: ${(amount / 100).toFixed(2)}</p>
       ) : (
         <div className="flex gap-2">
           {amounts.map((a) => (
             <button
-              className="flex-1 rounded border border-gray-a2 px-3 py-1.5 text-sm disabled:opacity-50 data-[active]:border-gray10 data-[active]:bg-gray10 data-[active]:text-bg1"
+              className="border-gray-a2 data-[active]:border-gray10 data-[active]:bg-gray10 data-[active]:text-bg1 flex-1 rounded border px-3 py-1.5 text-sm disabled:opacity-50"
               data-active={a === amount ? '' : undefined}
               disabled={updateAmount.isPending}
               key={a}
@@ -129,17 +119,13 @@ function CheckoutForm(props: { amount: number; id: string; locked: boolean }) {
         </div>
       )}
       <PaymentElement />
-      {payment.error ? (
-        <p className="text-red9 text-xs">{payment.error.message}</p>
-      ) : null}
+      {payment.error ? <p className="text-red9 text-xs">{payment.error.message}</p> : null}
       <button
-        className="rounded bg-gray10 px-4 py-2 text-bg1 hover:opacity-90 disabled:opacity-50"
+        className="bg-gray10 text-bg1 rounded px-4 py-2 hover:opacity-90 disabled:opacity-50"
         disabled={!stripe || payment.isPending || updateAmount.isPending}
         type="submit"
       >
-        {payment.isPending
-          ? 'Processing...'
-          : `Pay $${(amount / 100).toFixed(2)}`}
+        {payment.isPending ? 'Processing...' : `Pay $${(amount / 100).toFixed(2)}`}
       </button>
     </form>
   )
@@ -149,8 +135,8 @@ function PageWrapper(props: React.PropsWithChildren) {
   const { children } = props
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col items-center justify-center px-6">
-      <div className="w-full rounded-lg border border-gray-a2 p-6">
-        <h1 className="mb-4 font-bold text-lg">Add Credits</h1>
+      <div className="border-gray-a2 w-full rounded-lg border p-6">
+        <h1 className="mb-4 text-lg font-bold">Add Credits</h1>
         {children}
       </div>
     </div>
@@ -170,9 +156,7 @@ const getPayment = createServerFn({ method: 'GET' })
 const allowedAmounts = new Set(amounts)
 
 const changeAmount = createServerFn({ method: 'POST' })
-  .inputValidator((data) =>
-    z.parse(z.object({ id: z.string(), amount: z.number() }), data),
-  )
+  .inputValidator((data) => z.parse(z.object({ id: z.string(), amount: z.number() }), data))
   .handler(async (c) => {
     if (!allowedAmounts.has(c.data.amount)) throw new Error('invalid_amount')
     const data = await env.KV.get(`payment:${c.data.id}`, 'json')
@@ -181,11 +165,9 @@ const changeAmount = createServerFn({ method: 'POST' })
     const stripe = new Stripe(env.STRIPE_SECRET_KEY)
     const piId = data.pi_secret.slice(0, data.pi_secret.indexOf('_secret_'))
     await stripe.paymentIntents.update(piId, { amount: c.data.amount })
-    await env.KV.put(
-      `payment:${c.data.id}`,
-      JSON.stringify({ ...data, amount: c.data.amount }),
-      { expirationTtl: 1800 },
-    )
+    await env.KV.put(`payment:${c.data.id}`, JSON.stringify({ ...data, amount: c.data.amount }), {
+      expirationTtl: 1800,
+    })
   })
 
 const deletePayment = createServerFn({ method: 'POST' })

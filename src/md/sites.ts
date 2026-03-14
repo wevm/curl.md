@@ -1,9 +1,4 @@
-import {
-  githubBlob,
-  githubIssue,
-  githubPr,
-  githubRepo,
-} from './rules/github.ts'
+import { githubBlob, githubIssue, githubPr, githubRepo } from './rules/github.ts'
 
 export function github(options: { token?: string | undefined } = {}) {
   return {

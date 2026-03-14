@@ -13,12 +13,7 @@ export const schema = z
 
 export type query = z.infer<typeof schema>
 
-export async function getElement(
-  host: string,
-  env: Cloudflare.Env,
-  db: Kysely<DB>,
-  query: query,
-) {
+export async function getElement(host: string, env: Cloudflare.Env, db: Kysely<DB>, query: query) {
   switch (query.page) {
     case 'url': {
       const tokensSaved = await getTokensSaved(env, db, query.url)
@@ -59,9 +54,7 @@ function indexVariant(host: string, tokensSaved: number) {
         <span style={{ color: '#ededed' }}>{host}/</span>
         <span style={{ color: teal }}>{'<url>'}</span>
       </div>
-      <div style={{ color: '#a1a1a1', fontSize: 48, marginTop: 12 }}>
-        Fetch any URL as Markdown
-      </div>
+      <div style={{ color: '#a1a1a1', fontSize: 48, marginTop: 12 }}>Fetch any URL as Markdown</div>
       {tokensSaved > 0 && (
         <>
           <div style={{ display: 'flex', fontSize: 48, marginTop: 8 }}>
@@ -70,9 +63,7 @@ function indexVariant(host: string, tokensSaved: number) {
           </div>
           <div style={{ display: 'flex', fontSize: 48, marginTop: 8 }}>
             <span style={{ color: teal }}>${formatCost(tokensSaved, 3)}</span>
-            <span style={{ color: '#a1a1a1' }}>
-              {'\u00a0'}saved @ $3/M input tokens
-            </span>
+            <span style={{ color: '#a1a1a1' }}>{'\u00a0'}saved @ $3/M input tokens</span>
           </div>
         </>
       )}
@@ -104,9 +95,7 @@ function playgroundVariant(host: string, tokensSaved: number) {
         <span style={{ color: '#ededed' }}>{host}/</span>
         <span style={{ color: '#ededed' }}>playground</span>
       </div>
-      <div style={{ color: '#a1a1a1', fontSize: 48, marginTop: 12 }}>
-        Fetch any URL as Markdown
-      </div>
+      <div style={{ color: '#a1a1a1', fontSize: 48, marginTop: 12 }}>Fetch any URL as Markdown</div>
       {tokensSaved > 0 && (
         <>
           <div style={{ display: 'flex', fontSize: 48, marginTop: 8 }}>
@@ -115,9 +104,7 @@ function playgroundVariant(host: string, tokensSaved: number) {
           </div>
           <div style={{ display: 'flex', fontSize: 48, marginTop: 8 }}>
             <span style={{ color: teal }}>${formatCost(tokensSaved, 3)}</span>
-            <span style={{ color: '#a1a1a1' }}>
-              {'\u00a0'}saved @ $3/M input tokens
-            </span>
+            <span style={{ color: '#a1a1a1' }}>{'\u00a0'}saved @ $3/M input tokens</span>
           </div>
         </>
       )}
@@ -127,9 +114,8 @@ function playgroundVariant(host: string, tokensSaved: number) {
 
 function urlVariant(host: string, urlParam: string, tokensSaved: number) {
   const teal = '#0cc0aa'
-  const hostname = new URL(
-    /^https?:\/\//.test(urlParam) ? urlParam : `https://${urlParam}`,
-  ).hostname
+  const hostname = new URL(/^https?:\/\//.test(urlParam) ? urlParam : `https://${urlParam}`)
+    .hostname
   return (
     <div
       style={{
@@ -152,9 +138,7 @@ function urlVariant(host: string, urlParam: string, tokensSaved: number) {
         <span style={{ color: '#ededed' }}>{host}/</span>
         <span style={{ color: teal }}>{hostname}</span>
       </div>
-      <div style={{ color: '#a1a1a1', fontSize: 48, marginTop: 12 }}>
-        Fetch any URL as Markdown
-      </div>
+      <div style={{ color: '#a1a1a1', fontSize: 48, marginTop: 12 }}>Fetch any URL as Markdown</div>
       {tokensSaved > 0 && (
         <>
           <div style={{ display: 'flex', fontSize: 48, marginTop: 8 }}>
@@ -163,9 +147,7 @@ function urlVariant(host: string, urlParam: string, tokensSaved: number) {
           </div>
           <div style={{ display: 'flex', fontSize: 48, marginTop: 8 }}>
             <span style={{ color: teal }}>${formatCost(tokensSaved, 3)}</span>
-            <span style={{ color: '#a1a1a1' }}>
-              {'\u00a0'}saved @ $3/M input tokens
-            </span>
+            <span style={{ color: '#a1a1a1' }}>{'\u00a0'}saved @ $3/M input tokens</span>
           </div>
         </>
       )}
@@ -173,14 +155,9 @@ function urlVariant(host: string, urlParam: string, tokensSaved: number) {
   )
 }
 
-async function getTokensSaved(
-  env: Cloudflare.Env,
-  db: Kysely<DB>,
-  urlParam?: string,
-) {
+async function getTokensSaved(env: Cloudflare.Env, db: Kysely<DB>, urlParam?: string) {
   const hostname = urlParam
-    ? new URL(/^https?:\/\//.test(urlParam) ? urlParam : `https://${urlParam}`)
-        .hostname
+    ? new URL(/^https?:\/\//.test(urlParam) ? urlParam : `https://${urlParam}`).hostname
     : undefined
   const cacheKey = hostname
     ? (`stats:tokens_saved:${hostname}` as const)

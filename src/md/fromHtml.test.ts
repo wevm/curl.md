@@ -14,9 +14,7 @@ describe('fromHtml', () => {
   })
 
   test('converts links', async () => {
-    const { content: result } = await fromHtml(
-      '<a href="https://example.com">link</a>',
-    )
+    const { content: result } = await fromHtml('<a href="https://example.com">link</a>')
     expect(result).toContain('[link](https://example.com)')
   })
 
@@ -269,10 +267,9 @@ describe('resolves relative links', () => {
   const baseUrl = 'https://example.com/docs/page'
 
   test('resolves relative href', async () => {
-    const { content: result } = await fromHtml(
-      html({ body: '<a href="/about">About</a>' }),
-      { baseUrl },
-    )
+    const { content: result } = await fromHtml(html({ body: '<a href="/about">About</a>' }), {
+      baseUrl,
+    })
     expect(result).toContain('[About](https://example.com/about)')
   })
 
@@ -312,56 +309,43 @@ describe('resolves relative links', () => {
   })
 
   test('resolves path-relative links', async () => {
-    const { content: result } = await fromHtml(
-      html({ body: '<a href="sibling">Sibling</a>' }),
-      { baseUrl },
-    )
+    const { content: result } = await fromHtml(html({ body: '<a href="sibling">Sibling</a>' }), {
+      baseUrl,
+    })
     expect(result).toContain('(https://example.com/docs/sibling)')
   })
 
   test('no-op without baseUrl', async () => {
-    const { content: result } = await fromHtml(
-      html({ body: '<a href="/about">About</a>' }),
-    )
+    const { content: result } = await fromHtml(html({ body: '<a href="/about">About</a>' }))
     expect(result).toContain('(/about)')
   })
 })
 
 describe('strips empty elements', () => {
   test('strips empty paragraphs', async () => {
-    const { content: result } = await fromHtml(
-      html({ body: '<p></p><p>Content</p>' }),
-    )
+    const { content: result } = await fromHtml(html({ body: '<p></p><p>Content</p>' }))
     expect(result).toContain('Content')
     expect(result).toBe('Content\n')
   })
 
   test('strips whitespace-only paragraphs', async () => {
-    const { content: result } = await fromHtml(
-      html({ body: '<p>   </p><p>Content</p>' }),
-    )
+    const { content: result } = await fromHtml(html({ body: '<p>   </p><p>Content</p>' }))
     expect(result).toBe('Content\n')
   })
 
   test('strips empty headings', async () => {
-    const { content: result } = await fromHtml(
-      html({ body: '<h2></h2><p>Content</p>' }),
-    )
+    const { content: result } = await fromHtml(html({ body: '<h2></h2><p>Content</p>' }))
     expect(result).toBe('Content\n')
   })
 
   test('strips empty list items', async () => {
-    const { content: result } = await fromHtml(
-      html({ body: '<ul><li></li><li>Item</li></ul>' }),
-    )
+    const { content: result } = await fromHtml(html({ body: '<ul><li></li><li>Item</li></ul>' }))
     expect(result).toContain('Item')
     expect(result).not.toContain('* \n')
   })
 
   test('preserves non-empty elements', async () => {
-    const { content: result } = await fromHtml(
-      html({ body: '<p>Keep</p><div>Also keep</div>' }),
-    )
+    const { content: result } = await fromHtml(html({ body: '<p>Keep</p><div>Also keep</div>' }))
     expect(result).toContain('Keep')
     expect(result).toContain('Also keep')
   })
@@ -501,9 +485,7 @@ describe('strips form elements', () => {
   })
 
   test('preserves mark elements', async () => {
-    const { content: result } = await fromHtml(
-      '<p>This is <mark>highlighted</mark> text</p>',
-    )
+    const { content: result } = await fromHtml('<p>This is <mark>highlighted</mark> text</p>')
     expect(result).toContain('<mark>highlighted</mark>')
   })
 })

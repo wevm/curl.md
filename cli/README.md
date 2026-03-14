@@ -49,6 +49,6 @@ const md = Md.create({
 const result = await md.fetch('https://example.com')
 if (result.ok) {
   console.log(result.content) // Markdown string
-  console.log(result.meta)    // { title, description, url, site, ... }
+  console.log(result.meta) // { title, description, url, site, ... }
 }
 ```

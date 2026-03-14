@@ -1,10 +1,10 @@
-@import "@fontsource-variable/geist-mono";
-@import "tailwindcss";
+@import '@fontsource-variable/geist-mono';
+@import 'tailwindcss';
 
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 @theme {
-  --font-mono: "Geist Mono Variable", monospace;
+  --font-mono: 'Geist Mono Variable', monospace;
   --color-*: initial;
 
   /* Geist Backgrounds */
@@ -169,7 +169,7 @@ html::-webkit-scrollbar-thumb {
   }
 }
 
-html[data-theme="dark"] {
+html[data-theme='dark'] {
   color-scheme: dark;
 }
 

@@ -33,11 +33,7 @@ test('deletes expired device codes', async () => {
 
   await runCleanup()
 
-  const rows = await db
-    .selectFrom('device_code')
-    .where('code', '=', code)
-    .selectAll()
-    .execute()
+  const rows = await db.selectFrom('device_code').where('code', '=', code).selectAll().execute()
   expect(rows).toHaveLength(0)
 })
 
@@ -57,11 +53,7 @@ test('preserves non-expired device codes', async () => {
 
   await runCleanup()
 
-  const rows = await db
-    .selectFrom('device_code')
-    .where('code', '=', code)
-    .selectAll()
-    .execute()
+  const rows = await db.selectFrom('device_code').where('code', '=', code).selectAll().execute()
   expect(rows).toHaveLength(1)
 })
 

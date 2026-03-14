@@ -1,7 +1,4 @@
-export function filterSectionsByKeywords(
-  markdown: string,
-  keywords: string[],
-): string {
+export function filterSectionsByKeywords(markdown: string, keywords: string[]): string {
   const lower = keywords.map((k) => k.toLowerCase())
   const sections = splitBySeparator(markdown, /^###? /m, true)
   if (sections.length <= 1) return markdown
@@ -20,18 +17,13 @@ export function chunkMarkdown(markdown: string, maxChars = 80_000): string[] {
 
 const boundaryPatterns = [/^## /m, /^### /m, /\n\n/, /\n/]
 
-function splitAtBoundary(
-  text: string,
-  maxChars: number,
-  level: number,
-): string[] {
+function splitAtBoundary(text: string, maxChars: number, level: number): string[] {
   if (text.length <= maxChars) return [text]
 
   const pattern = boundaryPatterns[level]
   if (!pattern) {
     const chunks: string[] = []
-    for (let i = 0; i < text.length; i += maxChars)
-      chunks.push(text.slice(i, i + maxChars))
+    for (let i = 0; i < text.length; i += maxChars) chunks.push(text.slice(i, i + maxChars))
     return chunks
   }
 
@@ -52,11 +44,7 @@ function splitAtBoundary(
   return chunks
 }
 
-function splitBySeparator(
-  text: string,
-  pattern: RegExp,
-  keepSeparator: boolean,
-): string[] {
+function splitBySeparator(text: string, pattern: RegExp, keepSeparator: boolean): string[] {
   if (keepSeparator) {
     const parts: string[] = []
     let remaining = text

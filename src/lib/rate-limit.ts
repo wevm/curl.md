@@ -9,8 +9,7 @@ export async function rateLimit(
   const now = Math.floor(Date.now() / 1000)
   const record = await kv.get(kvKey, 'json')
 
-  const reset =
-    record && record.reset > now ? record.reset : now + config.window
+  const reset = record && record.reset > now ? record.reset : now + config.window
   const count = record && record.reset > now ? record.count + 1 : 1
 
   if (count > config.max) return { error: true, reset }

@@ -12,33 +12,30 @@ const factory = createFactory(db)
 afterAll(() => db.destroy())
 
 test('inserts request record', async () => {
-  const batch = createMessageBatch<processRequestMessage.Body>(
-    processRequestMessage.queueName,
-    [
-      {
-        attempts: 1,
-        body: {
-          account_id: null,
-          api_key_id: null,
-          billable: false,
-          cost_mills: 0,
+  const batch = createMessageBatch<processRequestMessage.Body>(processRequestMessage.queueName, [
+    {
+      attempts: 1,
+      body: {
+        account_id: null,
+        api_key_id: null,
+        billable: false,
+        cost_mills: 0,
 
-          hostname: 'example.com',
-          id: 'req_1',
-          keywords: null,
-          markdownTokens: 25,
-          objective: null,
-          organization_id: null,
-          path: '/',
-          tokens_saved: null,
-          url: 'https://example.com',
-          user_agent: 'test-agent',
-        },
-        id: crypto.randomUUID(),
-        timestamp: new Date(),
+        hostname: 'example.com',
+        id: 'req_1',
+        keywords: null,
+        markdownTokens: 25,
+        objective: null,
+        organization_id: null,
+        path: '/',
+        tokens_saved: null,
+        url: 'https://example.com',
+        user_agent: 'test-agent',
       },
-    ],
-  )
+      id: crypto.randomUUID(),
+      timestamp: new Date(),
+    },
+  ])
   await processRequestMessage(batch.messages[0]!, db)
 
   const row = await db
@@ -55,33 +52,30 @@ test('inserts request record', async () => {
 test('clears KV cache when tokens_saved is set', async () => {
   await env.KV.put('stats:tokens_saved', '1000')
 
-  const batch = createMessageBatch<processRequestMessage.Body>(
-    processRequestMessage.queueName,
-    [
-      {
-        attempts: 1,
-        body: {
-          account_id: null,
-          api_key_id: null,
-          billable: false,
-          cost_mills: 0,
+  const batch = createMessageBatch<processRequestMessage.Body>(processRequestMessage.queueName, [
+    {
+      attempts: 1,
+      body: {
+        account_id: null,
+        api_key_id: null,
+        billable: false,
+        cost_mills: 0,
 
-          hostname: 'example.com',
-          id: 'req_3',
-          keywords: null,
-          markdownTokens: 25,
-          objective: null,
-          organization_id: null,
-          path: '/',
-          tokens_saved: 500,
-          url: 'https://example.com',
-          user_agent: 'test-agent',
-        },
-        id: crypto.randomUUID(),
-        timestamp: new Date(),
+        hostname: 'example.com',
+        id: 'req_3',
+        keywords: null,
+        markdownTokens: 25,
+        objective: null,
+        organization_id: null,
+        path: '/',
+        tokens_saved: 500,
+        url: 'https://example.com',
+        user_agent: 'test-agent',
       },
-    ],
-  )
+      id: crypto.randomUUID(),
+      timestamp: new Date(),
+    },
+  ])
   await processRequestMessage(batch.messages[0]!, db)
 
   const cached = await env.KV.get('stats:tokens_saved')
@@ -89,33 +83,30 @@ test('clears KV cache when tokens_saved is set', async () => {
 })
 
 test('skips tokens_saved update when fetch fails', async () => {
-  const batch = createMessageBatch<processRequestMessage.Body>(
-    processRequestMessage.queueName,
-    [
-      {
-        attempts: 1,
-        body: {
-          account_id: null,
-          api_key_id: null,
-          billable: false,
-          cost_mills: 0,
+  const batch = createMessageBatch<processRequestMessage.Body>(processRequestMessage.queueName, [
+    {
+      attempts: 1,
+      body: {
+        account_id: null,
+        api_key_id: null,
+        billable: false,
+        cost_mills: 0,
 
-          hostname: 'example.com',
-          id: 'req_4',
-          keywords: null,
-          markdownTokens: 25,
-          objective: null,
-          organization_id: null,
-          path: '/fail',
-          tokens_saved: 42,
-          url: 'https://example.com/fail',
-          user_agent: 'test-agent',
-        },
-        id: crypto.randomUUID(),
-        timestamp: new Date(),
+        hostname: 'example.com',
+        id: 'req_4',
+        keywords: null,
+        markdownTokens: 25,
+        objective: null,
+        organization_id: null,
+        path: '/fail',
+        tokens_saved: 42,
+        url: 'https://example.com/fail',
+        user_agent: 'test-agent',
       },
-    ],
-  )
+      id: crypto.randomUUID(),
+      timestamp: new Date(),
+    },
+  ])
   await processRequestMessage(batch.messages[0]!, db)
 
   const row = await db
@@ -135,33 +126,30 @@ test('deducts credits when billable', async () => {
     .execute()
 
   const requestId = Nanoid.generate()
-  const batch = createMessageBatch<processRequestMessage.Body>(
-    processRequestMessage.queueName,
-    [
-      {
-        attempts: 1,
-        body: {
-          account_id: account.id,
-          api_key_id: null,
-          billable: true,
-          cost_mills: 10,
+  const batch = createMessageBatch<processRequestMessage.Body>(processRequestMessage.queueName, [
+    {
+      attempts: 1,
+      body: {
+        account_id: account.id,
+        api_key_id: null,
+        billable: true,
+        cost_mills: 10,
 
-          hostname: 'example.com',
-          id: requestId,
-          keywords: null,
-          markdownTokens: 25,
-          objective: null,
-          organization_id: null,
-          path: '/',
-          tokens_saved: null,
-          url: 'https://example.com',
-          user_agent: 'test-agent',
-        },
-        id: crypto.randomUUID(),
-        timestamp: new Date(),
+        hostname: 'example.com',
+        id: requestId,
+        keywords: null,
+        markdownTokens: 25,
+        objective: null,
+        organization_id: null,
+        path: '/',
+        tokens_saved: null,
+        url: 'https://example.com',
+        user_agent: 'test-agent',
       },
-    ],
-  )
+      id: crypto.randomUUID(),
+      timestamp: new Date(),
+    },
+  ])
   await processRequestMessage(batch.messages[0]!, db)
 
   const updated = await db
@@ -190,33 +178,30 @@ test('deducts credits for organization', async () => {
     .execute()
 
   const requestId = Nanoid.generate()
-  const batch = createMessageBatch<processRequestMessage.Body>(
-    processRequestMessage.queueName,
-    [
-      {
-        attempts: 1,
-        body: {
-          account_id: null,
-          api_key_id: null,
-          billable: true,
-          cost_mills: 30,
+  const batch = createMessageBatch<processRequestMessage.Body>(processRequestMessage.queueName, [
+    {
+      attempts: 1,
+      body: {
+        account_id: null,
+        api_key_id: null,
+        billable: true,
+        cost_mills: 30,
 
-          hostname: 'example.com',
-          id: requestId,
-          keywords: null,
-          markdownTokens: 25,
-          objective: null,
-          organization_id: org.id,
-          path: '/',
-          tokens_saved: null,
-          url: 'https://example.com',
-          user_agent: 'test-agent',
-        },
-        id: crypto.randomUUID(),
-        timestamp: new Date(),
+        hostname: 'example.com',
+        id: requestId,
+        keywords: null,
+        markdownTokens: 25,
+        objective: null,
+        organization_id: org.id,
+        path: '/',
+        tokens_saved: null,
+        url: 'https://example.com',
+        user_agent: 'test-agent',
       },
-    ],
-  )
+      id: crypto.randomUUID(),
+      timestamp: new Date(),
+    },
+  ])
   await processRequestMessage(batch.messages[0]!, db)
 
   const updated = await db
@@ -229,40 +214,33 @@ test('deducts credits for organization', async () => {
 
 test('does not create negative balance', async () => {
   const account = await factory.account.insert({})
-  await db
-    .updateTable('account')
-    .set({ balance_mills: 10 })
-    .where('id', '=', account.id)
-    .execute()
+  await db.updateTable('account').set({ balance_mills: 10 }).where('id', '=', account.id).execute()
 
   const requestId = Nanoid.generate()
-  const batch = createMessageBatch<processRequestMessage.Body>(
-    processRequestMessage.queueName,
-    [
-      {
-        attempts: 1,
-        body: {
-          account_id: account.id,
-          api_key_id: null,
-          billable: true,
-          cost_mills: 30,
+  const batch = createMessageBatch<processRequestMessage.Body>(processRequestMessage.queueName, [
+    {
+      attempts: 1,
+      body: {
+        account_id: account.id,
+        api_key_id: null,
+        billable: true,
+        cost_mills: 30,
 
-          hostname: 'example.com',
-          id: requestId,
-          keywords: null,
-          markdownTokens: 25,
-          objective: null,
-          organization_id: null,
-          path: '/',
-          tokens_saved: null,
-          url: 'https://example.com',
-          user_agent: 'test-agent',
-        },
-        id: crypto.randomUUID(),
-        timestamp: new Date(),
+        hostname: 'example.com',
+        id: requestId,
+        keywords: null,
+        markdownTokens: 25,
+        objective: null,
+        organization_id: null,
+        path: '/',
+        tokens_saved: null,
+        url: 'https://example.com',
+        user_agent: 'test-agent',
       },
-    ],
-  )
+      id: crypto.randomUUID(),
+      timestamp: new Date(),
+    },
+  ])
   await processRequestMessage(batch.messages[0]!, db)
 
   const updated = await db
@@ -289,33 +267,30 @@ test('skips deduction when not billable', async () => {
     .execute()
 
   const requestId = Nanoid.generate()
-  const batch = createMessageBatch<processRequestMessage.Body>(
-    processRequestMessage.queueName,
-    [
-      {
-        attempts: 1,
-        body: {
-          account_id: account.id,
-          api_key_id: null,
-          billable: false,
-          cost_mills: 1,
+  const batch = createMessageBatch<processRequestMessage.Body>(processRequestMessage.queueName, [
+    {
+      attempts: 1,
+      body: {
+        account_id: account.id,
+        api_key_id: null,
+        billable: false,
+        cost_mills: 1,
 
-          hostname: 'example.com',
-          id: requestId,
-          keywords: null,
-          markdownTokens: 25,
-          objective: null,
-          organization_id: null,
-          path: '/',
-          tokens_saved: null,
-          url: 'https://example.com',
-          user_agent: 'test-agent',
-        },
-        id: crypto.randomUUID(),
-        timestamp: new Date(),
+        hostname: 'example.com',
+        id: requestId,
+        keywords: null,
+        markdownTokens: 25,
+        objective: null,
+        organization_id: null,
+        path: '/',
+        tokens_saved: null,
+        url: 'https://example.com',
+        user_agent: 'test-agent',
       },
-    ],
-  )
+      id: crypto.randomUUID(),
+      timestamp: new Date(),
+    },
+  ])
   await processRequestMessage(batch.messages[0]!, db)
 
   const updated = await db
@@ -336,33 +311,30 @@ test('deducts credits only once for same request', async () => {
 
   const requestId = Nanoid.generate()
   const makeMessage = () =>
-    createMessageBatch<processRequestMessage.Body>(
-      processRequestMessage.queueName,
-      [
-        {
-          attempts: 1,
-          body: {
-            account_id: account.id,
-            api_key_id: null,
-            billable: true,
-            cost_mills: 30,
+    createMessageBatch<processRequestMessage.Body>(processRequestMessage.queueName, [
+      {
+        attempts: 1,
+        body: {
+          account_id: account.id,
+          api_key_id: null,
+          billable: true,
+          cost_mills: 30,
 
-            hostname: 'example.com',
-            id: requestId,
-            keywords: null,
-            markdownTokens: 25,
-            objective: null,
-            organization_id: null,
-            path: '/',
-            tokens_saved: null,
-            url: 'https://example.com',
-            user_agent: 'test-agent',
-          },
-          id: crypto.randomUUID(),
-          timestamp: new Date(),
+          hostname: 'example.com',
+          id: requestId,
+          keywords: null,
+          markdownTokens: 25,
+          objective: null,
+          organization_id: null,
+          path: '/',
+          tokens_saved: null,
+          url: 'https://example.com',
+          user_agent: 'test-agent',
         },
-      ],
-    )
+        id: crypto.randomUUID(),
+        timestamp: new Date(),
+      },
+    ])
 
   // Process first time
   await processRequestMessage(makeMessage().messages[0]!, db)

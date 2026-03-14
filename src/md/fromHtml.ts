@@ -33,12 +33,9 @@ export async function fromHtml(
     .use(remarkStringify)
     .process(html)
 
-  const meta = filterFrontmatterKeys(
-    (file.data.meta as Record<string, string> | undefined) ?? {},
-  )
+  const meta = filterFrontmatterKeys((file.data.meta as Record<string, string> | undefined) ?? {})
 
-  const relatedLinks =
-    (file.data.relatedLinks as Array<{ href: string; text: string }>) ?? []
+  const relatedLinks = (file.data.relatedLinks as Array<{ href: string; text: string }>) ?? []
   let content = String(file)
   if (relatedLinks.length > 0) {
     const links = relatedLinks
@@ -56,9 +53,7 @@ export namespace fromHtml {
   export type ReturnType = { content: string; meta: Record<string, string> }
 }
 
-export function filterFrontmatterKeys(
-  meta: Record<string, unknown>,
-): Record<string, string> {
+export function filterFrontmatterKeys(meta: Record<string, unknown>): Record<string, string> {
   const filtered: Record<string, string> = {}
   const allowedFrontmatterKeys = new Set([
     'author',
@@ -134,22 +129,10 @@ const strippedTagNames = new Set([
   'svg',
 ])
 
-const strippedRoles = new Set([
-  'banner',
-  'complementary',
-  'contentinfo',
-  'navigation',
-])
+const strippedRoles = new Set(['banner', 'complementary', 'contentinfo', 'navigation'])
 
 // Tags that never contain useful links worth collecting
-const noLinkTags = new Set([
-  'form',
-  'iframe',
-  'noscript',
-  'script',
-  'style',
-  'svg',
-])
+const noLinkTags = new Set(['form', 'iframe', 'noscript', 'script', 'style', 'svg'])
 
 const noiseClassIdTokens = new Set([
   'ad',
@@ -230,16 +213,9 @@ function isSkipLink(node: Element): boolean {
 
 function isHidden(node: Element): boolean {
   if (node.properties?.hidden != null) return true
-  if (
-    node.properties?.ariaHidden === 'true' ||
-    node.properties?.ariaHidden === true
-  )
-    return true
+  if (node.properties?.ariaHidden === 'true' || node.properties?.ariaHidden === true) return true
   const style = node.properties?.style
-  if (
-    typeof style === 'string' &&
-    /display\s*:\s*none|visibility\s*:\s*hidden/i.test(style)
-  )
+  if (typeof style === 'string' && /display\s*:\s*none|visibility\s*:\s*hidden/i.test(style))
     return true
   return false
 }
@@ -321,8 +297,7 @@ function resolveLinks(node: Element | Root, baseUrl: string) {
   node.children = node.children.flatMap((child) => {
     if (child.type === 'element' && child.tagName === 'a') {
       const href = child.properties?.href
-      if (typeof href !== 'string' || href.startsWith('#'))
-        return child.children
+      if (typeof href !== 'string' || href.startsWith('#')) return child.children
     }
     return [child]
   })
@@ -352,8 +327,7 @@ function rehypePreNewlines() {
 
 function insertPreNewlines(node: Element | Root) {
   if (!node.children) return
-  for (const child of node.children)
-    if (child.type === 'element') insertPreNewlines(child)
+  for (const child of node.children) if (child.type === 'element') insertPreNewlines(child)
   if (node.type !== 'element' || node.tagName !== 'pre') return
   stripTrailingBr(node)
   stripInterElementWhitespace(node)
@@ -364,8 +338,7 @@ function insertPreNewlines(node: Element | Root) {
     updated.push(child)
     if (child.type !== 'element') continue
     const next = node.children[i + 1]
-    const alreadyHasNewline =
-      next?.type === 'text' && next.value.startsWith('\n')
+    const alreadyHasNewline = next?.type === 'text' && next.value.startsWith('\n')
     if (!alreadyHasNewline) updated.push({ type: 'text', value: '\n' })
   }
   node.children = updated
@@ -402,8 +375,7 @@ function stripTrailingBr(node: Element | Root) {
 
 function hastToText(node: Element | ElementContent): string {
   if (node.type === 'text') return node.value
-  if (node.type === 'element')
-    return node.children.map((c) => hastToText(c)).join('')
+  if (node.type === 'element') return node.children.map((c) => hastToText(c)).join('')
   return ''
 }
 
@@ -433,14 +405,11 @@ function rehypeStripEmpty() {
 
 function stripEmpty(node: Element | Root) {
   if (!node.children) return
-  for (const child of node.children)
-    if (child.type === 'element') stripEmpty(child)
+  for (const child of node.children) if (child.type === 'element') stripEmpty(child)
   node.children = node.children.filter((child) => {
     if (child.type !== 'element') return true
     if (!emptyStrippableTags.has(child.tagName)) return true
     if (child.children.length === 0) return false
-    return !child.children.every(
-      (c) => c.type === 'text' && c.value.trim() === '',
-    )
+    return !child.children.every((c) => c.type === 'text' && c.value.trim() === '')
   })
 }

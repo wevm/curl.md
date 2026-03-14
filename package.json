@@ -10,10 +10,7 @@
   "scripts": {
     "build": "vite build",
     "build:cli": "pnpm --filter curl.md build",
-    "pkg:format": "node --experimental-strip-types scripts/formatPackageJson.ts",
-    "pkg:publish": "pnpm pkg:format && pnpm changeset publish && pnpm pkg:restore",
-    "pkg:restore": "node --experimental-strip-types scripts/restorePackageJson.ts",
-    "check": "biome check .",
+    "check": "oxlint && oxfmt --check",
     "check:deps": "knip -c config/knip.json",
     "check:types": "tsgo -b && pnpm -r check:types",
     "db": "docker exec -it curl-db psql -U postgres -d curl_dev",
@@ -65,13 +62,10 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.3.13",
-    "@changesets/cli": "^2.29.8",
     "@cloudflare/vitest-pool-workers": "~0.13.0",
     "@iconify/json": "^2.2.344",
     "@svgr/core": "^8.1.0",
     "@svgr/plugin-jsx": "^8.1.0",
-    "@svitejs/changesets-changelog-github-compact": "^1.2.0",
     "@tailwindcss/vite": "insiders",
     "@testcontainers/postgresql": "^11.12.0",
     "@types/hast": "^3.0.4",
@@ -80,10 +74,12 @@
     "@types/react-dom": "^19.2.0",
     "@typescript/native-preview": "7.0.0-dev.20260216.1",
     "@vitejs/plugin-react": "^5.2.0",
-    "bun": "^1.3.10",
     "knip": "^5.85.0",
     "kysely-ctl": "~0.20.0",
+    "lint-staged": "^16.1.0",
     "msw": "^2.7.0",
+    "oxfmt": "^0.40.0",
+    "oxlint": "1.31.0",
     "simple-git-hooks": "^2.13.1",
     "tailwindcss": "insiders",
     "testcontainers": "^11.12.0",
@@ -94,7 +90,13 @@
     "vitest": "^4.1.0",
     "wrangler": "https://pkg.pr.new/wrangler@12876"
   },
-  "packageManager": "pnpm@10.22.0",
+  "simple-git-hooks": {
+    "pre-commit": "pnpm exec lint-staged"
+  },
+  "lint-staged": {
+    "*": "oxfmt --no-error-on-unmatched-pattern",
+    "*.{js,jsx,ts,tsx,mjs,cjs}": "oxlint"
+  },
   "devEngines": {
     "runtime": {
       "name": "node",
@@ -102,7 +104,5 @@
       "onFail": "download"
     }
   },
-  "simple-git-hooks": {
-    "pre-commit": "pnpm biome check --write --unsafe --staged --no-errors-on-unmatched && git update-index --again"
-  }
+  "packageManager": "pnpm@10.22.0"
 }

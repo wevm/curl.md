@@ -5,45 +5,35 @@ describe('appendMd', () => {
   test('aiSdk rewrites to .md', () => {
     const rule = rules.aiSdk()
     expect(rule.patterns).toContain('ai-sdk.dev')
-    const result = rule.rewrite?.(
-      new URL('https://ai-sdk.dev/docs/getting-started'),
-    )
+    const result = rule.rewrite?.(new URL('https://ai-sdk.dev/docs/getting-started'))
     expect(result?.href).toBe('https://ai-sdk.dev/docs/getting-started.md')
   })
 
   test('anthropic rewrites to .md', () => {
     const rule = rules.anthropic()
     expect(rule.patterns).toContain('docs.anthropic.com')
-    const result = rule.rewrite?.(
-      new URL('https://docs.anthropic.com/en/docs/overview'),
-    )
+    const result = rule.rewrite?.(new URL('https://docs.anthropic.com/en/docs/overview'))
     expect(result?.href).toBe('https://docs.anthropic.com/en/docs/overview.md')
   })
 
   test('claudeCode rewrites to .md', () => {
     const rule = rules.claudeCode()
     expect(rule.patterns).toContain('code.claude.com')
-    const result = rule.rewrite?.(
-      new URL('https://code.claude.com/docs/overview'),
-    )
+    const result = rule.rewrite?.(new URL('https://code.claude.com/docs/overview'))
     expect(result?.href).toBe('https://code.claude.com/docs/overview.md')
   })
 
   test('openai rewrites to .md', () => {
     const rule = rules.openai()
     expect(rule.patterns).toContain('developers.openai.com')
-    const result = rule.rewrite?.(
-      new URL('https://developers.openai.com/docs/api'),
-    )
+    const result = rule.rewrite?.(new URL('https://developers.openai.com/docs/api'))
     expect(result?.href).toBe('https://developers.openai.com/docs/api.md')
   })
 
   test('rolldown rewrites to .md', () => {
     const rule = rules.rolldown()
     expect(rule.patterns).toContain('rolldown.rs')
-    const result = rule.rewrite?.(
-      new URL('https://rolldown.rs/guide/introduction'),
-    )
+    const result = rule.rewrite?.(new URL('https://rolldown.rs/guide/introduction'))
     expect(result?.href).toBe('https://rolldown.rs/guide/introduction.md')
   })
 
@@ -57,9 +47,7 @@ describe('appendMd', () => {
   test('shadcn rewrites to .md', () => {
     const rule = rules.shadcn()
     expect(rule.patterns).toContain('ui.shadcn.com')
-    const result = rule.rewrite?.(
-      new URL('https://ui.shadcn.com/docs/components/button'),
-    )
+    const result = rule.rewrite?.(new URL('https://ui.shadcn.com/docs/components/button'))
     expect(result?.href).toBe('https://ui.shadcn.com/docs/components/button.md')
   })
 
@@ -73,12 +61,8 @@ describe('appendMd', () => {
   test('tanstack rewrites to .md', () => {
     const rule = rules.tanstack()
     expect(rule.patterns).toContain('tanstack.com')
-    const result = rule.rewrite?.(
-      new URL('https://tanstack.com/query/latest/docs/overview'),
-    )
-    expect(result?.href).toBe(
-      'https://tanstack.com/query/latest/docs/overview.md',
-    )
+    const result = rule.rewrite?.(new URL('https://tanstack.com/query/latest/docs/overview'))
+    expect(result?.href).toBe('https://tanstack.com/query/latest/docs/overview.md')
   })
 
   test('turbo rewrites to .md', () => {
@@ -105,9 +89,7 @@ describe('appendMd', () => {
   test('vue rewrites to .md', () => {
     const rule = rules.vue()
     expect(rule.patterns).toContain('vuejs.org')
-    const result = rule.rewrite?.(
-      new URL('https://vuejs.org/guide/introduction'),
-    )
+    const result = rule.rewrite?.(new URL('https://vuejs.org/guide/introduction'))
     expect(result?.href).toBe('https://vuejs.org/guide/introduction.md')
   })
 })
@@ -116,32 +98,24 @@ describe('appendMdWithIndex', () => {
   test('astral rewrites path to .md', () => {
     const rule = rules.astral()
     expect(rule.patterns).toContain('docs.astral.sh')
-    const result = rule.rewrite?.(
-      new URL('https://docs.astral.sh/ruff/configuration'),
-    )
+    const result = rule.rewrite?.(new URL('https://docs.astral.sh/ruff/configuration'))
     expect(result?.href).toBe('https://docs.astral.sh/ruff/configuration.md')
   })
 
   test('astral rewrites trailing slash to index.md', () => {
-    const result = rules
-      .astral()
-      .rewrite?.(new URL('https://docs.astral.sh/ruff/'))
+    const result = rules.astral().rewrite?.(new URL('https://docs.astral.sh/ruff/'))
     expect(result?.href).toBe('https://docs.astral.sh/ruff/index.md')
   })
 
   test('openclaw rewrites path to .md', () => {
     const rule = rules.openclaw()
     expect(rule.patterns).toContain('docs.openclaw.ai')
-    const result = rule.rewrite?.(
-      new URL('https://docs.openclaw.ai/getting-started'),
-    )
+    const result = rule.rewrite?.(new URL('https://docs.openclaw.ai/getting-started'))
     expect(result?.href).toBe('https://docs.openclaw.ai/getting-started.md')
   })
 
   test('openclaw rewrites trailing slash to index.md', () => {
-    const result = rules
-      .openclaw()
-      .rewrite?.(new URL('https://docs.openclaw.ai/docs/'))
+    const result = rules.openclaw().rewrite?.(new URL('https://docs.openclaw.ai/docs/'))
     expect(result?.href).toBe('https://docs.openclaw.ai/docs/index.md')
   })
 
@@ -160,16 +134,12 @@ describe('appendMdWithIndex', () => {
   test('tempo rewrites path to .md', () => {
     const rule = rules.tempo()
     expect(rule.patterns).toContain('docs.tempo.xyz')
-    const result = rule.rewrite?.(
-      new URL('https://docs.tempo.xyz/getting-started'),
-    )
+    const result = rule.rewrite?.(new URL('https://docs.tempo.xyz/getting-started'))
     expect(result?.href).toBe('https://docs.tempo.xyz/getting-started.md')
   })
 
   test('tempo rewrites trailing slash to index.md', () => {
-    const result = rules
-      .tempo()
-      .rewrite?.(new URL('https://docs.tempo.xyz/docs/'))
+    const result = rules.tempo().rewrite?.(new URL('https://docs.tempo.xyz/docs/'))
     expect(result?.href).toBe('https://docs.tempo.xyz/docs/index.md')
   })
 
@@ -188,9 +158,7 @@ describe('appendMdWithIndex', () => {
   test('wagmi rewrites path to .md', () => {
     const rule = rules.wagmi()
     expect(rule.patterns).toContain('wagmi.sh')
-    const result = rule.rewrite?.(
-      new URL('https://wagmi.sh/react/getting-started'),
-    )
+    const result = rule.rewrite?.(new URL('https://wagmi.sh/react/getting-started'))
     expect(result?.href).toBe('https://wagmi.sh/react/getting-started.md')
   })
 
@@ -204,21 +172,15 @@ describe('appendIndexMd', () => {
   test('cloudflare appends /index.md', () => {
     const rule = rules.cloudflare()
     expect(rule.patterns).toContain('developers.cloudflare.com')
-    const result = rule.rewrite?.(
-      new URL('https://developers.cloudflare.com/workers'),
-    )
-    expect(result?.href).toBe(
-      'https://developers.cloudflare.com/workers/index.md',
-    )
+    const result = rule.rewrite?.(new URL('https://developers.cloudflare.com/workers'))
+    expect(result?.href).toBe('https://developers.cloudflare.com/workers/index.md')
   })
 
   test('cloudflare appends index.md to trailing slash', () => {
     const result = rules
       .cloudflare()
       .rewrite?.(new URL('https://developers.cloudflare.com/workers/'))
-    expect(result?.href).toBe(
-      'https://developers.cloudflare.com/workers/index.md',
-    )
+    expect(result?.href).toBe('https://developers.cloudflare.com/workers/index.md')
   })
 })
 
@@ -253,18 +215,14 @@ describe('prefixedWithIndex', () => {
   })
 
   test('laravel returns undefined outside prefix', () => {
-    const result = rules
-      .laravel()
-      .rewrite?.(new URL('https://laravel.com/partners'))
+    const result = rules.laravel().rewrite?.(new URL('https://laravel.com/partners'))
     expect(result).toBeUndefined()
   })
 
   test('nextjs rewrites docs path to .md', () => {
     const rule = rules.nextjs()
     expect(rule.patterns).toContain('nextjs.org')
-    const result = rule.rewrite?.(
-      new URL('https://nextjs.org/docs/app/building'),
-    )
+    const result = rule.rewrite?.(new URL('https://nextjs.org/docs/app/building'))
     expect(result?.href).toBe('https://nextjs.org/docs/app/building.md')
   })
 
@@ -283,9 +241,7 @@ describe('prefixedWithIndex', () => {
   test('planetscale rewrites docs path to .md', () => {
     const rule = rules.planetscale()
     expect(rule.patterns).toContain('planetscale.com')
-    const result = rule.rewrite?.(
-      new URL('https://planetscale.com/docs/concepts'),
-    )
+    const result = rule.rewrite?.(new URL('https://planetscale.com/docs/concepts'))
     expect(result?.href).toBe('https://planetscale.com/docs/concepts.md')
   })
 
@@ -299,16 +255,12 @@ describe('prefixedWithIndex', () => {
   test('vercel rewrites docs path to .md', () => {
     const rule = rules.vercel()
     expect(rule.patterns).toContain('vercel.com')
-    const result = rule.rewrite?.(
-      new URL('https://vercel.com/docs/deployments'),
-    )
+    const result = rule.rewrite?.(new URL('https://vercel.com/docs/deployments'))
     expect(result?.href).toBe('https://vercel.com/docs/deployments.md')
   })
 
   test('vercel returns undefined outside prefix', () => {
-    const result = rules
-      .vercel()
-      .rewrite?.(new URL('https://vercel.com/pricing'))
+    const result = rules.vercel().rewrite?.(new URL('https://vercel.com/pricing'))
     expect(result).toBeUndefined()
   })
 })
@@ -317,9 +269,7 @@ describe('repo', () => {
   test('deno rewrites to raw.githubusercontent.com', () => {
     const rule = rules.deno()
     expect(rule.patterns).toContain('docs.deno.com')
-    const result = rule.rewrite?.(
-      new URL('https://docs.deno.com/runtime/fundamentals'),
-    )
+    const result = rule.rewrite?.(new URL('https://docs.deno.com/runtime/fundamentals'))
     expect(result?.href).toBe(
       'https://raw.githubusercontent.com/denoland/docs/main/runtime/fundamentals.md',
     )

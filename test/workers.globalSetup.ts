@@ -8,10 +8,7 @@ export default async function (project: TestProject) {
   const container = await startDatabase()
   console.log(`${name}: started database`)
 
-  project.provide(
-    'env',
-    JSON.stringify(Env.get({ DB_URL: container.getConnectionUri() })),
-  )
+  project.provide('env', JSON.stringify(Env.get({ DB_URL: container.getConnectionUri() })))
 
   return async () => {
     await container.stop()

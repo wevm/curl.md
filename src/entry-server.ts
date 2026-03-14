@@ -21,8 +21,7 @@ export default Sentry.withSentry<
     fetch(request, env, ctx) {
       const url = new URL(request.url)
       // Route API requests to the Hono API handler
-      if (url.pathname.startsWith('/api/'))
-        return api.fetch(new Request(url, request), env, ctx)
+      if (url.pathname.startsWith('/api/')) return api.fetch(new Request(url, request), env, ctx)
       // Route dot-segment paths (e.g. curl.md/example.com) to the API handler under /api prefix
       if (isApiPath(url.pathname)) {
         // Redirect protocol-prefixed paths (e.g. /https://example.com/path → /example.com/path)
@@ -43,9 +42,7 @@ export default Sentry.withSentry<
         '/.well-known/skills/curl-md': '/.well-known/skills/curl-md/SKILL.md',
       } as const
       if (path in staticAssets)
-        return env.ASSETS.fetch(
-          new URL(staticAssets[path as keyof typeof staticAssets], url),
-        )
+        return env.ASSETS.fetch(new URL(staticAssets[path as keyof typeof staticAssets], url))
       // Fall through to TanStack Start SSR handler for all other routes (app pages)
       return serverEntry.fetch(request, { context: { ctx, env, request } })
     },
@@ -66,10 +63,7 @@ export default Sentry.withSentry<
         return batch.queue
       })()
       const queue = z.parse(
-        z.enum([
-          processRequestMessage.queueName,
-          processStripeWebhookMessage.queueName,
-        ]),
+        z.enum([processRequestMessage.queueName, processStripeWebhookMessage.queueName]),
         queueName,
       )
       const handler = {

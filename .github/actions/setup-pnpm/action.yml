@@ -17,4 +17,4 @@ runs:
       shell: bash
       run: |
         pnpm install --frozen-lockfile --ignore-scripts
-        node node_modules/bun/install.js
+        node cli/node_modules/bun/install.js

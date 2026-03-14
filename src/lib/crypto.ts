@@ -20,11 +20,7 @@ export async function decrypt(encoded: string, key: string): Promise<string> {
   const combined = base64ToBuffer(encoded)
   const iv = combined.slice(0, IV_LENGTH)
   const ciphertext = combined.slice(IV_LENGTH)
-  const plaintext = await crypto.subtle.decrypt(
-    { name: ALGORITHM, iv },
-    cryptoKey,
-    ciphertext,
-  )
+  const plaintext = await crypto.subtle.decrypt({ name: ALGORITHM, iv }, cryptoKey, ciphertext)
   return new TextDecoder().decode(plaintext)
 }
 

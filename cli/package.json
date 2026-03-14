@@ -2,18 +2,12 @@
   "name": "curl.md",
   "version": "0.0.9",
   "description": "Fetch any URL as Markdown",
-  "scripts": {
-    "build": "tsgo --noCheck -p tsconfig.build.json && find ../src -name '*.js' -delete",
-    "check:types": "tsgo --noEmit",
-    "gen:types": "incur gen"
-  },
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/wevm/curl.md.git",
     "directory": "cli"
   },
-  "license": "MIT",
-  "type": "module",
   "bin": {
     "curl.md": "./dist/bin.js",
     "curl.md.src": "./src/cli.ts",
@@ -27,17 +21,30 @@
     "dist",
     "src"
   ],
+  "type": "module",
+  "imports": {
+    "#db/*": "../db/*",
+    "#*": "../src/*",
+    "#test/*": "../test/*"
+  },
+  "scripts": {
+    "build": "tsgo --noCheck -p tsconfig.build.json && find ../src -name '*.js' -delete",
+    "check:types": "tsgo --noEmit",
+    "gen:types": "incur gen",
+    "pkg:format": "node --experimental-strip-types scripts/formatPackageJson.ts",
+    "pkg:publish": "pnpm pkg:format && pnpm changeset publish && node --experimental-strip-types scripts/restorePackageJson.ts"
+  },
   "dependencies": {
     "hono": "^4.12.2",
     "incur": "0.3.3",
     "picocolors": "^1.1.1"
   },
+  "devDependencies": {
+    "@changesets/cli": "^2.29.8",
+    "@svitejs/changesets-changelog-github-compact": "^1.2.0",
+    "bun": "^1.3.10"
+  },
   "engines": {
     "node": ">=22.0.0"
-  },
-  "imports": {
-    "#db/*": "../db/*",
-    "#*": "../src/*",
-    "#test/*": "../test/*"
   }
 }

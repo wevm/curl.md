@@ -9,10 +9,9 @@ export async function startDatabase() {
 
   const connectionString = container.getConnectionUri()
   const cwd = new URL('..', import.meta.url).pathname
-  const res = await promisify(exec)(
-    `DB_URL=${connectionString} pnpm kysely migrate latest`,
-    { cwd },
-  )
+  const res = await promisify(exec)(`DB_URL=${connectionString} pnpm kysely migrate latest`, {
+    cwd,
+  })
   if (res.stderr) console.warn(res.stderr)
 
   return container

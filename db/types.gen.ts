@@ -3,11 +3,7 @@
 import type * as k from 'kysely'
 
 type Timestamp = k.ColumnType<Date, Date | string, Date | string>
-type GeneratedTimestamp = k.ColumnType<
-  Date,
-  Date | string | undefined,
-  Date | string
->
+type GeneratedTimestamp = k.ColumnType<Date, Date | string | undefined, Date | string>
 
 export interface DB {
   account: account

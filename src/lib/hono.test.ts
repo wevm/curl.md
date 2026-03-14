@@ -25,10 +25,7 @@ test('returns validation_error with issues for invalid input', async () => {
 test('returns multiple issues for multiple failures', async () => {
   const app = new Hono().post(
     '/test',
-    validator(
-      'json',
-      z.object({ name: z.string().min(2), age: z.number().min(0) }),
-    ),
+    validator('json', z.object({ name: z.string().min(2), age: z.number().min(0) })),
     (c) => c.json({ ok: true }, 200),
   )
 

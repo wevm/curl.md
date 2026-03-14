@@ -2,11 +2,7 @@ import { parseSigned } from 'hono/utils/cookie'
 import type { Kysely } from 'kysely'
 import type { DB } from '#db/types.gen.ts'
 
-export async function getAccountId(
-  request: Request,
-  db: Kysely<DB>,
-  secret: string,
-) {
+export async function getAccountId(request: Request, db: Kysely<DB>, secret: string) {
   const cookieHeader = request.headers.get('cookie') ?? ''
   const parsed = await parseSigned(cookieHeader, secret, 'curl.session')
   const sessionId = parsed['curl.session']

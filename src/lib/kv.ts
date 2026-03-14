@@ -4,16 +4,10 @@ export namespace KV {
     | (key extends `balance:${string}` ? number : never)
     | (key extends 'stats:tokens_saved' ? number : never)
     | (key extends `stats:tokens_saved:${string}` ? number : never)
-    | (key extends `page:${string}`
-        ? { content: string; meta: Record<string, unknown> }
-        : never)
+    | (key extends `page:${string}` ? { content: string; meta: Record<string, unknown> } : never)
     | (key extends `query:${string}` ? string : never)
-    | (key extends 'cli:latest'
-        ? { published_at: string | null; version: string }
-        : never)
-    | (key extends `ratelimit:${string}`
-        ? { count: number; reset: number }
-        : never)
+    | (key extends 'cli:latest' ? { published_at: string | null; version: string } : never)
+    | (key extends `ratelimit:${string}` ? { count: number; reset: number } : never)
     | (key extends `payment:${string}`
         ? {
             amount: number
@@ -45,12 +39,7 @@ export interface TypedKV {
 
   put<key extends KV.Key>(
     key: key,
-    value:
-      | KV.Value<key>
-      | string
-      | ArrayBuffer
-      | ArrayBufferView
-      | ReadableStream,
+    value: KV.Value<key> | string | ArrayBuffer | ArrayBufferView | ReadableStream,
     options?: {
       expiration?: number
       expirationTtl?: number

@@ -9,11 +9,7 @@ export const getRouter = () => {
     context: {},
     rewrite: {
       input: ({ url }) => {
-        if (
-          url.pathname.startsWith('/~dash') ||
-          url.pathname.startsWith('/api/')
-        )
-          return url
+        if (url.pathname.startsWith('/~dash') || url.pathname.startsWith('/api/')) return url
         const firstSegment = url.pathname.split('/')[1] ?? ''
         if (!firstSegment || knownRoutes.has(firstSegment)) return url
         url.pathname = `/~dash${url.pathname}`
@@ -33,10 +29,7 @@ export const getRouter = () => {
     Sentry.init({
       dsn: __SENTRY_DSN__,
       tunnel: '/api/sentry/tunnel',
-      integrations: [
-        Sentry.browserTracingIntegration(),
-        Sentry.replayIntegration(),
-      ],
+      integrations: [Sentry.browserTracingIntegration(), Sentry.replayIntegration()],
       environment: __HOST__ === 'curl.md' ? 'production' : 'preview',
       release: __GIT_SHA__,
       replaysOnErrorSampleRate: 1.0,

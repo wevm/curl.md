@@ -3,35 +3,30 @@
   "name": "curl",
   "main": "src/entry-server.ts",
   "compatibility_date": "2025-09-06",
-  "compatibility_flags": [
-    "nodejs_compat",
-    "no_handle_cross_request_promise_resolution"
-  ],
+  "compatibility_flags": ["nodejs_compat", "no_handle_cross_request_promise_resolution"],
   "assets": {
-    "binding": "ASSETS"
+    "binding": "ASSETS",
   },
   "upload_source_maps": true,
   "version_metadata": {
-    "binding": "CF_VERSION_METADATA"
+    "binding": "CF_VERSION_METADATA",
   },
   "preview_urls": false,
   "ai": {
-    "binding": "AI"
+    "binding": "AI",
   },
   "hyperdrive": [
     {
       "binding": "DB",
       "id": "96d641bd374842d784a128d7de0428af",
-      "localConnectionString": "postgresql://postgres:postgres@db.curl.local:5432/curl_dev"
-    }
+      "localConnectionString": "postgresql://postgres:postgres@db.curl.local:5432/curl_dev",
+    },
   ],
-  "kv_namespaces": [
-    { "binding": "KV", "id": "e3a921b8d13741b99e7aa1cbb6144c9f" }
-  ],
+  "kv_namespaces": [{ "binding": "KV", "id": "e3a921b8d13741b99e7aa1cbb6144c9f" }],
   "queues": {
     "producers": [
       { "binding": "REQUEST_QUEUE", "queue": "curl-request" },
-      { "binding": "STRIPE_WEBHOOK_QUEUE", "queue": "curl-stripe-webhook" }
+      { "binding": "STRIPE_WEBHOOK_QUEUE", "queue": "curl-stripe-webhook" },
     ],
     "consumers": [
       {
@@ -39,34 +34,34 @@
         "max_batch_size": 10,
         "max_batch_timeout": 30,
         "max_retries": 3,
-        "dead_letter_queue": "curl-request-dlq"
+        "dead_letter_queue": "curl-request-dlq",
       },
       {
         "queue": "curl-stripe-webhook",
         "max_batch_size": 1,
         "max_batch_timeout": 5,
         "max_retries": 3,
-        "dead_letter_queue": "curl-stripe-webhook-dlq"
+        "dead_letter_queue": "curl-stripe-webhook-dlq",
       },
       {
         "queue": "curl-request-dlq",
         "max_batch_size": 1,
         "max_batch_timeout": 5,
-        "max_retries": 0
+        "max_retries": 0,
       },
       {
         "queue": "curl-stripe-webhook-dlq",
         "max_batch_size": 1,
         "max_batch_timeout": 5,
-        "max_retries": 0
-      }
-    ]
+        "max_retries": 0,
+      },
+    ],
   },
   "triggers": {
-    "crons": ["0 * * * *"]
+    "crons": ["0 * * * *"],
   },
   "vars": {
-    "HOST": "curl.local"
+    "HOST": "curl.local",
   },
   "env": {
     "production": {
@@ -74,32 +69,30 @@
       "observability": {
         "enabled": true,
         "logs": {
-          "head_sampling_rate": 1
+          "head_sampling_rate": 1,
         },
         "traces": {
           "enabled": true,
-          "head_sampling_rate": 0.01
-        }
+          "head_sampling_rate": 0.01,
+        },
       },
       "assets": {
-        "binding": "ASSETS"
+        "binding": "ASSETS",
       },
       "ai": {
-        "binding": "AI"
+        "binding": "AI",
       },
       "hyperdrive": [
         {
           "binding": "DB",
-          "id": "96d641bd374842d784a128d7de0428af"
-        }
+          "id": "96d641bd374842d784a128d7de0428af",
+        },
       ],
-      "kv_namespaces": [
-        { "binding": "KV", "id": "e3a921b8d13741b99e7aa1cbb6144c9f" }
-      ],
+      "kv_namespaces": [{ "binding": "KV", "id": "e3a921b8d13741b99e7aa1cbb6144c9f" }],
       "queues": {
         "producers": [
           { "binding": "REQUEST_QUEUE", "queue": "curl-request" },
-          { "binding": "STRIPE_WEBHOOK_QUEUE", "queue": "curl-stripe-webhook" }
+          { "binding": "STRIPE_WEBHOOK_QUEUE", "queue": "curl-stripe-webhook" },
         ],
         "consumers": [
           {
@@ -107,75 +100,75 @@
             "max_batch_size": 10,
             "max_batch_timeout": 30,
             "max_retries": 3,
-            "dead_letter_queue": "curl-request-dlq"
+            "dead_letter_queue": "curl-request-dlq",
           },
           {
             "queue": "curl-stripe-webhook",
             "max_batch_size": 1,
             "max_batch_timeout": 5,
             "max_retries": 3,
-            "dead_letter_queue": "curl-stripe-webhook-dlq"
+            "dead_letter_queue": "curl-stripe-webhook-dlq",
           },
           {
             "queue": "curl-request-dlq",
             "max_batch_size": 1,
             "max_batch_timeout": 5,
-            "max_retries": 0
+            "max_retries": 0,
           },
           {
             "queue": "curl-stripe-webhook-dlq",
             "max_batch_size": 1,
             "max_batch_timeout": 5,
-            "max_retries": 0
-          }
-        ]
+            "max_retries": 0,
+          },
+        ],
       },
       "version_metadata": {
-        "binding": "CF_VERSION_METADATA"
+        "binding": "CF_VERSION_METADATA",
       },
       "vars": {
-        "HOST": "curl.md"
+        "HOST": "curl.md",
       },
       "routes": [{ "pattern": "curl.md", "custom_domain": true }],
       "triggers": {
-        "crons": ["0 * * * *"]
-      }
+        "crons": ["0 * * * *"],
+      },
     },
     "preview": {
       "name": "__PREVIEW_NAME__",
       "observability": {
         "enabled": true,
         "logs": {
-          "head_sampling_rate": 1
+          "head_sampling_rate": 1,
         },
         "traces": {
           "enabled": true,
-          "head_sampling_rate": 1
-        }
+          "head_sampling_rate": 1,
+        },
       },
       "assets": {
-        "binding": "ASSETS"
+        "binding": "ASSETS",
       },
       "ai": {
-        "binding": "AI"
+        "binding": "AI",
       },
       "hyperdrive": [
         {
           "binding": "DB",
-          "id": "__PREVIEW_HYPERDRIVE_ID__"
-        }
+          "id": "__PREVIEW_HYPERDRIVE_ID__",
+        },
       ],
       "kv_namespaces": [{ "binding": "KV", "id": "__PREVIEW_KV_ID__" }],
       "queues": {
         "producers": [
           {
             "binding": "REQUEST_QUEUE",
-            "queue": "curl-request-__PREVIEW_APEX__"
+            "queue": "curl-request-__PREVIEW_APEX__",
           },
           {
             "binding": "STRIPE_WEBHOOK_QUEUE",
-            "queue": "curl-stripe-webhook-__PREVIEW_APEX__"
-          }
+            "queue": "curl-stripe-webhook-__PREVIEW_APEX__",
+          },
         ],
         "consumers": [
           {
@@ -183,41 +176,39 @@
             "max_batch_size": 10,
             "max_batch_timeout": 30,
             "max_retries": 3,
-            "dead_letter_queue": "curl-request-__PREVIEW_APEX__-dlq"
+            "dead_letter_queue": "curl-request-__PREVIEW_APEX__-dlq",
           },
           {
             "queue": "curl-stripe-webhook-__PREVIEW_APEX__",
             "max_batch_size": 1,
             "max_batch_timeout": 5,
             "max_retries": 3,
-            "dead_letter_queue": "curl-stripe-webhook-__PREVIEW_APEX__-dlq"
+            "dead_letter_queue": "curl-stripe-webhook-__PREVIEW_APEX__-dlq",
           },
           {
             "queue": "curl-request-__PREVIEW_APEX__-dlq",
             "max_batch_size": 1,
             "max_batch_timeout": 5,
-            "max_retries": 0
+            "max_retries": 0,
           },
           {
             "queue": "curl-stripe-webhook-__PREVIEW_APEX__-dlq",
             "max_batch_size": 1,
             "max_batch_timeout": 5,
-            "max_retries": 0
-          }
-        ]
+            "max_retries": 0,
+          },
+        ],
       },
       "version_metadata": {
-        "binding": "CF_VERSION_METADATA"
+        "binding": "CF_VERSION_METADATA",
       },
       "vars": {
-        "HOST": "__PREVIEW_APEX__.curl.md"
+        "HOST": "__PREVIEW_APEX__.curl.md",
       },
-      "routes": [
-        { "pattern": "__PREVIEW_APEX__.curl.md", "custom_domain": true }
-      ],
+      "routes": [{ "pattern": "__PREVIEW_APEX__.curl.md", "custom_domain": true }],
       "triggers": {
-        "crons": ["0 * * * *"]
-      }
-    }
-  }
+        "crons": ["0 * * * *"],
+      },
+    },
+  },
 }

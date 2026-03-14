@@ -39,13 +39,9 @@ test('rewrites non-English locale to mdn/translated-content repo', () => {
 
 test('lowercases slug in rewritten URL', () => {
   const rule = mdn()
-  const url = new URL(
-    'https://developer.mozilla.org/en-US/docs/Web/API/HTMLElement',
-  )
+  const url = new URL('https://developer.mozilla.org/en-US/docs/Web/API/HTMLElement')
   const result = rule.rewrite!(url)!
-  expect(result.pathname).toBe(
-    '/mdn/content/main/files/en-us/web/api/htmlelement/index.md',
-  )
+  expect(result.pathname).toBe('/mdn/content/main/files/en-us/web/api/htmlelement/index.md')
 })
 
 // Integration test
@@ -74,9 +70,7 @@ test('converts jsxref macros to inline code', async () => {
         status: 200,
       }),
   })
-  const result = await md.fetch(
-    'https://developer.mozilla.org/en-US/docs/Web/Test',
-  )
+  const result = await md.fetch('https://developer.mozilla.org/en-US/docs/Web/Test')
   expect(result.ok).toBe(true)
   if (!result.ok) return
   expect(result.content).toContain('`Array`')
@@ -92,9 +86,7 @@ test('strips Specifications and Compat macros', async () => {
         { status: 200 },
       ),
   })
-  const result = await md.fetch(
-    'https://developer.mozilla.org/en-US/docs/Web/Test',
-  )
+  const result = await md.fetch('https://developer.mozilla.org/en-US/docs/Web/Test')
   expect(result.ok).toBe(true)
   if (!result.ok) return
   expect(result.content).not.toContain('{{Specifications}}')
@@ -111,9 +103,7 @@ test('converts optional_inline macro to _(optional)_', async () => {
         status: 200,
       }),
   })
-  const result = await md.fetch(
-    'https://developer.mozilla.org/en-US/docs/Web/Test',
-  )
+  const result = await md.fetch('https://developer.mozilla.org/en-US/docs/Web/Test')
   expect(result.ok).toBe(true)
   if (!result.ok) return
   expect(result.content).toContain('_(optional)_')
@@ -128,9 +118,7 @@ test('cleans code block info strings', async () => {
         status: 200,
       }),
   })
-  const result = await md.fetch(
-    'https://developer.mozilla.org/en-US/docs/Web/Test',
-  )
+  const result = await md.fetch('https://developer.mozilla.org/en-US/docs/Web/Test')
   expect(result.ok).toBe(true)
   if (!result.ok) return
   expect(result.content).toContain('```js\n')
@@ -146,9 +134,7 @@ test('strips InteractiveExample macros', async () => {
         { status: 200 },
       ),
   })
-  const result = await md.fetch(
-    'https://developer.mozilla.org/en-US/docs/Web/Test',
-  )
+  const result = await md.fetch('https://developer.mozilla.org/en-US/docs/Web/Test')
   expect(result.ok).toBe(true)
   if (!result.ok) return
   expect(result.content).not.toContain('InteractiveExample')

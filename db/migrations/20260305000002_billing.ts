@@ -16,22 +16,14 @@ export async function up(db: Kysely<unknown>): Promise<void> {
 
   await db.schema
     .createTable('credit_transaction')
-    .addColumn('id', 'varchar(20)', (col) =>
-      col.primaryKey().defaultTo(nanoid()),
-    )
-    .addColumn('account_id', 'varchar(20)', (col) =>
-      col.references('account.id'),
-    )
-    .addColumn('organization_id', 'varchar(20)', (col) =>
-      col.references('organization.id'),
-    )
+    .addColumn('id', 'varchar(20)', (col) => col.primaryKey().defaultTo(nanoid()))
+    .addColumn('account_id', 'varchar(20)', (col) => col.references('account.id'))
+    .addColumn('organization_id', 'varchar(20)', (col) => col.references('organization.id'))
     .addColumn('amount_mills', 'integer', (col) => col.notNull())
     .addColumn('type', 'text', (col) => col.notNull())
     .addColumn('reference_id', 'text')
     .addColumn('balance_after_mills', 'integer', (col) => col.notNull())
-    .addColumn('created_at', 'timestamptz', (col) =>
-      col.notNull().defaultTo(now()),
-    )
+    .addColumn('created_at', 'timestamptz', (col) => col.notNull().defaultTo(now()))
     .execute()
 
   await sql`ALTER TABLE credit_transaction ADD CONSTRAINT credit_transaction_type_chk CHECK (type IN ('chargeback', 'promo', 'purchase', 'refund', 'request'))`.execute(
@@ -68,9 +60,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
 }
 
 export async function down(db: Kysely<unknown>): Promise<void> {
-  await sql`DROP INDEX IF EXISTS credit_transaction_reference_id_type_uq`.execute(
-    db,
-  )
+  await sql`DROP INDEX IF EXISTS credit_transaction_reference_id_type_uq`.execute(db)
   await sql`DROP INDEX IF EXISTS organization_stripe_customer_id_uq`.execute(db)
   await sql`DROP INDEX IF EXISTS account_stripe_customer_id_uq`.execute(db)
 

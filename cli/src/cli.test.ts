@@ -1,14 +1,5 @@
 import { hc } from 'hono/client'
-import {
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  inject,
-  onTestFinished,
-  test,
-  vi,
-} from 'vitest'
+import { beforeAll, beforeEach, describe, expect, inject, onTestFinished, test, vi } from 'vitest'
 import type { api } from '#api.ts'
 import { createClient } from '#db/client.ts'
 import * as Nanoid from '#lib/nanoid.ts'
@@ -114,9 +105,9 @@ test('json', async () => {
   const { output } = await serve(['example.com', '--json'])
   const json = JSON.parse(output)
   const content = json.data ?? json.content ?? json
-  expect(
-    typeof content === 'string' ? content : JSON.stringify(content),
-  ).toContain('Example Domain')
+  expect(typeof content === 'string' ? content : JSON.stringify(content)).toContain(
+    'Example Domain',
+  )
 }, 30_000)
 
 test('invalid url', async () => {
@@ -279,8 +270,7 @@ test('fetch_failed 502', async () => {
 
 test('unexpected 500', async () => {
   const originalFetch = globalThis.fetch
-  globalThis.fetch = async () =>
-    new Response('Internal Server Error', { status: 500 })
+  globalThis.fetch = async () => new Response('Internal Server Error', { status: 500 })
   onTestFinished(() => {
     globalThis.fetch = originalFetch
   })
@@ -292,8 +282,7 @@ test('unexpected 500', async () => {
 
 test('objective cta shown for long responses', async () => {
   const originalFetch = globalThis.fetch
-  globalThis.fetch = async () =>
-    new Response('x'.repeat(15_000), { status: 200 })
+  globalThis.fetch = async () => new Response('x'.repeat(15_000), { status: 200 })
   onTestFinished(() => {
     globalThis.fetch = originalFetch
   })
@@ -354,9 +343,7 @@ describe('update check middleware', () => {
       latest: '99.0.0',
       released_at: null,
     })
-    const spawnSpy = vi
-      .spyOn(UpdateCache, 'spawnCheck')
-      .mockImplementation(() => {})
+    const spawnSpy = vi.spyOn(UpdateCache, 'spawnCheck').mockImplementation(() => {})
     const compareSpy = vi.spyOn(utils, 'compareVersions').mockReturnValue(1)
     onTestFinished(() => {
       spawnSpy.mockRestore()
@@ -374,9 +361,7 @@ describe('update check middleware', () => {
       latest: '99.0.0',
       released_at: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
     })
-    const spawnSpy = vi
-      .spyOn(UpdateCache, 'spawnCheck')
-      .mockImplementation(() => {})
+    const spawnSpy = vi.spyOn(UpdateCache, 'spawnCheck').mockImplementation(() => {})
     const compareSpy = vi.spyOn(utils, 'compareVersions').mockReturnValue(1)
     onTestFinished(() => {
       spawnSpy.mockRestore()
@@ -393,9 +378,7 @@ describe('update check middleware', () => {
       latest: '0.0.1',
       released_at: null,
     })
-    const spawnSpy = vi
-      .spyOn(UpdateCache, 'spawnCheck')
-      .mockImplementation(() => {})
+    const spawnSpy = vi.spyOn(UpdateCache, 'spawnCheck').mockImplementation(() => {})
     const compareSpy = vi.spyOn(utils, 'compareVersions').mockReturnValue(0)
     onTestFinished(() => {
       spawnSpy.mockRestore()
@@ -589,25 +572,17 @@ describe('auth', () => {
     let tokenPollCount = 0
     const originalFetch = globalThis.fetch
     globalThis.fetch = async (input, init) => {
-      const url =
-        typeof input === 'string'
-          ? input
-          : input instanceof URL
-            ? input.href
-            : input.url
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
       if (url.includes('/api/auth/device/token')) {
         tokenPollCount++
         if (tokenPollCount === 1)
-          return new Response(
-            JSON.stringify({ error: 'rate_limit_exceeded' }),
-            {
-              status: 429,
-              headers: {
-                'content-type': 'application/json',
-                'retry-after': '0',
-              },
+          return new Response(JSON.stringify({ error: 'rate_limit_exceeded' }), {
+            status: 429,
+            headers: {
+              'content-type': 'application/json',
+              'retry-after': '0',
             },
-          )
+          })
       }
       return originalFetch(input, init)
     }
@@ -793,9 +768,7 @@ describe('credits', () => {
     })
 
     const { output } = await serve(['credits', 'add', '10'])
-    expect(openUrlSpy).toHaveBeenCalledWith(
-      'https://curl.local/credits/add/pay_test',
-    )
+    expect(openUrlSpy).toHaveBeenCalledWith('https://curl.local/credits/add/pay_test')
     expect(output).toContain('Successfully added credits')
     expect(output).toContain('$10.000')
   })
@@ -832,10 +805,10 @@ describe('credits', () => {
 
       // POST /api/credits/charge
       if (url.includes('/api/credits/charge') && init?.method === 'POST')
-        return new Response(
-          JSON.stringify({ payment_id: 'pi_test', status: 'succeeded' }),
-          { status: 200, headers: { 'content-type': 'application/json' } },
-        )
+        return new Response(JSON.stringify({ payment_id: 'pi_test', status: 'succeeded' }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
 
       return originalFetch(input, init)
     }
@@ -905,9 +878,7 @@ describe('credits', () => {
     })
 
     const { output } = await serve(['credits', 'add', '10'])
-    expect(openUrlSpy).toHaveBeenCalledWith(
-      'https://curl.local/credits/add/pay_3ds',
-    )
+    expect(openUrlSpy).toHaveBeenCalledWith('https://curl.local/credits/add/pay_3ds')
     expect(output).toContain('Successfully added credits')
     expect(output).toContain('$15.000')
   })
@@ -964,9 +935,7 @@ describe('credits', () => {
     })
 
     const { output } = await serve(['credits', 'add', '10'])
-    expect(openUrlSpy).toHaveBeenCalledWith(
-      'https://curl.local/credits/add/pay_new',
-    )
+    expect(openUrlSpy).toHaveBeenCalledWith('https://curl.local/credits/add/pay_new')
     expect(output).toContain('Successfully added credits')
     expect(output).toContain('$15.000')
   })
@@ -1027,13 +996,7 @@ describe('org', () => {
     Session.write({ session_id: session.id })
 
     const login = `test-org${Nanoid.generate()}`
-    const { output: createOutput } = await serve([
-      'org',
-      'create',
-      login,
-      '--name',
-      'Test Org',
-    ])
+    const { output: createOutput } = await serve(['org', 'create', login, '--name', 'Test Org'])
     expect(createOutput).toContain('Created organization')
     expect(createOutput).toContain(login)
 
@@ -1046,11 +1009,7 @@ describe('org', () => {
     const { output: showOutput } = await serve(['org', 'show'])
     expect(showOutput).toContain(login)
 
-    const { output: switchBackOutput } = await serve([
-      'org',
-      'switch',
-      'account',
-    ])
+    const { output: switchBackOutput } = await serve(['org', 'switch', 'account'])
     expect(switchBackOutput).toContain('Switched to')
     expect(switchBackOutput).toContain('(account)')
   })
@@ -1122,11 +1081,7 @@ describe('org', () => {
     const session = await factory.session.insert({ account_id: account.id })
     Session.write({ session_id: session.id })
 
-    const { exitCode, output } = await serve([
-      'org',
-      'switch',
-      'nonexistent-org',
-    ])
+    const { exitCode, output } = await serve(['org', 'switch', 'nonexistent-org'])
     expect(exitCode).toBe(1)
     expect(output).toContain('ORG_NOT_FOUND')
   })
@@ -1224,12 +1179,7 @@ describe('org invite', () => {
     test('expired session deletes session', async () => {
       Session.write({ session_id: 'expired-session-id' })
 
-      const { exitCode, output } = await serve([
-        'org',
-        'invite',
-        'accept',
-        'some-token',
-      ])
+      const { exitCode, output } = await serve(['org', 'invite', 'accept', 'some-token'])
       expect(exitCode).toBe(1)
       expect(output).toContain('NOT_AUTHENTICATED')
       expect(Session.read()).toBeNull()
@@ -1240,12 +1190,7 @@ describe('org invite', () => {
       const session = await factory.session.insert({ account_id: account.id })
       Session.write({ session_id: session.id })
 
-      const { exitCode, output } = await serve([
-        'org',
-        'invite',
-        'accept',
-        'fake-token',
-      ])
+      const { exitCode, output } = await serve(['org', 'invite', 'accept', 'fake-token'])
       expect(exitCode).toBe(1)
       expect(output).toContain('NOT_FOUND')
     })
@@ -1271,12 +1216,7 @@ describe('org invite', () => {
 
       await serve(['org', 'invite', 'accept', invite.token])
 
-      const { exitCode, output } = await serve([
-        'org',
-        'invite',
-        'accept',
-        invite.token,
-      ])
+      const { exitCode, output } = await serve(['org', 'invite', 'accept', invite.token])
       expect(exitCode).toBe(1)
       expect(output).toContain('ALREADY_MEMBER')
     })
@@ -1454,12 +1394,7 @@ describe('org invite', () => {
       const session = await factory.session.insert({ account_id: account.id })
       Session.write({ session_id: session.id })
 
-      const { exitCode, output } = await serve([
-        'org',
-        'invite',
-        'revoke',
-        'some-id',
-      ])
+      const { exitCode, output } = await serve(['org', 'invite', 'revoke', 'some-id'])
       expect(exitCode).toBe(1)
       expect(output).toContain('NO_ACTIVE_ORG')
     })
@@ -1470,12 +1405,7 @@ describe('org invite', () => {
         organization_id: 'stale',
       })
 
-      const { exitCode, output } = await serve([
-        'org',
-        'invite',
-        'revoke',
-        'some-id',
-      ])
+      const { exitCode, output } = await serve(['org', 'invite', 'revoke', 'some-id'])
       expect(exitCode).toBe(1)
       expect(output).toContain('NOT_AUTHENTICATED')
       expect(Session.read()).toBeNull()
@@ -1527,12 +1457,7 @@ describe('org invite', () => {
       })
       Session.write({ session_id: session.id, organization_id: org.id })
 
-      const { exitCode, output } = await serve([
-        'org',
-        'invite',
-        'revoke',
-        'fake-id',
-      ])
+      const { exitCode, output } = await serve(['org', 'invite', 'revoke', 'fake-id'])
       expect(exitCode).toBe(1)
       expect(output).toContain('NOT_FOUND')
     })
@@ -1546,12 +1471,7 @@ describe('org member', () => {
       const session = await factory.session.insert({ account_id: account.id })
       Session.write({ session_id: session.id })
 
-      const { exitCode, output } = await serve([
-        'org',
-        'member',
-        'add',
-        'someone',
-      ])
+      const { exitCode, output } = await serve(['org', 'member', 'add', 'someone'])
       expect(exitCode).toBe(1)
       expect(output).toContain('NO_ACTIVE_ORG')
     })
@@ -1562,12 +1482,7 @@ describe('org member', () => {
         organization_id: 'stale',
       })
 
-      const { exitCode, output } = await serve([
-        'org',
-        'member',
-        'add',
-        'someone',
-      ])
+      const { exitCode, output } = await serve(['org', 'member', 'add', 'someone'])
       expect(exitCode).toBe(1)
       expect(output).toContain('NOT_AUTHENTICATED')
       expect(Session.read()).toBeNull()
@@ -1606,14 +1521,7 @@ describe('org member', () => {
       const target = await factory.account.insert({})
       Session.write({ session_id: session.id, organization_id: org.id })
 
-      const { output } = await serve([
-        'org',
-        'member',
-        'add',
-        target.login,
-        '--role',
-        'admin',
-      ])
+      const { output } = await serve(['org', 'member', 'add', target.login, '--role', 'admin'])
       expect(output).toContain('Added')
       expect(output).toContain('admin')
     })
@@ -1630,12 +1538,7 @@ describe('org member', () => {
       const target = await factory.account.insert({})
       Session.write({ session_id: session.id, organization_id: org.id })
 
-      const { exitCode, output } = await serve([
-        'org',
-        'member',
-        'add',
-        target.login,
-      ])
+      const { exitCode, output } = await serve(['org', 'member', 'add', target.login])
       expect(exitCode).toBe(1)
       expect(output).toContain('FORBIDDEN')
     })
@@ -1675,12 +1578,7 @@ describe('org member', () => {
       })
       Session.write({ session_id: session.id, organization_id: org.id })
 
-      const { exitCode, output } = await serve([
-        'org',
-        'member',
-        'add',
-        'nonexistent-login',
-      ])
+      const { exitCode, output } = await serve(['org', 'member', 'add', 'nonexistent-login'])
       expect(exitCode).toBe(1)
       expect(output).toContain('NOT_FOUND')
     })
@@ -1702,12 +1600,7 @@ describe('org member', () => {
       })
       Session.write({ session_id: session.id, organization_id: org.id })
 
-      const { exitCode, output } = await serve([
-        'org',
-        'member',
-        'add',
-        target.login,
-      ])
+      const { exitCode, output } = await serve(['org', 'member', 'add', target.login])
       expect(exitCode).toBe(1)
       expect(output).toContain('ALREADY_MEMBER')
     })
@@ -1789,12 +1682,7 @@ describe('org member', () => {
       const session = await factory.session.insert({ account_id: account.id })
       Session.write({ session_id: session.id })
 
-      const { exitCode, output } = await serve([
-        'org',
-        'member',
-        'remove',
-        'someone',
-      ])
+      const { exitCode, output } = await serve(['org', 'member', 'remove', 'someone'])
       expect(exitCode).toBe(1)
       expect(output).toContain('NO_ACTIVE_ORG')
     })
@@ -1805,12 +1693,7 @@ describe('org member', () => {
         organization_id: 'stale',
       })
 
-      const { exitCode, output } = await serve([
-        'org',
-        'member',
-        'remove',
-        'someone',
-      ])
+      const { exitCode, output } = await serve(['org', 'member', 'remove', 'someone'])
       expect(exitCode).toBe(1)
       expect(output).toContain('NOT_AUTHENTICATED')
       expect(Session.read()).toBeNull()
@@ -1854,12 +1737,7 @@ describe('org member', () => {
       })
       Session.write({ session_id: session.id, organization_id: org.id })
 
-      const { exitCode, output } = await serve([
-        'org',
-        'member',
-        'remove',
-        owner.login,
-      ])
+      const { exitCode, output } = await serve(['org', 'member', 'remove', owner.login])
       expect(exitCode).toBe(1)
       expect(output).toContain('FORBIDDEN')
       expect(output).toContain('Cannot remove an owner')
@@ -1876,12 +1754,7 @@ describe('org member', () => {
       })
       Session.write({ session_id: session.id, organization_id: org.id })
 
-      const { exitCode, output } = await serve([
-        'org',
-        'member',
-        'remove',
-        'nonexistent-login',
-      ])
+      const { exitCode, output } = await serve(['org', 'member', 'remove', 'nonexistent-login'])
       expect(exitCode).toBe(1)
       expect(output).toContain('NOT_FOUND')
       expect(output).toContain('not found')
@@ -1942,14 +1815,7 @@ describe('org member', () => {
       })
       Session.write({ session_id: session.id, organization_id: org.id })
 
-      const { output } = await serve([
-        'org',
-        'member',
-        'role',
-        target.login,
-        '--role',
-        'admin',
-      ])
+      const { output } = await serve(['org', 'member', 'role', target.login, '--role', 'admin'])
       expect(output).toContain('Changed')
       expect(output).toContain('admin')
     })
@@ -1977,14 +1843,7 @@ describe('org member', () => {
       })
       Session.write({ session_id: session.id, organization_id: org.id })
 
-      const { output } = await serve([
-        'org',
-        'member',
-        'role',
-        target.login,
-        '--role',
-        'admin',
-      ])
+      const { output } = await serve(['org', 'member', 'role', target.login, '--role', 'admin'])
       expect(output).toContain('Changed')
       expect(output).toContain('admin')
     })
@@ -2107,11 +1966,7 @@ describe('token', () => {
     const session = await factory.session.insert({ account_id: account.id })
     Session.write({ session_id: session.id })
 
-    const { output: createOutput } = await serve([
-      'token',
-      'create',
-      'my-token',
-    ])
+    const { output: createOutput } = await serve(['token', 'create', 'my-token'])
     expect(createOutput).toContain('Token my-token created.')
     expect(createOutput).toContain('curl_')
     expect(createOutput).toContain("won't be shown again")
@@ -2210,9 +2065,7 @@ describe('token', () => {
 describe('update', () => {
   test('install fails', async () => {
     const standaloneSpy = vi.spyOn(utils, 'isStandalone').mockReturnValue(false)
-    const spy = vi
-      .spyOn(utils, 'installGlobal')
-      .mockRejectedValue(new Error('permission denied'))
+    const spy = vi.spyOn(utils, 'installGlobal').mockRejectedValue(new Error('permission denied'))
     onTestFinished(() => {
       standaloneSpy.mockRestore()
       spy.mockRestore()
@@ -2249,9 +2102,7 @@ describe('update', () => {
   })
 
   test('cannot determine latest version', async () => {
-    const fetchSpy = vi
-      .spyOn(globalThis, 'fetch')
-      .mockRejectedValue(new Error())
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error())
     onTestFinished(() => fetchSpy.mockRestore())
 
     const { exitCode, output } = await serve(['update'])

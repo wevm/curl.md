@@ -4,38 +4,21 @@ import { githubDocs } from './github-docs.ts'
 
 test('githubDocs rewrites to API with /en prefix', () => {
   const rule = githubDocs()
-  const result = rule.rewrite?.(
-    new URL('https://docs.github.com/actions/overview'),
-  )
+  const result = rule.rewrite?.(new URL('https://docs.github.com/actions/overview'))
   expect(result?.pathname).toBe('/api/article')
   expect(result?.searchParams.get('pathname')).toBe('/en/actions/overview')
 })
 
 test('githubDocs preserves existing locale prefix', () => {
   const rule = githubDocs()
-  const result = rule.rewrite?.(
-    new URL('https://docs.github.com/ja/actions/overview'),
-  )
+  const result = rule.rewrite?.(new URL('https://docs.github.com/ja/actions/overview'))
   expect(result?.searchParams.get('pathname')).toBe('/ja/actions/overview')
 })
 
 test('githubDocs preserves all supported locales', () => {
   const rule = githubDocs()
-  for (const locale of [
-    'cn',
-    'de',
-    'en',
-    'es',
-    'fr',
-    'ja',
-    'ko',
-    'pt',
-    'ru',
-    'zh',
-  ]) {
-    const result = rule.rewrite?.(
-      new URL(`https://docs.github.com/${locale}/some/page`),
-    )
+  for (const locale of ['cn', 'de', 'en', 'es', 'fr', 'ja', 'ko', 'pt', 'ru', 'zh']) {
+    const result = rule.rewrite?.(new URL(`https://docs.github.com/${locale}/some/page`))
     expect(result?.searchParams.get('pathname')).toBe(`/${locale}/some/page`)
   }
 })

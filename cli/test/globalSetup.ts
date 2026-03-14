@@ -28,49 +28,47 @@ export default async function (project: TestProject) {
 }
 
 function startDevServer(dbUrl: string) {
-  return new Promise<{ baseUrl: string; stop: () => void }>(
-    (resolve, reject) => {
-      const child = fork(new URL('devServer.ts', import.meta.url).pathname, {
-        env: { ...process.env, DB_URL: dbUrl },
-        stdio: ['ignore', 'ignore', 'pipe', 'ipc'],
-        execArgv: ['--experimental-strip-types', '--no-warnings'],
-        detached: true,
+  return new Promise<{ baseUrl: string; stop: () => void }>((resolve, reject) => {
+    const child = fork(new URL('devServer.ts', import.meta.url).pathname, {
+      env: { ...process.env, DB_URL: dbUrl },
+      stdio: ['ignore', 'ignore', 'pipe', 'ipc'],
+      execArgv: ['--experimental-strip-types', '--no-warnings'],
+      detached: true,
+    })
+
+    let stderr = ''
+    child.stderr?.on('data', (data: Buffer) => {
+      stderr += data.toString()
+    })
+
+    const timeout = setTimeout(() => {
+      child.kill()
+      reject(new Error(`Dev server startup timeout\n${stderr}`))
+    }, 60_000)
+
+    child.on('message', (baseUrl: string) => {
+      clearTimeout(timeout)
+      resolve({
+        baseUrl,
+        stop: () => {
+          try {
+            // oxlint-disable-next-line @typescript-eslint/no-non-null-assertion -- child.pid is set
+            process.kill(-child.pid!, 'SIGTERM')
+          } catch {}
+        },
       })
+    })
 
-      let stderr = ''
-      child.stderr?.on('data', (data: Buffer) => {
-        stderr += data.toString()
-      })
+    child.on('error', (err) => {
+      clearTimeout(timeout)
+      reject(err)
+    })
 
-      const timeout = setTimeout(() => {
-        child.kill()
-        reject(new Error(`Dev server startup timeout\n${stderr}`))
-      }, 60_000)
-
-      child.on('message', (baseUrl: string) => {
+    child.on('exit', (code) => {
+      if (code !== null && code !== 0) {
         clearTimeout(timeout)
-        resolve({
-          baseUrl,
-          stop: () => {
-            try {
-              // biome-ignore lint/style/noNonNullAssertion: child.pid is set
-              process.kill(-child.pid!, 'SIGTERM')
-            } catch {}
-          },
-        })
-      })
-
-      child.on('error', (err) => {
-        clearTimeout(timeout)
-        reject(err)
-      })
-
-      child.on('exit', (code) => {
-        if (code !== null && code !== 0) {
-          clearTimeout(timeout)
-          reject(new Error(`Dev server exited with code ${code}\n${stderr}`))
-        }
-      })
-    },
-  )
+        reject(new Error(`Dev server exited with code ${code}\n${stderr}`))
+      }
+    })
+  })
 }

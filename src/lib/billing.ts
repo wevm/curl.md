@@ -23,8 +23,7 @@ export async function resolveBillingEntity(
       .where('account_id', '=', entity.accountId)
       .select('role')
       .executeTakeFirst()
-    if (!member)
-      return { ok: false, error: 'organization_access_denied', status: 403 }
+    if (!member) return { ok: false, error: 'organization_access_denied', status: 403 }
     if (member.role !== 'owner' && member.role !== 'admin')
       return { ok: false, error: 'organization_access_denied', status: 403 }
 

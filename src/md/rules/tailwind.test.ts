@@ -33,9 +33,7 @@ test('unhides hidden tbody rows', async () => {
   expect(result.content).toContain('p-2')
   expect(result.content).not.toContain('Show more')
   expect(result.meta.title).toBe('padding - Tailwind CSS')
-  expect(result.meta.description).toBe(
-    "Utilities for controlling an element's padding.",
-  )
+  expect(result.meta.description).toBe("Utilities for controlling an element's padding.")
 })
 
 test('extracts meta from og tags', async () => {
@@ -52,7 +50,5 @@ test('extracts meta from og tags', async () => {
   expect(result.ok).toBe(true)
   if (!result.ok) return
   expect(result.meta.title).toBe('flex - Tailwind CSS')
-  expect(result.meta.description).toBe(
-    'Utilities for controlling how flex items grow and shrink.',
-  )
+  expect(result.meta.description).toBe('Utilities for controlling how flex items grow and shrink.')
 })

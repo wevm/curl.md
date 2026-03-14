@@ -13,18 +13,15 @@ export type Client = ReturnType<typeof hc<typeof api>>
 export type Command = { command: string; description?: string }
 
 export function dataDir() {
-  if (process.env.XDG_DATA_HOME)
-    return path.join(process.env.XDG_DATA_HOME, 'curl-md')
+  if (process.env.XDG_DATA_HOME) return path.join(process.env.XDG_DATA_HOME, 'curl-md')
   if (process.platform === 'win32')
     return path.join(process.env.LOCALAPPDATA || os.homedir(), 'curl-md')
   return path.join(os.homedir(), '.local', 'share', 'curl-md')
 }
 
 export function configDir() {
-  if (process.env.XDG_CONFIG_HOME)
-    return path.join(process.env.XDG_CONFIG_HOME, 'curl-md')
-  if (process.platform === 'win32')
-    return path.join(process.env.APPDATA || os.homedir(), 'curl-md')
+  if (process.env.XDG_CONFIG_HOME) return path.join(process.env.XDG_CONFIG_HOME, 'curl-md')
+  if (process.platform === 'win32') return path.join(process.env.APPDATA || os.homedir(), 'curl-md')
   return path.join(os.homedir(), '.config', 'curl-md')
 }
 
@@ -52,7 +49,7 @@ export const Session = {
 }
 
 export declare namespace Session {
-  type Data = {
+  export type Data = {
     session_id: string
     organization_id?: string | undefined
   }
@@ -70,9 +67,7 @@ export function compareVersions(a: string, b: string): number {
 
 export function installGlobal(name: string, version?: string) {
   const type = detectPackageManager()
-  const spec = version?.startsWith('http')
-    ? version
-    : `${name}@${version || 'latest'}`
+  const spec = version?.startsWith('http') ? version : `${name}@${version || 'latest'}`
   const execFileAsync = util.promisify(child_process.execFile)
   if (type === 'pnpm') return execFileAsync('pnpm', ['add', '-g', spec])
   if (type === 'bun') return execFileAsync('bun', ['add', '-g', spec])
@@ -88,9 +83,7 @@ export function createSpinner(message: string) {
   let frame = 0
   const interval = setInterval(() => {
     const symbol = pc.cyan(SPINNER_FRAMES[frame])
-    process.stderr.write(
-      `${ANSI_CURSOR_TO_START}${ANSI_CLEAR_LINE}${symbol} ${message}`,
-    )
+    process.stderr.write(`${ANSI_CURSOR_TO_START}${ANSI_CLEAR_LINE}${symbol} ${message}`)
     frame = (frame + 1) % SPINNER_FRAMES.length
   }, 80).unref()
 
@@ -104,11 +97,7 @@ export function createSpinner(message: string) {
 
 export function openUrl(url: string) {
   const cmd =
-    process.platform === 'darwin'
-      ? 'open'
-      : process.platform === 'win32'
-        ? 'start'
-        : 'xdg-open'
+    process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'start' : 'xdg-open'
   child_process.exec(`${cmd} "${url}"`)
 }
 
@@ -116,10 +105,8 @@ function detectPackageManager(): 'npm' | 'pnpm' | 'bun' {
   const userAgent = process.env.npm_config_user_agent || ''
   const execPath = process.env.npm_execpath || ''
 
-  if (userAgent.includes('pnpm') || execPath.includes('pnpm'))
-    if (hasBinary('pnpm')) return 'pnpm'
-  if (userAgent.includes('bun') || execPath.includes('bun'))
-    if (hasBinary('bun')) return 'bun'
+  if (userAgent.includes('pnpm') || execPath.includes('pnpm')) if (hasBinary('pnpm')) return 'pnpm'
+  if (userAgent.includes('bun') || execPath.includes('bun')) if (hasBinary('bun')) return 'bun'
 
   try {
     const bin = process.argv[1]
@@ -190,10 +177,7 @@ export const UpdateCache = {
 
     const p = UpdateCache.path()
     fs.mkdirSync(path.dirname(p), { recursive: true })
-    fs.writeFileSync(
-      p,
-      JSON.stringify({ latest, released_at, checked_at: Date.now() }),
-    )
+    fs.writeFileSync(p, JSON.stringify({ latest, released_at, checked_at: Date.now() }))
   },
   /** Spawn a detached background process to refresh the cache. */
   spawnCheck() {
@@ -210,7 +194,7 @@ export const UpdateCache = {
 }
 
 export declare namespace UpdateCache {
-  type Data = {
+  export type Data = {
     checked_at: number
     latest: string
     released_at: string | null
@@ -285,8 +269,7 @@ export function select(
     function onData(buf: Buffer) {
       const key = buf.toString()
       if (key === '\x1b[A') cursor = Math.max(0, cursor - 1)
-      else if (key === '\x1b[B')
-        cursor = Math.min(filtered.length - 1, cursor + 1)
+      else if (key === '\x1b[B') cursor = Math.min(filtered.length - 1, cursor + 1)
       else if (key === '\r' || key === '\n') {
         if (filtered.length > 0) return done(filtered[cursor] as number)
       } else if (key === '\x03' || key === '\x1b') return done(-1)
@@ -304,8 +287,7 @@ export function select(
       if (prevLines > 0) write(`\x1b[${prevLines}A`)
       for (let i = 0; i < prevLines; i++) write(`\x1b[2K\n`)
       if (prevLines > 0) write(`\x1b[${prevLines}A`)
-      const selected =
-        index >= 0 ? (options?.doneLabels?.[index] ?? items[index] ?? '') : ''
+      const selected = index >= 0 ? (options?.doneLabels?.[index] ?? items[index] ?? '') : ''
       write(`\x1b[2K${pc.green('?')} ${pc.bold(title)} ${pc.cyan(selected)}\n`)
       write('\x1b[?25h')
       process.stdin.off('data', onData)
@@ -318,10 +300,7 @@ export function select(
   })
 }
 
-export function formatValidationError(
-  json: unknown,
-  fallback = 'Invalid request',
-): string {
+export function formatValidationError(json: unknown, fallback = 'Invalid request'): string {
   if (
     typeof json !== 'object' ||
     json === null ||
@@ -376,9 +355,7 @@ export async function updateStandalone(version: string, aliases: string[]) {
       return buf
     } catch {}
 
-    throw new Error(
-      `Download failed (${res.status}). Binary may not exist for ${os_}/${arch}.`,
-    )
+    throw new Error(`Download failed (${res.status}). Binary may not exist for ${os_}/${arch}.`)
   })()
   const target = process.execPath
   const tmpPath = `${target}.tmp`

@@ -22,13 +22,7 @@ export function useTmp() {
   delete process.env.XDG_CONFIG_HOME
   return {
     dir: tmpDir,
-    sessionPath: path.join(
-      tmpDir,
-      '.local',
-      'share',
-      'curl-md',
-      'session.json',
-    ),
+    sessionPath: path.join(tmpDir, '.local', 'share', 'curl-md', 'session.json'),
     cleanup() {
       spy.mockRestore()
       if (origXdgData === undefined) delete process.env.XDG_DATA_HOME
@@ -41,15 +35,10 @@ export function useTmp() {
 }
 
 function stripUndefined(obj: Record<string, string | undefined>) {
-  return Object.fromEntries(
-    Object.entries(obj).filter(([, v]) => v !== undefined),
-  )
+  return Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined))
 }
 
-export async function serve(
-  argv: string[],
-  overrides?: Record<string, string | undefined>,
-) {
+export async function serve(argv: string[], overrides?: Record<string, string | undefined>) {
   let output = ''
   let exitCode: number | undefined
   await cli.serve(argv, {
@@ -64,6 +53,6 @@ export async function serve(
       exitCode = code
     },
   })
-  // biome-ignore lint/suspicious/noControlCharactersInRegex: strip ANSI escape codes for assertions
+  // oxlint-disable-next-line no-control-regex -- strip ANSI escape codes for assertions
   return { output: output.replace(/\x1b\[[0-9;]*m/g, ''), exitCode }
 }

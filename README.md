@@ -1,6 +1,6 @@
 # curl.md
 
-Fetch any URL as Markdown 
+Fetch any URL as Markdown
 
 ## Development
 
@@ -30,23 +30,23 @@ Secrets are managed via [GitHub Environments](https://docs.github.com/en/actions
 
 [**Repository secrets**](https://github.com/wevm/curl.md/settings/secrets/actions) — shared across all environments:
 
-* `CLOUDFLARE_ACCOUNT_ID` - Cloudflare account ID (found in the Workers dashboard URL)
-* `CLOUDFLARE_API_TOKEN` - Cloudflare API token for deployments (see [Creating a Cloudflare API Token](#creating-a-cloudflare-api-token))
-* `COOKIE_SECRET` - Secret for signing session cookies `openssl rand -base64 32`
-* `GH_CLIENT_ID` - GitHub App client ID (see [GitHub App Setup](#github-app-setup))
-* `GH_CLIENT_SECRET` - GitHub App client secret (see [GitHub App Setup](#github-app-setup))
-* `SENTRY_DSN` - Sentry DSN for error tracking (see [Sentry](#sentry))
-* `TOKEN_ENCRYPTION_KEY` - Base64-encoded 256-bit key for encrypting OAuth tokens `openssl rand -base64 32`
+- `CLOUDFLARE_ACCOUNT_ID` - Cloudflare account ID (found in the Workers dashboard URL)
+- `CLOUDFLARE_API_TOKEN` - Cloudflare API token for deployments (see [Creating a Cloudflare API Token](#creating-a-cloudflare-api-token))
+- `COOKIE_SECRET` - Secret for signing session cookies `openssl rand -base64 32`
+- `GH_CLIENT_ID` - GitHub App client ID (see [GitHub App Setup](#github-app-setup))
+- `GH_CLIENT_SECRET` - GitHub App client secret (see [GitHub App Setup](#github-app-setup))
+- `SENTRY_DSN` - Sentry DSN for error tracking (see [Sentry](#sentry))
+- `TOKEN_ENCRYPTION_KEY` - Base64-encoded 256-bit key for encrypting OAuth tokens `openssl rand -base64 32`
 
 **[`production`](https://github.com/wevm/curl.md/settings/environments/12871461617/edit) environment secrets**:
 
-* `DB_URL` - PlanetScale Postgres connection string (for production migrations)
-* `STRIPE_SECRET_KEY` - Stripe live secret key (see [Stripe Setup](#stripe-setup))
-* `STRIPE_WEBHOOK_SECRET` - Stripe webhook signing secret (see [Stripe Setup](#stripe-setup))
+- `DB_URL` - PlanetScale Postgres connection string (for production migrations)
+- `STRIPE_SECRET_KEY` - Stripe live secret key (see [Stripe Setup](#stripe-setup))
+- `STRIPE_WEBHOOK_SECRET` - Stripe webhook signing secret (see [Stripe Setup](#stripe-setup))
 
 **[`production`](https://github.com/wevm/curl.md/settings/environments/12871461617/edit) environment variables**:
 
-* `STRIPE_PUBLISHABLE_KEY` - Stripe live publishable key (`pk_live_...`) (see [Stripe Setup](#stripe-setup))
+- `STRIPE_PUBLISHABLE_KEY` - Stripe live publishable key (`pk_live_...`) (see [Stripe Setup](#stripe-setup))
 
 ### PlanetScale
 
@@ -91,9 +91,9 @@ Secrets are managed via [GitHub Environments](https://docs.github.com/en/actions
    - Uncheck "Active" under Webhook (not needed)
    4. Under Permissions:
    - **Account permissions** → **Email addresses** → Read-only
-5. Click "Create GitHub App"
-6. Copy the **Client ID** → `GH_CLIENT_ID` in `.env`
-7. Click "Generate a new client secret" → `GH_CLIENT_SECRET` in `.env`
+4. Click "Create GitHub App"
+5. Copy the **Client ID** → `GH_CLIENT_ID` in `.env`
+6. Click "Generate a new client secret" → `GH_CLIENT_SECRET` in `.env`
 
 ### Stripe Setup
 
@@ -134,15 +134,15 @@ Preview secrets are scoped via [GitHub Environments](https://docs.github.com/en/
 
 **[`preview`](https://github.com/wevm/curl.md/settings/environments/12873481464/edit) environment secrets**:
 
-* `PLANETSCALE_SERVICE_TOKEN` — PlanetScale service token (see [PlanetScale Branching](#planetscale-branching))
-* `PLANETSCALE_SERVICE_TOKEN_ID` — PlanetScale service token ID (see [PlanetScale Branching](#planetscale-branching))
-* `PLANETSCALE_ORG` — PlanetScale organization slug (e.g. `wevm`)
-* `PLANETSCALE_DB` — PlanetScale database name (same as production, e.g. `curl`)
-* `STRIPE_SECRET_KEY` — Stripe test mode secret key (see [Stripe](#stripe-1))
+- `PLANETSCALE_SERVICE_TOKEN` — PlanetScale service token (see [PlanetScale Branching](#planetscale-branching))
+- `PLANETSCALE_SERVICE_TOKEN_ID` — PlanetScale service token ID (see [PlanetScale Branching](#planetscale-branching))
+- `PLANETSCALE_ORG` — PlanetScale organization slug (e.g. `wevm`)
+- `PLANETSCALE_DB` — PlanetScale database name (same as production, e.g. `curl`)
+- `STRIPE_SECRET_KEY` — Stripe test mode secret key (see [Stripe](#stripe-1))
 
 **[`preview`](https://github.com/wevm/curl.md/settings/environments/12873481464/edit) environment variables**:
 
-* `STRIPE_PUBLISHABLE_KEY` — Stripe test mode publishable key (`pk_test_...`)
+- `STRIPE_PUBLISHABLE_KEY` — Stripe test mode publishable key (`pk_test_...`)
 
 ### PlanetScale Branching
 

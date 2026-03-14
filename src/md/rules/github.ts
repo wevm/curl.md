@@ -12,23 +12,18 @@ export const githubRepo = defineRule<{ token?: string | undefined }>({
   patterns: [/^https:\/\/github\.com\/[^/]+\/[^/]+\/?$/],
   rewrite(url) {
     const [, owner, repo] = url.pathname.split('/')
-    return new URL(
-      `https://raw.githubusercontent.com/${owner}/${repo}/HEAD/README.md`,
-    )
+    return new URL(`https://raw.githubusercontent.com/${owner}/${repo}/HEAD/README.md`)
   },
   async fetch(input, init, context) {
     const url =
-      input instanceof URL
-        ? input
-        : new URL(typeof input === 'string' ? input : input.url)
+      input instanceof URL ? input : new URL(typeof input === 'string' ? input : input.url)
     const userAgent = new Headers(init?.headers).get('User-Agent') ?? ''
     // url is the rewritten raw.githubusercontent.com URL
     // Extract owner/repo from it: /owner/repo/HEAD/README.md
     const [, owner, repo] = url.pathname.split('/')
 
     const apiHeaders: Record<string, string> = { 'User-Agent': userAgent }
-    if (context.options?.token)
-      apiHeaders.Authorization = `Bearer ${context.options.token}`
+    if (context.options?.token) apiHeaders.Authorization = `Bearer ${context.options.token}`
 
     const [readmeRes, repoRes] = await Promise.all([
       context.fetch(url, init),
@@ -179,10 +174,7 @@ async function fetchGithubApi(
   init: RequestInit | undefined,
   context: FetchContext & { token?: string | undefined },
 ) {
-  const url =
-    input instanceof URL
-      ? input
-      : new URL(typeof input === 'string' ? input : input.url)
+  const url = input instanceof URL ? input : new URL(typeof input === 'string' ? input : input.url)
   const userAgent = new Headers(init?.headers).get('User-Agent') ?? ''
   // API path: /repos/{owner}/{repo}/{issues|pulls}/{id}
   const [, , owner, repo, kind, id] = url.pathname.split('/')
@@ -195,20 +187,17 @@ async function fetchGithubApi(
     let firstResponse: Record<string, unknown> | undefined
 
     while (true) {
-      const res: Response = await context.fetch(
-        'https://api.github.com/graphql',
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${context.token}`,
-            'User-Agent': userAgent,
-          },
-          body: JSON.stringify({
-            query: isPr ? prQuery : issueQuery,
-            variables: { owner, repo, number: Number(id), cursor },
-          }),
+      const res: Response = await context.fetch('https://api.github.com/graphql', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${context.token}`,
+          'User-Agent': userAgent,
         },
-      )
+        body: JSON.stringify({
+          query: isPr ? prQuery : issueQuery,
+          variables: { owner, repo, number: Number(id), cursor },
+        }),
+      })
       if (!res.ok) return res
 
       const raw = await res.json()
@@ -221,8 +210,7 @@ async function fetchGithubApi(
       allComments.push(...(entry.comments?.nodes ?? []))
 
       if (!pageInfo?.hasNextPage) break
-      if (pageInfo.endCursor === cursor)
-        throw new Error('Pagination cursor did not advance')
+      if (pageInfo.endCursor === cursor) throw new Error('Pagination cursor did not advance')
       cursor = pageInfo.endCursor
     }
 
@@ -246,9 +234,7 @@ async function fetchGithubApi(
   }
 
   // Unauthenticated: fetch HTML directly (includes comments, no rate limit)
-  const htmlPath = isPr
-    ? `/${owner}/${repo}/pull/${id}`
-    : `/${owner}/${repo}/issues/${id}`
+  const htmlPath = isPr ? `/${owner}/${repo}/pull/${id}` : `/${owner}/${repo}/issues/${id}`
   return context.fetch(new URL(htmlPath, 'https://github.com'), {
     headers: { 'User-Agent': userAgent },
     redirect: 'follow',
@@ -281,11 +267,7 @@ function formatComments(
     headRef?: string | undefined
   },
 ) {
-  const state = options?.merged
-    ? 'merged'
-    : options?.isDraft
-      ? 'draft'
-      : entry.state?.toLowerCase()
+  const state = options?.merged ? 'merged' : options?.isDraft ? 'draft' : entry.state?.toLowerCase()
 
   let content = (entry.body ?? '').trim()
   for (const comment of entry.comments?.nodes ?? [])
@@ -407,10 +389,7 @@ const restRepoSchema = z.object({
   full_name: z.string().optional(),
   description: z.string().nullable().optional(),
   language: z.string().nullable().optional(),
-  license: z
-    .object({ spdx_id: z.string().nullable().optional() })
-    .nullable()
-    .optional(),
+  license: z.object({ spdx_id: z.string().nullable().optional() }).nullable().optional(),
   stargazers_count: z.number().optional(),
 })
 
@@ -535,11 +514,7 @@ function extractState(tree: Root, kind: 'issue' | 'pr'): string | undefined {
     if (!status) return
     if (status === 'draft') state = 'draft'
     else if (kind === 'pr' && status === 'pullMerged') state = 'merged'
-    else if (
-      status === 'pullMerged' ||
-      status === 'issueClosed' ||
-      status === 'pullClosed'
-    )
+    else if (status === 'pullMerged' || status === 'issueClosed' || status === 'pullClosed')
       state = 'closed'
     else if (status === 'issueOpened' || status === 'pullOpened') state = 'open'
   })
@@ -584,9 +559,7 @@ function findTimestamp(el: Element): string | undefined {
   walk(el, (child) => {
     if (timestamp) return
     if (child.tagName !== 'relative-time') return
-    const dt = (child.properties?.dateTime ?? child.properties?.datetime) as
-      | string
-      | undefined
+    const dt = (child.properties?.dateTime ?? child.properties?.datetime) as string | undefined
     if (dt) timestamp = dt
   })
   return timestamp
@@ -638,8 +611,7 @@ function extractBranchRefs(
 
 function hastToText(node: Element | ElementContent): string {
   if (node.type === 'text') return node.value
-  if (node.type === 'element')
-    return node.children.map((c) => hastToText(c)).join('')
+  if (node.type === 'element') return node.children.map((c) => hastToText(c)).join('')
   return ''
 }
 

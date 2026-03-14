@@ -8,10 +8,7 @@ export const destroy = cookie.deleteCookie as (
   opt?: Options | undefined,
 ) => string | undefined
 
-export const get = cookie.getCookie as (
-  c: Context,
-  name: Name,
-) => string | undefined
+export const get = cookie.getCookie as (c: Context, name: Name) => string | undefined
 
 export const getSigned = cookie.getSignedCookie as (
   c: Context,

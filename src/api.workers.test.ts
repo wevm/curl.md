@@ -55,9 +55,7 @@ describe('GET /api/auth/github', () => {
     expect(res.status).toBe(302)
     const location = res.headers.get('location')!
     const redirectUri = new URL(location).searchParams.get('redirect_uri')!
-    expect(new URL(redirectUri).searchParams.get('next')).toBe(
-      'https://pr10.curl.local',
-    )
+    expect(new URL(redirectUri).searchParams.get('next')).toBe('https://pr10.curl.local')
   })
 
   test('ignores invalid next param origin', async () => {
@@ -80,9 +78,7 @@ describe('GET /api/auth/github/callback', () => {
     expect(res.status).toBe(400)
     await expect(res.json()).resolves.toEqual({
       error: 'validation_error',
-      issues: expect.arrayContaining([
-        { path: expect.any(String), message: expect.any(String) },
-      ]),
+      issues: expect.arrayContaining([{ path: expect.any(String), message: expect.any(String) }]),
     })
   })
 
@@ -94,9 +90,7 @@ describe('GET /api/auth/github/callback', () => {
     const location = new URL(res.headers.get('location')!)
     expect(location.pathname).toBe('/auth/error')
     expect(location.searchParams.get('error')).toBe('invalid_request')
-    expect(location.searchParams.get('error_description')).toBe(
-      'State mismatch',
-    )
+    expect(location.searchParams.get('error_description')).toBe('State mismatch')
   })
 
   test('with bad code redirects to error page', async () => {
@@ -119,9 +113,7 @@ describe('GET /api/auth/github/callback', () => {
     const location = new URL(res.headers.get('location')!)
     expect(location.pathname).toBe('/auth/error')
     expect(location.searchParams.get('error')).toBe('bad_verification_code')
-    expect(location.searchParams.get('error_description')).toBe(
-      'Failed to get access token',
-    )
+    expect(location.searchParams.get('error_description')).toBe('Failed to get access token')
   })
 
   test('creates account and redirects to account login', async () => {
@@ -156,9 +148,7 @@ describe('GET /api/auth/github/callback', () => {
     )
     expect(res.status).toBe(302)
     expect(res.headers.get('location')).toBe(`https://curl.local/${login}`)
-    expect(
-      res.headers.getSetCookie().some((c) => c.startsWith('curl.session=')),
-    ).toBe(true)
+    expect(res.headers.getSetCookie().some((c) => c.startsWith('curl.session='))).toBe(true)
 
     // Verify account was created in D1
     const provider = await db
@@ -179,10 +169,7 @@ describe('GET /api/auth/github/callback', () => {
     // Verify tokens are encrypted (not stored as plaintext)
     expect(provider.access_token).not.toBe('ghu_test123')
     expect(provider.access_token).toBeTruthy()
-    const decrypted = await Crypto.decrypt(
-      provider.access_token!,
-      env.TOKEN_ENCRYPTION_KEY,
-    )
+    const decrypted = await Crypto.decrypt(provider.access_token!, env.TOKEN_ENCRYPTION_KEY)
     expect(decrypted).toBe('ghu_test123')
   })
 
@@ -213,9 +200,7 @@ describe('GET /api/auth/github/callback', () => {
         }),
       ),
       http.get('https://api.github.com/user/emails', () =>
-        HttpResponse.json([
-          { email: account.email, primary: true, verified: true },
-        ]),
+        HttpResponse.json([{ email: account.email, primary: true, verified: true }]),
       ),
     )
 
@@ -224,9 +209,7 @@ describe('GET /api/auth/github/callback', () => {
       { headers: { Cookie: `curl.state=${query.state}` } },
     )
     expect(res.status).toBe(302)
-    expect(res.headers.get('location')).toBe(
-      `https://curl.local/${account.login}`,
-    )
+    expect(res.headers.get('location')).toBe(`https://curl.local/${account.login}`)
 
     // Verify account was updated, not duplicated
     const accounts = await db
@@ -258,9 +241,7 @@ describe('GET /api/auth/github/callback', () => {
           name: 'No Email',
         }),
       ),
-      http.get('https://api.github.com/user/emails', () =>
-        HttpResponse.json([]),
-      ),
+      http.get('https://api.github.com/user/emails', () => HttpResponse.json([])),
     )
 
     const res = await client.api.auth.github.callback.$get(
@@ -271,14 +252,10 @@ describe('GET /api/auth/github/callback', () => {
     const location = new URL(res.headers.get('location')!)
     expect(location.pathname).toBe('/auth/error')
     expect(location.searchParams.get('error')).toBe('no_email')
-    expect(location.searchParams.get('error_description')).toBe(
-      'No email found on GitHub account',
-    )
+    expect(location.searchParams.get('error_description')).toBe('No email found on GitHub account')
   })
 
-  test.todo(
-    'with transaction failure redirects to error page with server_error',
-  )
+  test.todo('with transaction failure redirects to error page with server_error')
 })
 
 describe('POST /api/auth/logout', () => {
@@ -314,11 +291,7 @@ describe('POST /api/auth/device', () => {
       { json: { user_code: device.user_code } },
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -367,9 +340,7 @@ describe('POST /api/auth/device/confirm', () => {
     expect(res.status).toBe(400)
     await expect(res.json()).resolves.toEqual({
       error: 'validation_error',
-      issues: expect.arrayContaining([
-        { path: expect.any(String), message: expect.any(String) },
-      ]),
+      issues: expect.arrayContaining([{ path: expect.any(String), message: expect.any(String) }]),
     })
   })
 
@@ -388,11 +359,7 @@ describe('POST /api/auth/device/confirm', () => {
       { json: { user_code: 'INVALID1' } },
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -409,9 +376,7 @@ describe('POST /api/auth/device/token', () => {
     expect(res.status).toBe(400)
     await expect(res.json()).resolves.toEqual({
       error: 'validation_error',
-      issues: expect.arrayContaining([
-        { path: expect.any(String), message: expect.any(String) },
-      ]),
+      issues: expect.arrayContaining([{ path: expect.any(String), message: expect.any(String) }]),
     })
   })
 
@@ -546,10 +511,7 @@ describe('GET /api/auth/me', () => {
       name: 'lastused key',
     })
 
-    await client.api.auth.me.$get(
-      {},
-      { headers: { Authorization: 'Bearer curl_lastused999' } },
-    )
+    await client.api.auth.me.$get({}, { headers: { Authorization: 'Bearer curl_lastused999' } })
 
     const updated = await db
       .selectFrom('api_key')
@@ -579,11 +541,7 @@ describe('GET /api/credits', () => {
       {},
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -613,11 +571,7 @@ describe('GET /api/credits', () => {
       {},
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
           'x-organization-id': org.id,
         },
       },
@@ -657,11 +611,7 @@ describe('GET /api/credits', () => {
       {},
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -691,11 +641,7 @@ describe('GET /api/credits', () => {
       {},
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -742,11 +688,7 @@ describe('POST /api/credits/add', () => {
       { json: { amount: '500' } },
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -796,11 +738,7 @@ describe('POST /api/credits/add', () => {
       { json: { amount: '1000', save: true } },
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -825,11 +763,7 @@ describe('POST /api/credits/add', () => {
       { json: { amount: '500', organization_id: org.id } },
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -853,11 +787,7 @@ describe('POST /api/credits/charge', () => {
       { json: { amount: '1000' } },
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -884,11 +814,7 @@ describe('POST /api/credits/charge', () => {
       { json: { amount: '1000' } },
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -925,11 +851,7 @@ describe('POST /api/credits/charge', () => {
       { json: { amount: '1000' } },
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -976,11 +898,7 @@ describe('POST /api/credits/charge', () => {
       { json: { amount: '1000' } },
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -1011,11 +929,7 @@ describe('POST /api/credits/charge', () => {
       { json: { amount: '500', organization_id: org.id } },
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -1283,11 +1197,7 @@ describe('GET /api/orgs', () => {
       {},
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -1332,11 +1242,7 @@ describe('GET /api/orgs/:id', () => {
       { param: { id: org.id } },
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -1370,11 +1276,7 @@ describe('GET /api/orgs/:id', () => {
       { param: { id: org.id } },
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -1390,9 +1292,7 @@ describe('POST /api/orgs', () => {
     expect(res.status).toBe(400)
     await expect(res.json()).resolves.toEqual({
       error: 'validation_error',
-      issues: expect.arrayContaining([
-        { path: 'login', message: expect.any(String) },
-      ]),
+      issues: expect.arrayContaining([{ path: 'login', message: expect.any(String) }]),
     })
   })
 
@@ -1404,9 +1304,7 @@ describe('POST /api/orgs', () => {
     expect(res.status).toBe(400)
     await expect(res.json()).resolves.toEqual({
       error: 'validation_error',
-      issues: expect.arrayContaining([
-        { path: 'login', message: expect.any(String) },
-      ]),
+      issues: expect.arrayContaining([{ path: 'login', message: expect.any(String) }]),
     })
   })
 
@@ -1426,11 +1324,7 @@ describe('POST /api/orgs', () => {
       { json: { login, name: 'My Org' } },
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -1462,11 +1356,7 @@ describe('POST /api/orgs', () => {
       { json: { login } },
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -1488,11 +1378,7 @@ describe('POST /api/orgs', () => {
       { json: { login: 'dash' } },
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -1511,11 +1397,7 @@ describe('POST /api/orgs', () => {
       { json: { login: other.login } },
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -1532,11 +1414,7 @@ describe('POST /api/orgs', () => {
       { json: { login: existing.login } },
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -1598,9 +1476,7 @@ describe('GET /api/cli/latest', () => {
 
   test('returns 502 when no latest version in registry', async () => {
     server.use(
-      http.get('https://registry.npmjs.org/curl.md', () =>
-        HttpResponse.json({ 'dist-tags': {} }),
-      ),
+      http.get('https://registry.npmjs.org/curl.md', () => HttpResponse.json({ 'dist-tags': {} })),
     )
 
     const res = await client.api.cli.latest.$get({ query: {} })
@@ -1640,9 +1516,7 @@ test('GET /api/:url rejects invalid url with validation_error', async () => {
   expect(res.status).toBe(400)
   await expect(res.json()).resolves.toEqual({
     error: 'validation_error',
-    issues: expect.arrayContaining([
-      { path: expect.any(String), message: expect.any(String) },
-    ]),
+    issues: expect.arrayContaining([{ path: expect.any(String), message: expect.any(String) }]),
   })
 })
 
@@ -1655,11 +1529,7 @@ test('GET /api/:url returns 403 for invalid x-organization-id', async () => {
     { param: { url: 'example.com' }, query: {} },
     {
       headers: {
-        Cookie: await Cookie.generateSigned(
-          'curl.session',
-          session.id,
-          env.COOKIE_SECRET,
-        ),
+        Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         'x-organization-id': org.id,
       },
     },
@@ -1675,12 +1545,9 @@ test('GET /api/:url fetches URL and returns markdown', async () => {
     http.get(
       'https://api-test.example.com/',
       () =>
-        new HttpResponse(
-          '<html><body><h1>Hello</h1><p>World</p></body></html>',
-          {
-            headers: { 'content-type': 'text/html' },
-          },
-        ),
+        new HttpResponse('<html><body><h1>Hello</h1><p>World</p></body></html>', {
+          headers: { 'content-type': 'text/html' },
+        }),
     ),
   )
 
@@ -1733,11 +1600,7 @@ test('GET /api/:url authenticated accounts get higher fetch limit', async () => 
     { param: { url: 'rl-authed-fetch.example.com' }, query: {} },
     {
       headers: {
-        Cookie: await Cookie.generateSigned(
-          'curl.session',
-          session.id,
-          env.COOKIE_SECRET,
-        ),
+        Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
       },
     },
   )
@@ -1817,11 +1680,7 @@ test('GET /api/:url authed 429 includes credits message', async () => {
     { param: { url: 'rl-authed-exceeded.example.com' }, query: {} },
     {
       headers: {
-        Cookie: await Cookie.generateSigned(
-          'curl.session',
-          session.id,
-          env.COOKIE_SECRET,
-        ),
+        Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
       },
     },
   )
@@ -1864,11 +1723,7 @@ test('GET /api/:url paid user skips rate limits', async () => {
     { param: { url: 'rl-paid.example.com' }, query: {} },
     {
       headers: {
-        Cookie: await Cookie.generateSigned(
-          'curl.session',
-          session.id,
-          env.COOKIE_SECRET,
-        ),
+        Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
       },
     },
   )
@@ -1899,11 +1754,7 @@ test('GET /api/:url zero balance user gets authed rate limits', async () => {
     { param: { url: 'rl-zero-bal.example.com' }, query: {} },
     {
       headers: {
-        Cookie: await Cookie.generateSigned(
-          'curl.session',
-          session.id,
-          env.COOKIE_SECRET,
-        ),
+        Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
       },
     },
   )
@@ -1932,11 +1783,7 @@ test('GET /api/:url paid user gets x-credits-remaining header', async () => {
     { param: { url: 'rl-credits.example.com' }, query: {} },
     {
       headers: {
-        Cookie: await Cookie.generateSigned(
-          'curl.session',
-          session.id,
-          env.COOKIE_SECRET,
-        ),
+        Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
       },
     },
   )
@@ -1966,11 +1813,7 @@ test('GET /api/:url query request cost scales with input size', async () => {
     { param: { url: 'cost-query.example.com' }, query: { q: 'test' } },
     {
       headers: {
-        Cookie: await Cookie.generateSigned(
-          'curl.session',
-          session.id,
-          env.COOKIE_SECRET,
-        ),
+        Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
       },
     },
   )
@@ -2090,11 +1933,7 @@ describe('POST /api/invites/:token/accept', () => {
       { param: { token: invite.token } },
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -2160,11 +1999,7 @@ describe('POST /api/invites/:token/accept', () => {
       { param: { token: invite.token } },
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -2192,11 +2027,7 @@ describe('POST /api/invites/:token/accept', () => {
       { param: { token: invite.token } },
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -2225,11 +2056,7 @@ describe('POST /api/invites/:token/accept', () => {
       { param: { token: invite.token } },
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -2261,11 +2088,7 @@ describe('POST /api/invites/:token/accept', () => {
       { param: { token: invite.token } },
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -2296,11 +2119,7 @@ describe('POST /api/orgs/:id/invites', () => {
       { param: { id: org.id }, json: {} },
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -2337,11 +2156,7 @@ describe('POST /api/orgs/:id/invites', () => {
       { param: { id: org.id }, json: {} },
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -2365,11 +2180,7 @@ describe('POST /api/orgs/:id/invites', () => {
       },
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -2412,11 +2223,7 @@ describe('GET /api/orgs/:id/invites', () => {
       { param: { id: org.id } },
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -2449,11 +2256,7 @@ describe('GET /api/orgs/:id/invites', () => {
       { param: { id: org.id } },
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -2477,11 +2280,7 @@ describe('GET /api/orgs/:id/invites', () => {
       { param: { id: org.id } },
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -2516,11 +2315,7 @@ describe('DELETE /api/orgs/:id/invites/:inviteId', () => {
       { param: { id: org.id, inviteId: invite.id } },
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -2549,11 +2344,7 @@ describe('DELETE /api/orgs/:id/invites/:inviteId', () => {
       { param: { id: org.id, inviteId: 'nonexistent' } },
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -2584,11 +2375,7 @@ describe('DELETE /api/orgs/:id/invites/:inviteId', () => {
       { param: { id: org.id, inviteId: invite.id } },
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -2617,11 +2404,7 @@ describe('GET /api/orgs/:id/members', () => {
       { param: { id: org.id } },
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -2657,11 +2440,7 @@ describe('GET /api/orgs/:id/members', () => {
       { param: { id: org.id } },
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -2693,11 +2472,7 @@ describe('GET /api/orgs/:id/members', () => {
       { param: { id: org.id } },
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -2713,11 +2488,7 @@ describe('GET /api/orgs/:id/members', () => {
       { param: { id: org.id } },
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -2741,11 +2512,7 @@ describe('POST /api/orgs/:id/members', () => {
       { param: { id: org.id }, json: { login: target.login, role: 'member' } },
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -2779,11 +2546,7 @@ describe('POST /api/orgs/:id/members', () => {
       { param: { id: org.id }, json: { login: target.login, role: 'member' } },
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -2808,11 +2571,7 @@ describe('POST /api/orgs/:id/members', () => {
       { param: { id: org.id }, json: { login: target.login, role: 'admin' } },
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -2834,11 +2593,7 @@ describe('POST /api/orgs/:id/members', () => {
       { param: { id: org.id }, json: { login: target.login, role: 'admin' } },
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -2873,11 +2628,7 @@ describe('POST /api/orgs/:id/members', () => {
       { param: { id: org.id }, json: { login: target.login, role: 'member' } },
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -2901,11 +2652,7 @@ describe('POST /api/orgs/:id/members', () => {
       },
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -2932,11 +2679,7 @@ describe('POST /api/orgs/:id/members', () => {
       { param: { id: org.id }, json: { login: target.login, role: 'member' } },
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -2968,11 +2711,7 @@ describe('PATCH /api/orgs/:id/members/:memberId', () => {
       },
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -3010,11 +2749,7 @@ describe('PATCH /api/orgs/:id/members/:memberId', () => {
       },
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -3044,11 +2779,7 @@ describe('PATCH /api/orgs/:id/members/:memberId', () => {
       },
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -3094,11 +2825,7 @@ describe('PATCH /api/orgs/:id/members/:memberId', () => {
       },
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -3122,11 +2849,7 @@ describe('PATCH /api/orgs/:id/members/:memberId', () => {
       },
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -3156,11 +2879,7 @@ describe('PATCH /api/orgs/:id/members/:memberId', () => {
       },
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -3185,11 +2904,7 @@ describe('PATCH /api/orgs/:id/members/:memberId', () => {
       },
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -3218,11 +2933,7 @@ describe('DELETE /api/orgs/:id/members/:memberId', () => {
       { param: { id: org.id, memberId: targetMember.id } },
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -3256,11 +2967,7 @@ describe('DELETE /api/orgs/:id/members/:memberId', () => {
       { param: { id: org.id, memberId: targetMember.id } },
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -3287,11 +2994,7 @@ describe('DELETE /api/orgs/:id/members/:memberId', () => {
       { param: { id: org.id, memberId: otherAdminMember.id } },
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -3332,11 +3035,7 @@ describe('DELETE /api/orgs/:id/members/:memberId', () => {
       { param: { id: org.id, memberId: targetMember.id } },
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -3357,11 +3056,7 @@ describe('DELETE /api/orgs/:id/members/:memberId', () => {
       { param: { id: org.id, memberId: ownerMember.id } },
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -3389,11 +3084,7 @@ describe('DELETE /api/orgs/:id/members/:memberId', () => {
       { param: { id: org.id, memberId: ownerMember.id } },
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -3415,11 +3106,7 @@ describe('DELETE /api/orgs/:id/members/:memberId', () => {
       { param: { id: org.id, memberId: 'nonexistent' } },
       {
         headers: {
-          Cookie: await Cookie.generateSigned(
-            'curl.session',
-            session.id,
-            env.COOKIE_SECRET,
-          ),
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
         },
       },
     )
@@ -3486,9 +3173,7 @@ describe('POST /api/stripe/webhook', () => {
       key,
       new TextEncoder().encode(`${timestamp}.${payload}`),
     )
-    const hex = [...new Uint8Array(sig)]
-      .map((b) => b.toString(16).padStart(2, '0'))
-      .join('')
+    const hex = [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, '0')).join('')
     const header = `t=${timestamp},v1=${hex}`
 
     const res = await api.request(

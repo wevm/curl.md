@@ -84,8 +84,6 @@ export async function up(db: Kysely<unknown>): Promise<void> {
 
 export async function down(db: Kysely<unknown>): Promise<void> {
   await sql`DROP FUNCTION IF EXISTS nanoid(int)`.execute(db)
-  await sql`DROP FUNCTION IF EXISTS nanoid_optimized(int, text, int, int)`.execute(
-    db,
-  )
+  await sql`DROP FUNCTION IF EXISTS nanoid_optimized(int, text, int, int)`.execute(db)
   await sql`DROP EXTENSION IF EXISTS pgcrypto`.execute(db)
 }
