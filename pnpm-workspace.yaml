@@ -1,9 +1,6 @@
 packages:
   - cli
 
-catalog:
-  zod: ^4.3.6
-
 minimumReleaseAge: 1440
 
 minimumReleaseAgeExclude:

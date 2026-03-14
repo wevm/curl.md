@@ -62,7 +62,7 @@
     "vfile": "^6.0.3",
     "workers-og": "^0.0.27",
     "yaml": "^2.8.2",
-    "zod": "catalog:"
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@biomejs/biome": "2.3.13",

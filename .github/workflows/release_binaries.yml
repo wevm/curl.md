@@ -53,7 +53,7 @@ jobs:
         run: bun install --ignore-scripts
 
       - name: Build
-        run: bun build pkg/src/cli/bin.ts --compile --target=${{ matrix.target }} --outfile=${{ matrix.artifact }}
+        run: bun build cli/src/bin.ts --compile --target=${{ matrix.target }} --outfile=${{ matrix.artifact }}
 
       - name: Generate checksum
         run: shasum -a 256 "${{ matrix.artifact }}" | cut -d' ' -f1 > "${{ matrix.artifact }}.sha256"

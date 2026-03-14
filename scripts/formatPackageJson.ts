@@ -1,8 +1,8 @@
 import fs from 'node:fs/promises'
 
-// Formats pkg/package.json for publishing by removing dev-only fields.
+// Formats cli/package.json for publishing by removing dev-only fields.
 
-const packagePath = 'pkg/package.json'
+const packagePath = 'cli/package.json'
 
 console.log('Formatting package.json.')
 
