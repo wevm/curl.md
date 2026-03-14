@@ -34,7 +34,7 @@ export function createFactory(db: Kysely<DB>) {
 }
 
 const defaultConfig: Partial<{
-  [K in keyof DB]: () => Partial<Insertable<DB[K]>>
+  [table in keyof DB]: () => Partial<Insertable<DB[table]>>
 }> = {
   account() {
     const id = Nanoid.generate()
@@ -83,31 +83,36 @@ const defaultConfig: Partial<{
 }
 
 type Factory = {
-  [K in keyof DB]: {
-    attrs: <const V extends readonly Record<string, unknown>[]>(
-      ...args: V & AttrsValidation<K, V>
-    ) => V['length'] extends 1 ? Selectable<DB[K]> : Selectable<DB[K]>[]
-    insert: <const V extends readonly Record<string, unknown>[]>(
-      ...args: V & AttrsValidation<K, V>
+  [table in keyof DB]: {
+    attrs: <const values extends readonly Record<string, unknown>[]>(
+      ...args: values & AttrsValidation<table, values>
+    ) => values['length'] extends 1
+      ? Selectable<DB[table]>
+      : Selectable<DB[table]>[]
+    insert: <const values extends readonly Record<string, unknown>[]>(
+      ...args: values & AttrsValidation<table, values>
     ) => Promise<
-      V['length'] extends 1 ? Selectable<DB[K]> : Selectable<DB[K]>[]
+      values['length'] extends 1
+        ? Selectable<DB[table]>
+        : Selectable<DB[table]>[]
     >
   }
 }
 
 type AttrsValidation<
-  K extends keyof DB,
-  V extends readonly Record<string, unknown>[],
+  table extends keyof DB,
+  values extends readonly Record<string, unknown>[],
 > = {
-  [I in keyof V]: Partial<Insertable<DB[K]>> & RequiredForeignKeys<DB[K]>
+  [index in keyof values]: Partial<Insertable<DB[table]>> &
+    RequiredForeignKeys<DB[table]>
 }
 
-type RequiredForeignKeys<T> = {
-  [K in keyof T as K extends `${string}_id`
-    ? null extends T[K]
+type RequiredForeignKeys<row> = {
+  [key in keyof row as key extends `${string}_id`
+    ? null extends row[key]
       ? never
-      : K extends 'id'
+      : key extends 'id'
         ? never
-        : K
-    : never]-?: T[K]
+        : key
+    : never]-?: row[key]
 }

@@ -6,10 +6,15 @@ catalog:
 
 minimumReleaseAge: 1440
 
+# TODO: remove @cloudflare/vitest-pool-workers, miniflare, wrangler exceptions once past 1440min release age
 minimumReleaseAgeExclude:
+  - "@cloudflare/vitest-pool-workers"
   - incur
+  - miniflare
+  - wrangler
 
 onlyBuiltDependencies:
+  - msw
   - simple-git-hooks
 
 trustPolicy: no-downgrade

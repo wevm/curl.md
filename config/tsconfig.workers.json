@@ -2,11 +2,10 @@
   "extends": "./tsconfig.app.json",
   "compilerOptions": {
     "tsBuildInfoFile": "../node_modules/.tmp/tsconfig.workers.tsbuildinfo",
-    "types": ["vite/client", "@cloudflare/vitest-pool-workers"]
+    "types": ["vite/client", "@cloudflare/vitest-pool-workers/types"]
   },
   "exclude": [],
   "include": [
-    "../test/workers.env.d.ts",
     "../test/workers.setup.ts",
     "../src/**/*.workers.test.ts",
     "../src/env.d.ts",

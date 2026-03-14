@@ -1,6 +1,7 @@
-import { env, fetchMock } from 'cloudflare:test'
+import { env } from 'cloudflare:workers'
 import { testClient } from 'hono/testing'
 import { Kysely } from 'kysely'
+import { HttpResponse, http } from 'msw'
 import { afterAll, afterEach, describe, expect, test, vi } from 'vitest'
 import { api } from '#api.ts'
 import * as ApiKey from '#lib/api-key.ts'
@@ -11,6 +12,7 @@ import type { DB } from '#lib/db.gen.ts'
 import { dialect } from '#lib/db.ts'
 import * as Nanoid from '#lib/nanoid.ts'
 import { createFactory } from '../test/factory.ts'
+import { server } from '../test/server.ts'
 
 const client = testClient(api, env, {
   waitUntil: vi.fn((p: Promise<unknown>) => p),
@@ -100,17 +102,14 @@ describe('GET /api/auth/github/callback', () => {
   test('with bad code redirects to error page', async () => {
     const query = { code: 'bad', state: 'test-state' }
 
-    fetchMock
-      .get('https://github.com')
-      .intercept({
-        method: 'POST',
-        path: `/login/oauth/access_token?client_id=${env.GH_CLIENT_ID}&client_secret=${env.GH_CLIENT_SECRET}&code=${query.code}`,
-      })
-      .reply(
-        200,
-        { error: 'bad_verification_code', error_description: 'Bad code' },
-        { headers: { 'content-type': 'application/json' } },
-      )
+    server.use(
+      http.post('https://github.com/login/oauth/access_token', () =>
+        HttpResponse.json({
+          error: 'bad_verification_code',
+          error_description: 'Bad code',
+        }),
+      ),
+    )
 
     const res = await client.api.auth.github.callback.$get(
       { query },
@@ -131,37 +130,25 @@ describe('GET /api/auth/github/callback', () => {
     const email = `${login}@example.com`
     const query = { code: 'good', state: 'test-state' }
 
-    fetchMock
-      .get('https://github.com')
-      .intercept({
-        method: 'POST',
-        path: `/login/oauth/access_token?client_id=${env.GH_CLIENT_ID}&client_secret=${env.GH_CLIENT_SECRET}&code=${query.code}`,
-      })
-      .reply(
-        200,
-        { access_token: 'ghu_test123', token_type: 'bearer' },
-        { headers: { 'content-type': 'application/json' } },
-      )
-
-    fetchMock
-      .get('https://api.github.com')
-      .intercept({ method: 'GET', path: '/user' })
-      .reply(
-        200,
-        {
+    server.use(
+      http.post('https://github.com/login/oauth/access_token', () =>
+        HttpResponse.json({
+          access_token: 'ghu_test123',
+          token_type: 'bearer',
+        }),
+      ),
+      http.get('https://api.github.com/user', () =>
+        HttpResponse.json({
           avatar_url: `https://avatars.githubusercontent.com/u/${ghId}`,
           id: ghId,
           login,
           name: 'Test User',
-        },
-        { headers: { 'content-type': 'application/json' } },
-      )
-    fetchMock
-      .get('https://api.github.com')
-      .intercept({ method: 'GET', path: '/user/emails' })
-      .reply(200, [{ email, primary: true, verified: true }], {
-        headers: { 'content-type': 'application/json' },
-      })
+        }),
+      ),
+      http.get('https://api.github.com/user/emails', () =>
+        HttpResponse.json([{ email, primary: true, verified: true }]),
+      ),
+    )
 
     const res = await client.api.auth.github.callback.$get(
       { query },
@@ -210,37 +197,27 @@ describe('GET /api/auth/github/callback', () => {
 
     const query = { code: 'existing', state: 'test-state' }
 
-    fetchMock
-      .get('https://github.com')
-      .intercept({
-        method: 'POST',
-        path: `/login/oauth/access_token?client_id=${env.GH_CLIENT_ID}&client_secret=${env.GH_CLIENT_SECRET}&code=${query.code}`,
-      })
-      .reply(
-        200,
-        { access_token: 'ghu_existing', token_type: 'bearer' },
-        { headers: { 'content-type': 'application/json' } },
-      )
-
-    fetchMock
-      .get('https://api.github.com')
-      .intercept({ method: 'GET', path: '/user' })
-      .reply(
-        200,
-        {
+    server.use(
+      http.post('https://github.com/login/oauth/access_token', () =>
+        HttpResponse.json({
+          access_token: 'ghu_existing',
+          token_type: 'bearer',
+        }),
+      ),
+      http.get('https://api.github.com/user', () =>
+        HttpResponse.json({
           avatar_url: `https://avatars.githubusercontent.com/u/${ghId}`,
           id: Number(ghId),
           login: account.login,
           name: 'Existing User',
-        },
-        { headers: { 'content-type': 'application/json' } },
-      )
-    fetchMock
-      .get('https://api.github.com')
-      .intercept({ method: 'GET', path: '/user/emails' })
-      .reply(200, [{ email: account.email, primary: true, verified: true }], {
-        headers: { 'content-type': 'application/json' },
-      })
+        }),
+      ),
+      http.get('https://api.github.com/user/emails', () =>
+        HttpResponse.json([
+          { email: account.email, primary: true, verified: true },
+        ]),
+      ),
+    )
 
     const res = await client.api.auth.github.callback.$get(
       { query },
@@ -266,37 +243,25 @@ describe('GET /api/auth/github/callback', () => {
     const ghId = Math.floor(Math.random() * 1_000_000)
     const query = { code: 'no-email', state: 'test-state' }
 
-    fetchMock
-      .get('https://github.com')
-      .intercept({
-        method: 'POST',
-        path: `/login/oauth/access_token?client_id=${env.GH_CLIENT_ID}&client_secret=${env.GH_CLIENT_SECRET}&code=${query.code}`,
-      })
-      .reply(
-        200,
-        { access_token: 'ghu_noemail', token_type: 'bearer' },
-        { headers: { 'content-type': 'application/json' } },
-      )
-
-    fetchMock
-      .get('https://api.github.com')
-      .intercept({ method: 'GET', path: '/user' })
-      .reply(
-        200,
-        {
+    server.use(
+      http.post('https://github.com/login/oauth/access_token', () =>
+        HttpResponse.json({
+          access_token: 'ghu_noemail',
+          token_type: 'bearer',
+        }),
+      ),
+      http.get('https://api.github.com/user', () =>
+        HttpResponse.json({
           avatar_url: `https://avatars.githubusercontent.com/u/${ghId}`,
           id: ghId,
           login: 'noemail-user',
           name: 'No Email',
-        },
-        { headers: { 'content-type': 'application/json' } },
-      )
-    fetchMock
-      .get('https://api.github.com')
-      .intercept({ method: 'GET', path: '/user/emails' })
-      .reply(200, [], {
-        headers: { 'content-type': 'application/json' },
-      })
+        }),
+      ),
+      http.get('https://api.github.com/user/emails', () =>
+        HttpResponse.json([]),
+      ),
+    )
 
     const res = await client.api.auth.github.callback.$get(
       { query },
@@ -673,15 +638,9 @@ describe('GET /api/credits', () => {
       .execute()
     const session = await factory.session.insert({ account_id: account.id })
 
-    fetchMock
-      .get('https://api.stripe.com')
-      .intercept({
-        method: 'GET',
-        path: '/v1/payment_methods?customer=cus_test_pm&type=card&limit=1',
-      })
-      .reply(
-        200,
-        {
+    server.use(
+      http.get('https://api.stripe.com/v1/payment_methods', () =>
+        HttpResponse.json({
           object: 'list',
           data: [
             {
@@ -690,9 +649,9 @@ describe('GET /api/credits', () => {
               card: { brand: 'visa', last4: '4242' },
             },
           ],
-        },
-        { headers: { 'content-type': 'application/json' } },
-      )
+        }),
+      ),
+    )
 
     const res = await client.api.credits.$get(
       {},
@@ -722,17 +681,11 @@ describe('GET /api/credits', () => {
       .execute()
     const session = await factory.session.insert({ account_id: account.id })
 
-    fetchMock
-      .get('https://api.stripe.com')
-      .intercept({
-        method: 'GET',
-        path: '/v1/payment_methods?customer=cus_test_empty&type=card&limit=1',
-      })
-      .reply(
-        200,
-        { object: 'list', data: [] },
-        { headers: { 'content-type': 'application/json' } },
-      )
+    server.use(
+      http.get('https://api.stripe.com/v1/payment_methods', () =>
+        HttpResponse.json({ object: 'list', data: [] }),
+      ),
+    )
 
     const res = await client.api.credits.$get(
       {},
@@ -766,34 +719,24 @@ describe('POST /api/credits/add', () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
 
-    fetchMock
-      .get('https://api.stripe.com')
-      .intercept({ method: 'POST', path: '/v1/customers' })
-      .reply(
-        200,
-        { id: 'cus_test_123', object: 'customer' },
-        { headers: { 'content-type': 'application/json' } },
-      )
-    fetchMock
-      .get('https://api.stripe.com')
-      .intercept({ method: 'POST', path: '/v1/payment_intents' })
-      .reply(
-        200,
-        {
+    server.use(
+      http.post('https://api.stripe.com/v1/customers', () =>
+        HttpResponse.json({ id: 'cus_test_123', object: 'customer' }),
+      ),
+      http.post('https://api.stripe.com/v1/payment_intents', () =>
+        HttpResponse.json({
           id: 'pi_test_123',
           object: 'payment_intent',
           client_secret: 'pi_test_123_secret',
-        },
-        { headers: { 'content-type': 'application/json' } },
-      )
-    fetchMock
-      .get('https://api.stripe.com')
-      .intercept({ method: 'POST', path: '/v1/customer_sessions' })
-      .reply(
-        200,
-        { client_secret: 'cs_session_test_123', object: 'customer_session' },
-        { headers: { 'content-type': 'application/json' } },
-      )
+        }),
+      ),
+      http.post('https://api.stripe.com/v1/customer_sessions', () =>
+        HttpResponse.json({
+          client_secret: 'cs_session_test_123',
+          object: 'customer_session',
+        }),
+      ),
+    )
 
     const res = await client.api.credits.add.$post(
       { json: { amount: '500' } },
@@ -833,26 +776,21 @@ describe('POST /api/credits/add', () => {
       .execute()
     const session = await factory.session.insert({ account_id: account.id })
 
-    fetchMock
-      .get('https://api.stripe.com')
-      .intercept({ method: 'POST', path: '/v1/payment_intents' })
-      .reply(
-        200,
-        {
+    server.use(
+      http.post('https://api.stripe.com/v1/payment_intents', () =>
+        HttpResponse.json({
           id: 'pi_save_123',
           object: 'payment_intent',
           client_secret: 'pi_save_123_secret',
-        },
-        { headers: { 'content-type': 'application/json' } },
-      )
-    fetchMock
-      .get('https://api.stripe.com')
-      .intercept({ method: 'POST', path: '/v1/customer_sessions' })
-      .reply(
-        200,
-        { client_secret: 'cs_save_session_123', object: 'customer_session' },
-        { headers: { 'content-type': 'application/json' } },
-      )
+        }),
+      ),
+      http.post('https://api.stripe.com/v1/customer_sessions', () =>
+        HttpResponse.json({
+          client_secret: 'cs_save_session_123',
+          object: 'customer_session',
+        }),
+      ),
+    )
 
     const res = await client.api.credits.add.$post(
       { json: { amount: '1000', save: true } },
@@ -936,17 +874,11 @@ describe('POST /api/credits/charge', () => {
       .execute()
     const session = await factory.session.insert({ account_id: account.id })
 
-    fetchMock
-      .get('https://api.stripe.com')
-      .intercept({
-        method: 'GET',
-        path: '/v1/payment_methods?customer=cus_test_no_cards&type=card&limit=1',
-      })
-      .reply(
-        200,
-        { data: [], object: 'list' },
-        { headers: { 'content-type': 'application/json' } },
-      )
+    server.use(
+      http.get('https://api.stripe.com/v1/payment_methods', () =>
+        HttpResponse.json({ data: [], object: 'list' }),
+      ),
+    )
 
     const res = await client.api.credits.charge.$post(
       { json: { amount: '1000' } },
@@ -973,28 +905,21 @@ describe('POST /api/credits/charge', () => {
       .execute()
     const session = await factory.session.insert({ account_id: account.id })
 
-    fetchMock
-      .get('https://api.stripe.com')
-      .intercept({
-        method: 'GET',
-        path: '/v1/payment_methods?customer=cus_test_charge&type=card&limit=1',
-      })
-      .reply(
-        200,
-        {
+    server.use(
+      http.get('https://api.stripe.com/v1/payment_methods', () =>
+        HttpResponse.json({
           data: [{ id: 'pm_test', card: { brand: 'visa', last4: '4242' } }],
           object: 'list',
-        },
-        { headers: { 'content-type': 'application/json' } },
-      )
-    fetchMock
-      .get('https://api.stripe.com')
-      .intercept({ method: 'POST', path: '/v1/payment_intents' })
-      .reply(
-        200,
-        { id: 'pi_charge_test', status: 'succeeded', object: 'payment_intent' },
-        { headers: { 'content-type': 'application/json' } },
-      )
+        }),
+      ),
+      http.post('https://api.stripe.com/v1/payment_intents', () =>
+        HttpResponse.json({
+          id: 'pi_charge_test',
+          status: 'succeeded',
+          object: 'payment_intent',
+        }),
+      ),
+    )
 
     const res = await client.api.credits.charge.$post(
       { json: { amount: '1000' } },
@@ -1024,41 +949,28 @@ describe('POST /api/credits/charge', () => {
       .execute()
     const session = await factory.session.insert({ account_id: account.id })
 
-    fetchMock
-      .get('https://api.stripe.com')
-      .intercept({
-        method: 'GET',
-        path: '/v1/payment_methods?customer=cus_test_3ds&type=card&limit=1',
-      })
-      .reply(
-        200,
-        {
+    server.use(
+      http.get('https://api.stripe.com/v1/payment_methods', () =>
+        HttpResponse.json({
           data: [{ id: 'pm_3ds', card: { brand: 'visa', last4: '4242' } }],
           object: 'list',
-        },
-        { headers: { 'content-type': 'application/json' } },
-      )
-    fetchMock
-      .get('https://api.stripe.com')
-      .intercept({ method: 'POST', path: '/v1/payment_intents' })
-      .reply(
-        200,
-        {
+        }),
+      ),
+      http.post('https://api.stripe.com/v1/payment_intents', () =>
+        HttpResponse.json({
           id: 'pi_3ds_test',
           status: 'requires_action',
           client_secret: 'pi_3ds_secret',
           object: 'payment_intent',
-        },
-        { headers: { 'content-type': 'application/json' } },
-      )
-    fetchMock
-      .get('https://api.stripe.com')
-      .intercept({ method: 'POST', path: '/v1/customer_sessions' })
-      .reply(
-        200,
-        { client_secret: 'cs_3ds_session', object: 'customer_session' },
-        { headers: { 'content-type': 'application/json' } },
-      )
+        }),
+      ),
+      http.post('https://api.stripe.com/v1/customer_sessions', () =>
+        HttpResponse.json({
+          client_secret: 'cs_3ds_session',
+          object: 'customer_session',
+        }),
+      ),
+    )
 
     const res = await client.api.credits.charge.$post(
       { json: { amount: '1000' } },
@@ -1641,17 +1553,14 @@ describe('GET /api/cli/latest', () => {
   })
 
   test('returns latest version from npm registry', async () => {
-    fetchMock
-      .get('https://registry.npmjs.org')
-      .intercept({ path: '/curl.md' })
-      .reply(
-        200,
-        {
+    server.use(
+      http.get('https://registry.npmjs.org/curl.md', () =>
+        HttpResponse.json({
           'dist-tags': { latest: '0.0.4' },
           time: { '0.0.4': '2025-03-04T00:00:00.000Z' },
-        },
-        { headers: { 'content-type': 'application/json' } },
-      )
+        }),
+      ),
+    )
 
     const res = await client.api.cli.latest.$get({ query: {} })
     assert(res.status === 200, 'expected 200')
@@ -1675,10 +1584,12 @@ describe('GET /api/cli/latest', () => {
   })
 
   test('returns 502 when npm registry is down', async () => {
-    fetchMock
-      .get('https://registry.npmjs.org')
-      .intercept({ path: '/curl.md' })
-      .reply(503, 'Service Unavailable')
+    server.use(
+      http.get(
+        'https://registry.npmjs.org/curl.md',
+        () => new HttpResponse('Service Unavailable', { status: 503 }),
+      ),
+    )
 
     const res = await client.api.cli.latest.$get({ query: {} })
     expect(res.status).toBe(502)
@@ -1686,16 +1597,11 @@ describe('GET /api/cli/latest', () => {
   })
 
   test('returns 502 when no latest version in registry', async () => {
-    fetchMock
-      .get('https://registry.npmjs.org')
-      .intercept({ path: '/curl.md' })
-      .reply(
-        200,
-        { 'dist-tags': {} },
-        {
-          headers: { 'content-type': 'application/json' },
-        },
-      )
+    server.use(
+      http.get('https://registry.npmjs.org/curl.md', () =>
+        HttpResponse.json({ 'dist-tags': {} }),
+      ),
+    )
 
     const res = await client.api.cli.latest.$get({ query: {} })
     expect(res.status).toBe(502)
@@ -1703,17 +1609,14 @@ describe('GET /api/cli/latest', () => {
   })
 
   test('accepts analytics query params', async () => {
-    fetchMock
-      .get('https://registry.npmjs.org')
-      .intercept({ path: '/curl.md' })
-      .reply(
-        200,
-        {
+    server.use(
+      http.get('https://registry.npmjs.org/curl.md', () =>
+        HttpResponse.json({
           'dist-tags': { latest: '0.0.4' },
           time: { '0.0.4': '2025-03-04T00:00:00.000Z' },
-        },
-        { headers: { 'content-type': 'application/json' } },
-      )
+        }),
+      ),
+    )
 
     const res = await client.api.cli.latest.$get({
       query: {
@@ -1768,12 +1671,18 @@ test('GET /api/:url returns 403 for invalid x-organization-id', async () => {
 })
 
 test('GET /api/:url fetches URL and returns markdown', async () => {
-  fetchMock
-    .get('https://api-test.example.com')
-    .intercept({ path: '/' })
-    .reply(200, '<html><body><h1>Hello</h1><p>World</p></body></html>', {
-      headers: { 'content-type': 'text/html' },
-    })
+  server.use(
+    http.get(
+      'https://api-test.example.com/',
+      () =>
+        new HttpResponse(
+          '<html><body><h1>Hello</h1><p>World</p></body></html>',
+          {
+            headers: { 'content-type': 'text/html' },
+          },
+        ),
+    ),
+  )
 
   const res = await client.api[':url{.+}'].$get(
     { param: { url: 'api-test.example.com' }, query: {} },
@@ -1787,12 +1696,15 @@ test('GET /api/:url fetches URL and returns markdown', async () => {
 })
 
 test('GET /api/:url returns fetch rate limit headers', async () => {
-  fetchMock
-    .get('https://rl-fetch.example.com')
-    .intercept({ path: '/' })
-    .reply(200, '<html><body><p>ok</p></body></html>', {
-      headers: { 'content-type': 'text/html' },
-    })
+  server.use(
+    http.get(
+      'https://rl-fetch.example.com/',
+      () =>
+        new HttpResponse('<html><body><p>ok</p></body></html>', {
+          headers: { 'content-type': 'text/html' },
+        }),
+    ),
+  )
 
   const res = await client.api[':url{.+}'].$get(
     { param: { url: 'rl-fetch.example.com' }, query: {} },
@@ -1807,12 +1719,15 @@ test('GET /api/:url returns fetch rate limit headers', async () => {
 test('GET /api/:url authenticated accounts get higher fetch limit', async () => {
   const account = await factory.account.insert({})
   const session = await factory.session.insert({ account_id: account.id })
-  fetchMock
-    .get('https://rl-authed-fetch.example.com')
-    .intercept({ path: '/' })
-    .reply(200, '<html><body><p>ok</p></body></html>', {
-      headers: { 'content-type': 'text/html' },
-    })
+  server.use(
+    http.get(
+      'https://rl-authed-fetch.example.com/',
+      () =>
+        new HttpResponse('<html><body><p>ok</p></body></html>', {
+          headers: { 'content-type': 'text/html' },
+        }),
+    ),
+  )
 
   const res = await client.api[':url{.+}'].$get(
     { param: { url: 'rl-authed-fetch.example.com' }, query: {} },
@@ -1935,12 +1850,15 @@ test('GET /api/:url paid user skips rate limits', async () => {
     { expirationTtl: 3600 },
   )
 
-  fetchMock
-    .get('https://rl-paid.example.com')
-    .intercept({ path: '/' })
-    .reply(200, '<html><body><p>ok</p></body></html>', {
-      headers: { 'content-type': 'text/html' },
-    })
+  server.use(
+    http.get(
+      'https://rl-paid.example.com/',
+      () =>
+        new HttpResponse('<html><body><p>ok</p></body></html>', {
+          headers: { 'content-type': 'text/html' },
+        }),
+    ),
+  )
 
   const res = await client.api[':url{.+}'].$get(
     { param: { url: 'rl-paid.example.com' }, query: {} },
@@ -1967,12 +1885,15 @@ test('GET /api/:url zero balance user gets authed rate limits', async () => {
   // Seed balance cache with 0
   await env.KV.put(`balance:${account.id}`, '0')
 
-  fetchMock
-    .get('https://rl-zero-bal.example.com')
-    .intercept({ path: '/' })
-    .reply(200, '<html><body><p>ok</p></body></html>', {
-      headers: { 'content-type': 'text/html' },
-    })
+  server.use(
+    http.get(
+      'https://rl-zero-bal.example.com/',
+      () =>
+        new HttpResponse('<html><body><p>ok</p></body></html>', {
+          headers: { 'content-type': 'text/html' },
+        }),
+    ),
+  )
 
   const res = await client.api[':url{.+}'].$get(
     { param: { url: 'rl-zero-bal.example.com' }, query: {} },
@@ -1997,12 +1918,15 @@ test('GET /api/:url paid user gets x-credits-remaining header', async () => {
 
   await env.KV.put(`balance:${account.id}`, '500')
 
-  fetchMock
-    .get('https://rl-credits.example.com')
-    .intercept({ path: '/' })
-    .reply(200, '<html><body><p>ok</p></body></html>', {
-      headers: { 'content-type': 'text/html' },
-    })
+  server.use(
+    http.get(
+      'https://rl-credits.example.com/',
+      () =>
+        new HttpResponse('<html><body><p>ok</p></body></html>', {
+          headers: { 'content-type': 'text/html' },
+        }),
+    ),
+  )
 
   const res = await client.api[':url{.+}'].$get(
     { param: { url: 'rl-credits.example.com' }, query: {} },

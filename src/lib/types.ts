@@ -4,6 +4,6 @@ type KeyofUnion<type> = type extends type ? keyof type : never
 export type OneOf<
   union extends object,
   keys extends KeyofUnion<union> = KeyofUnion<union>,
-> = union extends infer Item
-  ? Compute<Item & { [K in Exclude<keys, keyof Item>]?: undefined }>
+> = union extends infer item
+  ? Compute<item & { [key in Exclude<keys, keyof item>]?: undefined }>
   : never

@@ -1,12 +1,15 @@
-import { fetchMock } from 'cloudflare:test'
-import { afterEach, beforeAll } from 'vitest'
+import process from 'node:process'
+import { afterAll, afterEach, beforeAll } from 'vitest'
+import { server } from './server.ts'
 
-beforeAll(() => {
-  fetchMock.activate()
-  fetchMock.disableNetConnect()
-  return () => fetchMock.deactivate()
+// TODO: remove once porsager/postgres fixes CF polyfill read loop teardown (stream cancel after connection close)
+// https://github.com/cloudflare/workers-sdk/issues/11532
+process.on('unhandledRejection', (reason) => {
+  if (reason instanceof Error && reason.message === 'Stream was cancelled.')
+    return
+  throw reason
 })
 
-afterEach(() => {
-  fetchMock.assertNoPendingInterceptors()
-})
+beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))
+afterEach(() => server.resetHandlers())
+afterAll(() => server.close())
