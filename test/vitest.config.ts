@@ -4,11 +4,15 @@ import { defineConfig } from 'vitest/config'
 import { Env } from './env.ts'
 
 const root = path.resolve(import.meta.dirname, '..')
+const aliases = {
+  '#': new URL('../src/', import.meta.url).pathname,
+}
 
 export default defineConfig({
   test: {
     projects: [
       {
+        resolve: { alias: aliases },
         test: {
           name: 'app',
           include: ['src/**/!(*workers).test.ts'],
@@ -21,20 +25,14 @@ export default defineConfig({
           globalSetup: ['test/cli.globalSetup.ts'],
           setupFiles: ['test/cli.setup.ts'],
           hookTimeout: 120_000,
-          include: ['pkg/src/cli/**/*.test.ts'],
+          include: ['cli/src/**/*.test.ts'],
           root,
           testTimeout: 30_000,
         },
       },
       {
-        test: {
-          name: 'sdk',
-          include: ['pkg/src/**/*.test.ts', '!pkg/src/cli/**'],
-          root,
-        },
-      },
-      {
         define: { __HOST__: JSON.stringify('curl.local') },
+        resolve: { alias: aliases },
         plugins: [
           cloudflareTest(async (config) => {
             const env = Env.parse(config.inject('env'))

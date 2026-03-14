@@ -5,8 +5,8 @@ import path from 'node:path'
 import util from 'node:util'
 import type { hc } from 'hono/client'
 import pc from 'picocolors'
-import type { api } from '../../../src/api.ts'
-import pkg from '../../package.json' with { type: 'json' }
+import type { api } from '../../src/api.ts'
+import pkg from '../package.json' with { type: 'json' }
 
 export type Client = ReturnType<typeof hc<typeof api>>
 

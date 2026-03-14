@@ -8,6 +8,6 @@
     "rewriteRelativeImportExtensions": true,
     "rootDir": "src"
   },
-  "include": ["src/cli"],
+  "include": ["src"],
   "exclude": ["src/**/*.test.*", "test"]
 }

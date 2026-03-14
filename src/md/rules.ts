@@ -1,5 +1,11 @@
 import { defineRule } from './mod.ts'
 import {
+  githubBlob,
+  githubIssue,
+  githubPr,
+  githubRepo,
+} from './rules/github.ts'
+import {
   acceptMarkdown,
   appendIndexMd,
   appendMd,
@@ -8,12 +14,7 @@ import {
   repo,
 } from './rules/utils.ts'
 
-export {
-  githubBlob,
-  githubIssue,
-  githubPr,
-  githubRepo,
-} from './rules/github.ts'
+export { githubBlob, githubIssue, githubPr, githubRepo }
 export { githubDocs } from './rules/github-docs.ts'
 export { mdn } from './rules/mdn.ts'
 export { tailwind } from './rules/tailwind.ts'

@@ -1,5 +1,4 @@
 import * as Sentry from '@sentry/cloudflare'
-import * as Md from 'curl.md'
 import { Hono } from 'hono'
 import { html, raw } from 'hono/html'
 import { Kysely, sql } from 'kysely'
@@ -38,6 +37,7 @@ import { rateLimit } from '#lib/rate-limit.ts'
 import { knownRoutes } from '#lib/routes.ts'
 import { urlSchema } from '#lib/schemas.ts'
 import type { OneOf } from '#lib/types.ts'
+import * as Md from '#md/index.ts'
 
 export const api = new Hono<{
   Bindings: Cloudflare.Env

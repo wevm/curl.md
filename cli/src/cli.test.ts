@@ -9,13 +9,21 @@ import {
   test,
   vi,
 } from 'vitest'
+
+// Prevent CLI from opening a browser during login tests
+vi.mock('node:child_process', () => ({
+  default: { exec: vi.fn(), spawn: vi.fn(() => ({ unref: vi.fn() })) },
+  exec: vi.fn(),
+  spawn: vi.fn(() => ({ unref: vi.fn() })),
+}))
+
 import type { api } from '#api.ts'
 import type { DB } from '#lib/db.gen.ts'
 import { dialect } from '#lib/db.ts'
 import * as Nanoid from '#lib/nanoid.ts'
-import { Env } from '../../../test/env.ts'
-import { createFactory } from '../../../test/factory.ts'
-import { serve, useTempHome } from '../../test/cli.ts'
+import { Env } from '../../test/env.ts'
+import { createFactory } from '../../test/factory.ts'
+import { serve, useTempHome } from '../test/cli.ts'
 import * as utils from './utils.ts'
 import { Session, UpdateCache } from './utils.ts'
 
@@ -481,12 +489,6 @@ describe('auth', () => {
   })
 
   test('login - expired device code', async () => {
-    vi.mock('node:child_process', () => ({
-      default: { exec: vi.fn(), spawn: vi.fn(() => ({ unref: vi.fn() })) },
-      exec: vi.fn(),
-      spawn: vi.fn(() => ({ unref: vi.fn() })),
-    }))
-
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
     onTestFinished(() => consoleSpy.mockRestore())
 
@@ -521,12 +523,6 @@ describe('auth', () => {
   })
 
   test('login - malformed token request', async () => {
-    vi.mock('node:child_process', () => ({
-      default: { exec: vi.fn(), spawn: vi.fn(() => ({ unref: vi.fn() })) },
-      exec: vi.fn(),
-      spawn: vi.fn(() => ({ unref: vi.fn() })),
-    }))
-
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
     onTestFinished(() => consoleSpy.mockRestore())
 
@@ -583,12 +579,6 @@ describe('auth', () => {
   })
 
   test('login - rate limit on token polling retries', async () => {
-    vi.mock('node:child_process', () => ({
-      default: { exec: vi.fn(), spawn: vi.fn(() => ({ unref: vi.fn() })) },
-      exec: vi.fn(),
-      spawn: vi.fn(() => ({ unref: vi.fn() })),
-    }))
-
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
     onTestFinished(() => consoleSpy.mockRestore())
 
@@ -645,12 +635,6 @@ describe('auth', () => {
   })
 
   test('login - full device flow', async () => {
-    vi.mock('node:child_process', () => ({
-      default: { exec: vi.fn(), spawn: vi.fn(() => ({ unref: vi.fn() })) },
-      exec: vi.fn(),
-      spawn: vi.fn(() => ({ unref: vi.fn() })),
-    }))
-
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
     onTestFinished(() => consoleSpy.mockRestore())
 

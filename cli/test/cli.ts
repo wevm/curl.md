@@ -9,7 +9,7 @@ vi.mock('../package.json', () => ({
 }))
 
 // Must import after mock
-const { default: cli } = await import('../src/cli/cli.ts')
+const { default: cli } = await import('../src/cli.ts')
 
 const env = Env.parse(inject('env'))
 

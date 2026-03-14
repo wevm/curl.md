@@ -10,23 +10,17 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/wevm/curl.md.git",
-    "directory": "pkg"
+    "directory": "cli"
   },
   "license": "FSL-1.1-MIT",
   "type": "module",
-  "exports": {
-    ".": {
-      "types": "./src/index.ts",
-      "import": "./src/index.ts"
-    }
-  },
   "bin": {
-    "curl.md": "./dist/cli/bin.js",
-    "curl.md.src": "./src/cli/cli.ts",
-    "curlmd": "./dist/cli/bin.js",
-    "curlmd.src": "./src/cli/cli.ts",
-    "md": "./dist/cli/bin.js",
-    "md.src": "./src/cli/cli.ts"
+    "curl.md": "./dist/bin.js",
+    "curl.md.src": "./src/cli.ts",
+    "curlmd": "./dist/bin.js",
+    "curlmd.src": "./src/cli.ts",
+    "md": "./dist/bin.js",
+    "md.src": "./src/cli.ts"
   },
   "files": [
     "CHANGELOG.md",
@@ -37,12 +31,6 @@
     "hono": "^4.12.2",
     "incur": "0.3.3",
     "picocolors": "^1.1.1",
-    "rehype-parse": "^9.0.1",
-    "rehype-remark": "^10.0.1",
-    "remark-gfm": "^4.0.1",
-    "remark-stringify": "^11.0.0",
-    "unified": "^11.0.5",
-    "vfile": "^6.0.3",
     "zod": "catalog:"
   },
   "engines": {
