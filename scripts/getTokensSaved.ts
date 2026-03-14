@@ -1,6 +1,6 @@
 import { Kysely } from 'kysely'
 import { z } from 'zod'
-import { dialect } from '../src/lib/db.ts'
+import { dialect } from '../db/client.ts'
 
 const env = z.parse(z.object({ DB_URL: z.string() }), process.env)
 const dbUrl = new URL(env.DB_URL)

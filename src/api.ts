@@ -8,6 +8,8 @@ import type Stripe from 'stripe'
 import { estimateTokenCount } from 'tokenx'
 import { stringify as yamlStringify } from 'yaml'
 import { z } from 'zod'
+import { dialect } from '#db/client.ts'
+import type { DB } from '#db/types.gen.ts'
 import * as ApiKey from '#lib/api-key.ts'
 import { resolveBillingEntity } from '#lib/billing.ts'
 import { chunkMarkdown, filterSectionsByKeywords } from '#lib/chunk-markdown.ts'
@@ -23,8 +25,6 @@ import {
 } from '#lib/constants.ts'
 import * as Cookie from '#lib/cookie.ts'
 import * as Crypto from '#lib/crypto.ts'
-import type { DB } from '#lib/db.gen.ts'
-import { dialect } from '#lib/db.ts'
 import {
   invalidApiKey,
   narrowValidation,

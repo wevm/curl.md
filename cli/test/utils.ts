@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { inject, vi } from 'vitest'
-import { Env } from '../../test/env.ts'
+import { Env } from '#test/env.ts'
 
 vi.mock('../package.json', () => ({
   default: { name: 'curl.md', version: 'x.y.z' },
@@ -13,7 +13,7 @@ const { default: cli } = await import('../src/cli.ts')
 
 const env = Env.parse(inject('env'))
 
-export function useTempHome() {
+export function useTmp() {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'curl-md-test-'))
   const spy = vi.spyOn(os, 'homedir').mockReturnValue(tmpDir)
   const origXdgData = process.env.XDG_DATA_HOME

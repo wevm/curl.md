@@ -1,7 +1,7 @@
-import { getDb } from '#lib/db.ts'
+import { createClient } from '#db/client.ts'
 
 export async function cleanupExpired(env: Env, _ctx: ExecutionContext) {
-  const db = getDb(env.DB.connectionString, { max: 1 })
+  const db = createClient(env.DB.connectionString, { max: 1 })
   try {
     await Promise.all([
       db

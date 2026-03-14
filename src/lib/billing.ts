@@ -1,5 +1,5 @@
 import type { Kysely } from 'kysely'
-import type { DB } from '#lib/db.gen.ts'
+import type { DB } from '#db/types.gen.ts'
 
 export async function resolveBillingEntity(
   db: Kysely<DB>,

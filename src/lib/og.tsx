@@ -1,7 +1,7 @@
 import { waitUntil } from 'cloudflare:workers'
 import type { Kysely } from 'kysely'
 import { z } from 'zod'
-import type { DB } from '#lib/db.gen.ts'
+import type { DB } from '#db/types.gen.ts'
 import { formatCost, formatNumber } from '#lib/format.ts'
 export const schema = z
   .discriminatedUnion('page', [

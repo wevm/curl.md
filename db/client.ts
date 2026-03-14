@@ -1,9 +1,12 @@
 import { type Expression, Kysely, sql } from 'kysely'
 import { PostgresJSDialect } from 'kysely-postgres-js'
 import postgres from 'postgres'
-import type { DB } from '#lib/db.gen.ts'
+import type { DB } from '#db/types.gen.ts'
 
-export function getDb(connectionString: string, options?: { max?: number }) {
+export function createClient(
+  connectionString: string,
+  options?: { max?: number },
+) {
   return new Kysely<DB>({
     dialect: dialect(connectionString, options),
   })

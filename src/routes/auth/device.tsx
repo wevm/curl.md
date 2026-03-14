@@ -4,7 +4,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
 import { useState } from 'react'
 import { z } from 'zod'
-import { getDb } from '#lib/db.ts'
+import { createClient } from '#db/client.ts'
 import { rpc } from '#lib/rpc.ts'
 import * as Session from '#lib/session.ts'
 
@@ -122,6 +122,6 @@ function DeviceConfirmation() {
 
 const getAccountId = createServerFn({ method: 'GET' }).handler(async () => {
   const request = getRequest()
-  const db = getDb(env.DB.connectionString)
+  const db = createClient(env.DB.connectionString)
   return Session.getAccountId(request, db, env.COOKIE_SECRET)
 })

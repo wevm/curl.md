@@ -1,6 +1,6 @@
 import { env } from 'cloudflare:workers'
 import type { Kysely } from 'kysely'
-import type { DB } from '#lib/db.gen.ts'
+import type { DB } from '#db/types.gen.ts'
 
 export async function processStripeWebhookMessage(
   message: Message<processStripeWebhookMessage.Body>,

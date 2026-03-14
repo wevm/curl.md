@@ -1,7 +1,7 @@
 import { fork } from 'node:child_process'
 import type { TestProject } from 'vitest/node'
-import { startDatabase } from '../../test/containers.ts'
-import { Env } from '../../test/env.ts'
+import { startDatabase } from '#test/containers.ts'
+import { Env } from '#test/env.ts'
 
 export default async function (project: TestProject) {
   const name = project.name || 'unknown'
@@ -13,7 +13,7 @@ export default async function (project: TestProject) {
   console.log(`${name}: starting dev server`)
   const dbUrl = container.getConnectionUri()
   const server = await startDevServer(dbUrl)
-  console.log(`${name}: started dev server at ${server.baseUrl}`)
+  console.log(`${name}: started dev server`)
 
   const env = Env.get({
     CURLMD_BASE_URL: server.baseUrl,

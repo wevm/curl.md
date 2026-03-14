@@ -1,7 +1,6 @@
 import { hc } from 'hono/client'
-import { Kysely } from 'kysely'
 import {
-  afterAll,
+  beforeAll,
   beforeEach,
   describe,
   expect,
@@ -10,6 +9,14 @@ import {
   test,
   vi,
 } from 'vitest'
+import type { api } from '#api.ts'
+import { createClient } from '#db/client.ts'
+import * as Nanoid from '#lib/nanoid.ts'
+import { Env } from '#test/env.ts'
+import { createFactory } from '#test/factory.ts'
+import { serve, useTmp } from '../test/utils.ts'
+import * as utils from './utils.ts'
+import { Session, UpdateCache } from './utils.ts'
 
 // Prevent CLI from opening a browser during login tests
 vi.mock('node:child_process', () => ({
@@ -18,26 +25,18 @@ vi.mock('node:child_process', () => ({
   spawn: vi.fn(() => ({ unref: vi.fn() })),
 }))
 
-import type { api } from '#api.ts'
-import type { DB } from '#lib/db.gen.ts'
-import { dialect } from '#lib/db.ts'
-import * as Nanoid from '#lib/nanoid.ts'
-import { Env } from '../../test/env.ts'
-import { createFactory } from '../../test/factory.ts'
-import { serve, useTempHome } from '../test/cli.ts'
-import * as utils from './utils.ts'
-import { Session, UpdateCache } from './utils.ts'
-
 const env = Env.parse(inject('env'))
 const client = hc<typeof api>(env.CURLMD_BASE_URL)
-const db = new Kysely<DB>({ dialect: dialect(env.DB_URL) })
+const db = createClient(env.DB_URL)
 const factory = createFactory(db)
-afterAll(() => db.destroy())
 
-let home: ReturnType<typeof useTempHome>
+beforeAll(() => {
+  return () => db.destroy()
+})
+
 beforeEach(() => {
-  home = useTempHome()
-  return () => home.cleanup()
+  const tmp = useTmp()
+  return () => tmp.cleanup()
 })
 
 test('version', async () => {

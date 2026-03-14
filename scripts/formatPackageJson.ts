@@ -24,7 +24,7 @@ await fs.writeFile(
 )
 
 // Remove dev-only fields
-const { scripts: _s, ...rest } = packageJson
+const { imports: _i, scripts: _s, ...rest } = packageJson
 if (rest.bin)
   for (const key of Object.keys(rest.bin))
     if (key.endsWith('.src')) delete rest.bin[key]

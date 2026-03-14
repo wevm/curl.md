@@ -1,7 +1,9 @@
 {
   "compilerOptions": {
     "paths": {
-      "#*": ["./../src/*"]
+      "#*": ["./../src/*"],
+      "#db/*": ["./../db/*"],
+      "#test/*": ["./../test/*"]
     },
     "tsBuildInfoFile": "../node_modules/.tmp/tsconfig.node.tsbuildinfo",
     "target": "ES2023",
@@ -29,6 +31,7 @@
   },
   "include": [
     "../config/wrangler.ts",
+    "../db",
     "../test",
     "../scripts",
     "../kysely.config.ts",

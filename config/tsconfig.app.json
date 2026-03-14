@@ -1,7 +1,9 @@
 {
   "compilerOptions": {
     "paths": {
-      "#*": ["./../src/*"]
+      "#*": ["./../src/*"],
+      "#db/*": ["./../db/*"],
+      "#test/*": ["./../test/*"]
     },
     "tsBuildInfoFile": "../node_modules/.tmp/tsconfig.app.tsbuildinfo",
     "target": "ES2022",
@@ -29,5 +31,5 @@
     "exactOptionalPropertyTypes": true
   },
   "exclude": ["../src/**/*.workers.test.ts"],
-  "include": ["../src"]
+  "include": ["../db", "../src"]
 }

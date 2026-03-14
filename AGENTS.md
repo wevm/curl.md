@@ -47,7 +47,7 @@ Follow [PlanetScale Postgres skill](https://github.com/planetscale/database-skil
 - Use timestamps (like `deleted_at`) instead of boolean fields (`deleted`)
 - Use CHECK constraints instead of Postgres ENUMs for enum-like columns
 - When adding enum-like TEXT columns (with a fixed set of values), add them to `customTypes` in `scripts/dbCodegen.ts`
-- Use `DB.<table>` types from `src/lib/db.gen.ts` for database record types. When only a subset of fields is needed, use `Pick<DB.<table>, "field1" | "field2">` instead of defining custom types.
+- Use `DB.<table>` types from `db/types.gen.ts` for database record types. When only a subset of fields is needed, use `Pick<DB.<table>, "field1" | "field2">` instead of defining custom types.
 - Prefer snake_case field names when data originates from the database (e.g., `credential_id` not `credentialId`)
 - Naming conventions:
   - Tables: singular snake_case (`account`, `api_key`)
@@ -69,7 +69,7 @@ Follow [PlanetScale Postgres skill](https://github.com/planetscale/database-skil
 - No emoji
 - Alphabetize imports, keys, props, etc.
 - Inline code; extract only when reused across files
-- Use `#` package.json import prefix (e.g., `#lib/auth.ts`)
+- Use `#` package.json import prefix (e.g., `#lib/auth.ts`, `#db/client.ts`)
 - Use `.ts`/`.tsx` extensions in imports (`allowImportingTsExtensions`)
 - Place internal non-exported functions at the bottom of the file
 - Prefer "account" over "user" in naming (variables, types, functions, etc.)

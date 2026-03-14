@@ -2,11 +2,11 @@ import * as Sentry from '@sentry/cloudflare'
 import serverEntry from '@tanstack/react-start/server-entry'
 import { z } from 'zod'
 import { api } from '#api.ts'
-import { getDb } from '#lib/db.ts'
+import { cleanupExpired } from '#crons/cleanup.ts'
+import { createClient } from '#db/client.ts'
 import { isApiPath } from '#lib/routes.ts'
 import { processRequestMessage } from '#queues/request.ts'
 import { processStripeWebhookMessage } from '#queues/stripe-webhook.ts'
-import { cleanupExpired } from '#tasks/cleanup.ts'
 
 export default Sentry.withSentry<
   Env,
@@ -76,7 +76,7 @@ export default Sentry.withSentry<
         [processRequestMessage.queueName]: processRequestMessage,
         [processStripeWebhookMessage.queueName]: processStripeWebhookMessage,
       }[queue]
-      const db = getDb(env.DB.connectionString)
+      const db = createClient(env.DB.connectionString)
       for (const message of batch.messages) {
         try {
           await handler(message as never, db)

@@ -3,7 +3,7 @@ import { useMutation } from '@tanstack/react-query'
 import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
-import { getDb } from '#lib/db.ts'
+import { createClient } from '#db/client.ts'
 import { rpc } from '#lib/rpc.ts'
 import * as Session from '#lib/session.ts'
 
@@ -112,7 +112,7 @@ const getInviteData = createServerFn({ method: 'GET' })
   .inputValidator((d: { token: string }) => d)
   .handler(async ({ data: { token } }) => {
     const request = getRequest()
-    const db = getDb(env.DB.connectionString)
+    const db = createClient(env.DB.connectionString)
 
     const invite = await db
       .selectFrom('organization_invite')

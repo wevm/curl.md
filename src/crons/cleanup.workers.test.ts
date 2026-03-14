@@ -1,11 +1,12 @@
 import { createExecutionContext, waitOnExecutionContext } from 'cloudflare:test'
 import { env } from 'cloudflare:workers'
 import { afterAll, expect, test } from 'vitest'
-import { getDb } from '#lib/db.ts'
-import { cleanupExpired } from '#tasks/cleanup.ts'
-import { createFactory } from '../../test/factory.ts'
+import { cleanupExpired } from '#crons/cleanup.ts'
+import { createClient } from '#db/client.ts'
+import * as Nanoid from '#lib/nanoid.ts'
+import { createFactory } from '#test/factory.ts'
 
-const db = getDb(env.DB.connectionString, { max: 1 })
+const db = createClient(env.DB.connectionString, { max: 1 })
 const factory = createFactory(db)
 
 afterAll(() => db.destroy())
@@ -18,14 +19,15 @@ async function runCleanup() {
 
 test('deletes expired device codes', async () => {
   const account = await factory.account.insert({})
+  const code = Nanoid.generate()
   await db
     .insertInto('device_code')
     .values({
       account_id: account.id,
-      code: 'expired-code',
+      code,
       expires_at: new Date(Date.now() - 1000).toISOString(),
       status: 'pending',
-      user_code: 'ABCD1234',
+      user_code: Nanoid.generate(8),
     })
     .execute()
 
@@ -33,7 +35,7 @@ test('deletes expired device codes', async () => {
 
   const rows = await db
     .selectFrom('device_code')
-    .where('code', '=', 'expired-code')
+    .where('code', '=', code)
     .selectAll()
     .execute()
   expect(rows).toHaveLength(0)
@@ -41,14 +43,15 @@ test('deletes expired device codes', async () => {
 
 test('preserves non-expired device codes', async () => {
   const account = await factory.account.insert({})
+  const code = Nanoid.generate()
   await db
     .insertInto('device_code')
     .values({
       account_id: account.id,
-      code: 'valid-code',
+      code,
       expires_at: new Date(Date.now() + 60_000).toISOString(),
       status: 'pending',
-      user_code: 'EFGH5678',
+      user_code: Nanoid.generate(8),
     })
     .execute()
 
@@ -56,7 +59,7 @@ test('preserves non-expired device codes', async () => {
 
   const rows = await db
     .selectFrom('device_code')
-    .where('code', '=', 'valid-code')
+    .where('code', '=', code)
     .selectAll()
     .execute()
   expect(rows).toHaveLength(1)

@@ -1,5 +1,5 @@
 import { type Kysely, sql } from 'kysely'
-import { alphabet, defaultSize } from '../src/lib/nanoid.ts'
+import { alphabet, defaultSize } from '../../src/lib/nanoid.ts'
 
 export async function up(db: Kysely<unknown>): Promise<void> {
   // adapted from `nanoid-postgres`

@@ -4,7 +4,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { createServerFn, useServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
 import * as React from 'react'
-import { getDb } from '#lib/db.ts'
+import { createClient } from '#db/client.ts'
 import { formatCost, formatNumber } from '#lib/format.ts'
 import { rpc } from '#lib/rpc.ts'
 
@@ -163,7 +163,7 @@ const getTokensSaved = createServerFn({ method: 'GET' }).handler(async () => {
     const cached = await env.KV.get('stats:tokens_saved')
     if (cached !== null) return { tokens_saved: Number(cached) }
 
-    const db = getDb(env.DB.connectionString)
+    const db = createClient(env.DB.connectionString)
     const result = await db
       .selectFrom('request')
       .select((eb) => eb.fn.sum<number>('tokens_saved').as('total'))

@@ -1,12 +1,12 @@
 import { createMessageBatch } from 'cloudflare:test'
 import { env } from 'cloudflare:workers'
 import { afterAll, expect, test } from 'vitest'
-import { getDb } from '#lib/db.ts'
+import { createClient } from '#db/client.ts'
 import * as Nanoid from '#lib/nanoid.ts'
 import { processRequestMessage } from '#queues/request.ts'
-import { createFactory } from '../../test/factory.ts'
+import { createFactory } from '#test/factory.ts'
 
-const db = getDb(env.DB.connectionString, { max: 1 })
+const db = createClient(env.DB.connectionString, { max: 1 })
 const factory = createFactory(db)
 
 afterAll(() => db.destroy())

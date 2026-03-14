@@ -9,7 +9,7 @@ import {
 } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
-import { getDb } from '#lib/db.ts'
+import { createClient } from '#db/client.ts'
 import { rpc } from '#lib/rpc.ts'
 import * as Session from '#lib/session.ts'
 
@@ -79,7 +79,7 @@ const getLayoutData = createServerFn({ method: 'GET' })
   .inputValidator((d: { login: string }) => d)
   .handler(async ({ data: { login } }) => {
     const request = getRequest()
-    const db = getDb(env.DB.connectionString)
+    const db = createClient(env.DB.connectionString)
     const accountId = await Session.getAccountId(request, db, env.COOKIE_SECRET)
     if (!accountId) return false
 

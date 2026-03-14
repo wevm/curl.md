@@ -46,7 +46,7 @@ export default defineConfig({
                 hyperdrives: { DB: env.DB_URL },
                 kvNamespaces: ['KV'],
                 queueProducers: {
-                  REQUEST_QUEUE: 'test-queue',
+                  REQUEST_QUEUE: 'test-request-queue',
                   STRIPE_WEBHOOK_QUEUE: 'test-stripe-webhook-queue',
                 },
                 serviceBindings: {

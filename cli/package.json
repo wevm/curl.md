@@ -12,7 +12,7 @@
     "url": "https://github.com/wevm/curl.md.git",
     "directory": "cli"
   },
-  "license": "FSL-1.1-MIT",
+  "license": "MIT",
   "type": "module",
   "bin": {
     "curl.md": "./dist/bin.js",
@@ -37,6 +37,8 @@
     "node": ">=22.0.0"
   },
   "imports": {
-    "#*": "../src/*"
+    "#db/*": "../db/*",
+    "#*": "../src/*",
+    "#test/*": "../test/*"
   }
 }

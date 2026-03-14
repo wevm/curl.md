@@ -6,7 +6,9 @@
     "moduleResolution": "nodenext",
     "noEmit": true,
     "paths": {
-      "#*": ["./../src/*"]
+      "#*": ["./../src/*"],
+      "#db/*": ["./../db/*"],
+      "#test/*": ["./../test/*"]
     },
     "resolveJsonModule": true,
     "skipLibCheck": true,

@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { Kysely } from 'kysely'
 import { z } from 'zod'
-import { dialect } from '../src/lib/db.ts'
+import { dialect } from '../db/client.ts'
 
 const env = z.parse(z.object({ DB_URL: z.string() }), process.env)
 
@@ -156,12 +156,12 @@ for (const table of publicTables) {
 }
 output += '\t}\n}\n'
 
-const outputPath = path.resolve(import.meta.dirname, '../src/lib/db.gen.ts')
+const outputPath = path.resolve(import.meta.dirname, '../db/types.gen.ts')
 fs.writeFileSync(outputPath, `${output.trimEnd()}\n`)
 execSync(`pnpm exec biome format --write ${outputPath}`, {
   cwd: path.resolve(import.meta.dirname, '..'),
   stdio: 'inherit',
 })
-console.log('Generated src/lib/db.gen.ts')
+console.log('Generated db/types.gen.ts')
 
 process.exit()

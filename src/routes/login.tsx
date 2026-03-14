@@ -3,7 +3,7 @@ import { createFileRoute, redirect } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
 import { z } from 'zod'
-import { getDb } from '#lib/db.ts'
+import { createClient } from '#db/client.ts'
 import * as Session from '#lib/session.ts'
 
 export const Route = createFileRoute('/login')({
@@ -42,7 +42,7 @@ function Login() {
 
 const getSessionLogin = createServerFn({ method: 'GET' }).handler(async () => {
   const request = getRequest()
-  const db = getDb(env.DB.connectionString)
+  const db = createClient(env.DB.connectionString)
   const accountId = await Session.getAccountId(request, db, env.COOKIE_SECRET)
   if (!accountId) return null
 

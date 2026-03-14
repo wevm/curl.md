@@ -3,7 +3,9 @@
   "private": true,
   "type": "module",
   "imports": {
-    "#*": "./src/*"
+    "#*": "./src/*",
+    "#db/*": "./db/*",
+    "#test/*": "./test/*"
   },
   "scripts": {
     "build": "vite build",
@@ -31,7 +33,7 @@
     "test": "vitest --config test/vitest.config.ts"
   },
   "dependencies": {
-    "@cloudflare/vite-plugin": "^1.25.4",
+    "@cloudflare/vite-plugin": "https://pkg.pr.new/@cloudflare/vite-plugin@12876",
     "@fontsource-variable/geist-mono": "^5.2.7",
     "@hono/zod-validator": "^0.7.6",
     "@octokit/core": "^7.0.6",
@@ -70,32 +72,27 @@
     "@svgr/core": "^8.1.0",
     "@svgr/plugin-jsx": "^8.1.0",
     "@svitejs/changesets-changelog-github-compact": "^1.2.0",
-    "@tailwindcss/vite": "^4.1.18",
+    "@tailwindcss/vite": "insiders",
     "@testcontainers/postgresql": "^11.12.0",
     "@types/hast": "^3.0.4",
     "@types/node": "^25.2.3",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@typescript/native-preview": "7.0.0-dev.20260216.1",
-    "@vitejs/plugin-react": "^5.0.4",
+    "@vitejs/plugin-react": "^5.2.0",
     "bun": "^1.3.10",
     "knip": "^5.85.0",
     "kysely-ctl": "~0.20.0",
     "msw": "^2.7.0",
     "simple-git-hooks": "^2.13.1",
-    "tailwindcss": "^4.1.18",
+    "tailwindcss": "insiders",
     "testcontainers": "^11.12.0",
     "tiny-jsonc": "^1.0.2",
     "unplugin-auto-import": "^21.0.0",
     "unplugin-icons": "^23.0.1",
-    "vite": "^7.1.7",
+    "vite": "^8.0.0",
     "vitest": "^4.1.0",
-    "wrangler": "^4.73.0"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "bun"
-    ]
+    "wrangler": "https://pkg.pr.new/wrangler@12876"
   },
   "packageManager": "pnpm@10.22.0",
   "devEngines": {

@@ -1,5 +1,5 @@
 import { type Kysely, sql } from 'kysely'
-import { nanoid, now } from '../src/lib/db.ts'
+import { nanoid, now } from '../client.ts'
 
 function account_role() {
   return sql`account_role`

@@ -1,5 +1,5 @@
 import type { Insertable, Kysely, Selectable } from 'kysely'
-import type { DB } from '#lib/db.gen.ts'
+import type { DB } from '#db/types.gen.ts'
 import * as Nanoid from '#lib/nanoid.ts'
 
 export function createFactory(db: Kysely<DB>) {
