@@ -4,7 +4,6 @@ import { z } from 'zod'
 import { api } from '#api.ts'
 import { cleanupExpired } from '#crons/cleanup.ts'
 import { createClient } from '#db/client.ts'
-import { isApiPath } from '#lib/routes.ts'
 import { processRequestMessage } from '#queues/request.ts'
 import { processStripeWebhookMessage } from '#queues/stripe-webhook.ts'
 
@@ -23,7 +22,8 @@ export default Sentry.withSentry<
       // Route API requests to the Hono API handler
       if (url.pathname.startsWith('/api/')) return api.fetch(new Request(url, request), env, ctx)
       // Route dot-segment paths (e.g. curl.md/example.com) to the API handler under /api prefix
-      if (isApiPath(url.pathname)) {
+      const firstSegment = url.pathname.split('/')[1] ?? ''
+      if (firstSegment.includes('.') || /^https?:$/.test(firstSegment)) {
         // Redirect protocol-prefixed paths (e.g. /https://example.com/path → /example.com/path)
         const protocolMatch = url.pathname.match(/^\/(https?:\/\/)(.+)/)
         if (protocolMatch) {

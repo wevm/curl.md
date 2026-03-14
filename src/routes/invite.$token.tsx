@@ -4,8 +4,8 @@ import { createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
 import { env } from 'cloudflare:workers'
 import { createClient } from '#db/client.ts'
+import * as Cookie from '#lib/cookie.ts'
 import { rpc } from '#lib/rpc.ts'
-import * as Session from '#lib/session.ts'
 
 export const Route = createFileRoute('/invite/$token')({
   head: () => ({
@@ -129,7 +129,21 @@ const getInviteData = createServerFn({ method: 'GET' })
         login: null
       }
 
-    const accountId = await Session.getAccountId(request, db, env.COOKIE_SECRET)
+    const sessionId = await Cookie.parseSigned(
+      request.headers.get('cookie') ?? '',
+      env.COOKIE_SECRET,
+      'curl.session',
+    )
+    const accountId = sessionId
+      ? ((
+          await db
+            .selectFrom('session')
+            .where('id', '=', sessionId)
+            .where('expires_at', '>', new Date())
+            .select('account_id')
+            .executeTakeFirst()
+        )?.account_id ?? null)
+      : null
     let login: string | null = null
     if (accountId) {
       const account = await db

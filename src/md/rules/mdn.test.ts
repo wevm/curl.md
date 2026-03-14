@@ -56,7 +56,7 @@ test('extract produces expected output for Array.prototype.map', async () => {
   )
   expect(result.ok).toBe(true)
   if (!result.ok) return
-  expect(result.content).toBe(snapshot)
+  expect(result.content).toBe(snapshot.trimEnd())
   expect(result.meta.title).toBe('Array.prototype.map()')
 })
 

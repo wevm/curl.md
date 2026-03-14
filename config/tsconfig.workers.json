@@ -8,7 +8,9 @@
   "include": [
     "../test/workers.setup.ts",
     "../src/**/*.workers.test.ts",
+    "../src/auto-imports.d.ts",
     "../src/env.d.ts",
+    "../src/vite-env.d.ts",
     "../src/worker-configuration.d.ts"
   ]
 }

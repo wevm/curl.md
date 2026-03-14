@@ -10,13 +10,10 @@ import { stringify as yamlStringify } from 'yaml'
 import { z } from 'zod'
 import { dialect } from '#db/client.ts'
 import type { DB } from '#db/types.gen.ts'
-import * as ApiKey from '#lib/api-key.ts'
-import { resolveBillingEntity } from '#lib/billing.ts'
-import { chunkMarkdown, filterSectionsByKeywords } from '#lib/chunk-markdown.ts'
+import * as ApiKey from '#lib/apikey.ts'
 import {
   attribution,
   creditAmounts,
-  type Mode,
   modes,
   packageName,
   pricing,
@@ -28,7 +25,6 @@ import * as Crypto from '#lib/crypto.ts'
 import { invalidApiKey, narrowValidation, validationError, validator } from '#lib/hono.ts'
 import * as Nanoid from '#lib/nanoid.ts'
 import * as Og from '#lib/og.tsx'
-import { rateLimit } from '#lib/rate-limit.ts'
 import { knownRoutes } from '#lib/routes.ts'
 import type { OneOf } from '#lib/types.ts'
 import * as Md from '#md/index.ts'
@@ -605,24 +601,31 @@ export const api = new Hono<{
     if (!c.var.session) return c.json({ error: 'unauthorized' }, 401)
 
     const organizationId = c.req.header('x-organization-id')
-    const entity = await resolveBillingEntity(
-      c.var.db,
-      organizationId
-        ? {
-            type: 'organization',
-            accountId: c.var.session.account_id,
-            organizationId,
-          }
-        : { type: 'account', accountId: c.var.session.account_id },
-    )
-    if (!entity.ok) return c.json({ error: entity.error }, entity.status)
+
+    if (organizationId) {
+      const member = await c.var.db
+        .selectFrom('organization_member')
+        .where('organization_id', '=', organizationId)
+        .where('account_id', '=', c.var.session.account_id)
+        .select('role')
+        .executeTakeFirst()
+      if (!member || (member.role !== 'owner' && member.role !== 'admin'))
+        return c.json({ error: 'organization_access_denied' }, 403)
+    }
+
+    const billing = await c.var.db
+      .selectFrom(organizationId ? 'organization' : 'account')
+      .where('id', '=', organizationId ?? c.var.session.account_id)
+      .select(['balance_mills', 'stripe_customer_id'])
+      .executeTakeFirst()
+    if (!billing) return c.json({ error: 'not_found' }, 404)
 
     let method: Pick<Stripe.PaymentMethod.Card, 'brand' | 'last4'> | null = null
-    if (entity.stripeCustomerId) {
+    if (billing.stripe_customer_id) {
       const { default: Stripe } = await import('stripe')
       const stripe = new Stripe(c.env.STRIPE_SECRET_KEY)
       const methods = await stripe.paymentMethods.list({
-        customer: entity.stripeCustomerId,
+        customer: billing.stripe_customer_id,
         type: 'card',
         limit: 1,
       })
@@ -630,7 +633,7 @@ export const api = new Hono<{
       if (card) method = { brand: card.brand, last4: card.last4 }
     }
 
-    return c.json({ balance_mills: entity.balanceMills, payment_method: method }, 200)
+    return c.json({ balance_mills: billing.balance_mills, payment_method: method }, 200)
   })
   .post(
     '/api/credits/add',
@@ -650,23 +653,31 @@ export const api = new Hono<{
       const json = c.req.valid('json')
       const amount = Number(json.amount)
 
-      const entity = await resolveBillingEntity(
-        c.var.db,
-        json.organization_id
-          ? {
-              type: 'organization',
-              accountId: c.var.session.account_id,
-              organizationId: json.organization_id,
-            }
-          : { type: 'account', accountId: c.var.session.account_id },
-      )
-      if (!entity.ok) return c.json({ error: entity.error }, entity.status)
+      const entityType = json.organization_id ? 'organization' : 'account'
+      const entityId = json.organization_id ?? c.var.session.account_id
 
-      let { stripeCustomerId } = entity
-      const { entityId, entityType } = entity
+      if (json.organization_id) {
+        const member = await c.var.db
+          .selectFrom('organization_member')
+          .where('organization_id', '=', json.organization_id)
+          .where('account_id', '=', c.var.session.account_id)
+          .select('role')
+          .executeTakeFirst()
+        if (!member || (member.role !== 'owner' && member.role !== 'admin'))
+          return c.json({ error: 'organization_access_denied' }, 403)
+      }
+
+      const billing = await c.var.db
+        .selectFrom(entityType)
+        .where('id', '=', entityId)
+        .select('stripe_customer_id')
+        .executeTakeFirst()
+      if (!billing) return c.json({ error: 'not_found' }, 404)
 
       const { default: Stripe } = await import('stripe')
       const stripe = new Stripe(c.env.STRIPE_SECRET_KEY)
+
+      let stripeCustomerId = billing.stripe_customer_id
 
       // Create Stripe customer lazily
       if (!stripeCustomerId) {
@@ -757,19 +768,28 @@ export const api = new Hono<{
       const json = c.req.valid('json')
       const amount = Number(json.amount)
 
-      const entity = await resolveBillingEntity(
-        c.var.db,
-        json.organization_id
-          ? {
-              type: 'organization',
-              accountId: c.var.session.account_id,
-              organizationId: json.organization_id,
-            }
-          : { type: 'account', accountId: c.var.session.account_id },
-      )
-      if (!entity.ok) return c.json({ error: entity.error }, entity.status)
+      const entityType = json.organization_id ? 'organization' : 'account'
+      const entityId = json.organization_id ?? c.var.session.account_id
 
-      const { stripeCustomerId, entityId, entityType } = entity
+      if (json.organization_id) {
+        const member = await c.var.db
+          .selectFrom('organization_member')
+          .where('organization_id', '=', json.organization_id)
+          .where('account_id', '=', c.var.session.account_id)
+          .select('role')
+          .executeTakeFirst()
+        if (!member || (member.role !== 'owner' && member.role !== 'admin'))
+          return c.json({ error: 'organization_access_denied' }, 403)
+      }
+
+      const billing = await c.var.db
+        .selectFrom(entityType)
+        .where('id', '=', entityId)
+        .select('stripe_customer_id')
+        .executeTakeFirst()
+      if (!billing) return c.json({ error: 'not_found' }, 404)
+
+      const stripeCustomerId = billing.stripe_customer_id
       if (!stripeCustomerId) return c.json({ error: 'no_payment_method' }, 400)
 
       const { default: Stripe } = await import('stripe')
@@ -1022,8 +1042,15 @@ export const api = new Hono<{
       if (!c.var.session) return c.json({ error: 'unauthorized' }, 401)
 
       const json = c.req.valid('json')
-
-      const reservedLogins = new Set([...knownRoutes, 'api', 'curl', 'dash', 'org'])
+      const reservedLogins = new Set([
+        ...knownRoutes,
+        'account',
+        'api',
+        'app',
+        'curl',
+        'dash',
+        'org',
+      ])
       if (reservedLogins.has(json.login)) return c.json({ error: 'login_reserved' }, 409)
 
       const existingLogin = await c.var.db
@@ -1499,7 +1526,7 @@ export const api = new Hono<{
           .string()
           .transform((v) => v.split(/[\s,]+/).filter(Boolean))
           .optional(),
-        mode: z.enum(['rush', 'smart'] satisfies [Mode, ...Mode[]]).default('smart'),
+        mode: z.enum(['rush', 'smart']).default('smart'),
         q: z.string().optional(),
       }),
     ),
@@ -1671,7 +1698,7 @@ export const api = new Hono<{
 
       const filteredContent = (() => {
         if (query.k && query.k.length > 0)
-          return filterSectionsByKeywords(response.content, query.k)
+          return Md.filterSectionsByKeywords(response.content, query.k)
         return response.content
       })()
 
@@ -1713,7 +1740,7 @@ export const api = new Hono<{
               return output
             }
 
-            const chunks = chunkMarkdown(filteredContent)
+            const chunks = Md.chunk(filteredContent)
             const results = await Promise.all(chunks.map(extractChunk))
             const filtered = results
               .filter((r) => r.response && r.response.trim() !== sentinelValue)
@@ -1802,3 +1829,25 @@ export const api = new Hono<{
       })
     },
   )
+
+async function rateLimit(
+  kv: KV,
+  ctx: { waitUntil: (p: Promise<unknown>) => void },
+  config: { ip: string; key: string; max: number; window: number },
+) {
+  const key = `ratelimit:${config.key}:${config.ip}` as const
+  const now = Math.floor(Date.now() / 1000)
+  const record = await kv.get(key, 'json')
+
+  const reset = record && record.reset > now ? record.reset : now + config.window
+  const count = record && record.reset > now ? record.count + 1 : 1
+  if (count > config.max) return { error: true, reset } as const
+
+  ctx.waitUntil(
+    kv.put(key, JSON.stringify({ count, reset }), {
+      expirationTtl: config.window,
+    }),
+  )
+
+  return { error: false } as const
+}

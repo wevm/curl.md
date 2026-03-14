@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { chunkMarkdown, filterSectionsByKeywords } from '#lib/chunk-markdown.ts'
+import { chunkMarkdown, filterSectionsByKeywords } from '#md/chunk.ts'
 
 describe('filterSectionsByKeywords', () => {
   test('returns full text when no headings exist', () => {

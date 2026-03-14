@@ -5,7 +5,7 @@ import { getRequest } from '@tanstack/react-start/server'
 import { env } from 'cloudflare:workers'
 import * as React from 'react'
 import { createClient } from '#db/client.ts'
-import { formatCost, formatNumber } from '#lib/format.ts'
+import { formatCost } from '#lib/format.ts'
 import { rpc } from '#lib/rpc.ts'
 
 export const Route = createFileRoute('/')({
@@ -128,8 +128,8 @@ function TokensSaved() {
   return (
     <>
       <p className="text-gray9 dark:text-gray6">
-        <span className="text-teal9 tabular-nums">{formatNumber(Math.round(animated))}</span> tokens
-        saved
+        <span className="text-teal9 tabular-nums">{Math.round(animated).toLocaleString()}</span>{' '}
+        tokens saved
       </p>
       <p className="text-gray9 dark:text-gray6">
         <span className="text-teal9 tabular-nums">${formatCost(animated, 3)}</span> saved @ $3/M

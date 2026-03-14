@@ -1,5 +1,7 @@
 export const packageName = 'curl.md'
 
+export const creditAmounts = ['500', '1000', '2000', '5000'] as const
+
 // https://developers.cloudflare.com/workers-ai/platform/pricing/
 export const modes = {
   rush: {
@@ -13,10 +15,6 @@ export const modes = {
     outputPricePerMToken: 0.85,
   },
 } as const
-
-export type Mode = keyof typeof modes
-
-export const creditAmounts = ['500', '1000', '2000', '5000'] as const
 
 export const pricing = {
   fetchCostMills: 1,

@@ -4,8 +4,8 @@ import { createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
 import { env } from 'cloudflare:workers'
 import { createClient } from '#db/client.ts'
+import * as Cookie from '#lib/cookie.ts'
 import { rpc } from '#lib/rpc.ts'
-import * as Session from '#lib/session.ts'
 
 export const Route = createFileRoute('/~dash/$login')({
   beforeLoad: async ({ location, params }) => {
@@ -71,7 +71,21 @@ const getLayoutData = createServerFn({ method: 'GET' })
   .handler(async ({ data: { login } }) => {
     const request = getRequest()
     const db = createClient(env.DB.connectionString)
-    const accountId = await Session.getAccountId(request, db, env.COOKIE_SECRET)
+    const sessionId = await Cookie.parseSigned(
+      request.headers.get('cookie') ?? '',
+      env.COOKIE_SECRET,
+      'curl.session',
+    )
+    const accountId = sessionId
+      ? ((
+          await db
+            .selectFrom('session')
+            .where('id', '=', sessionId)
+            .where('expires_at', '>', new Date())
+            .select('account_id')
+            .executeTakeFirst()
+        )?.account_id ?? null)
+      : null
     if (!accountId) return false
 
     const account = await db

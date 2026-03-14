@@ -420,11 +420,11 @@ describe('auth', () => {
     })
     const suffix = Nanoid.generate()
     const token = `curl_${suffix}`
-    const { hash } = await import('#lib/api-key.ts')
+    const ApiKey = await import('#lib/apikey.ts')
     await factory.api_key.insert({
       organization_id: org.id,
       account_id: account.id,
-      key_hash: await hash(token),
+      key_hash: await ApiKey.hash(token),
       key_prefix: token.slice(0, 9),
       name: `check-test-${suffix}`,
     })

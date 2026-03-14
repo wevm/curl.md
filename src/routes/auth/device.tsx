@@ -5,8 +5,8 @@ import { env } from 'cloudflare:workers'
 import { useState } from 'react'
 import { z } from 'zod'
 import { createClient } from '#db/client.ts'
+import * as Cookie from '#lib/cookie.ts'
 import { rpc } from '#lib/rpc.ts'
-import * as Session from '#lib/session.ts'
 
 export const Route = createFileRoute('/auth/device')({
   head: () => ({
@@ -119,5 +119,17 @@ function DeviceConfirmation() {
 const getAccountId = createServerFn({ method: 'GET' }).handler(async () => {
   const request = getRequest()
   const db = createClient(env.DB.connectionString)
-  return Session.getAccountId(request, db, env.COOKIE_SECRET)
+  const sessionId = await Cookie.parseSigned(
+    request.headers.get('cookie') ?? '',
+    env.COOKIE_SECRET,
+    'curl.session',
+  )
+  if (!sessionId) return null
+  const session = await db
+    .selectFrom('session')
+    .where('id', '=', sessionId)
+    .where('expires_at', '>', new Date())
+    .select('account_id')
+    .executeTakeFirst()
+  return session?.account_id ?? null
 })

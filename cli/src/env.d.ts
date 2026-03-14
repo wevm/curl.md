@@ -27,4 +27,24 @@ declare interface D1DatabaseSession {
   prepare(query: string): any
 }
 
+declare interface KV {
+  get(key: string, type?: string): Promise<any>
+  put(key: string, value: any, options?: any): Promise<void>
+  delete(key: string): Promise<void>
+  list(options?: any): Promise<any>
+}
+
+declare namespace KV {
+  type Value<key extends string> = any
+  type Key = string
+}
+
+declare interface Message<T = unknown> {
+  readonly body: T
+  readonly id: string
+  readonly timestamp: Date
+  ack(): void
+  retry(options?: { delaySeconds?: number }): void
+}
+
 declare interface Env extends Cloudflare.Env {}

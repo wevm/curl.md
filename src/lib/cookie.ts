@@ -1,5 +1,6 @@
 import type { Context } from 'hono'
 import * as cookie from 'hono/cookie'
+import * as cookieUtils from 'hono/utils/cookie'
 import type { CookieOptions } from 'hono/utils/cookie'
 
 export const destroy = cookie.deleteCookie as (
@@ -39,6 +40,11 @@ export const setSigned = cookie.setSignedCookie as (
   secret: string,
   opt?: Options | undefined,
 ) => Promise<void>
+
+export async function parseSigned(cookieHeader: string, secret: string, name: SignedName) {
+  const result = await cookieUtils.parseSigned(cookieHeader, secret, name)
+  return result[name]
+}
 
 export function getDomain(host: string) {
   const parts = host.split('.')

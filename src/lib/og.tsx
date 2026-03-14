@@ -2,7 +2,7 @@ import { waitUntil } from 'cloudflare:workers'
 import type { Kysely } from 'kysely'
 import { z } from 'zod'
 import type { DB } from '#db/types.gen.ts'
-import { formatCost, formatNumber } from '#lib/format.ts'
+import { formatCost } from '#lib/format.ts'
 export const schema = z
   .discriminatedUnion('page', [
     z.object({ page: z.literal('index') }),
@@ -58,7 +58,7 @@ function indexVariant(host: string, tokensSaved: number) {
       {tokensSaved > 0 && (
         <>
           <div style={{ display: 'flex', fontSize: 48, marginTop: 8 }}>
-            <span style={{ color: teal }}>{formatNumber(tokensSaved)}</span>
+            <span style={{ color: teal }}>{tokensSaved.toLocaleString()}</span>
             <span style={{ color: '#a1a1a1' }}>{'\u00a0'}tokens saved</span>
           </div>
           <div style={{ display: 'flex', fontSize: 48, marginTop: 8 }}>
@@ -99,7 +99,7 @@ function playgroundVariant(host: string, tokensSaved: number) {
       {tokensSaved > 0 && (
         <>
           <div style={{ display: 'flex', fontSize: 48, marginTop: 8 }}>
-            <span style={{ color: teal }}>{formatNumber(tokensSaved)}</span>
+            <span style={{ color: teal }}>{tokensSaved.toLocaleString()}</span>
             <span style={{ color: '#a1a1a1' }}>{'\u00a0'}tokens saved</span>
           </div>
           <div style={{ display: 'flex', fontSize: 48, marginTop: 8 }}>
@@ -142,7 +142,7 @@ function urlVariant(host: string, urlParam: string, tokensSaved: number) {
       {tokensSaved > 0 && (
         <>
           <div style={{ display: 'flex', fontSize: 48, marginTop: 8 }}>
-            <span style={{ color: teal }}>{formatNumber(tokensSaved)}</span>
+            <span style={{ color: teal }}>{tokensSaved.toLocaleString()}</span>
             <span style={{ color: '#a1a1a1' }}>{'\u00a0'}tokens saved</span>
           </div>
           <div style={{ display: 'flex', fontSize: 48, marginTop: 8 }}>

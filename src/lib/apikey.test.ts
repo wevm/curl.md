@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import * as ApiKey from '#lib/api-key.ts'
+import * as ApiKey from '#lib/apikey.ts'
 
 test('returns 64-char hex string', async () => {
   const result = await ApiKey.hash('curl_test123')

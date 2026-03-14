@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { formatCost, formatNumber } from '#lib/format.ts'
+import { formatCost } from '#lib/format.ts'
 
 test('formatCost returns 2 decimal places for costs >= $0.01', () => {
   expect(formatCost(1_000_000, 3)).toBe('3.00')
@@ -11,10 +11,4 @@ test('formatCost returns trimmed 4 decimal places for costs < $0.01', () => {
   expect(formatCost(1000, 3)).toBe('0.0030')
   expect(formatCost(100, 3)).toBe('0.0003')
   expect(formatCost(0, 3)).toBe('0.0')
-})
-
-test('formatNumber formats with commas', () => {
-  expect(formatNumber(0)).toBe('0')
-  expect(formatNumber(1234)).toBe('1,234')
-  expect(formatNumber(1_000_000)).toBe('1,000,000')
 })
