@@ -22,9 +22,9 @@ export default defineConfig({
       {
         test: {
           name: 'cli',
-          globalSetup: ['test/cli.globalSetup.ts'],
-          setupFiles: ['test/cli.setup.ts'],
-          hookTimeout: 120_000,
+          globalSetup: ['cli/test/globalSetup.ts'],
+          setupFiles: ['cli/test/setup.ts'],
+          hookTimeout: 60_000,
           include: ['cli/src/**/*.test.ts'],
           root,
           testTimeout: 30_000,
@@ -32,7 +32,9 @@ export default defineConfig({
       },
       {
         define: { __HOST__: JSON.stringify('curl.local') },
-        resolve: { alias: aliases },
+        resolve: {
+          alias: aliases,
+        },
         plugins: [
           cloudflareTest(async (config) => {
             const env = Env.parse(config.inject('env'))

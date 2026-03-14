@@ -1,6 +1,7 @@
 import { hc } from 'hono/client'
 import { Kysely } from 'kysely'
 import {
+  afterAll,
   beforeEach,
   describe,
   expect,
@@ -31,6 +32,7 @@ const env = Env.parse(inject('env'))
 const client = hc<typeof api>(env.CURLMD_BASE_URL)
 const db = new Kysely<DB>({ dialect: dialect(env.DB_URL) })
 const factory = createFactory(db)
+afterAll(() => db.destroy())
 
 let home: ReturnType<typeof useTempHome>
 beforeEach(() => {
