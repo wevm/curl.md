@@ -41,7 +41,7 @@ export default defineConfig({
             return {
               miniflare: {
                 bindings: env,
-                compatibilityDate: '2025-09-06',
+                compatibilityDate: '2025-10-30',
                 compatibilityFlags: ['nodejs_compat'],
                 hyperdrives: { DB: env.DB_URL },
                 kvNamespaces: ['KV'],

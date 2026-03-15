@@ -1,5 +1,5 @@
 import { type Kysely, sql } from 'kysely'
-import { nanoid, now } from '../client.ts'
+import { nanoid, now } from '../utils.ts'
 
 export async function up(db: Kysely<unknown>): Promise<void> {
   await db.schema

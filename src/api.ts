@@ -11,23 +11,14 @@ import { z } from 'zod'
 import { dialect } from '#db/client.ts'
 import type { DB } from '#db/types.gen.ts'
 import * as ApiKey from '#lib/apikey.ts'
-import {
-  attribution,
-  creditAmounts,
-  modes,
-  packageName,
-  pricing,
-  sentinelValue,
-  systemPrompt,
-} from '#lib/constants.ts'
+import * as Constants from '#lib/constants.ts'
 import * as Cookie from '#lib/cookie.ts'
 import * as Crypto from '#lib/crypto.ts'
 import { invalidApiKey, narrowValidation, validationError, validator } from '#lib/hono.ts'
 import * as Nanoid from '#lib/nanoid.ts'
-import * as Og from '#lib/og.tsx'
-import { knownRoutes } from '#lib/routes.ts'
 import type { OneOf } from '#lib/types.ts'
 import * as Md from '#md/index.ts'
+import * as Og from '#og.tsx'
 
 export const api = new Hono<{
   Bindings: Cloudflare.Env
@@ -568,7 +559,7 @@ export const api = new Hono<{
         )
 
       // Fetch from npm registry
-      const res = await fetch(`https://registry.npmjs.org/${packageName}`, {
+      const res = await fetch(`https://registry.npmjs.org/${Constants.packageName}`, {
         headers: { accept: 'application/json' },
         signal: AbortSignal.timeout(5_000),
       })
@@ -640,7 +631,7 @@ export const api = new Hono<{
     validator(
       'json',
       z.object({
-        amount: z.enum(creditAmounts),
+        amount: z.enum(Constants.creditAmounts),
         locked: z.boolean().optional(),
         organization_id: z.string().optional(),
         save: z.boolean().optional(),
@@ -757,7 +748,7 @@ export const api = new Hono<{
     validator(
       'json',
       z.object({
-        amount: z.enum(creditAmounts),
+        amount: z.enum(Constants.creditAmounts),
         organization_id: z.string().optional(),
       }),
     ),
@@ -950,7 +941,7 @@ export const api = new Hono<{
     const rl = await rateLimit(c.env.KV, c.executionCtx, {
       ip: c.req.header('cf-connecting-ip') ?? 'unknown',
       key: 'og',
-      max: 10,
+      max: import.meta.env.DEV ? 60 : 30,
       window: 60,
     })
     if (rl.error)
@@ -960,24 +951,7 @@ export const api = new Hono<{
 
     const query = c.req.valid('query')
     try {
-      const element = await Og.getElement(c.env.HOST, c.env, c.var.db, query)
-      const [font, fontBold] = await Promise.all([
-        Og.loadFont(c.req.raw, c.env, '/fonts/GeistMono-Regular.ttf'),
-        Og.loadFont(c.req.raw, c.env, '/fonts/GeistMono-Black.ttf'),
-      ])
-      const { ImageResponse } = await import('workers-og')
-      return new ImageResponse(element, {
-        fonts: [
-          { data: font, name: 'Geist Mono', style: 'normal', weight: 400 },
-          { data: fontBold, name: 'Geist Mono', style: 'normal', weight: 900 },
-        ],
-        format: 'png',
-        headers: {
-          'cache-control': query.page === 'url' ? 'public, max-age=3600' : 'public, max-age=300',
-        },
-        height: 630,
-        width: 1200,
-      })
+      return await Og.render(c.req.raw, c.env, c.var.db, query)
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error'
       return c.json({ error: 'og_generation_failed', message }, 500)
@@ -1043,7 +1017,7 @@ export const api = new Hono<{
 
       const json = c.req.valid('json')
       const reservedLogins = new Set([
-        ...knownRoutes,
+        ...Constants.knownRoutes,
         'account',
         'api',
         'app',
@@ -1702,7 +1676,7 @@ export const api = new Hono<{
         return response.content
       })()
 
-      const mode = modes[query.mode]
+      const mode = Constants.modes[query.mode]
       let inputTokens = 0
       let outputTokens = 0
       let excerpt = filteredContent
@@ -1729,7 +1703,7 @@ export const api = new Hono<{
                 await c.env.AI.run(mode.model, {
                   max_tokens: 4096,
                   messages: [
-                    { role: 'system', content: systemPrompt },
+                    { role: 'system', content: Constants.systemPrompt },
                     {
                       role: 'user',
                       content: `<page_content>\n${chunk}\n</page_content>\n\nObjective: ${query.q}`,
@@ -1743,7 +1717,7 @@ export const api = new Hono<{
             const chunks = Md.chunk(filteredContent)
             const results = await Promise.all(chunks.map(extractChunk))
             const filtered = results
-              .filter((r) => r.response && r.response.trim() !== sentinelValue)
+              .filter((r) => r.response && r.response.trim() !== Constants.sentinelValue)
               .map((r) => r.response)
               .join('\n\n')
             const promptTokens = results.reduce((sum, r) => sum + r.usage.prompt_tokens, 0)
@@ -1776,9 +1750,12 @@ export const api = new Hono<{
           const cfCostMills =
             (inputTokens * mode.inputPricePerMToken + outputTokens * mode.outputPricePerMToken) /
             1000
-          return pricing.queryBaseCostMills + Math.ceil(cfCostMills * pricing.queryMarkup)
+          return (
+            Constants.pricing.queryBaseCostMills +
+            Math.ceil(cfCostMills * Constants.pricing.queryMarkup)
+          )
         }
-        return pricing.fetchCostMills
+        return Constants.pricing.fetchCostMills
       })()
 
       const requestId = Nanoid.generate()
@@ -1802,7 +1779,7 @@ export const api = new Hono<{
 
       const content = c.var.session
         ? markdown.trimEnd()
-        : `${markdown.trimEnd()}${attribution.suffix}`
+        : `${markdown.trimEnd()}${Constants.attribution.suffix}`
       const commonHeaders: Record<string, string> = {
         ...rateLimitHeaders,
         'access-control-expose-headers':

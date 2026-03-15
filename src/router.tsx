@@ -1,6 +1,6 @@
 import * as Sentry from '@sentry/react'
 import { createRouter } from '@tanstack/react-router'
-import { knownRoutes, routes } from '#lib/routes.ts'
+import { knownRoutes, routes } from '#lib/constants.ts'
 import { rpc } from '#lib/rpc.ts'
 import type { FileRoutesByTo } from './routeTree.gen'
 import { routeTree } from './routeTree.gen'

@@ -1,4 +1,4 @@
-import { type Expression, Kysely, sql } from 'kysely'
+import { Kysely } from 'kysely'
 import { PostgresJSDialect } from 'kysely-postgres-js'
 import postgres from 'postgres'
 import type { DB } from '#db/types.gen.ts'
@@ -15,16 +15,4 @@ export function dialect(url: string, options?: { max?: number }) {
       ...(options?.max !== undefined && { max: options.max }),
     }),
   })
-}
-
-export function lower(expr: Expression<string | null>) {
-  return sql<string>`lower(${expr})`
-}
-
-export function nanoid() {
-  return sql<string>`nanoid()`
-}
-
-export function now() {
-  return sql<Date>`now()`
 }

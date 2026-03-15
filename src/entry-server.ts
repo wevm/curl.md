@@ -7,10 +7,7 @@ import { createClient } from '#db/client.ts'
 import { processRequestMessage } from '#queues/request.ts'
 import { processStripeWebhookMessage } from '#queues/stripe-webhook.ts'
 
-export default Sentry.withSentry<
-  Env,
-  processRequestMessage.Body | processStripeWebhookMessage.Body
->(
+export default Sentry.withSentry<Env, QueueHandlerMessage>(
   (env) => ({
     dsn: env.SENTRY_DSN,
     tracesSampleRate: 0.01,
@@ -92,6 +89,8 @@ export default Sentry.withSentry<
     },
   },
 )
+
+type QueueHandlerMessage = processRequestMessage.Body | processStripeWebhookMessage.Body
 
 declare module '@tanstack/react-start' {
   interface Register {

@@ -1,6 +1,10 @@
 packages:
   - cli
 
+auditConfig:
+  ignoreGhsas:
+    - GHSA-6cpc-mj5c-m9rq # false positive — matches npm "cli" package, not our "curl.md" workspace
+
 minimumReleaseAge: 1440
 
 minimumReleaseAgeExclude:
@@ -21,3 +25,6 @@ trustPolicyExclude:
   - '@tailwindcss/vite@0.0.0-insiders.a4be983'
   - semver@6.3.1
   - tailwindcss@0.0.0-insiders.a4be983
+
+catalog:
+  hono: ^4.12.7

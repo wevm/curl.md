@@ -35,7 +35,7 @@
     "pkg:publish": "pnpm pkg:format && pnpm changeset publish && node --experimental-strip-types scripts/restorePackageJson.ts"
   },
   "dependencies": {
-    "hono": "^4.12.2",
+    "hono": "catalog:",
     "incur": "0.3.3",
     "picocolors": "^1.1.1"
   },

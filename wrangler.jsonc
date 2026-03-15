@@ -2,7 +2,7 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "curl",
   "main": "src/entry-server.ts",
-  "compatibility_date": "2025-09-06",
+  "compatibility_date": "2025-10-30",
   "compatibility_flags": ["nodejs_compat", "no_handle_cross_request_promise_resolution"],
   "assets": {
     "binding": "ASSETS",
@@ -14,6 +14,7 @@
   "preview_urls": false,
   "ai": {
     "binding": "AI",
+    "remote": true,
   },
   "hyperdrive": [
     {

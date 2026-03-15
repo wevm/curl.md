@@ -5,6 +5,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, test } from 'vitest'
 
+const bunBin = join(import.meta.dirname, '..', 'node_modules', '.bin', 'bun')
+
 function exec(
   cmd: string,
   args: string[],
@@ -31,7 +33,13 @@ describe('bun build --compile', () => {
     dir = await mkdtemp(join(tmpdir(), 'curl-md-bun-'))
     bin = join(dir, 'curl-md')
 
-    await exec('bun', ['build', join(import.meta.dirname, 'bin.ts'), '--compile', '--outfile', bin])
+    await exec(bunBin, [
+      'build',
+      join(import.meta.dirname, 'bin.ts'),
+      '--compile',
+      '--outfile',
+      bin,
+    ])
   }, 120_000)
 
   afterAll(async () => {
