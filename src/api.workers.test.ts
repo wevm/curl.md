@@ -1,29 +1,25 @@
 import assert from 'node:assert'
 import { env } from 'cloudflare:workers'
 import { testClient } from 'hono/testing'
-import { Kysely } from 'kysely'
 import { HttpResponse, http } from 'msw'
 import { afterAll, afterEach, describe, expect, test, vi } from 'vitest'
 import { api } from '#api.ts'
-import { dialect } from '#db/client.ts'
-import type { DB } from '#db/types.gen.ts'
-import * as ApiKey from '#lib/apikey.ts'
+import { createClient } from '#db/client.ts'
+import * as ApiKey from '#lib/apiKey.ts'
 import * as Cookie from '#lib/cookie.ts'
 import * as Crypto from '#lib/crypto.ts'
 import * as Nanoid from '#lib/nanoid.ts'
 import { createFactory } from '#test/factory.ts'
 import { server } from '#test/server.ts'
 
+const db = createClient(env.DB.connectionString)
+const factory = createFactory(db)
+
 const client = testClient(api, env, {
   waitUntil: vi.fn((p: Promise<unknown>) => p),
   passThroughOnException: vi.fn(),
   props: {},
 })
-// Workers tests use D1 via miniflare; env.DB is a Hyperdrive stub with connectionString
-const db = new Kysely<DB>({
-  dialect: dialect(env.DB.connectionString, { max: 1 }),
-})
-const factory = createFactory(db)
 
 afterAll(() => db.destroy())
 
@@ -451,19 +447,17 @@ describe('GET /api/auth/me', () => {
       organization_id: org.id,
       account_id: account.id,
     })
-    const hash = await ApiKey.hash('curl_test123456')
+    const token = ApiKey.generate()
+    const hash = await ApiKey.hash(token)
     await factory.api_key.insert({
       organization_id: org.id,
       account_id: account.id,
       key_hash: hash,
-      key_prefix: 'curl_test',
+      key_prefix: token.slice(0, 14),
       name: 'test key',
     })
 
-    const res = await client.api.auth.me.$get(
-      {},
-      { headers: { Authorization: 'Bearer curl_test123456' } },
-    )
+    const res = await client.api.auth.me.$get({}, { headers: { Authorization: `Bearer ${token}` } })
     expect(res.status).toBe(200)
     const json = await res.json()
     expect(json.account).not.toBeNull()
@@ -477,20 +471,18 @@ describe('GET /api/auth/me', () => {
       organization_id: org.id,
       account_id: account.id,
     })
-    const hash = await ApiKey.hash('curl_deleted789')
+    const token = ApiKey.generate()
+    const hash = await ApiKey.hash(token)
     await factory.api_key.insert({
       organization_id: org.id,
       account_id: account.id,
       key_hash: hash,
-      key_prefix: 'curl_dele',
+      key_prefix: token.slice(0, 14),
       name: 'deleted key',
       deleted_at: new Date().toISOString(),
     })
 
-    const res = await client.api.auth.me.$get(
-      {},
-      { headers: { Authorization: 'Bearer curl_deleted789' } },
-    )
+    const res = await client.api.auth.me.$get({}, { headers: { Authorization: `Bearer ${token}` } })
     expect(res.status).toBe(401)
     await expect(res.json()).resolves.toEqual({ error: 'invalid_api_key' })
   })
@@ -502,16 +494,17 @@ describe('GET /api/auth/me', () => {
       organization_id: org.id,
       account_id: account.id,
     })
-    const hash = await ApiKey.hash('curl_lastused999')
+    const token = ApiKey.generate()
+    const hash = await ApiKey.hash(token)
     const apiKey = await factory.api_key.insert({
       organization_id: org.id,
       account_id: account.id,
       key_hash: hash,
-      key_prefix: 'curl_last',
+      key_prefix: token.slice(0, 14),
       name: 'lastused key',
     })
 
-    await client.api.auth.me.$get({}, { headers: { Authorization: 'Bearer curl_lastused999' } })
+    await client.api.auth.me.$get({}, { headers: { Authorization: `Bearer ${token}` } })
 
     const updated = await db
       .selectFrom('api_key')
@@ -587,7 +580,7 @@ describe('GET /api/credits', () => {
     const account = await factory.account.insert({})
     await db
       .updateTable('account')
-      .set({ stripe_customer_id: 'cus_test_pm' })
+      .set({ stripe_customer_id: `cus_${Nanoid.generate()}` })
       .where('id', '=', account.id)
       .execute()
     const session = await factory.session.insert({ account_id: account.id })
@@ -626,7 +619,7 @@ describe('GET /api/credits', () => {
     const account = await factory.account.insert({})
     await db
       .updateTable('account')
-      .set({ stripe_customer_id: 'cus_test_empty' })
+      .set({ stripe_customer_id: `cus_${Nanoid.generate()}` })
       .where('id', '=', account.id)
       .execute()
     const session = await factory.session.insert({ account_id: account.id })
@@ -713,7 +706,7 @@ describe('POST /api/credits/add', () => {
     const account = await factory.account.insert({})
     await db
       .updateTable('account')
-      .set({ stripe_customer_id: 'cus_save_test' })
+      .set({ stripe_customer_id: `cus_${Nanoid.generate()}` })
       .where('id', '=', account.id)
       .execute()
     const session = await factory.session.insert({ account_id: account.id })
@@ -799,7 +792,7 @@ describe('POST /api/credits/charge', () => {
     const account = await factory.account.insert({})
     await db
       .updateTable('account')
-      .set({ stripe_customer_id: 'cus_test_no_cards' })
+      .set({ stripe_customer_id: `cus_${Nanoid.generate()}` })
       .where('id', '=', account.id)
       .execute()
     const session = await factory.session.insert({ account_id: account.id })
@@ -826,7 +819,7 @@ describe('POST /api/credits/charge', () => {
     const account = await factory.account.insert({})
     await db
       .updateTable('account')
-      .set({ stripe_customer_id: 'cus_test_charge' })
+      .set({ stripe_customer_id: `cus_${Nanoid.generate()}` })
       .where('id', '=', account.id)
       .execute()
     const session = await factory.session.insert({ account_id: account.id })
@@ -866,7 +859,7 @@ describe('POST /api/credits/charge', () => {
     const account = await factory.account.insert({})
     await db
       .updateTable('account')
-      .set({ stripe_customer_id: 'cus_test_3ds' })
+      .set({ stripe_customer_id: `cus_${Nanoid.generate()}` })
       .where('id', '=', account.id)
       .execute()
     const session = await factory.session.insert({ account_id: account.id })
@@ -2063,6 +2056,48 @@ describe('POST /api/invites/:token/accept', () => {
     expect(res.status).toBe(404)
   })
 
+  test('does not exceed max_uses under concurrent accepts', async () => {
+    const owner = await factory.account.insert({})
+    const org = await factory.organization.insert({})
+    await factory.organization_member.insert({
+      organization_id: org.id,
+      account_id: owner.id,
+      role: 'owner',
+    })
+    const invite = await factory.organization_invite.insert({
+      organization_id: org.id,
+      created_by: owner.id,
+      max_uses: 2,
+    })
+
+    const joiners = await factory.account.insert({}, {}, {}, {})
+    const sessions = await factory.session.insert(...joiners.map((j) => ({ account_id: j.id })))
+
+    const results = await Promise.all(
+      sessions.map(async (session) => {
+        const res = await client.api.invites[':token'].accept.$post(
+          { param: { token: invite.token } },
+          {
+            headers: {
+              Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
+            },
+          },
+        )
+        return res.status
+      }),
+    )
+
+    const successes = results.filter((s) => s === 200)
+    expect(successes.length).toBeLessThanOrEqual(2)
+
+    const updated = await db
+      .selectFrom('organization_invite')
+      .where('id', '=', invite.id)
+      .select('use_count')
+      .executeTakeFirstOrThrow()
+    expect(updated.use_count).toBeLessThanOrEqual(2)
+  })
+
   test('returns 409 when already a member', async () => {
     const owner = await factory.account.insert({})
     const org = await factory.organization.insert({})
@@ -2154,6 +2189,27 @@ describe('POST /api/orgs/:id/invites', () => {
 
     const res = await client.api.orgs[':id'].invites.$post(
       { param: { id: org.id }, json: {} },
+      {
+        headers: {
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
+        },
+      },
+    )
+    expect(res.status).toBe(403)
+  })
+
+  test('returns 403 when admin creates admin invite', async () => {
+    const account = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: account.id })
+    const org = await factory.organization.insert({})
+    await factory.organization_member.insert({
+      organization_id: org.id,
+      account_id: account.id,
+      role: 'admin',
+    })
+
+    const res = await client.api.orgs[':id'].invites.$post(
+      { param: { id: org.id }, json: { role: 'admin' } },
       {
         headers: {
           Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
@@ -3190,5 +3246,45 @@ describe('POST /api/stripe/webhook', () => {
     )
     expect(res.status).toBe(200)
     await expect(res.json()).resolves.toEqual({ received: true })
+  })
+})
+
+describe('POST /api/sentry/tunnel', () => {
+  test('returns 400 for invalid envelope', async () => {
+    const res = await api.request('/api/sentry/tunnel', { method: 'POST', body: 'no-newline' }, env)
+    expect(res.status).toBe(400)
+    await expect(res.json()).resolves.toEqual({ error: 'invalid_envelope' })
+  })
+
+  test('forwards envelope to sentry', async () => {
+    server.use(
+      http.post('https://o123.ingest.us.sentry.io/api/456/envelope/', () =>
+        HttpResponse.json({ id: 'ok' }),
+      ),
+    )
+
+    const res = await api.request(
+      '/api/sentry/tunnel',
+      { method: 'POST', body: 'header\npayload' },
+      env,
+    )
+    expect(res.status).toBe(200)
+    await expect(res.json()).resolves.toEqual({ ok: true })
+  })
+
+  test('returns 502 on upstream error', async () => {
+    server.use(
+      http.post('https://o123.ingest.us.sentry.io/api/456/envelope/', () =>
+        HttpResponse.json({ error: 'rate_limited' }, { status: 429 }),
+      ),
+    )
+
+    const res = await api.request(
+      '/api/sentry/tunnel',
+      { method: 'POST', body: 'header\npayload' },
+      env,
+    )
+    expect(res.status).toBe(502)
+    await expect(res.json()).resolves.toEqual({ error: 'sentry_upstream_error' })
   })
 })

@@ -1,6 +1,27 @@
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
 import { expect, test } from 'vitest'
 import { create } from '../mod.ts'
 import { githubBlob, githubIssue, githubPr, githubRepo } from './github.ts'
+
+const issueFixture = readFileSync(
+  path.resolve(import.meta.dirname, '__fixtures__/github-issue-2908.html'),
+  'utf8',
+)
+
+test('extract produces expected output for issue HTML', async () => {
+  const md = create({
+    rules: [githubIssue()],
+    fetch: async () => new Response(issueFixture, { status: 200 }),
+  })
+  const result = await md.fetch('https://github.com/wevm/viem/issues/2908')
+  expect(result.ok).toBe(true)
+  if (!result.ok) return
+  await expect(result.content).toMatchFileSnapshot('__snapshots__/github-issue-2908.md')
+  expect(result.meta.title).toBe('feat: add lavita chain')
+  expect(result.meta.author).toBe('qi-0826')
+  expect(result.meta.number).toBe(2908)
+})
 
 test('githubRepo rewrites to raw README.md', () => {
   const rule = githubRepo()

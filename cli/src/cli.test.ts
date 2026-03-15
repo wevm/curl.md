@@ -1,5 +1,5 @@
 import { hc } from 'hono/client'
-import { beforeAll, beforeEach, describe, expect, inject, onTestFinished, test, vi } from 'vitest'
+import { afterAll, beforeEach, describe, expect, inject, onTestFinished, test, vi } from 'vitest'
 import type { api } from '#api.ts'
 import { createClient } from '#db/client.ts'
 import * as Nanoid from '#lib/nanoid.ts'
@@ -21,14 +21,12 @@ const client = hc<typeof api>(env.CURLMD_BASE_URL)
 const db = createClient(env.DB_URL)
 const factory = createFactory(db)
 
-beforeAll(() => {
-  return () => db.destroy()
-})
-
 beforeEach(() => {
   const tmp = useTmp()
   return () => tmp.cleanup()
 })
+
+afterAll(() => db.destroy())
 
 test('version', async () => {
   const { output } = await serve(['--version'])

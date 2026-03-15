@@ -1,6 +1,30 @@
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
 import { expect, test } from 'vitest'
 import { create } from '../mod.ts'
 import { githubDocs } from './github-docs.ts'
+
+const fixture = readFileSync(
+  path.resolve(import.meta.dirname, '__fixtures__/github-docs-actions.json'),
+  'utf8',
+)
+
+test('extract produces expected output for actions', async () => {
+  const md = create({
+    rules: [githubDocs()],
+    fetch: async () =>
+      new Response(fixture, {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+  })
+  const result = await md.fetch('https://docs.github.com/actions')
+  expect(result.ok).toBe(true)
+  if (!result.ok) return
+  await expect(result.content).toMatchFileSnapshot('__snapshots__/github-docs-actions.md')
+  expect(result.meta.title).toBe('GitHub Actions documentation')
+  expect(result.meta.description).toContain('Automate, customize, and execute')
+})
 
 test('githubDocs rewrites to API with /en prefix', () => {
   const rule = githubDocs()

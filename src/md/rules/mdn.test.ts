@@ -8,10 +8,6 @@ const fixture = readFileSync(
   path.resolve(import.meta.dirname, '__fixtures__/mdn-array-map.md'),
   'utf8',
 )
-const snapshot = readFileSync(
-  path.resolve(import.meta.dirname, '__snapshots__/mdn-array-map.md'),
-  'utf8',
-)
 
 // Rewrite tests
 
@@ -56,7 +52,7 @@ test('extract produces expected output for Array.prototype.map', async () => {
   )
   expect(result.ok).toBe(true)
   if (!result.ok) return
-  expect(result.content).toBe(snapshot.trimEnd())
+  await expect(result.content).toMatchFileSnapshot('__snapshots__/mdn-array-map.md')
   expect(result.meta.title).toBe('Array.prototype.map()')
 })
 

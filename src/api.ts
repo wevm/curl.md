@@ -10,7 +10,7 @@ import { stringify as yamlStringify } from 'yaml'
 import { z } from 'zod'
 import { dialect } from '#db/client.ts'
 import type { DB } from '#db/types.gen.ts'
-import * as ApiKey from '#lib/apikey.ts'
+import * as ApiKey from '#lib/apiKey.ts'
 import * as Constants from '#lib/constants.ts'
 import * as Cookie from '#lib/cookie.ts'
 import * as Crypto from '#lib/crypto.ts'
@@ -591,7 +591,7 @@ export const api = new Hono<{
   .get('/api/credits', async (c) => {
     if (!c.var.session) return c.json({ error: 'unauthorized' }, 401)
 
-    const organizationId = c.req.header('x-organization-id')
+    const organizationId = c.var.organization_id
 
     if (organizationId) {
       const member = await c.var.db
@@ -898,13 +898,15 @@ export const api = new Hono<{
   .post('/api/invites/:token/accept', async (c) => {
     if (!c.var.session) return c.json({ error: 'unauthorized' }, 401)
 
+    // Atomically claim a use slot — prevents racing past max_uses
     const invite = await c.var.db
-      .selectFrom('organization_invite')
+      .updateTable('organization_invite')
+      .set({ use_count: sql`use_count + 1` })
       .where('token', '=', c.req.param('token'))
       .where('deleted_at', 'is', null)
       .where('expires_at', '>', new Date())
       .where((eb) => eb.or([eb('max_uses', 'is', null), eb('use_count', '<', eb.ref('max_uses'))]))
-      .select(['organization_id', 'role'])
+      .returning(['organization_id', 'role'])
       .executeTakeFirst()
     if (!invite) return c.json({ error: 'not_found' }, 404)
 
@@ -918,14 +920,15 @@ export const api = new Hono<{
       .onConflict((oc) => oc.columns(['organization_id', 'account_id']).doNothing())
       .returning('id')
       .executeTakeFirst()
-    if (!inserted) return c.json({ error: 'already_member' }, 409)
-
-    await c.var.db
-      .updateTable('organization_invite')
-      .set({ use_count: sql`use_count + 1` })
-      .where('token', '=', c.req.param('token'))
-      .where((eb) => eb.or([eb('max_uses', 'is', null), eb('use_count', '<', eb.ref('max_uses'))]))
-      .execute()
+    if (!inserted) {
+      // Roll back the use_count since the user was already a member
+      await c.var.db
+        .updateTable('organization_invite')
+        .set({ use_count: sql`use_count - 1` })
+        .where('token', '=', c.req.param('token'))
+        .execute()
+      return c.json({ error: 'already_member' }, 409)
+    }
 
     const organization = await c.var.db
       .selectFrom('organization')
@@ -1084,11 +1087,13 @@ export const api = new Hono<{
         .where('organization_id', '=', c.req.param('id'))
         .where('account_id', '=', c.var.session.account_id)
         .where('role', 'in', ['owner', 'admin'])
-        .select('id')
+        .select(['id', 'role'])
         .executeTakeFirst()
       if (!member) return c.json({ error: 'forbidden' }, 403)
 
       const json = c.req.valid('json')
+      if (member.role === 'admin' && json.role === 'admin')
+        return c.json({ error: 'forbidden' }, 403)
       const token = customAlphabet('0123456789abcdefghijklmnopqrstuvwxyz', 32)()
       const expires_at = new Date(Date.now() + (json.expires_in ?? 604800) * 1000)
 
@@ -1452,19 +1457,16 @@ export const api = new Hono<{
   })
   .post('/api/sentry/tunnel', async (c) => {
     const body = await c.req.text()
-    const header = body.split('\n')[0]
-    if (!header) return c.json({ error: 'invalid_envelope' }, 400)
-    const dsn = JSON.parse(header).dsn as string | undefined
-    if (!dsn) return c.json({ error: 'missing_dsn' }, 400)
-    const url = new URL(dsn)
-    const project = url.pathname.replace(/^\//, '')
-    const sentryUrl = `https://${url.hostname}/api/${project}/envelope/`
-    const res = await fetch(sentryUrl, {
+    if (!body.includes('\n')) return c.json({ error: 'invalid_envelope' }, 400)
+    const dsn = new URL(c.env.SENTRY_DSN)
+    const project = dsn.pathname.replace(/^\//, '')
+    const res = await fetch(`https://${dsn.hostname}/api/${project}/envelope/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-sentry-envelope' },
       body,
     })
-    return c.json({ ok: true }, res.ok ? 200 : 502)
+    if (!res.ok) return c.json({ error: 'sentry_upstream_error' }, 502)
+    return c.json({ ok: true }, 200)
   })
   .get(
     '/api/:url{.+}',

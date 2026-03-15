@@ -12,6 +12,8 @@
     "**/dist",
     "src/routeTree.gen.ts",
     "src/auto-imports.d.ts",
-    "**/worker-configuration.d.ts"
+    "**/worker-configuration.d.ts",
+    "**/__snapshots__",
+    "**/__fixtures__"
   ]
 }

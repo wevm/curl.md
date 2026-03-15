@@ -10,6 +10,9 @@ catalogs:
       specifier: ^4.12.7
       version: 4.12.7
 
+overrides:
+  undici: '>=7.24.0'
+
 importers:
 
   .:
@@ -4398,12 +4401,8 @@ packages:
   undici-types@7.18.2:
     resolution: {integrity: sha512-AsuCzffGHJybSaRrmr5eHr81mwJU3kjw6M+uprWvCXiNeN9SOGwQ3Jn8jb8m3Z6izVgknn1R0FTCEAP2QrLY/w==}
 
-  undici@7.18.2:
-    resolution: {integrity: sha512-y+8YjDFzWdQlSE9N5nzKMT3g4a5UBX1HKowfdXh0uvAnTaqqwqB92Jt4UXBAeKekDs5IaDKyJFR4X1gYVCgXcw==}
-    engines: {node: '>=20.18.1'}
-
-  undici@7.22.0:
-    resolution: {integrity: sha512-RqslV2Us5BrllB+JeiZnK4peryVTndy9Dnqq62S3yYRRTj0tFQCwEniUy2167skdGOy3vqRzEvl1Dm4sV2ReDg==}
+  undici@7.24.1:
+    resolution: {integrity: sha512-5xoBibbmnjlcR3jdqtY2Lnx7WbrD/tHlT01TmvqZUFVc9Q1w4+j5hbnapTqbcXITMH1ovjq/W7BkqBilHiVAaA==}
     engines: {node: '>=20.18.1'}
 
   unenv@2.0.0-rc.24:
@@ -6776,7 +6775,7 @@ snapshots:
       parse5: 7.3.0
       parse5-htmlparser2-tree-adapter: 7.1.0
       parse5-parser-stream: 7.1.2
-      undici: 7.22.0
+      undici: 7.24.1
       whatwg-mimetype: 4.0.0
 
   chokidar@3.6.0:
@@ -8119,7 +8118,7 @@ snapshots:
     dependencies:
       '@cspotcode/source-map-support': 0.8.1
       sharp: 0.34.5
-      undici: 7.18.2
+      undici: 7.24.1
       workerd: 1.20260312.1
       ws: 8.18.0
       youch: 4.1.0-beta.10
@@ -8131,7 +8130,7 @@ snapshots:
     dependencies:
       '@cspotcode/source-map-support': 0.8.1
       sharp: 0.34.5
-      undici: 7.18.2
+      undici: 7.24.1
       workerd: 1.20260312.1
       ws: 8.18.0
       youch: 4.1.0-beta.10
@@ -8981,7 +8980,7 @@ snapshots:
       ssh-remote-port-forward: 1.0.4
       tar-fs: 3.1.1
       tmp: 0.2.5
-      undici: 7.22.0
+      undici: 7.24.1
     transitivePeerDependencies:
       - bare-abort-controller
       - bare-buffer
@@ -9074,9 +9073,7 @@ snapshots:
 
   undici-types@7.18.2: {}
 
-  undici@7.18.2: {}
-
-  undici@7.22.0: {}
+  undici@7.24.1: {}
 
   unenv@2.0.0-rc.24:
     dependencies:

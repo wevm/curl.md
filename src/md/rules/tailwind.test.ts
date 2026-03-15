@@ -1,6 +1,26 @@
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
 import { expect, test } from 'vitest'
 import { create } from '../mod.ts'
 import { tailwind } from './tailwind.ts'
+
+const fixture = readFileSync(
+  path.resolve(import.meta.dirname, '__fixtures__/tailwind-padding.html'),
+  'utf8',
+)
+
+test('extract produces expected output for padding', async () => {
+  const md = create({
+    rules: [tailwind()],
+    fetch: async () => new Response(fixture, { status: 200 }),
+  })
+  const result = await md.fetch('https://tailwindcss.com/docs/padding')
+  expect(result.ok).toBe(true)
+  if (!result.ok) return
+  await expect(result.content).toMatchFileSnapshot('__snapshots__/tailwind-padding.md')
+  expect(result.meta.title).toBe('padding - Spacing - Tailwind CSS')
+  expect(result.meta.description).toBe("Utilities for controlling an element's padding.")
+})
 
 test('unhides hidden tbody rows', async () => {
   const html = `<html><head>

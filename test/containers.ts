@@ -4,6 +4,7 @@ import { PostgreSqlContainer } from '@testcontainers/postgresql'
 
 export async function startDatabase() {
   const container = await new PostgreSqlContainer('postgres:17-alpine')
+    .withCommand(['-c', 'max_connections=500'])
     .withExposedPorts(5432)
     .start()
 
