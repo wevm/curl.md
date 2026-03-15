@@ -2,6 +2,16 @@ packages:
   - cli
 
 auditConfig:
+  # undici WebSocket client CVEs in miniflare (dev-only, no production impact).
+  # Cannot override undici>=7.24.0 — it breaks miniflare's fetch (POST + 401 → 500).
+  # Remove once miniflare ships with undici >=7.24.0 as a direct dependency.
+  ignoreCves:
+    - CVE-2026-1525
+    - CVE-2026-1526
+    - CVE-2026-1527
+    - CVE-2026-1528
+    - CVE-2026-2229
+    - CVE-2026-2581
   ignoreGhsas:
     - GHSA-6cpc-mj5c-m9rq # false positive — matches npm "cli" package, not our "curl.md" workspace
 
@@ -25,9 +35,6 @@ trustPolicyExclude:
   - '@tailwindcss/vite@0.0.0-insiders.a4be983'
   - semver@6.3.1
   - tailwindcss@0.0.0-insiders.a4be983
-
-overrides:
-  undici: '>=7.24.0'
 
 catalog:
   hono: ^4.12.7

@@ -363,7 +363,7 @@ export const api = new Hono<{
           return { accountId, sessionId: session.id }
         })
       } catch (error) {
-        console.error('OAuth callback error:', error)
+        Sentry.captureException(error)
         errorUrl.searchParams.set('error', 'server_error')
         errorUrl.searchParams.set('error_description', 'Something went wrong creating your account')
         return c.redirect(errorUrl.toString())
@@ -1473,12 +1473,6 @@ export const api = new Hono<{
               normalize: true,
               protocol: /^https?$/,
             }),
-          )
-          .refine(
-            (url) =>
-              !/\.(action|aspx?|cgi|css|eot|gif|html?|ico|jpe?g|json|jsx?|map|php|png|svg|tsx?|ttf|webp|woff2?|xml|ya?ml)$/i.test(
-                new URL(url).hostname,
-              ),
           ),
       }),
     ),

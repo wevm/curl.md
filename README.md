@@ -73,6 +73,7 @@ Secrets are managed via [GitHub Environments](https://docs.github.com/en/actions
    - **Account** → **Hyperdrive** → **Edit**
    - **Account** → **Workers KV Storage** → **Edit**
    - **Account** → **Workers Scripts** → **Edit**
+   - **Zone** → **Zone WAF** → **Edit**
    - **Zone** → **Workers Routes** → **Edit**
 5. Set Account Resources to your account
 6. Set Zone Resources to your domain (e.g., `curl.md`)
