@@ -1,14 +1,15 @@
+import { Octokit } from '@octokit/core'
 import * as Sentry from '@sentry/cloudflare'
 import { Hono } from 'hono'
 import { html, raw } from 'hono/html'
 import { Kysely, sql } from 'kysely'
 import { jsonArrayFrom } from 'kysely/helpers/postgres'
 import { customAlphabet } from 'nanoid'
-import type Stripe from 'stripe'
+import Stripe from 'stripe'
 import { estimateTokenCount } from 'tokenx'
 import { stringify as yamlStringify } from 'yaml'
 import { z } from 'zod'
-import { dialect } from '#db/client.ts'
+import { createClient } from '#db/client.ts'
 import type { DB } from '#db/types.gen.ts'
 import * as ApiKey from '#lib/apiKey.ts'
 import * as Constants from '#lib/constants.ts'
@@ -34,12 +35,7 @@ export const api = new Hono<{
     return c.json({ error: 'internal_error' }, 500)
   })
   .use(async (c, next) => {
-    c.set(
-      'db',
-      new Kysely<DB>({
-        dialect: dialect(c.env.DB.connectionString),
-      }),
-    )
+    c.set('db', createClient(c.env.DB.connectionString))
 
     c.set('api_key_id', null)
     c.set('organization_id', null)
@@ -230,7 +226,6 @@ export const api = new Hono<{
         return c.redirect(errorUrl.toString())
       }
 
-      const { Octokit } = await import('@octokit/core')
       const octokit = new Octokit({ auth: tokenData.access_token })
       const [userRes, emailsRes] = await Promise.all([
         octokit.request('GET /user').catch((e: Error) => e),
@@ -613,7 +608,6 @@ export const api = new Hono<{
 
     let method: Pick<Stripe.PaymentMethod.Card, 'brand' | 'last4'> | null = null
     if (billing.stripe_customer_id) {
-      const { default: Stripe } = await import('stripe')
       const stripe = new Stripe(c.env.STRIPE_SECRET_KEY)
       const methods = await stripe.paymentMethods.list({
         customer: billing.stripe_customer_id,
@@ -665,7 +659,6 @@ export const api = new Hono<{
         .executeTakeFirst()
       if (!billing) return c.json({ error: 'not_found' }, 404)
 
-      const { default: Stripe } = await import('stripe')
       const stripe = new Stripe(c.env.STRIPE_SECRET_KEY)
 
       let stripeCustomerId = billing.stripe_customer_id
@@ -783,7 +776,6 @@ export const api = new Hono<{
       const stripeCustomerId = billing.stripe_customer_id
       if (!stripeCustomerId) return c.json({ error: 'no_payment_method' }, 400)
 
-      const { default: Stripe } = await import('stripe')
       const stripe = new Stripe(c.env.STRIPE_SECRET_KEY)
 
       const methods = await stripe.paymentMethods.list({
@@ -1384,10 +1376,9 @@ export const api = new Hono<{
     const signature = c.req.header('stripe-signature')
     if (!signature) return c.json({ error: 'missing_signature' }, 400)
 
-    const { default: Stripe } = await import('stripe')
     const stripe = new Stripe(c.env.STRIPE_SECRET_KEY)
 
-    let event: import('stripe').Stripe.Event
+    let event: Stripe.Event
     try {
       event = await stripe.webhooks.constructEventAsync(
         body,

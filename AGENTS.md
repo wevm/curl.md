@@ -26,7 +26,7 @@ App runs in Docker via `docker compose up`. Use these to debug:
 - `docker logs curl` - View app logs (add `-f` to follow)
 - `pnpm db:command "SQL"` - Run SQL against local DB
 - `docker compose exec app sh` - Shell into container
-- Use Playwright MCP to visually debug the app at `https://curl.local` (navigate, snapshot, screenshot, interact with elements, network requests, console logs)
+- Use `agent-browser` to visually debug the app at `https://curl.local` (navigate, snapshot, screenshot, interact with elements, network requests, console logs)
 
 ## API (Hono RPC)
 

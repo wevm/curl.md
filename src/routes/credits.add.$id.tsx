@@ -5,6 +5,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { env } from 'cloudflare:workers'
 import * as React from 'react'
+import Stripe from 'stripe'
 import { z } from 'zod/mini'
 import { creditAmounts } from '#lib/constants.ts'
 
@@ -161,7 +162,6 @@ const changeAmount = createServerFn({ method: 'POST' })
     if (!allowedAmounts.has(c.data.amount)) throw new Error('invalid_amount')
     const data = await env.KV.get(`payment:${c.data.id}`, 'json')
     if (!data || data.locked) throw new Error('not_found')
-    const { default: Stripe } = await import('stripe')
     const stripe = new Stripe(env.STRIPE_SECRET_KEY)
     const piId = data.pi_secret.slice(0, data.pi_secret.indexOf('_secret_'))
     await stripe.paymentIntents.update(piId, { amount: c.data.amount })

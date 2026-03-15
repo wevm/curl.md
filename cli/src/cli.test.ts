@@ -2,6 +2,7 @@ import { hc } from 'hono/client'
 import { afterAll, beforeEach, describe, expect, inject, onTestFinished, test, vi } from 'vitest'
 import type { api } from '#api.ts'
 import { createClient } from '#db/client.ts'
+import * as ApiKey from '#lib/apiKey.ts'
 import * as Nanoid from '#lib/nanoid.ts'
 import { Env } from '#test/env.ts'
 import { createFactory } from '#test/factory.ts'
@@ -418,7 +419,6 @@ describe('auth', () => {
     })
     const suffix = Nanoid.generate()
     const token = `curl_${suffix}`
-    const ApiKey = await import('#lib/apikey.ts')
     await factory.api_key.insert({
       organization_id: org.id,
       account_id: account.id,

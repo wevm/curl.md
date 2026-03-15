@@ -167,4 +167,4 @@ Preview environments use Stripe **test mode** keys so no real charges occur.
 
 ## License
 
-[FSL-1.1-MIT](LICENSE)
+[MIT](LICENSE)

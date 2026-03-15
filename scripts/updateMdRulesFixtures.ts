@@ -4,7 +4,7 @@ import path from 'node:path'
 const fixturesDir = path.resolve(import.meta.dirname, '../src/md/rules/__fixtures__')
 mkdirSync(fixturesDir, { recursive: true })
 
-const fixtures: { name: string; url: string; headers?: Record<string, string> }[] = [
+const fixtures = [
   {
     name: 'mdn-array-map.md',
     url: 'https://raw.githubusercontent.com/mdn/content/main/files/en-us/web/javascript/reference/global_objects/array/map/index.md',
@@ -26,11 +26,11 @@ const fixtures: { name: string; url: string; headers?: Record<string, string> }[
       Accept: 'text/html',
     },
   },
-]
+] satisfies { name: string; url: string; headers?: Record<string, string> }[]
 
 let failed = 0
 for (const fixture of fixtures) {
-  process.stdout.write(`Fetching ${fixture.name}...`)
+  process.stdout.write(`Fetching ${fixture.name}`)
   try {
     const res = await fetch(fixture.url, {
       headers: fixture.headers ?? {},
@@ -51,7 +51,7 @@ for (const fixture of fixtures) {
 }
 
 if (failed > 0) {
-  console.log(`\n${failed} fixture(s) failed to update.`)
+  console.log(`\n${failed} fixtures failed to update.`)
   process.exit(1)
 }
 console.log(
