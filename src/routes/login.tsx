@@ -7,11 +7,11 @@ import { createClient } from '#db/client.ts'
 import * as Cookie from '#lib/cookie.ts'
 
 export const Route = createFileRoute('/login')({
-  head: () => ({
-    meta: [{ title: `Sign In - ${__HOST__}` }],
-  }),
+  head() {
+    return { meta: [{ title: `Sign In - ${__HOST__}` }] }
+  },
   validateSearch: z.object({ next: z.string().optional() }),
-  beforeLoad: async () => {
+  async beforeLoad() {
     const login = await getSessionLogin()
     if (login) throw redirect({ to: '/~dash/$login', params: { login } })
   },

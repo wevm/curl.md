@@ -9,11 +9,11 @@ import * as Cookie from '#lib/cookie.ts'
 import { rpc } from '#lib/rpc.ts'
 
 export const Route = createFileRoute('/auth/device')({
-  head: () => ({
-    meta: [{ title: `Device Confirmation - ${__HOST__}` }],
-  }),
+  head() {
+    return { meta: [{ title: `Device Confirmation - ${__HOST__}` }] }
+  },
   validateSearch: z.object({ user_code: z.string().optional() }),
-  beforeLoad: async (context) => {
+  async beforeLoad(context) {
     const accountId = await getAccountId()
     if (!accountId) {
       const url = rpc.api.auth.github.$url({

@@ -5,19 +5,19 @@ import { rpc } from '#lib/rpc.ts'
 import type { FileRoutesByTo } from './routeTree.gen'
 import { routeTree } from './routeTree.gen'
 
-export const getRouter = () => {
+export function getRouter() {
   const router = createRouter({
     routeTree,
     context: {},
     rewrite: {
-      input: ({ url }) => {
+      input({ url }) {
         if (url.pathname.startsWith('/~dash') || url.pathname.startsWith('/api/')) return url
         const firstSegment = url.pathname.split('/')[1] ?? ''
         if (!firstSegment || knownRoutes.has(firstSegment)) return url
         url.pathname = `/~dash${url.pathname}`
         return url
       },
-      output: ({ url }) => {
+      output({ url }) {
         if (!url.pathname.startsWith('/~dash')) return undefined
         url.pathname = url.pathname.replace(/^\/~dash/, '') || '/'
         return url
@@ -42,14 +42,14 @@ export const getRouter = () => {
   return router
 }
 
-type FirstSegment<path> = path extends `/${infer segment}`
+type knownRoute = firstPathname<keyof FileRoutesByTo>
+type firstPathname<path> = path extends `/${infer segment}`
   ? segment extends `~dash/${string}`
     ? never
     : segment extends `${infer head}/${string}`
       ? head
       : segment
   : never
-type KnownRoute = FirstSegment<keyof FileRoutesByTo>
-true satisfies Exclude<KnownRoute, (typeof routes)[number]> extends never
+true satisfies Exclude<knownRoute, (typeof routes)[number]> extends never
   ? true
-  : Exclude<KnownRoute, (typeof routes)[number]>
+  : Exclude<knownRoute, (typeof routes)[number]>

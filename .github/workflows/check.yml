@@ -36,6 +36,9 @@ jobs:
       - name: Setup
         uses: ./.github/actions/setup-pnpm
 
+      - name: Audit dependencies
+        run: pnpm audit
+
       - name: Shellcheck
         run: shellcheck public/install.sh
 

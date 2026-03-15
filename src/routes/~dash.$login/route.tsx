@@ -8,7 +8,7 @@ import * as Cookie from '#lib/cookie.ts'
 import { rpc } from '#lib/rpc.ts'
 
 export const Route = createFileRoute('/~dash/$login')({
-  beforeLoad: async ({ location, params }) => {
+  async beforeLoad({ location, params }) {
     const data = await getLayoutData({ data: { login: params.login } })
     if (data === false)
       throw redirect({
@@ -26,10 +26,12 @@ function DashboardLayout() {
   const router = useRouter()
 
   const logout = useMutation({
-    mutationFn: async () => {
+    async mutationFn() {
       await rpc.api.auth.logout.$post()
     },
-    onSuccess: () => router.navigate({ to: '/' }),
+    onSuccess() {
+      return router.navigate({ to: '/' })
+    },
   })
 
   return (

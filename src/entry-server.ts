@@ -43,7 +43,7 @@ export default Sentry.withSentry<Env, QueueHandlerMessage>(
       // Fall through to TanStack Start SSR handler for all other routes (app pages)
       return serverEntry.fetch(request, { context: { ctx, env, request } })
     },
-    queue: async (batch, env) => {
+    async queue(batch, env) {
       if (batch.queue.endsWith('-dlq')) {
         for (const message of batch.messages) {
           const { ack: _, retry: __, ...rest } = message

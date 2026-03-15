@@ -48,3 +48,11 @@ declare interface Message<T = unknown> {
 }
 
 declare interface Env extends Cloudflare.Env {}
+
+interface ImportMetaEnv {
+  readonly DEV: boolean
+}
+
+interface ImportMeta {
+  readonly env: ImportMetaEnv
+}

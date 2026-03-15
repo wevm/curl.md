@@ -3,9 +3,11 @@ import { z } from 'zod'
 
 export const Route = createFileRoute('/auth/error')({
   component: AuthError,
-  head: () => ({
-    meta: [{ title: `Auth Error - ${__HOST__}` }],
-  }),
+  head() {
+    return {
+      meta: [{ title: `Auth Error - ${__HOST__}` }],
+    }
+  },
   validateSearch: z.object({
     error: z.string(),
     error_description: z.string(),

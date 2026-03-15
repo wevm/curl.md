@@ -13,7 +13,7 @@ const searchSchema = z.object({
 })
 
 export const Route = createFileRoute('/playground')({
-  head: () => {
+  head() {
     const ogImage = rpc.api['og.png'].$url({ query: { page: 'playground' } }).toString()
     return {
       meta: [
@@ -52,7 +52,7 @@ function Playground() {
   }, [])
 
   const mutation = Query.useMutation({
-    mutationFn: async (input: { k?: string | undefined; q?: string | undefined; url: string }) => {
+    async mutationFn(input: { k?: string | undefined; q?: string | undefined; url: string }) {
       abortRef.current?.abort()
       const controller = new AbortController()
       abortRef.current = controller

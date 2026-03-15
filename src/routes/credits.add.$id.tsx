@@ -9,9 +9,9 @@ import { z } from 'zod/mini'
 import { creditAmounts } from '#lib/constants.ts'
 
 export const Route = createFileRoute('/credits/add/$id')({
-  head: () => ({
-    meta: [{ title: 'Add Credits' }],
-  }),
+  head() {
+    return { meta: [{ title: 'Add Credits' }] }
+  },
   loader: ({ params }) => getPayment({ data: { id: params.id } }),
   component: AddCreditsPage,
 })
@@ -62,14 +62,14 @@ function CheckoutForm(props: { amount: number; id: string; locked: boolean }) {
   const [amount, setAmount] = React.useState(props.amount)
 
   const updateAmount = useMutation({
-    mutationFn: async (newAmount: number) => {
+    async mutationFn(newAmount: number) {
       await changeAmount({ data: { id: props.id, amount: newAmount } })
       setAmount(newAmount)
     },
   })
 
   const payment = useMutation({
-    mutationFn: async () => {
+    async mutationFn() {
       if (!stripe || !elements) throw new Error('Stripe not loaded.')
       const result = await stripe.confirmPayment({
         confirmParams: { return_url: window.location.href },
@@ -78,7 +78,7 @@ function CheckoutForm(props: { amount: number; id: string; locked: boolean }) {
       })
       if (result.error) throw new Error(result.error.message ?? 'Payment failed.')
     },
-    onSuccess: () => {
+    onSuccess() {
       void deletePayment({ data: { id: props.id } })
     },
   })

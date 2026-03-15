@@ -8,9 +8,9 @@ import * as Cookie from '#lib/cookie.ts'
 import { rpc } from '#lib/rpc.ts'
 
 export const Route = createFileRoute('/invite/$token')({
-  head: () => ({
-    meta: [{ title: `Accept Invite - ${__HOST__}` }],
-  }),
+  head() {
+    return { meta: [{ title: `Accept Invite - ${__HOST__}` }] }
+  },
   loader: ({ params }) => getInviteData({ data: { token: params.token } }),
   component: InvitePage,
 })
@@ -21,7 +21,7 @@ function InvitePage() {
   const router = useRouter()
 
   const accept = useMutation({
-    mutationFn: async () => {
+    async mutationFn() {
       const res = await rpc.api.invites[':token'].accept.$post({
         param: { token },
       })
@@ -30,11 +30,12 @@ function InvitePage() {
       const json = await res.json()
       return json.organization
     },
-    onSuccess: (organization) =>
-      router.navigate({
+    onSuccess(organization) {
+      return router.navigate({
         to: '/~dash/$login',
         params: { login: organization.login },
-      }),
+      })
+    },
   })
 
   if (!invite)

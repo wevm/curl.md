@@ -9,7 +9,7 @@ import { formatCost } from '#lib/format.ts'
 import { rpc } from '#lib/rpc.ts'
 
 export const Route = createFileRoute('/')({
-  head: () => {
+  head() {
     const ogImage = rpc.api['og.png'].$url({ query: { page: 'index' } }).toString()
     return {
       meta: [
@@ -116,7 +116,9 @@ function TokensSaved() {
   const getStats = useServerFn(getTokensSaved)
   const { data } = Query.useQuery({
     initialData: { tokens_saved: __INITIAL_TOKENS_SAVED__ },
-    queryFn: () => getStats(),
+    queryFn() {
+      return getStats()
+    },
     queryKey: ['stats'],
     refetchInterval: 10_000,
   })

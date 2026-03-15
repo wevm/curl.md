@@ -7,32 +7,34 @@ import '../styles.css'
 const queryClient = new QueryClient()
 
 export const Route = createRootRoute({
-  head: () => ({
-    links: [
-      {
-        as: 'font',
-        crossOrigin: 'anonymous',
-        href: geistMonoLatin,
-        rel: 'preload',
-        type: 'font/woff2',
-      },
-      { href: '/favicon.svg', rel: 'icon', type: 'image/svg+xml' },
-    ],
-    meta: [
-      { charSet: 'utf-8' },
-      {
-        name: 'viewport',
-        content: 'width=device-width, initial-scale=1, maximum-scale=1',
-      },
-    ],
-    scripts: [
-      {
-        src: 'https://cdn.usefathom.com/script.js',
-        'data-site': 'GPMOZIWR',
-        defer: true,
-      },
-    ],
-  }),
+  head() {
+    return {
+      links: [
+        {
+          as: 'font',
+          crossOrigin: 'anonymous',
+          href: geistMonoLatin,
+          rel: 'preload',
+          type: 'font/woff2',
+        },
+        { href: '/favicon.svg', rel: 'icon', type: 'image/svg+xml' },
+      ],
+      meta: [
+        { charSet: 'utf-8' },
+        {
+          name: 'viewport',
+          content: 'width=device-width, initial-scale=1, maximum-scale=1',
+        },
+      ],
+      scripts: [
+        {
+          src: 'https://cdn.usefathom.com/script.js',
+          'data-site': 'GPMOZIWR',
+          defer: true,
+        },
+      ],
+    }
+  },
   component: RootComponent,
   notFoundComponent: NotFound,
   shellComponent: RootDocument,
