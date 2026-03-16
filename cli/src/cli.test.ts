@@ -1027,7 +1027,6 @@ describe('org', () => {
 
     const { output: switchBackOutput } = await serve(['org', 'switch', 'account'])
     expect(switchBackOutput).toContain('Switched to')
-    expect(switchBackOutput).toContain('(account)')
   })
 
   test('create - invalid login', async () => {

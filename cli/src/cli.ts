@@ -1438,7 +1438,7 @@ const org = Cli.create('org', {
       if (c.args.login) {
         if (c.args.login === accountLogin || c.args.login === 'account') {
           Session.write({ organization_id: undefined })
-          return c.ok(`Switched to ${pc.bold(accountLogin)} ${pc.dim('(account)')}`)
+          return c.ok(`Switched to ${pc.bold(accountLogin)}`)
         }
         const match = orgsJson.organizations.find((o) => o.login === c.args.login)
         if (!match)
@@ -1456,7 +1456,7 @@ const org = Cli.create('org', {
           id: o.id,
         })),
         {
-          label: `${accountLogin} ${pc.dim('(account)')}`,
+          label: accountLogin,
           id: undefined as string | undefined,
         },
       ]
