@@ -520,7 +520,12 @@ export const api = new Hono<{
             .innerJoin('organization', 'organization.id', 'organization_member.organization_id')
             .whereRef('organization_member.account_id', '=', 'account.id')
             .where('organization.deleted_at', 'is', null)
-            .select(['organization.id', 'organization.login', 'organization.name']),
+            .select([
+              'organization.created_at',
+              'organization.id',
+              'organization.login',
+              'organization.name',
+            ]),
         ).as('organizations'),
       ])
       .executeTakeFirst()
@@ -962,6 +967,7 @@ export const api = new Hono<{
       .where('organization_member.account_id', '=', c.var.session.account_id)
       .where('organization.deleted_at', 'is', null)
       .select([
+        'organization.created_at',
         'organization.id',
         'organization.login',
         'organization.name',

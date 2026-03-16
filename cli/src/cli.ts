@@ -1369,8 +1369,9 @@ const org = Cli.create('org', {
       const rows = json.organizations.map((org) => [
         org.id === activeId ? `${org.login}${pc.green('*')}` : org.login,
         org.name,
+        formatDate(new Date(org.created_at)),
       ])
-      return c.ok(table(['login', 'name'], rows))
+      return c.ok(table(['login', 'name', 'created'], rows))
     },
   })
   .command('show', {
