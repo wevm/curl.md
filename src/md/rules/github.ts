@@ -7,7 +7,7 @@ import { unified } from 'unified'
 import { z } from 'zod'
 import { defineRule, type FetchContext, type Meta } from '../mod.ts'
 
-export const githubRepo = defineRule<{ token?: string | undefined }>({
+export const githubRepo = defineRule<{ token?: string | Promise<string | undefined> | undefined }>({
   key: 'githubRepo',
   patterns: [/^https:\/\/github\.com\/[^/]+\/[^/]+\/?$/],
   rewrite(url) {
@@ -22,8 +22,9 @@ export const githubRepo = defineRule<{ token?: string | undefined }>({
     // Extract owner/repo from it: /owner/repo/HEAD/README.md
     const [, owner, repo] = url.pathname.split('/')
 
+    const token = await context.options?.token
     const apiHeaders: Record<string, string> = { 'User-Agent': userAgent }
-    if (context.options?.token) apiHeaders.Authorization = `Bearer ${context.options.token}`
+    if (token) apiHeaders.Authorization = `Bearer ${token}`
 
     const [readmeRes, repoRes] = await Promise.all([
       context.fetch(url, init),
@@ -80,56 +81,58 @@ export const githubBlob = defineRule({
   },
 })
 
-export const githubIssue = defineRule<{ token?: string | undefined }>({
-  key: 'githubIssue',
-  patterns: [/^https:\/\/github\.com\/[^/]+\/[^/]+\/issues\/\d+$/],
-  rewrite(url) {
-    const [, owner, repo, , id] = url.pathname.split('/')
-    return new URL(`https://api.github.com/repos/${owner}/${repo}/issues/${id}`)
+export const githubIssue = defineRule<{ token?: string | Promise<string | undefined> | undefined }>(
+  {
+    key: 'githubIssue',
+    patterns: [/^https:\/\/github\.com\/[^/]+\/[^/]+\/issues\/\d+$/],
+    rewrite(url) {
+      const [, owner, repo, , id] = url.pathname.split('/')
+      return new URL(`https://api.github.com/repos/${owner}/${repo}/issues/${id}`)
+    },
+    async fetch(url, init, context) {
+      return fetchGithubApi(url, init, {
+        token: await context.options?.token,
+        fetch: context.fetch,
+      })
+    },
+    async extract(response) {
+      const text = await response.text()
+
+      if (text.trimStart().startsWith('<')) return parseGithubHtml(text, 'issue')
+
+      const raw = JSON.parse(text)
+
+      if (raw.data?.repository) {
+        const entry = z.parse(graphqlIssueSchema, raw).data.repository.issue
+        return formatComments(entry)
+      }
+
+      const json = z.parse(restIssueSchema, raw)
+      return {
+        content: (json.body ?? '').trim(),
+        meta: {
+          ...(json.number && { number: json.number }),
+          ...(json.title && { title: json.title }),
+          ...(json.user?.login && { author: json.user.login }),
+          ...(json.state && { state: json.state }),
+          ...(json.created_at && { created_at: json.created_at }),
+          ...(json.updated_at && { updated_at: json.updated_at }),
+        },
+      }
+    },
   },
-  fetch(url, init, context) {
-    return fetchGithubApi(url, init, {
-      token: context.options?.token,
-      fetch: context.fetch,
-    })
-  },
-  async extract(response) {
-    const text = await response.text()
+)
 
-    if (text.trimStart().startsWith('<')) return parseGithubHtml(text, 'issue')
-
-    const raw = JSON.parse(text)
-
-    if (raw.data?.repository) {
-      const entry = z.parse(graphqlIssueSchema, raw).data.repository.issue
-      return formatComments(entry)
-    }
-
-    const json = z.parse(restIssueSchema, raw)
-    return {
-      content: (json.body ?? '').trim(),
-      meta: {
-        ...(json.number && { number: json.number }),
-        ...(json.title && { title: json.title }),
-        ...(json.user?.login && { author: json.user.login }),
-        ...(json.state && { state: json.state }),
-        ...(json.created_at && { created_at: json.created_at }),
-        ...(json.updated_at && { updated_at: json.updated_at }),
-      },
-    }
-  },
-})
-
-export const githubPr = defineRule<{ token?: string | undefined }>({
+export const githubPr = defineRule<{ token?: string | Promise<string | undefined> | undefined }>({
   key: 'githubPr',
   patterns: [/^https:\/\/github\.com\/[^/]+\/[^/]+\/pull\/\d+$/],
   rewrite(url) {
     const [, owner, repo, , id] = url.pathname.split('/')
     return new URL(`https://api.github.com/repos/${owner}/${repo}/pulls/${id}`)
   },
-  fetch(url, init, context) {
+  async fetch(url, init, context) {
     return fetchGithubApi(url, init, {
-      token: context.options?.token,
+      token: await context.options?.token,
       fetch: context.fetch,
     })
   },

@@ -96,12 +96,30 @@ test('help', async () => {
 })
 
 test('markdown', async () => {
-  const { output } = await serve(['example.com'])
+  const account = await factory.account.insert({})
+  const suffix = Nanoid.generate()
+  const token = `curlmd_${suffix}`
+  await factory.api_key.insert({
+    account_id: account.id,
+    key_hash: await ApiKey.hash(token),
+    key_prefix: token.slice(0, 9),
+    name: `test-${suffix}`,
+  })
+  const { output } = await serve(['example.com'], { CURLMD_API_KEY: token })
   expect(output).toContain('Example Domain')
 }, 30_000)
 
 test('json', async () => {
-  const { output } = await serve(['example.com', '--json'])
+  const account = await factory.account.insert({})
+  const suffix = Nanoid.generate()
+  const token = `curlmd_${suffix}`
+  await factory.api_key.insert({
+    account_id: account.id,
+    key_hash: await ApiKey.hash(token),
+    key_prefix: token.slice(0, 9),
+    name: `test-${suffix}`,
+  })
+  const { output } = await serve(['example.com', '--json'], { CURLMD_API_KEY: token })
   const json = JSON.parse(output)
   const content = json.data ?? json.content ?? json
   expect(typeof content === 'string' ? content : JSON.stringify(content)).toContain(

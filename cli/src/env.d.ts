@@ -10,6 +10,9 @@
 declare namespace Cloudflare {
   interface Env {
     ASSETS: { fetch(input: any): Promise<Response> }
+    GH_CLIENT_ID: string
+    GH_CLIENT_SECRET: string
+    TOKEN_ENCRYPTION_KEY: string
     [key: string]: any
   }
 }

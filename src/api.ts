@@ -15,6 +15,7 @@ import * as ApiKey from '#lib/apiKey.ts'
 import * as Constants from '#lib/constants.ts'
 import * as Cookie from '#lib/cookie.ts'
 import * as Crypto from '#lib/crypto.ts'
+import * as GitHub from '#lib/github.ts'
 import { invalidApiKey, narrowValidation, validationError, validator } from '#lib/hono.ts'
 import * as Nanoid from '#lib/nanoid.ts'
 import type { OneOf } from '#lib/types.ts'
@@ -1607,21 +1608,7 @@ export const api = new Hono<{
           }),
           ...Md.sites.github({
             token: c.var.session
-              ? await c.var.db
-                  .selectFrom('account_provider')
-                  .where('account_id', '=', c.var.session.account_id)
-                  .where('provider', '=', 'github')
-                  .select(['access_token', 'access_token_expires_at'])
-                  .executeTakeFirst()
-                  .then((provider) => {
-                    if (!provider?.access_token) return undefined
-                    if (
-                      provider.access_token_expires_at &&
-                      provider.access_token_expires_at < new Date()
-                    )
-                      return undefined
-                    return Crypto.decrypt(provider.access_token, c.env.TOKEN_ENCRYPTION_KEY)
-                  })
+              ? GitHub.resolveToken(c.var.db, c.var.session.account_id, c.env)
               : undefined,
           }),
         },

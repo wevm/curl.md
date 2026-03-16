@@ -98,7 +98,7 @@ type RequiredForeignKeys<row> = {
   [key in keyof row as key extends `${string}_id`
     ? null extends row[key]
       ? never
-      : key extends 'id'
+      : key extends 'id' | 'provider_account_id'
         ? never
         : key
     : never]-?: row[key]

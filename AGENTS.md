@@ -8,7 +8,7 @@ Agent guidance for this repository.
 
 Prefer running these scripts instead of using `npx`.
 
-- `pnpm check` - Lint with Biome
+- `pnpm check` - Lint and format with oxlint + oxfmt
 - `pnpm check:deps` - Check for unused dependencies with Knip (cli/ only)
 - `pnpm check:types` - Type check with tsgo
 - `pnpm db:codegen` - Generate database types
