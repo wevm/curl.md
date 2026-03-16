@@ -3,7 +3,7 @@ import { Cli, type MiddlewareContext, middleware, z } from 'incur'
 import pc from 'picocolors'
 import type { api } from '../../src/api.ts'
 import pkg from '../package.json' with { type: 'json' }
-import { formatDate, table } from './ui.ts'
+import { callout, confirm, formatDate, summary, table } from './ui.ts'
 import {
   type Client,
   type Command,
@@ -767,18 +767,19 @@ const invite = Cli.create('invite', {
 
       const json = await res.json()
       const inv = json.invite
-      const expiry = relativeTime(new Date(inv.expires_at)) ?? 'soon'
       const uses = inv.max_uses ? `0/${inv.max_uses}` : '0/∞'
       return c.ok(
-        [
-          'Invite created.',
-          '',
-          pc.bold(inv.url),
-          '',
-          pc.dim(`role: ${inv.role}`),
-          pc.dim(`uses: ${uses}`),
-          pc.dim(`expires: ${expiry}`),
-        ].join('\n'),
+        summary(
+          [
+            ['url', pc.bold(inv.url)],
+            ['role', inv.role],
+            ['uses', uses],
+            ['expires', formatDate(new Date(inv.expires_at))],
+          ],
+          'Invite created',
+        ) +
+          '\n\n' +
+          callout('Share this link to invite members.'),
       )
     },
   })
@@ -851,6 +852,10 @@ const invite = Cli.create('invite', {
     args: z.object({
       invite: z.string().optional().describe('Invite token or ID to revoke'),
     }),
+    options: z.object({
+      force: z.boolean().optional().describe('Skip confirmation'),
+    }),
+    alias: { force: 'f' },
     output: z.string(),
     format: 'md',
     async run(c) {
@@ -858,7 +863,37 @@ const invite = Cli.create('invite', {
       if (!orgId) return noActiveOrg(c)
 
       let inviteId = c.args.invite
-      if (!inviteId) {
+      if (inviteId) {
+        if (!c.options.force) {
+          if (!process.stdin.isTTY)
+            return c.error({
+              code: 'CONFIRM_REQUIRED',
+              message: 'Destructive action requires --force when not interactive.',
+              cta: {
+                commands: [
+                  {
+                    command: `${c.name} invite revoke ${inviteId} --force`,
+                    description: 'Force revoke',
+                  },
+                  ...c.var.commands,
+                ],
+              },
+            })
+          const yes = await confirm(`Revoke invite "${inviteId}"?`)
+          if (!yes) return c.ok('Cancelled.')
+        }
+      } else {
+        if (!process.stdin.isTTY)
+          return c.error({
+            code: 'NO_INPUT',
+            message: 'Pass invite token directly in non-interactive mode.',
+            cta: {
+              commands: [
+                { command: `${c.name} invite revoke <invite>`, description: 'Revoke by token' },
+                ...c.var.commands,
+              ],
+            },
+          })
         const listRes = await c.var.client.api.orgs[':id'].invites.$get({
           param: { id: orgId },
         })
@@ -873,7 +908,14 @@ const invite = Cli.create('invite', {
             message: 'No invites to revoke.',
           })
 
-        const choices = listJson.invites.map((inv) => inv.token.slice(0, 12))
+        const maxToken = Math.max(...listJson.invites.map((inv) => inv.token.length))
+        const choices = listJson.invites.map((inv) => {
+          const expiresAt = new Date(inv.expires_at)
+          const expired = expiresAt < new Date()
+          const uses = inv.max_uses ? `${inv.use_count}/${inv.max_uses}` : `${inv.use_count}/∞`
+          const expiry = expired ? 'expired' : formatDate(expiresAt)
+          return `${inv.token.padEnd(maxToken)}   ${inv.role}   ${uses}   ${expiry}`
+        })
         const index = await select('Revoke invite:', choices)
         if (index === -1) return c.ok('Cancelled.')
         const selected = listJson.invites[index]
@@ -993,6 +1035,10 @@ const member = Cli.create('member', {
     args: z.object({
       login: z.string().optional().describe('Member login to remove'),
     }),
+    options: z.object({
+      force: z.boolean().optional().describe('Skip confirmation'),
+    }),
+    alias: { force: 'f' },
     output: z.string(),
     format: 'md',
     async run(c) {
@@ -1018,7 +1064,44 @@ const member = Cli.create('member', {
         })
 
       let login = c.args.login
-      if (!login) {
+      if (c.args.login) {
+        const match = listJson.members.find((m) => m.login === c.args.login)
+        if (!match)
+          return c.error({
+            code: 'NOT_FOUND',
+            message: `Member "${c.args.login}" not found.`,
+          })
+        login = match.login
+        if (!c.options.force) {
+          if (!process.stdin.isTTY)
+            return c.error({
+              code: 'CONFIRM_REQUIRED',
+              message: 'Destructive action requires --force when not interactive.',
+              cta: {
+                commands: [
+                  {
+                    command: `${c.name} member remove ${login} --force`,
+                    description: 'Force remove',
+                  },
+                  ...c.var.commands,
+                ],
+              },
+            })
+          const yes = await confirm(`Remove ${login} from organization?`)
+          if (!yes) return c.ok('Cancelled.')
+        }
+      } else {
+        if (!process.stdin.isTTY)
+          return c.error({
+            code: 'NO_INPUT',
+            message: 'Pass member login directly in non-interactive mode.',
+            cta: {
+              commands: [
+                { command: `${c.name} member remove <login>`, description: 'Remove by login' },
+                ...c.var.commands,
+              ],
+            },
+          })
         const choices = listJson.members.map((m) => `${m.login}  ${pc.dim(m.role)}`)
         const index = await select('Remove member:', choices)
         if (index === -1) return c.ok('Cancelled.')
@@ -1066,9 +1149,10 @@ const member = Cli.create('member', {
       login: z.string().optional().describe('Member login to change role for'),
     }),
     options: z.object({
+      force: z.boolean().optional().describe('Skip confirmation'),
       role: z.enum(['member', 'admin']).optional().describe('New role'),
     }),
-    alias: { role: 'r' },
+    alias: { force: 'f', role: 'r' },
     output: z.string(),
     format: 'md',
     async run(c) {
@@ -1094,7 +1178,29 @@ const member = Cli.create('member', {
         })
 
       let login = c.args.login
-      if (!login) {
+      if (c.args.login) {
+        const match = listJson.members.find((m) => m.login === c.args.login)
+        if (!match)
+          return c.error({
+            code: 'NOT_FOUND',
+            message: `Member "${c.args.login}" not found.`,
+          })
+        login = match.login
+      } else {
+        if (!process.stdin.isTTY)
+          return c.error({
+            code: 'NO_INPUT',
+            message: 'Pass member login directly in non-interactive mode.',
+            cta: {
+              commands: [
+                {
+                  command: `${c.name} member role <login> --role <role>`,
+                  description: 'Change role',
+                },
+                ...c.var.commands,
+              ],
+            },
+          })
         const choices = listJson.members.map((m) => `${m.login}  ${pc.dim(m.role)}`)
         const index = await select('Change role for:', choices)
         if (index === -1) return c.ok('Cancelled.')
@@ -1116,18 +1222,41 @@ const member = Cli.create('member', {
 
       let role = c.options.role
       if (!role) {
-        const roleIndex = await select('New role:', ['member', 'admin'])
+        const roles = ['member', 'admin'] as const
+        const roleChoices = roles.map((r) => (r === match.role ? `${r} ${pc.dim('(current)')}` : r))
+        const roleIndex = await select('New role:', roleChoices, { doneLabels: [...roles] })
         if (roleIndex === -1)
           return c.error({
             code: 'INVALID_SELECTION',
             message: 'Selection cancelled.',
           })
-        role = (['member', 'admin'] as const)[roleIndex]
+        role = roles[roleIndex]
         if (!role)
           return c.error({
             code: 'INVALID_SELECTION',
             message: 'Invalid selection.',
           })
+      }
+
+      if (role === match.role) return c.ok('Role unchanged.')
+
+      if (c.args.login && c.options.role && !c.options.force) {
+        if (!process.stdin.isTTY)
+          return c.error({
+            code: 'CONFIRM_REQUIRED',
+            message: 'Destructive action requires --force when not interactive.',
+            cta: {
+              commands: [
+                {
+                  command: `${c.name} member role ${login} --role ${role} --force`,
+                  description: 'Force role change',
+                },
+                ...c.var.commands,
+              ],
+            },
+          })
+        const yes = await confirm(`Change ${login} role to ${role}?`)
+        if (!yes) return c.ok('Cancelled.')
       }
 
       const res = await c.var.client.api.orgs[':id'].members[':memberId'].$patch({
@@ -1383,13 +1512,15 @@ const token = Cli.create('token', {
 
       const json = await res.json()
       return c.ok(
-        [
-          `Token ${pc.bold(json.api_key.name)} created.`,
-          '',
-          pc.bold(json.api_key.token),
-          '',
-          pc.yellow("Save this. It won't be shown again."),
-        ].join('\n'),
+        summary(
+          [
+            ['name', json.api_key.name],
+            ['token', pc.green(pc.bold(json.api_key.token))],
+          ],
+          'Token created',
+        ) +
+          '\n\n' +
+          callout("Save this token. It won't be shown again."),
       )
     },
   })
@@ -1437,6 +1568,10 @@ const token = Cli.create('token', {
     args: z.object({
       name: z.string().optional().describe('Token name to delete'),
     }),
+    options: z.object({
+      force: z.boolean().optional().describe('Skip confirmation'),
+    }),
+    alias: { force: 'f' },
     output: z.string(),
     format: 'md',
     async run(c) {
@@ -1455,7 +1590,36 @@ const token = Cli.create('token', {
             code: 'NOT_FOUND',
             message: `Token "${c.args.name}" not found.`,
           })
+        if (!c.options.force) {
+          if (!process.stdin.isTTY)
+            return c.error({
+              code: 'CONFIRM_REQUIRED',
+              message: 'Destructive action requires --force when not interactive.',
+              cta: {
+                commands: [
+                  {
+                    command: `${c.name} token delete ${match.name} --force`,
+                    description: 'Force delete',
+                  },
+                  ...c.var.commands,
+                ],
+              },
+            })
+          const yes = await confirm(`Delete token "${match.name}"?`)
+          if (!yes) return c.ok('Cancelled.')
+        }
       } else {
+        if (!process.stdin.isTTY)
+          return c.error({
+            code: 'NO_INPUT',
+            message: 'Pass token name directly in non-interactive mode.',
+            cta: {
+              commands: [
+                { command: `${c.name} token delete <name>`, description: 'Delete by name' },
+                ...c.var.commands,
+              ],
+            },
+          })
         listJson.api_keys.sort((a, b) => {
           if (!a.last_used_at && !b.last_used_at) return 0
           if (!a.last_used_at) return -1
@@ -1464,11 +1628,9 @@ const token = Cli.create('token', {
         })
         const maxName = Math.max(...listJson.api_keys.map((k) => k.name.length))
         const choices = listJson.api_keys.map((k) => {
-          const used = k.last_used_at
-            ? (relativeTime(new Date(k.last_used_at)) ?? 'just now')
-            : 'never'
+          const used = k.last_used_at ? formatDate(new Date(k.last_used_at)) : 'never'
           const name = k.name.padEnd(maxName)
-          return `${name}  ${pc.dim(`${k.key_prefix}•••`)}  ${pc.dim(`used ${used}`)}`
+          return `${name}   ${pc.dim(`${k.key_prefix}•••`)}   ${used}`
         })
         const doneLabels = listJson.api_keys.map((k) => k.name)
         const index = await select('Delete token:', choices, { doneLabels })

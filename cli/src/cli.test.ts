@@ -1281,9 +1281,9 @@ describe('org invite', () => {
       const { output } = await serve(['org', 'invite', 'create'])
       expect(output).toContain('Invite created')
       expect(output).toContain('/invite/')
-      expect(output).toContain('role: member')
-      expect(output).toContain('uses: 0/')
-      expect(output).toContain('expires:')
+      expect(output).toContain('member')
+      expect(output).toContain('0/')
+      expect(output).toContain('expires')
     })
 
     test('with custom options', async () => {
@@ -1308,9 +1308,10 @@ describe('org invite', () => {
       ])
       expect(output).toContain('Invite created')
       expect(output).toContain('/invite/')
-      expect(output).toContain('role: admin')
-      expect(output).toContain('uses: 0/5')
-      expect(output).toContain('expires:')
+      expect(output).toContain('admin')
+      expect(output).toContain('0/5')
+      expect(output).toContain('expires')
+      expect(output).toContain('Share this link to invite members.')
     })
 
     test('forbidden (regular member)', async () => {
@@ -1421,7 +1422,7 @@ describe('org invite', () => {
         organization_id: 'stale',
       })
 
-      const { exitCode, output } = await serve(['org', 'invite', 'revoke', 'some-id'])
+      const { exitCode, output } = await serve(['org', 'invite', 'revoke', 'some-id', '--force'])
       expect(exitCode).toBe(1)
       expect(output).toContain('NOT_AUTHENTICATED')
       expect(Session.read()).toBeNull()
@@ -1440,7 +1441,7 @@ describe('org invite', () => {
 
       const { exitCode, output } = await serve(['org', 'invite', 'revoke'])
       expect(exitCode).toBe(1)
-      expect(output).toContain('NO_INVITES')
+      expect(output).toContain('NO_INPUT')
     })
 
     test('revokes invite by id', async () => {
@@ -1458,7 +1459,7 @@ describe('org invite', () => {
       })
       Session.write({ session_id: session.id, organization_id: org.id })
 
-      const { output } = await serve(['org', 'invite', 'revoke', invite.id])
+      const { output } = await serve(['org', 'invite', 'revoke', invite.id, '--force'])
       expect(output).toContain('revoked')
     })
 
@@ -1473,7 +1474,7 @@ describe('org invite', () => {
       })
       Session.write({ session_id: session.id, organization_id: org.id })
 
-      const { exitCode, output } = await serve(['org', 'invite', 'revoke', 'fake-id'])
+      const { exitCode, output } = await serve(['org', 'invite', 'revoke', 'fake-id', '--force'])
       expect(exitCode).toBe(1)
       expect(output).toContain('NOT_FOUND')
     })
@@ -1732,7 +1733,7 @@ describe('org member', () => {
       })
       Session.write({ session_id: session.id, organization_id: org.id })
 
-      const { output } = await serve(['org', 'member', 'remove', target.login])
+      const { output } = await serve(['org', 'member', 'remove', target.login, '--force'])
       expect(output).toContain('Removed')
     })
 
@@ -1753,7 +1754,7 @@ describe('org member', () => {
       })
       Session.write({ session_id: session.id, organization_id: org.id })
 
-      const { exitCode, output } = await serve(['org', 'member', 'remove', owner.login])
+      const { exitCode, output } = await serve(['org', 'member', 'remove', owner.login, '--force'])
       expect(exitCode).toBe(1)
       expect(output).toContain('FORBIDDEN')
       expect(output).toContain('Cannot remove an owner')
@@ -1831,7 +1832,15 @@ describe('org member', () => {
       })
       Session.write({ session_id: session.id, organization_id: org.id })
 
-      const { output } = await serve(['org', 'member', 'role', target.login, '--role', 'admin'])
+      const { output } = await serve([
+        'org',
+        'member',
+        'role',
+        target.login,
+        '--role',
+        'admin',
+        '--force',
+      ])
       expect(output).toContain('Changed')
       expect(output).toContain('admin')
     })
@@ -1859,7 +1868,15 @@ describe('org member', () => {
       })
       Session.write({ session_id: session.id, organization_id: org.id })
 
-      const { output } = await serve(['org', 'member', 'role', target.login, '--role', 'admin'])
+      const { output } = await serve([
+        'org',
+        'member',
+        'role',
+        target.login,
+        '--role',
+        'admin',
+        '--force',
+      ])
       expect(output).toContain('Changed')
       expect(output).toContain('admin')
     })
@@ -1894,6 +1911,7 @@ describe('org member', () => {
         otherAdmin.login,
         '--role',
         'member',
+        '--force',
       ])
       expect(output).toContain('Changed')
       expect(output).toContain('member')
@@ -1952,6 +1970,7 @@ describe('org member', () => {
         otherOwner.login,
         '--role',
         'admin',
+        '--force',
       ])
       expect(exitCode).toBe(1)
       expect(output).toContain('FORBIDDEN')
@@ -1983,9 +2002,10 @@ describe('token', () => {
     Session.write({ session_id: session.id })
 
     const { output: createOutput } = await serve(['token', 'create', 'my-token'])
-    expect(createOutput).toContain('Token my-token created.')
+    expect(createOutput).toContain('Token created')
+    expect(createOutput).toContain('my-token')
     expect(createOutput).toContain('curlmd_')
-    expect(createOutput).toContain("won't be shown again")
+    expect(createOutput).toContain("Save this token. It won't be shown again.")
 
     const { output: listOutput } = await serve(['token', 'list'])
     expect(listOutput).toContain('my-token')
@@ -2059,8 +2079,7 @@ describe('token', () => {
 
     await serve(['token', 'create', 'to-delete'])
 
-    setTimeout(() => process.stdin.emit('data', '\n'), 100)
-    const { output } = await serve(['token', 'delete', 'to-delete'])
+    const { output } = await serve(['token', 'delete', 'to-delete', '--force'])
     expect(output).toContain('Token to-delete deleted.')
 
     const { output: listOutput } = await serve(['token', 'list'])
