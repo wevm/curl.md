@@ -410,7 +410,7 @@ describe('update check middleware', () => {
 describe('auth', () => {
   test('check - not logged in', async () => {
     const { output } = await serve(['auth', 'check'])
-    expect(output).toContain('You are not authenticated')
+    expect(output).toContain('Not authenticated')
   })
 
   test('logout - not logged in', async () => {
@@ -424,7 +424,7 @@ describe('auth', () => {
     // Simulate pressing Enter
     setTimeout(() => process.stdin.emit('data', '\n'), 100)
     const { output } = await serve(['auth', 'logout'])
-    expect(output).toContain('Successfully logged out')
+    expect(output).toContain('Logged out')
     expect(Session.read()).toBeNull()
   })
 
@@ -467,14 +467,14 @@ describe('auth', () => {
     })
 
     const { output } = await serve(['auth', 'check', '--token', invalidToken])
-    expect(output).toContain('You are not authenticated')
+    expect(output).toContain('Not authenticated')
   })
 
   test('check - expired session', async () => {
     Session.write({ session_id: 'expired-session-id' })
 
     const { output } = await serve(['auth', 'check'])
-    expect(output).toContain('You are not authenticated')
+    expect(output).toContain('Not authenticated')
     expect(Session.read()).toBeNull()
   })
 
@@ -623,7 +623,7 @@ describe('auth', () => {
     )
 
     const { output } = await loginPromise
-    expect(output).toContain('Successfully logged in as')
+    expect(output).toContain('Logged in as')
   })
 
   test('login - full device flow', async () => {
@@ -650,7 +650,7 @@ describe('auth', () => {
     )
 
     const { output } = await loginPromise
-    expect(output).toContain('Successfully logged in as')
+    expect(output).toContain('Logged in as')
     expect(Session.read()).not.toBeNull()
 
     const { output: checkOutput } = await serve(['auth', 'check'])
@@ -785,7 +785,7 @@ describe('credits', () => {
 
     const { output } = await serve(['credits', 'add', '10'])
     expect(openUrlSpy).toHaveBeenCalledWith('https://curl.local/credits/add/pay_test')
-    expect(output).toContain('Successfully added credits')
+    expect(output).toContain('Credits added')
     expect(output).toContain('$10.000')
   })
 
@@ -837,7 +837,7 @@ describe('credits', () => {
 
     const { output } = await serve(['credits', 'add', '10'])
     expect(selectSpy).toHaveBeenCalled()
-    expect(output).toContain('Successfully added credits')
+    expect(output).toContain('Credits added')
     expect(output).toContain('$15.000')
   })
 
@@ -895,7 +895,7 @@ describe('credits', () => {
 
     const { output } = await serve(['credits', 'add', '10'])
     expect(openUrlSpy).toHaveBeenCalledWith('https://curl.local/credits/add/pay_3ds')
-    expect(output).toContain('Successfully added credits')
+    expect(output).toContain('Credits added')
     expect(output).toContain('$15.000')
   })
 
@@ -952,7 +952,7 @@ describe('credits', () => {
 
     const { output } = await serve(['credits', 'add', '10'])
     expect(openUrlSpy).toHaveBeenCalledWith('https://curl.local/credits/add/pay_new')
-    expect(output).toContain('Successfully added credits')
+    expect(output).toContain('Credits added')
     expect(output).toContain('$15.000')
   })
 

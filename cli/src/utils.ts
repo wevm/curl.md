@@ -319,7 +319,7 @@ export async function pollForBalance(
       if (json.balance_mills > initialBalance) {
         spinner.stop()
         const dollars = (json.balance_mills / 1000).toFixed(3)
-        return `Successfully added credits. New balance: ${pc.bold(pc.green(`$${dollars}`))}`
+        return `Credits added. New balance: ${pc.bold(pc.green(`$${dollars}`))}`
       }
     }
     delay = Math.min(delay * 2, 5_000)

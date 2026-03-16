@@ -154,7 +154,7 @@ const cli = Cli.create('curl.md', {
           commands: [
             {
               command: `${c.name} token create <name>`,
-              description: 'Create a new API token',
+              description: 'Create API token',
             },
             ...c.var.commands,
           ],
@@ -173,13 +173,13 @@ const cli = Cli.create('curl.md', {
       Session.write({ organization_id: undefined })
       return c.error({
         code: 'ORG_ACCESS_DENIED',
-        message: 'Active organization no longer accessible. Switched to account.',
+        message: 'Organization no longer accessible. Switched to account.',
         cta: {
           description: 'Switch organization:',
           commands: [
             {
               command: `${c.name} org switch`,
-              description: 'Switch active organization',
+              description: 'Switch organization',
             },
             ...c.var.commands,
           ],
@@ -204,7 +204,7 @@ const cli = Cli.create('curl.md', {
               ? [
                   {
                     command: `${c.name} credits add`,
-                    description: 'Add credits to your balance',
+                    description: 'Add credits',
                   },
                 ]
               : [
@@ -321,13 +321,13 @@ function authError(
 ) {
   return c.error({
     code: 'NOT_AUTHENTICATED',
-    message: 'You are not authenticated.',
+    message: 'Not authenticated.',
     cta: {
       description: 'Authenticate:',
       commands: [
         {
           command: `${c.name} auth login`,
-          description: `Log in with ${c.name}`,
+          description: 'Log in',
         },
         {
           command: `${c.name} --token <token>`,
@@ -346,12 +346,12 @@ function noActiveOrg(
 ) {
   return c.error({
     code: 'NO_ACTIVE_ORG',
-    message: 'No active organization. Switch first.',
+    message: 'No active organization.',
     cta: {
       commands: [
         {
           command: `${c.name} org switch`,
-          description: 'Switch active organization',
+          description: 'Switch organization',
         },
         ...c.var.commands,
       ],
@@ -380,7 +380,7 @@ const auth = Cli.create('auth', {
     },
   })
   .command('login', {
-    description: 'Log in with the curl.md CLI',
+    description: 'Log in with curl.md',
     output: z.string(),
     format: 'md',
     async run(c) {
@@ -390,7 +390,7 @@ const auth = Cli.create('auth', {
         if (json.account)
           return c.error({
             code: 'ALREADY_LOGGED_IN',
-            message: `Already logged in as ${pc.bold(json.account.login)}.`,
+            message: `Already logged in as ${pc.bold(json.account.login)}`,
           })
       }
 
@@ -481,7 +481,7 @@ const auth = Cli.create('auth', {
           )
           const me = await meRes.json()
           const login = me.account?.login
-          return c.ok(`Successfully logged in${login ? ` as ${pc.bold(login)}` : ''}.`)
+          return c.ok(`Logged in${login ? ` as ${pc.bold(login)}` : ''}`)
         }
       } catch (error) {
         spinner.stop()
@@ -500,7 +500,7 @@ const auth = Cli.create('auth', {
     async run(c) {
       if (!c.var.session) return c.ok('Already logged out.')
       Session.delete()
-      return c.ok('Successfully logged out.')
+      return c.ok('Logged out.')
     },
   })
 
@@ -509,7 +509,7 @@ const credits = Cli.create('credits', {
   vars,
 })
   .command('add', {
-    description: 'Add credits to balance',
+    description: 'Add credits',
     middleware: [requireAuth],
     args: z.object({
       amount: z.enum(['5', '10', '20', '50']).default('10').describe('Amount in dollars'),
@@ -523,7 +523,7 @@ const credits = Cli.create('credits', {
       if (creditsRes.status === 403)
         return c.error({
           code: 'FORBIDDEN',
-          message: 'You must be an owner or admin to add credits to this organization.',
+          message: 'Must be owner or admin to add credits.',
         })
       if (creditsRes.status !== 200)
         return c.error({ code: 'UNKNOWN', message: 'Unexpected error.' })
@@ -531,7 +531,7 @@ const credits = Cli.create('credits', {
       const commands = [
         {
           command: `${c.name} credits check`,
-          description: 'Check current credit balance',
+          description: 'Check balance',
         },
         ...c.var.commands,
       ]
@@ -630,7 +630,7 @@ const credits = Cli.create('credits', {
       if (addRes.status === 403)
         return c.error({
           code: 'FORBIDDEN',
-          message: 'You must be an owner or admin to add credits to this organization.',
+          message: 'Must be owner or admin to add credits.',
         })
       if (addRes.status !== 200) return c.error({ code: 'UNKNOWN', message: 'Unexpected error.' })
 
@@ -654,7 +654,7 @@ const credits = Cli.create('credits', {
     },
   })
   .command('check', {
-    description: 'Check current credit balance',
+    description: 'Check balance',
     middleware: [requireAuth],
     output: z.string(),
     format: 'md',
@@ -664,7 +664,7 @@ const credits = Cli.create('credits', {
       if (res.status === 403)
         return c.error({
           code: 'FORBIDDEN',
-          message: 'You must be an owner or admin to check credits for this organization.',
+          message: 'Must be owner or admin to check credits.',
         })
       if (res.status !== 200) return c.error({ code: 'UNKNOWN', message: 'Unexpected error.' })
 
@@ -676,7 +676,7 @@ const credits = Cli.create('credits', {
           commands: [
             {
               command: `${c.name} credits add`,
-              description: 'Add credits to your balance',
+              description: 'Add credits',
             },
             ...c.var.commands,
           ],
@@ -716,7 +716,7 @@ const invite = Cli.create('invite', {
       if (res.status === 409)
         return c.error({
           code: 'ALREADY_MEMBER',
-          message: 'Already a member of this organization.',
+          message: 'Already a member.',
         })
       if (res.status !== 200) return c.error({ code: 'UNKNOWN', message: 'Unexpected error.' })
 
@@ -761,7 +761,7 @@ const invite = Cli.create('invite', {
       if (res.status === 403)
         return c.error({
           code: 'FORBIDDEN',
-          message: "You don't have permission to create invites.",
+          message: 'No permission to create invites.',
         })
       if (res.status !== 201) return c.error({ code: 'UNKNOWN', message: 'Unexpected error.' })
 
@@ -799,7 +799,7 @@ const invite = Cli.create('invite', {
       if (res.status === 403)
         return c.error({
           code: 'FORBIDDEN',
-          message: "You don't have permission to view invites.",
+          message: 'No permission to view invites.',
         })
 
       const json = await res.json()
@@ -974,7 +974,7 @@ const member = Cli.create('member', {
       if (res.status === 403)
         return c.error({
           code: 'FORBIDDEN',
-          message: "You don't have permission to add members.",
+          message: 'No permission to add members.',
         })
 
       if (res.status === 404) return c.error({ code: 'NOT_FOUND', message: 'Account not found.' })
@@ -1008,7 +1008,7 @@ const member = Cli.create('member', {
       if (res.status === 403)
         return c.error({
           code: 'FORBIDDEN',
-          message: "You don't have permission to view members.",
+          message: 'No permission to view members.',
         })
 
       const json = await res.json()
@@ -1053,7 +1053,7 @@ const member = Cli.create('member', {
       if (listRes.status === 403)
         return c.error({
           code: 'FORBIDDEN',
-          message: "You don't have permission to remove members.",
+          message: 'No permission to remove members.',
         })
       if (listRes.status !== 200) return c.error({ code: 'UNKNOWN', message: 'Unexpected error.' })
       const listJson = await listRes.json()
@@ -1132,7 +1132,7 @@ const member = Cli.create('member', {
         const message = (() => {
           if (json.error === 'cannot_remove_self') return 'Cannot remove yourself.'
           if (json.error === 'cannot_remove_owner') return 'Cannot remove an owner.'
-          return "You don't have permission to remove members."
+          return 'No permission to remove members.'
         })()
         return c.error({ code: 'FORBIDDEN', message })
       }
@@ -1167,7 +1167,7 @@ const member = Cli.create('member', {
       if (listRes.status === 403)
         return c.error({
           code: 'FORBIDDEN',
-          message: "You don't have permission to change roles.",
+          message: 'No permission to change roles.',
         })
       if (listRes.status !== 200) return c.error({ code: 'UNKNOWN', message: 'Unexpected error.' })
       const listJson = await listRes.json()
@@ -1271,7 +1271,7 @@ const member = Cli.create('member', {
         const message =
           json.error === 'cannot_change_owner'
             ? 'Cannot change owner role.'
-            : "You don't have permission to change roles."
+            : 'No permission to change roles.'
         return c.error({ code: 'FORBIDDEN', message })
       }
 
@@ -1390,7 +1390,7 @@ const org = Cli.create('org', {
               hasOrgs
                 ? {
                     command: `${c.name} org switch`,
-                    description: 'Switch active organization',
+                    description: 'Switch organization',
                   }
                 : {
                     command: `${c.name} org create <login>`,
@@ -1408,7 +1408,7 @@ const org = Cli.create('org', {
       if (res.status === 401) return expiredSession(c)
       if (res.status === 404) {
         Session.write({ organization_id: undefined })
-        return c.ok('Active organization no longer accessible. Switched to account.')
+        return c.ok('Organization no longer accessible. Switched to account.')
       }
 
       const json = await res.json()
@@ -1416,7 +1416,7 @@ const org = Cli.create('org', {
     },
   })
   .command('switch', {
-    description: 'Switch active organization',
+    description: 'Switch organization',
     middleware: [requireAuth],
     args: z.object({
       login: z.string().optional().describe('Organization login to switch to (or "account")'),
@@ -1501,7 +1501,7 @@ const token = Cli.create('token', {
       if (res.status === 403)
         return c.error({
           code: 'FORBIDDEN',
-          message: 'Cannot create tokens when authenticated with API token.',
+          message: 'Cannot create tokens with API token.',
         })
       if (res.status === 409)
         return c.error({
@@ -1540,7 +1540,7 @@ const token = Cli.create('token', {
             commands: [
               {
                 command: `${c.name} token create <name>`,
-                description: 'Create a new API token',
+                description: 'Create API token',
               },
               ...c.var.commands,
             ],
