@@ -3,7 +3,7 @@ import { Cli, type MiddlewareContext, middleware, z } from 'incur'
 import pc from 'picocolors'
 import type { api } from '../../src/api.ts'
 import pkg from '../package.json' with { type: 'json' }
-import { callout, confirm, formatDate, summary, table } from './ui.ts'
+import * as UI from './ui.ts'
 import {
   type Client,
   type Command,
@@ -769,17 +769,17 @@ const invite = Cli.create('invite', {
       const inv = json.invite
       const uses = inv.max_uses ? `0/${inv.max_uses}` : '0/∞'
       return c.ok(
-        summary(
+        UI.summary(
           [
             ['url', pc.bold(inv.url)],
             ['role', inv.role],
             ['uses', uses],
-            ['expires', formatDate(new Date(inv.expires_at))],
+            ['expires', UI.formatDate(new Date(inv.expires_at))],
           ],
           'Invite created',
         ) +
           '\n\n' +
-          callout('Share this link to invite members.'),
+          UI.callout('Share this link to invite members.'),
       )
     },
   })
@@ -834,16 +834,16 @@ const invite = Cli.create('invite', {
           'Dec',
         ]
         const dateStr = `${months[expiresAt.getMonth()]} ${expiresAt.getDate()} ${expiresAt.getFullYear()}`
-        const expiryCol = expired ? `expired ${pc.dim(`(${dateStr})`)}` : formatDate(expiresAt)
+        const expiryCol = expired ? `expired ${pc.dim(`(${dateStr})`)}` : UI.formatDate(expiresAt)
         return [
           inv.token,
           inv.role,
           inv.max_uses ? `${inv.use_count}/${inv.max_uses}` : `${inv.use_count}/∞`,
           expiryCol,
-          formatDate(new Date(inv.created_at)),
+          UI.formatDate(new Date(inv.created_at)),
         ]
       })
-      return c.ok(table(['token', 'role', 'uses', 'expires', 'created'], rows))
+      return c.ok(UI.table(['token', 'role', 'uses', 'expires', 'created'], rows))
     },
   })
   .command('revoke', {
@@ -879,7 +879,7 @@ const invite = Cli.create('invite', {
                 ],
               },
             })
-          const yes = await confirm(`Revoke invite "${inviteId}"?`)
+          const yes = await UI.confirm(`Revoke invite "${inviteId}"?`)
           if (!yes) return c.ok('Cancelled.')
         }
       } else {
@@ -913,7 +913,7 @@ const invite = Cli.create('invite', {
           const expiresAt = new Date(inv.expires_at)
           const expired = expiresAt < new Date()
           const uses = inv.max_uses ? `${inv.use_count}/${inv.max_uses}` : `${inv.use_count}/∞`
-          const expiry = expired ? 'expired' : formatDate(expiresAt)
+          const expiry = expired ? 'expired' : UI.formatDate(expiresAt)
           return `${inv.token.padEnd(maxToken)}   ${inv.role}   ${uses}   ${expiry}`
         })
         const index = await select('Revoke invite:', choices)
@@ -1025,8 +1025,8 @@ const member = Cli.create('member', {
           },
         })
 
-      const rows = json.members.map((m) => [m.login, m.role, formatDate(new Date(m.created_at))])
-      return c.ok(table(['login', 'role', 'joined'], rows))
+      const rows = json.members.map((m) => [m.login, m.role, UI.formatDate(new Date(m.created_at))])
+      return c.ok(UI.table(['login', 'role', 'joined'], rows))
     },
   })
   .command('remove', {
@@ -1087,7 +1087,7 @@ const member = Cli.create('member', {
                 ],
               },
             })
-          const yes = await confirm(`Remove ${login} from organization?`)
+          const yes = await UI.confirm(`Remove ${login} from organization?`)
           if (!yes) return c.ok('Cancelled.')
         }
       } else {
@@ -1255,7 +1255,7 @@ const member = Cli.create('member', {
               ],
             },
           })
-        const yes = await confirm(`Change ${login} role to ${role}?`)
+        const yes = await UI.confirm(`Change ${login} role to ${role}?`)
         if (!yes) return c.ok('Cancelled.')
       }
 
@@ -1369,9 +1369,9 @@ const org = Cli.create('org', {
       const rows = json.organizations.map((org) => [
         org.id === activeId ? `${org.login}${pc.green('*')}` : org.login,
         org.name,
-        formatDate(new Date(org.created_at)),
+        UI.formatDate(new Date(org.created_at)),
       ])
-      return c.ok(table(['login', 'name', 'created'], rows))
+      return c.ok(UI.table(['login', 'name', 'created'], rows))
     },
   })
   .command('show', {
@@ -1513,7 +1513,7 @@ const token = Cli.create('token', {
 
       const json = await res.json()
       return c.ok(
-        summary(
+        UI.summary(
           [
             ['name', json.api_key.name],
             ['token', pc.green(pc.bold(json.api_key.token))],
@@ -1521,7 +1521,7 @@ const token = Cli.create('token', {
           'Token created',
         ) +
           '\n\n' +
-          callout("Save this token. It won't be shown again."),
+          UI.callout("Save this token. It won't be shown again."),
       )
     },
   })
@@ -1557,10 +1557,10 @@ const token = Cli.create('token', {
       const rows = json.api_keys.map((key) => [
         key.name,
         `${key.key_prefix}•••`,
-        key.last_used_at ? formatDate(new Date(key.last_used_at)) : 'never',
-        formatDate(new Date(key.created_at)),
+        key.last_used_at ? UI.formatDate(new Date(key.last_used_at)) : 'never',
+        UI.formatDate(new Date(key.created_at)),
       ])
-      return c.ok(table(['name', 'key', 'used', 'created'], rows))
+      return c.ok(UI.table(['name', 'key', 'used', 'created'], rows))
     },
   })
   .command('delete', {
@@ -1606,7 +1606,7 @@ const token = Cli.create('token', {
                 ],
               },
             })
-          const yes = await confirm(`Delete token "${match.name}"?`)
+          const yes = await UI.confirm(`Delete token "${match.name}"?`)
           if (!yes) return c.ok('Cancelled.')
         }
       } else {
@@ -1629,7 +1629,7 @@ const token = Cli.create('token', {
         })
         const maxName = Math.max(...listJson.api_keys.map((k) => k.name.length))
         const choices = listJson.api_keys.map((k) => {
-          const used = k.last_used_at ? formatDate(new Date(k.last_used_at)) : 'never'
+          const used = k.last_used_at ? UI.formatDate(new Date(k.last_used_at)) : 'never'
           const name = k.name.padEnd(maxName)
           return `${name}   ${pc.dim(`${k.key_prefix}•••`)}   ${used}`
         })
