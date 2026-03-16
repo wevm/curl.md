@@ -74,26 +74,8 @@ export function installGlobal(name: string, version?: string) {
   return execFileAsync('npm', ['install', '-g', spec])
 }
 
-// Vendored ANSI spinner (inspired by Vitest's windowed renderer)
-const ANSI_CLEAR_LINE = '\x1B[2K'
-const ANSI_CURSOR_TO_START = '\x1B[G'
-const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
-
-export function createSpinner(message: string) {
-  let frame = 0
-  const interval = setInterval(() => {
-    const symbol = pc.cyan(SPINNER_FRAMES[frame])
-    process.stderr.write(`${ANSI_CURSOR_TO_START}${ANSI_CLEAR_LINE}${symbol} ${message}`)
-    frame = (frame + 1) % SPINNER_FRAMES.length
-  }, 80).unref()
-
-  return {
-    stop() {
-      clearInterval(interval)
-      process.stderr.write(`${ANSI_CURSOR_TO_START}${ANSI_CLEAR_LINE}`)
-    },
-  }
-}
+import { createSpinner, select } from './ui.ts'
+export { createSpinner, select }
 
 export function openUrl(url: string) {
   const cmd =
@@ -204,100 +186,13 @@ export declare namespace UpdateCache {
 export function relativeTime(date: Date) {
   const diff = Math.floor((Date.now() - date.getTime()) / 1000)
   const seconds = Math.abs(diff)
-  const suffix = diff < 0 ? '' : ' ago'
-  const prefix = diff < 0 ? 'in ' : ''
-  if (seconds < 60) return 'just now'
+  if (seconds < 60) return 'now'
   const minutes = Math.floor(seconds / 60)
-  if (minutes < 60) return `${prefix}${minutes}m${suffix}`
+  if (minutes < 60) return `${minutes}m`
   const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${prefix}${hours}h${suffix}`
+  if (hours < 24) return `${hours}h`
   const days = Math.floor(hours / 24)
-  return `${prefix}${days}d${suffix}`
-}
-
-export function select(
-  title: string,
-  items: string[],
-  options?: { doneLabels?: string[] },
-): Promise<number> {
-  return new Promise((resolve) => {
-    let cursor = 0
-    let filter = ''
-    let filtered = items.map((_, i) => i)
-    const write = (s: string) => process.stderr.write(s)
-
-    function renderItem(fi: number) {
-      const idx = filtered[fi] as number
-      const item = items[idx] ?? ''
-      const indicator = fi === cursor ? pc.cyan('>') : ' '
-      const label = fi === cursor ? pc.cyan(item) : item
-      return `${indicator} ${label}\n`
-    }
-
-    const hint = pc.dim('[Use arrows to move, type to filter]')
-    let prevLines = 0
-
-    function render() {
-      if (prevLines > 0) write(`\x1b[${prevLines}A`)
-      for (let i = 0; i < prevLines; i++) write(`\x1b[2K\n`)
-      if (prevLines > 0) write(`\x1b[${prevLines}A`)
-
-      const header = filter
-        ? `${pc.green('?')} ${pc.bold(title)} ${pc.cyan(filter)}`
-        : `${pc.green('?')} ${pc.bold(title)}   ${hint}`
-      write(`\x1b[2K${header}\n`)
-      for (let i = 0; i < filtered.length; i++) write(`\x1b[2K${renderItem(i)}`)
-      prevLines = 1 + filtered.length
-    }
-
-    write('\x1b[?25l')
-    prevLines = 0
-    render()
-
-    process.stdin.setRawMode(true)
-    process.stdin.resume()
-
-    function applyFilter() {
-      const lower = filter.toLowerCase()
-      filtered = items
-        .map((item, i) => ({ item, i }))
-        .filter(({ item }) => item.toLowerCase().includes(lower))
-        .map(({ i }) => i)
-      cursor = Math.min(cursor, Math.max(0, filtered.length - 1))
-    }
-
-    function onData(buf: Buffer) {
-      const key = buf.toString()
-      if (key === '\x1b[A') cursor = Math.max(0, cursor - 1)
-      else if (key === '\x1b[B') cursor = Math.min(filtered.length - 1, cursor + 1)
-      else if (key === '\r' || key === '\n') {
-        if (filtered.length > 0) return done(filtered[cursor] as number)
-      } else if (key === '\x03' || key === '\x1b') return done(-1)
-      else if (key === '\x7f' || key === '\b') {
-        filter = filter.slice(0, -1)
-        applyFilter()
-      } else if (key.length === 1 && key >= ' ') {
-        filter += key
-        applyFilter()
-      } else return
-      render()
-    }
-
-    function done(index: number) {
-      if (prevLines > 0) write(`\x1b[${prevLines}A`)
-      for (let i = 0; i < prevLines; i++) write(`\x1b[2K\n`)
-      if (prevLines > 0) write(`\x1b[${prevLines}A`)
-      const selected = index >= 0 ? (options?.doneLabels?.[index] ?? items[index] ?? '') : ''
-      write(`\x1b[2K${pc.green('?')} ${pc.bold(title)} ${pc.cyan(selected)}\n`)
-      write('\x1b[?25h')
-      process.stdin.off('data', onData)
-      process.stdin.setRawMode(false)
-      process.stdin.pause()
-      resolve(index)
-    }
-
-    process.stdin.on('data', onData)
-  })
+  return `${days}d`
 }
 
 export function formatValidationError(json: unknown, fallback = 'Invalid request'): string {

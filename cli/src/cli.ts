@@ -14,8 +14,8 @@ import {
   openUrl,
   pollWithCancel,
   relativeTime,
-  Session,
   select,
+  Session,
   UpdateCache,
   updateStandalone,
 } from './utils.ts'

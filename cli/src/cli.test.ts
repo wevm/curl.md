@@ -386,7 +386,7 @@ describe('update check middleware', () => {
     })
 
     const { output } = await serve(['!!!invalid'])
-    expect(output).toContain('released 3h ago')
+    expect(output).toContain('released 3h')
   })
 
   test('version is current - no update command', async () => {
