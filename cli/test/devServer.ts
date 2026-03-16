@@ -2,14 +2,24 @@ import assert from 'node:assert'
 import net from 'node:net'
 import { createServer } from 'vite'
 
+// Vite/Miniflare can throw uncaught socket errors (EPIPE, ECONNRESET,
+// ERR_STREAM_WRITE_AFTER_END) under concurrent load when a client disconnects
+// before the server finishes writing. These are benign — swallow them so the
+// dev server process doesn't crash and cascade-fail all remaining tests.
+process.on('uncaughtException', (err) => {
+  const socketErrors = new Set(['ERR_STREAM_WRITE_AFTER_END', 'EPIPE', 'ECONNRESET'])
+  if ('code' in err && socketErrors.has(err.code as string)) return
+  throw err
+})
+
 const port = await new Promise<number>((resolve, reject) => {
-  const srv = net.createServer()
-  srv.listen(0, () => {
-    const addr = srv.address()
+  const server = net.createServer()
+  server.listen(0, () => {
+    const addr = server.address()
     assert(addr && typeof addr !== 'string')
-    srv.close(() => resolve(addr.port))
+    server.close(() => resolve(addr.port))
   })
-  srv.on('error', reject)
+  server.on('error', reject)
 })
 
 const vite = await createServer({ server: { port, strictPort: true } })

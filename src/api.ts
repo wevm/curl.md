@@ -52,7 +52,7 @@ export const api = new Hono<{
           : undefined
       })()
 
-    // Try API key (curl_ prefix)
+    // Try API key (curlmd_ prefix)
     if (!cookie && sessionId?.startsWith(ApiKey.prefix)) {
       const keyHash = await ApiKey.hash(sessionId)
       const apiKey = await c.var.db

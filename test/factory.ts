@@ -62,7 +62,7 @@ const defaultConfig: Partial<{
   api_key() {
     return {
       key_hash: Nanoid.generate(),
-      key_prefix: 'curl_',
+      key_prefix: 'curlmd_',
       name: `Key ${Nanoid.generate()}`,
     }
   },

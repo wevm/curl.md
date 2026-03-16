@@ -418,7 +418,7 @@ describe('auth', () => {
       account_id: account.id,
     })
     const suffix = Nanoid.generate()
-    const token = `curl_${suffix}`
+    const token = `curlmd_${suffix}`
     await factory.api_key.insert({
       organization_id: org.id,
       account_id: account.id,
@@ -441,7 +441,7 @@ describe('auth', () => {
   })
 
   test('check - with invalid --token', async () => {
-    const invalidToken = 'curl_invalidtoken'
+    const invalidToken = 'curlmd_invalidtoken'
     const origArgv = process.argv
     process.argv = [...origArgv, '--token', invalidToken]
     onTestFinished(() => {
@@ -1966,12 +1966,12 @@ describe('token', () => {
 
     const { output: createOutput } = await serve(['token', 'create', 'my-token'])
     expect(createOutput).toContain('Token my-token created.')
-    expect(createOutput).toContain('curl_')
+    expect(createOutput).toContain('curlmd_')
     expect(createOutput).toContain("won't be shown again")
 
     const { output: listOutput } = await serve(['token', 'list'])
     expect(listOutput).toContain('my-token')
-    expect(listOutput).toContain('curl_')
+    expect(listOutput).toContain('curlmd_')
     expect(listOutput).toContain('never')
   })
 

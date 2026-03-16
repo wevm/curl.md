@@ -1,6 +1,6 @@
 import { customAlphabet } from 'nanoid'
 
-export const prefix = 'curl_'
+export const prefix = 'curlmd_'
 
 export function generate(): string {
   return `${prefix}${customAlphabet('0123456789abcdefghijklmnopqrstuvwxyz', 32)()}`

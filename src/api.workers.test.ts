@@ -943,7 +943,7 @@ describe('POST /api/tokens', () => {
     const json = await res.json()
     assert('api_key' in json, 'expected api_key')
     expect(json.api_key.name).toBe('test token')
-    expect(json.api_key.token.startsWith('curl_')).toBe(true)
+    expect(json.api_key.token.startsWith('curlmd_')).toBe(true)
     expect(json.api_key.key_prefix).toBe(json.api_key.token.slice(0, 14))
 
     const stored = await db
@@ -969,7 +969,7 @@ describe('POST /api/tokens', () => {
       organization_id: org.id,
       account_id: account.id,
     })
-    const token = 'curl_blockapikey123'
+    const token = 'curlmd_blockapikey123'
     const hash = await ApiKey.hash(token)
     await factory.api_key.insert({
       organization_id: org.id,
@@ -1034,14 +1034,14 @@ describe('GET /api/tokens', () => {
     const session = await factory.session.insert({ account_id: account.id })
     await factory.api_key.insert({
       account_id: account.id,
-      key_hash: await ApiKey.hash('curl_list1'),
-      key_prefix: 'curl_list1',
+      key_hash: await ApiKey.hash('curlmd_list1'),
+      key_prefix: 'curlmd_list1',
       name: 'key 1',
     })
     await factory.api_key.insert({
       account_id: account.id,
-      key_hash: await ApiKey.hash('curl_list2'),
-      key_prefix: 'curl_list2',
+      key_hash: await ApiKey.hash('curlmd_list2'),
+      key_prefix: 'curlmd_list2',
       name: 'key 2',
     })
 
@@ -1062,14 +1062,14 @@ describe('GET /api/tokens', () => {
     const session = await factory.session.insert({ account_id: account.id })
     await factory.api_key.insert({
       account_id: account.id,
-      key_hash: await ApiKey.hash('curl_active1'),
-      key_prefix: 'curl_active',
+      key_hash: await ApiKey.hash('curlmd_active1'),
+      key_prefix: 'curlmd_active',
       name: 'active key',
     })
     await factory.api_key.insert({
       account_id: account.id,
-      key_hash: await ApiKey.hash('curl_deleted1'),
-      key_prefix: 'curl_delete',
+      key_hash: await ApiKey.hash('curlmd_deleted1'),
+      key_prefix: 'curlmd_delete',
       name: 'deleted key',
       deleted_at: new Date().toISOString(),
     })
@@ -1098,8 +1098,8 @@ describe('DELETE /api/tokens/:id', () => {
     const session = await factory.session.insert({ account_id: account.id })
     const apiKey = await factory.api_key.insert({
       account_id: account.id,
-      key_hash: await ApiKey.hash('curl_softdel1'),
-      key_prefix: 'curl_softde',
+      key_hash: await ApiKey.hash('curlmd_softdel1'),
+      key_prefix: 'curlmd_softde',
       name: 'to delete',
     })
 
@@ -1135,8 +1135,8 @@ describe('DELETE /api/tokens/:id', () => {
     const session2 = await factory.session.insert({ account_id: account2.id })
     const apiKey = await factory.api_key.insert({
       account_id: account1.id,
-      key_hash: await ApiKey.hash('curl_other1'),
-      key_prefix: 'curl_other',
+      key_hash: await ApiKey.hash('curlmd_other1'),
+      key_prefix: 'curlmd_other',
       name: 'account1 key',
     })
 
