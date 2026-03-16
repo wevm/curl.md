@@ -3,6 +3,7 @@ import { Cli, type MiddlewareContext, middleware, z } from 'incur'
 import pc from 'picocolors'
 import type { api } from '../../src/api.ts'
 import pkg from '../package.json' with { type: 'json' }
+import { formatDate, table } from './ui.ts'
 import {
   type Client,
   type Command,
@@ -801,39 +802,47 @@ const invite = Cli.create('invite', {
         })
 
       const json = await res.json()
-      if (!json.invites.length) return c.ok('No organization invites found.')
+      if (!json.invites.length)
+        return c.ok('No invites found.', {
+          cta: {
+            commands: [
+              {
+                command: `${c.name} org invite create`,
+                description: 'Create invite link',
+              },
+              ...c.var.commands,
+            ],
+          },
+        })
 
       const rows = json.invites.map((inv) => {
-        const tokenCol = inv.token
-        const roleCol = inv.role
-        const usageCol = inv.max_uses ? `${inv.use_count}/${inv.max_uses}` : `${inv.use_count}/∞`
         const expiresAt = new Date(inv.expires_at)
         const expired = expiresAt < new Date()
-        const relative = relativeTime(expiresAt)?.replace(/^in /, '') ?? 'soon'
-        const dateStr = expiresAt
-          .toLocaleDateString(undefined, {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric',
-          })
-          .replace(',', '')
-        const expiryCol = expired ? pc.dim('expired') : `${relative} ${pc.dim(`(${dateStr})`)}`
-        return [tokenCol, roleCol, usageCol, expiryCol] as const
+        const months = [
+          'Jan',
+          'Feb',
+          'Mar',
+          'Apr',
+          'May',
+          'Jun',
+          'Jul',
+          'Aug',
+          'Sep',
+          'Oct',
+          'Nov',
+          'Dec',
+        ]
+        const dateStr = `${months[expiresAt.getMonth()]} ${expiresAt.getDate()} ${expiresAt.getFullYear()}`
+        const expiryCol = expired ? `expired ${pc.dim(`(${dateStr})`)}` : formatDate(expiresAt)
+        return [
+          inv.token,
+          inv.role,
+          inv.max_uses ? `${inv.use_count}/${inv.max_uses}` : `${inv.use_count}/∞`,
+          expiryCol,
+          formatDate(new Date(inv.created_at)),
+        ]
       })
-
-      const headers = ['token', 'role', 'uses', 'expires'] as const
-      const widths = headers.map((h) => h.length)
-      for (const row of rows)
-        for (let i = 0; i < 4; i++) widths[i] = Math.max(widths[i] ?? 0, row[i]?.length ?? 0)
-
-      const headerLine = pc.dim(
-        `${headers[0].padEnd(widths[0] ?? 0)}  ${headers[1].padEnd(widths[1] ?? 0)}  ${headers[2].padEnd(widths[2] ?? 0)}  ${headers[3]}`,
-      )
-      const lines = rows.map(
-        (row) =>
-          `${row[0].padEnd(widths[0] ?? 0)}  ${row[1].padEnd(widths[1] ?? 0)}  ${row[2].padEnd(widths[2] ?? 0)}  ${row[3]}`,
-      )
-      return c.ok([headerLine, ...lines].join('\n'))
+      return c.ok(table(['token', 'role', 'uses', 'expires', 'created'], rows))
     },
   })
   .command('revoke', {
@@ -961,24 +970,21 @@ const member = Cli.create('member', {
         })
 
       const json = await res.json()
-      if (!json.members.length) return c.ok('No members found.')
+      if (!json.members.length)
+        return c.ok('No members found.', {
+          cta: {
+            commands: [
+              {
+                command: `${c.name} org member add <login>`,
+                description: 'Add member',
+              },
+              ...c.var.commands,
+            ],
+          },
+        })
 
-      const rows = json.members.map((m) => {
-        const loginCol = m.login
-        const roleCol = m.role
-        const joinedCol = `joined ${relativeTime(new Date(m.created_at)) ?? 'just now'}`
-        return [loginCol, roleCol, joinedCol] as const
-      })
-
-      const widths = [0, 0, 0] as number[]
-      for (const row of rows)
-        for (let i = 0; i < 3; i++) widths[i] = Math.max(widths[i] ?? 0, row[i]?.length ?? 0)
-
-      const lines = rows.map(
-        (row) =>
-          `  ${row[0].padEnd(widths[0] ?? 0)}  ${row[1].padEnd(widths[1] ?? 0)}  ${pc.dim(row[2])}`,
-      )
-      return c.ok(lines.join('\n'))
+      const rows = json.members.map((m) => [m.login, m.role, formatDate(new Date(m.created_at))])
+      return c.ok(table(['login', 'role', 'joined'], rows))
     },
   })
   .command('remove', {
@@ -1231,10 +1237,11 @@ const org = Cli.create('org', {
           },
         })
 
-      const lines = json.organizations.map((org) =>
-        org.id === activeId ? `${org.login} ${pc.dim('(active)')}` : org.login,
-      )
-      return c.ok(lines.join('\n'))
+      const rows = json.organizations.map((org) => [
+        org.id === activeId ? `${org.login}${pc.green('*')}` : org.login,
+        org.name,
+      ])
+      return c.ok(table(['login', 'name'], rows))
     },
   })
   .command('show', {
@@ -1415,15 +1422,13 @@ const token = Cli.create('token', {
         if (!b.last_used_at) return -1
         return new Date(b.last_used_at).getTime() - new Date(a.last_used_at).getTime()
       })
-      const maxName = Math.max(...json.api_keys.map((k) => k.name.length))
-      const lines = json.api_keys.map((key) => {
-        const used = key.last_used_at
-          ? (relativeTime(new Date(key.last_used_at)) ?? 'just now')
-          : 'never'
-        const name = key.name.padEnd(maxName)
-        return `${name}  ${pc.dim(`${key.key_prefix}•••`)}  ${pc.dim(`used ${used}`)}`
-      })
-      return c.ok(lines.join('\n'))
+      const rows = json.api_keys.map((key) => [
+        key.name,
+        pc.dim(`${key.key_prefix}•••`),
+        key.last_used_at ? formatDate(new Date(key.last_used_at)) : 'never',
+        formatDate(new Date(key.created_at)),
+      ])
+      return c.ok(table(['name', 'key', 'used', 'created'], rows))
     },
   })
   .command('delete', {

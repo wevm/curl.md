@@ -1381,7 +1381,7 @@ describe('org invite', () => {
       Session.write({ session_id: session.id, organization_id: org.id })
 
       const { output } = await serve(['org', 'invite', 'list'])
-      expect(output).toContain('No organization invites found')
+      expect(output).toContain('No invites found')
     })
 
     test('lists invites', async () => {
