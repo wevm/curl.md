@@ -1556,7 +1556,7 @@ const token = Cli.create('token', {
       })
       const rows = json.api_keys.map((key) => [
         key.name,
-        pc.dim(`${key.key_prefix}•••`),
+        `${key.key_prefix}•••`,
         key.last_used_at ? formatDate(new Date(key.last_used_at)) : 'never',
         formatDate(new Date(key.created_at)),
       ])
