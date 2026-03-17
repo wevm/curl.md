@@ -1030,6 +1030,35 @@ describe('POST /api/tokens', () => {
     expect(json.api_key.organization_id).toBe(org.id)
   })
 
+  test('allows same name across different organizations', async () => {
+    const account = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: account.id })
+    const org = await factory.organization.insert({})
+    await factory.organization_member.insert({
+      organization_id: org.id,
+      account_id: account.id,
+    })
+
+    // Create token "foo" under org
+    const res1 = await client.api.tokens.$post(
+      { json: { name: 'foo' } },
+      {
+        headers: {
+          Authorization: `Bearer ${session.id}`,
+          'x-organization-id': org.id,
+        },
+      },
+    )
+    expect(res1.status).toBe(201)
+
+    // Create token "foo" under personal account (no org)
+    const res2 = await client.api.tokens.$post(
+      { json: { name: 'foo' } },
+      { headers: { Authorization: `Bearer ${session.id}` } },
+    )
+    expect(res2.status).toBe(201)
+  })
+
   test('rejects duplicate name', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })

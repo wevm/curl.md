@@ -31,7 +31,7 @@
     "test": "vitest --config test/vitest.config.ts"
   },
   "dependencies": {
-    "@cloudflare/vite-plugin": "https://pkg.pr.new/@cloudflare/vite-plugin@12876",
+    "@cloudflare/vite-plugin": "^1.29.0",
     "@fontsource-variable/geist-mono": "^5.2.7",
     "@hono/zod-validator": "^0.7.6",
     "@octokit/core": "^7.0.6",
@@ -69,7 +69,7 @@
     "@svgr/core": "^8.1.0",
     "@svgr/plugin-jsx": "^8.1.0",
     "@tailwindcss/vite": "insiders",
-    "@testcontainers/postgresql": "^11.12.0",
+    "@testcontainers/postgresql": "^11.13.0",
     "@types/hast": "^3.0.4",
     "@types/node": "^25.2.3",
     "@types/react": "^19.2.0",
@@ -84,13 +84,13 @@
     "oxlint": "1.31.0",
     "simple-git-hooks": "^2.13.1",
     "tailwindcss": "insiders",
-    "testcontainers": "^11.12.0",
+    "testcontainers": "^11.13.0",
     "tiny-jsonc": "^1.0.2",
     "unplugin-auto-import": "^21.0.0",
     "unplugin-icons": "^23.0.1",
     "vite": "^8.0.0",
     "vitest": "^4.1.0",
-    "wrangler": "https://pkg.pr.new/wrangler@12876"
+    "wrangler": "^4.74.0"
   },
   "simple-git-hooks": {
     "pre-commit": "pnpm exec lint-staged"

@@ -7,11 +7,41 @@ export function table(headers: string[], rows: string[][]): string {
     Math.max(...allRows.map((row) => stripAnsi(row[col] ?? '').length)),
   )
 
+  const indent = 0
+  const gap = 3
+  const termWidth = process.stdout.columns || 80
+  const totalGaps = (headers.length - 1) * gap
+  const naturalWidth = indent + colWidths.reduce((a, b) => a + b, 0) + totalGaps
+  const overflow = naturalWidth - termWidth
+
+  if (overflow > 0) {
+    let remaining = overflow
+    // Shrink widest columns first, minimum 4 chars (3 for "..." + 1 char)
+    const minWidth = 4
+    const sortedIndices = colWidths
+      .map((w, i) => ({ w, i }))
+      .sort((a, b) => b.w - a.w)
+      .map(({ i }) => i)
+
+    for (const idx of sortedIndices) {
+      if (remaining <= 0) break
+      const w = colWidths[idx] ?? 0
+      const shrink = Math.min(remaining, w - minWidth)
+      if (shrink > 0) {
+        colWidths[idx] = w - shrink
+        remaining -= shrink
+      }
+    }
+  }
+
   const formatRow = (row: string[], dim: boolean) =>
-    `  ${row
+    `${row
       .map((cell, i) => {
-        const pad = (colWidths[i] ?? 0) - stripAnsi(cell).length
-        const padded = cell + ' '.repeat(Math.max(0, pad))
+        const maxW = colWidths[i] ?? 0
+        const visible = stripAnsi(cell)
+        const truncated = visible.length > maxW ? truncateAnsi(cell, maxW - 3) + '\x1b[0m...' : cell
+        const pad = maxW - stripAnsi(truncated).length
+        const padded = truncated + ' '.repeat(Math.max(0, pad))
         return dim ? pc.dim(padded) : padded
       })
       .join('   ')}`
@@ -21,13 +51,13 @@ export function table(headers: string[], rows: string[][]): string {
 
 export function summary(fields: [string, string][], title?: string): string {
   const maxLabel = Math.max(...fields.map(([label]) => label.length))
-  const lines = fields.map(([label, value]) => `  ${pc.dim(label.padStart(maxLabel))}   ${value}`)
+  const lines = fields.map(([label, value]) => `${pc.dim(label.padStart(maxLabel))}   ${value}`)
   if (!title) return lines.join('\n')
   return [pc.bold(title), '', ...lines].join('\n')
 }
 
 export function callout(message: string): string {
-  return `  ${pc.yellow(message)}`
+  return pc.yellow(message)
 }
 
 export async function confirm(message: string): Promise<boolean> {
@@ -57,24 +87,7 @@ export async function confirm(message: string): Promise<boolean> {
 }
 
 export function formatAbsoluteDate(date: Date): string {
-  const months = [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dec',
-  ]
-  const month = months[date.getMonth()]
-  const day = date.getDate()
-  const year = date.getFullYear()
-  return `${month} ${day} ${year}`
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
 export function formatDate(date: Date): string {
@@ -208,4 +221,33 @@ export function select(
 function stripAnsi(str: string): string {
   // eslint-disable-next-line no-control-regex
   return str.replace(/\x1b\[[0-9;]*m/g, '')
+}
+
+// eslint-disable-next-line no-control-regex
+const ansiRegex = /\x1b\[[0-9;]*m/
+
+function truncateAnsi(str: string, maxVisible: number): string {
+  let result = ''
+  let visible = 0
+  let i = 0
+  while (i < str.length && visible < maxVisible) {
+    const match = str.slice(i).match(ansiRegex)
+    if (match?.index === 0) {
+      result += match[0]
+      i += match[0].length
+    } else {
+      result += str[i]
+      visible++
+      i++
+    }
+  }
+  // Append any remaining ANSI reset sequences
+  while (i < str.length) {
+    const match = str.slice(i).match(ansiRegex)
+    if (match?.index === 0) {
+      result += match[0]
+      i += match[0].length
+    } else break
+  }
+  return result
 }

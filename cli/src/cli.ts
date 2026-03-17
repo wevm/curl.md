@@ -3,7 +3,7 @@ import { Cli, type MiddlewareContext, middleware, z } from 'incur'
 import pc from 'picocolors'
 import type { api } from '../../src/api.ts'
 import pkg from '../package.json' with { type: 'json' }
-import { Client, Command } from './types.ts'
+import type { Client, Command } from './types.ts'
 import * as UI from './ui.ts'
 import {
   compareVersions,
@@ -338,8 +338,8 @@ function authError(
           description: 'Log in',
         },
         {
-          command: `${c.name} --token <token>`,
-          description: 'Use an API token instead',
+          command: `${c.name} auth check --token <token>`,
+          description: 'Use API token instead',
         },
         ...c.var.commands,
       ],

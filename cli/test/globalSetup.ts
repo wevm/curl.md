@@ -4,16 +4,14 @@ import { startDatabase } from '#test/containers.ts'
 import { Env } from '#test/env.ts'
 
 export default async function (project: TestProject) {
-  const name = project.name || 'unknown'
-
-  console.log(`${name}: starting database`)
+  console.log(`${project.name}: starting database`)
   const container = await startDatabase()
-  console.log(`${name}: started database`)
+  console.log(`${project.name}: started database`)
 
-  console.log(`${name}: starting dev server`)
+  console.log(`${project.name}: starting dev server`)
   const dbUrl = container.getConnectionUri()
   const server = await startDevServer(dbUrl)
-  console.log(`${name}: started dev server`)
+  console.log(`${project.name}: started dev server`)
 
   const env = Env.get({
     CURLMD_BASE_URL: server.baseUrl,
