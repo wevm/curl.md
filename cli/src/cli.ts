@@ -1632,7 +1632,7 @@ const token = Cli.create('token', {
         const choices = listJson.api_keys.map((k) => {
           const used = k.last_used_at ? UI.formatDate(new Date(k.last_used_at)) : 'never'
           const name = k.name.padEnd(maxName)
-          return `${name}   ${k.key_prefix}•••   ${used}`
+          return `${name}   ${k.key_prefix}•••   ${used}   ${UI.formatDate(new Date(k.created_at))}`
         })
         const doneLabels = listJson.api_keys.map((k) => k.name)
         const index = await select('Delete token:', choices, { doneLabels })
