@@ -6,7 +6,6 @@ import pkg from '../package.json' with { type: 'json' }
 import * as UI from './ui.ts'
 import {
   compareVersions,
-  createSpinner,
   formatValidationError,
   installGlobal,
   isStandalone,
@@ -14,7 +13,6 @@ import {
   parseApiError,
   pollWithCancel,
   relativeTime,
-  select,
   Session,
   UpdateCache,
   updateStandalone,
@@ -423,7 +421,7 @@ const auth = Cli.create('auth', {
         `${pc.dim('If something goes wrong, copy and paste this URL into your browser:')}\n${pc.blue(url)}\n`,
       )
 
-      const spinner = createSpinner('Waiting for authentication')
+      const spinner = UI.createSpinner('Waiting for authentication')
       const abort = new AbortController()
       const onSignal = () => abort.abort()
       process.on('SIGINT', onSignal)
@@ -534,7 +532,7 @@ const credits = Cli.create('credits', {
         return c.error({ code: json.code.toUpperCase(), message: json.message })
       }
       if (creditsRes.status !== 200)
-        return c.error({ code: 'UNKNOWN', message: 'Unexpected error' })
+        return c.error({ code: 'UNKNOWN', message: 'Unexpected error.' })
 
       const commands = [
         {
@@ -549,7 +547,7 @@ const credits = Cli.create('credits', {
       let selectedAmount = c.args.amount
       if (credits.payment_method) {
         while (true) {
-          const choice = await select(`Charge $${selectedAmount} to:`, [
+          const choice = await UI.select(`Charge $${selectedAmount} to:`, [
             `${credits.payment_method.brand.charAt(0).toUpperCase() + credits.payment_method.brand.slice(1)} •••• ${credits.payment_method.last4}`,
             'Select different amount',
             'Add new payment method',
@@ -561,7 +559,7 @@ const credits = Cli.create('credits', {
           if (choice === 1) {
             const values = ['5', '10', '20', '50'] as const
             const maxLen = `$${values[values.length - 1]}`.length
-            const amountChoice = await select(
+            const amountChoice = await UI.select(
               'Amount:',
               values.map(
                 (v) =>
@@ -575,7 +573,7 @@ const credits = Cli.create('credits', {
             continue
           }
 
-          const spinner = createSpinner('Adding credits')
+          const spinner = UI.createSpinner('Adding credits')
           const chargeRes = await c.var.client.api.credits.charge.$post({
             json: {
               amount: `${Number(selectedAmount) * 100}` as '500' | '1000' | '2000' | '5000',
@@ -589,7 +587,7 @@ const credits = Cli.create('credits', {
           }
           if (chargeRes.status !== 200) {
             spinner.stop()
-            return c.error({ code: 'UNKNOWN', message: 'Unexpected error' })
+            return c.error({ code: 'UNKNOWN', message: 'Unexpected error.' })
           }
 
           const chargeJson = await chargeRes.json()
@@ -639,7 +637,7 @@ const credits = Cli.create('credits', {
         const json = await addRes.json()
         return c.error({ code: json.code.toUpperCase(), message: json.message })
       }
-      if (addRes.status !== 200) return c.error({ code: 'UNKNOWN', message: 'Unexpected error' })
+      if (addRes.status !== 200) return c.error({ code: 'UNKNOWN', message: 'Unexpected error.' })
 
       const addJson = await addRes.json()
       openUrl(addJson.url)
@@ -672,7 +670,7 @@ const credits = Cli.create('credits', {
         const json = await res.json()
         return c.error({ code: json.code.toUpperCase(), message: json.message })
       }
-      if (res.status !== 200) return c.error({ code: 'UNKNOWN', message: 'Unexpected error' })
+      if (res.status !== 200) return c.error({ code: 'UNKNOWN', message: 'Unexpected error.' })
 
       const json = await res.json()
       const dollars = (json.balance_mills / 1_000).toFixed(3)
@@ -722,10 +720,10 @@ const invite = Cli.create('invite', {
         const json = await res.json()
         return c.error({ code: json.code.toUpperCase(), message: json.message })
       }
-      if (res.status !== 200) return c.error({ code: 'UNKNOWN', message: 'Unexpected error' })
+      if (res.status !== 200) return c.error({ code: 'UNKNOWN', message: 'Unexpected error.' })
 
       const json = await res.json()
-      return c.ok(`Joined ${pc.bold(json.organization.login)}.`, {
+      return c.ok(`Joined ${pc.bold(json.organization.login)}`, {
         cta: {
           commands: [
             {
@@ -766,7 +764,7 @@ const invite = Cli.create('invite', {
         const json = await res.json()
         return c.error({ code: json.code.toUpperCase(), message: json.message })
       }
-      if (res.status !== 201) return c.error({ code: 'UNKNOWN', message: 'Unexpected error' })
+      if (res.status !== 201) return c.error({ code: 'UNKNOWN', message: 'Unexpected error.' })
 
       const json = await res.json()
       const inv = json.invite
@@ -869,7 +867,7 @@ const invite = Cli.create('invite', {
                 ],
               },
             })
-          const yes = await UI.confirm(`Revoke invite "${inviteId}"?`)
+          const yes = await UI.confirm(`Revoke invite ${pc.bold(inviteId)}?`)
           if (!yes) return c.ok('Cancelled.')
         }
       } else {
@@ -889,7 +887,8 @@ const invite = Cli.create('invite', {
         })
         if (listRes.status === 401) return expiredSession(c)
 
-        if (listRes.status !== 200) return c.error({ code: 'UNKNOWN', message: 'Unexpected error' })
+        if (listRes.status !== 200)
+          return c.error({ code: 'UNKNOWN', message: 'Unexpected error.' })
         const listJson = await listRes.json()
         if (!listJson.invites.length)
           return c.error({
@@ -906,7 +905,7 @@ const invite = Cli.create('invite', {
           return `${inv.token.padEnd(maxToken)}   ${inv.role}   ${uses}   ${expiry}   ${UI.formatDate(new Date(inv.created_at))}`
         })
         const doneLabels = listJson.invites.map((inv) => inv.token)
-        const index = await select('Revoke invite:', choices, { doneLabels })
+        const index = await UI.select('Revoke invite:', choices, { doneLabels })
         if (index === -1) return c.ok('Cancelled.')
         const selected = listJson.invites[index]
         if (!selected)
@@ -980,9 +979,9 @@ const member = Cli.create('member', {
         return c.error({ code: json.code.toUpperCase(), message: json.message })
       }
 
-      if (res.status !== 201) return c.error({ code: 'UNKNOWN', message: 'Unexpected error' })
+      if (res.status !== 201) return c.error({ code: 'UNKNOWN', message: 'Unexpected error.' })
 
-      return c.ok(`Added ${c.args.login} as ${c.options.role}.`)
+      return c.ok(`Added ${pc.bold(c.args.login)} as ${pc.bold(c.options.role)}`)
     },
   })
   .command('list', {
@@ -1048,7 +1047,7 @@ const member = Cli.create('member', {
         const json = await listRes.json()
         return c.error({ code: json.code.toUpperCase(), message: json.message })
       }
-      if (listRes.status !== 200) return c.error({ code: 'UNKNOWN', message: 'Unexpected error' })
+      if (listRes.status !== 200) return c.error({ code: 'UNKNOWN', message: 'Unexpected error.' })
       const listJson = await listRes.json()
       if (!listJson.members.length)
         return c.error({
@@ -1080,7 +1079,7 @@ const member = Cli.create('member', {
                 ],
               },
             })
-          const yes = await UI.confirm(`Remove ${login} from organization?`)
+          const yes = await UI.confirm(`Remove ${pc.bold(login)} from organization?`)
           if (!yes) return c.ok('Cancelled.')
         }
       } else {
@@ -1103,7 +1102,7 @@ const member = Cli.create('member', {
           return `${login}   ${role}   ${UI.formatDate(new Date(m.created_at))}`
         })
         const doneLabels = listJson.members.map((m) => m.login)
-        const index = await select('Remove member:', choices, { doneLabels })
+        const index = await UI.select('Remove member:', choices, { doneLabels })
         if (index === -1) return c.ok('Cancelled.')
         const selected = listJson.members[index]
         if (!selected)
@@ -1137,7 +1136,7 @@ const member = Cli.create('member', {
         return c.error({ code: json.code.toUpperCase(), message: json.message })
       }
 
-      return c.ok(`Removed ${login} from organization.`)
+      return c.ok(`Removed ${pc.bold(login)} from organization.`)
     },
   })
   .command('role', {
@@ -1166,7 +1165,7 @@ const member = Cli.create('member', {
         const json = await listRes.json()
         return c.error({ code: json.code.toUpperCase(), message: json.message })
       }
-      if (listRes.status !== 200) return c.error({ code: 'UNKNOWN', message: 'Unexpected error' })
+      if (listRes.status !== 200) return c.error({ code: 'UNKNOWN', message: 'Unexpected error.' })
       const listJson = await listRes.json()
       if (!listJson.members.length)
         return c.error({
@@ -1206,7 +1205,7 @@ const member = Cli.create('member', {
           return `${login}   ${role}   ${UI.formatDate(new Date(m.created_at))}`
         })
         const doneLabels = listJson.members.map((m) => m.login)
-        const index = await select('Change role for:', choices, { doneLabels })
+        const index = await UI.select('Change role for:', choices, { doneLabels })
         if (index === -1) return c.ok('Cancelled.')
         const selected = listJson.members[index]
         if (!selected)
@@ -1228,7 +1227,7 @@ const member = Cli.create('member', {
       if (!role) {
         const roles = ['member', 'admin'] as const
         const roleChoices = roles.map((r) => (r === match.role ? `${r} ${pc.dim('(current)')}` : r))
-        const roleIndex = await select('New role:', roleChoices, { doneLabels: [...roles] })
+        const roleIndex = await UI.select('New role:', roleChoices, { doneLabels: [...roles] })
         if (roleIndex === -1)
           return c.error({
             code: 'INVALID_SELECTION',
@@ -1259,7 +1258,7 @@ const member = Cli.create('member', {
               ],
             },
           })
-        const yes = await UI.confirm(`Change ${login} role to ${role}?`)
+        const yes = await UI.confirm(`Change ${pc.bold(login)} role to ${pc.bold(role)}?`)
         if (!yes) return c.ok('Cancelled.')
       }
 
@@ -1280,7 +1279,7 @@ const member = Cli.create('member', {
         return c.error({ code: json.code.toUpperCase(), message: json.message })
       }
 
-      return c.ok(`Changed ${login} role to ${role}.`)
+      return c.ok(`Changed ${pc.bold(login)} role to ${pc.bold(role)}`)
     },
   })
 
@@ -1464,7 +1463,7 @@ const org = Cli.create('org', {
         },
       ]
 
-      const index = await select(
+      const index = await UI.select(
         'Switch to:',
         choices.map((c) => c.label),
       )
@@ -1510,10 +1509,10 @@ const token = Cli.create('token', {
         const json = await res.json()
         return c.error({
           code: json.code.toUpperCase(),
-          message: `Token ${pc.bold(c.args.name)} already exists`,
+          message: `Token ${pc.bold(c.args.name)} already exists.`,
         })
       }
-      if (res.status !== 201) return c.error({ code: 'UNKNOWN', message: 'Unexpected error' })
+      if (res.status !== 201) return c.error({ code: 'UNKNOWN', message: 'Unexpected error.' })
 
       const json = await res.json()
       return c.ok(
@@ -1610,7 +1609,7 @@ const token = Cli.create('token', {
                 ],
               },
             })
-          const yes = await UI.confirm(`Delete token "${match.name}"?`)
+          const yes = await UI.confirm(`Delete token ${pc.bold(match.name)}?`)
           if (!yes) return c.ok('Cancelled.')
         }
       } else {
@@ -1638,7 +1637,7 @@ const token = Cli.create('token', {
           return `${name}   ${k.key_prefix}•••   ${used}   ${UI.formatDate(new Date(k.created_at))}`
         })
         const doneLabels = listJson.api_keys.map((k) => k.name)
-        const index = await select('Delete token:', choices, { doneLabels })
+        const index = await UI.select('Delete token:', choices, { doneLabels })
         if (index === -1) return c.ok('Cancelled.')
         match = listJson.api_keys[index]
         if (!match)
@@ -1710,7 +1709,7 @@ const update = Cli.create('update', {
       })
     if (!version.startsWith('http') && compareVersions(version, pkg.version) <= 0)
       return c.ok(`Already up-to-date (${pkg.version}).`)
-    const spinner = createSpinner(`Updating ${c.name} ${pkg.version} → ${version}`)
+    const spinner = UI.createSpinner(`Updating ${c.name} ${pkg.version} → ${version}`)
     try {
       if (isStandalone()) await updateStandalone(version, aliases)
       else await installGlobal(c.name, version)

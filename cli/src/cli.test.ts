@@ -7,6 +7,7 @@ import * as Nanoid from '#lib/nanoid.ts'
 import { Env } from '#test/env.ts'
 import { createFactory } from '#test/factory.ts'
 import { serve, useTmp } from '../test/utils.ts'
+import * as UI from './ui.ts'
 import * as utils from './utils.ts'
 import { Session, UpdateCache } from './utils.ts'
 
@@ -802,7 +803,7 @@ describe('credits', () => {
     const session = await factory.session.insert({ account_id: account.id })
     Session.write({ session_id: session.id })
 
-    const selectSpy = vi.spyOn(utils, 'select').mockResolvedValue(0)
+    const selectSpy = vi.spyOn(UI, 'select').mockResolvedValue(0)
     const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
     let creditsCallCount = 0
@@ -854,7 +855,7 @@ describe('credits', () => {
     const session = await factory.session.insert({ account_id: account.id })
     Session.write({ session_id: session.id })
 
-    const selectSpy = vi.spyOn(utils, 'select').mockResolvedValue(0)
+    const selectSpy = vi.spyOn(UI, 'select').mockResolvedValue(0)
     const openUrlSpy = vi.spyOn(utils, 'openUrl').mockImplementation(() => {})
     const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
@@ -912,7 +913,7 @@ describe('credits', () => {
     const session = await factory.session.insert({ account_id: account.id })
     Session.write({ session_id: session.id })
 
-    const selectSpy = vi.spyOn(utils, 'select').mockResolvedValue(2)
+    const selectSpy = vi.spyOn(UI, 'select').mockResolvedValue(2)
     const openUrlSpy = vi.spyOn(utils, 'openUrl').mockImplementation(() => {})
     const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
@@ -2018,6 +2019,36 @@ describe('token', () => {
     expect(listOutput).toContain('my-token')
     expect(listOutput).toContain('curlmd_')
     expect(listOutput).toContain('never')
+  })
+
+  test('list - scopes to active org', async () => {
+    const account = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: account.id })
+    const org = await factory.organization.insert({})
+    await factory.organization_member.insert({
+      organization_id: org.id,
+      account_id: account.id,
+    })
+
+    // Create account-level token (no org)
+    Session.write({ session_id: session.id })
+    await serve(['token', 'create', 'account-token'])
+
+    // Create org-scoped token
+    Session.write({ session_id: session.id, organization_id: org.id })
+    await serve(['token', 'create', 'org-token'])
+
+    // List with org active — should only show org token
+    Session.write({ session_id: session.id, organization_id: org.id })
+    const { output: orgList } = await serve(['token', 'list'])
+    expect(orgList).toContain('org-token')
+    expect(orgList).not.toContain('account-token')
+
+    // List without org — should only show account token
+    Session.write({ session_id: session.id, organization_id: undefined })
+    const { output: acctList } = await serve(['token', 'list'])
+    expect(acctList).toContain('account-token')
+    expect(acctList).not.toContain('org-token')
   })
 
   test('create - duplicate name', async () => {
