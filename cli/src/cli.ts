@@ -903,9 +903,10 @@ const invite = Cli.create('invite', {
           const expired = expiresAt < new Date()
           const uses = inv.max_uses ? `${inv.use_count}/${inv.max_uses}` : `${inv.use_count}/∞`
           const expiry = expired ? 'expired' : UI.formatDate(expiresAt)
-          return `${inv.token.padEnd(maxToken)}   ${inv.role}   ${uses}   ${expiry}`
+          return `${inv.token.padEnd(maxToken)}   ${inv.role}   ${uses}   ${expiry}   ${UI.formatDate(new Date(inv.created_at))}`
         })
-        const index = await select('Revoke invite:', choices)
+        const doneLabels = listJson.invites.map((inv) => inv.token)
+        const index = await select('Revoke invite:', choices, { doneLabels })
         if (index === -1) return c.ok('Cancelled.')
         const selected = listJson.invites[index]
         if (!selected)
@@ -1101,7 +1102,8 @@ const member = Cli.create('member', {
           const role = m.role.padEnd(maxRole)
           return `${login}   ${role}   ${UI.formatDate(new Date(m.created_at))}`
         })
-        const index = await select('Remove member:', choices)
+        const doneLabels = listJson.members.map((m) => m.login)
+        const index = await select('Remove member:', choices, { doneLabels })
         if (index === -1) return c.ok('Cancelled.')
         const selected = listJson.members[index]
         if (!selected)
@@ -1203,7 +1205,8 @@ const member = Cli.create('member', {
           const role = m.role.padEnd(maxRole)
           return `${login}   ${role}   ${UI.formatDate(new Date(m.created_at))}`
         })
-        const index = await select('Change role for:', choices)
+        const doneLabels = listJson.members.map((m) => m.login)
+        const index = await select('Change role for:', choices, { doneLabels })
         if (index === -1) return c.ok('Cancelled.')
         const selected = listJson.members[index]
         if (!selected)
