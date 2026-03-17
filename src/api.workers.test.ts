@@ -73,7 +73,8 @@ describe('GET /api/auth/github/callback', () => {
     })
     expect(res.status).toBe(400)
     await expect(res.json()).resolves.toEqual({
-      error: 'validation_error',
+      code: 'validation_error',
+      message: expect.any(String),
       issues: expect.arrayContaining([{ path: expect.any(String), message: expect.any(String) }]),
     })
   })
@@ -335,7 +336,8 @@ describe('POST /api/auth/device/confirm', () => {
     })
     expect(res.status).toBe(400)
     await expect(res.json()).resolves.toEqual({
-      error: 'validation_error',
+      code: 'validation_error',
+      message: expect.any(String),
       issues: expect.arrayContaining([{ path: expect.any(String), message: expect.any(String) }]),
     })
   })
@@ -371,7 +373,8 @@ describe('POST /api/auth/device/token', () => {
     })
     expect(res.status).toBe(400)
     await expect(res.json()).resolves.toEqual({
-      error: 'validation_error',
+      code: 'validation_error',
+      message: expect.any(String),
       issues: expect.arrayContaining([{ path: expect.any(String), message: expect.any(String) }]),
     })
   })
@@ -386,7 +389,8 @@ describe('POST /api/auth/device/token', () => {
     })
     expect(res.status).toBe(400)
     await expect(res.json()).resolves.toEqual({
-      error: 'authorization_pending',
+      code: 'authorization_pending',
+      message: expect.any(String),
     })
   })
 
@@ -395,7 +399,10 @@ describe('POST /api/auth/device/token', () => {
       json: { code: 'nonexistent' },
     })
     expect(res.status).toBe(400)
-    await expect(res.json()).resolves.toEqual({ error: 'expired_token' })
+    await expect(res.json()).resolves.toEqual({
+      code: 'expired_token',
+      message: expect.any(String),
+    })
   })
 
   test('returns 429 when rate limit exceeded', async () => {
@@ -412,7 +419,8 @@ describe('POST /api/auth/device/token', () => {
     expect(res.status).toBe(429)
     expect(res.headers.get('retry-after')).toBeTruthy()
     await expect(res.json()).resolves.toEqual({
-      error: 'rate_limit_exceeded',
+      code: 'rate_limit_exceeded',
+      message: expect.any(String),
     })
   })
 })
@@ -430,7 +438,10 @@ test('POST /api/auth/device returns 429 when rate limit exceeded', async () => {
   )
   expect(res.status).toBe(429)
   expect(res.headers.get('retry-after')).toBeTruthy()
-  await expect(res.json()).resolves.toEqual({ error: 'rate_limit_exceeded' })
+  await expect(res.json()).resolves.toEqual({
+    code: 'rate_limit_exceeded',
+    message: expect.any(String),
+  })
 })
 
 describe('GET /api/auth/me', () => {
@@ -484,7 +495,10 @@ describe('GET /api/auth/me', () => {
 
     const res = await client.api.auth.me.$get({}, { headers: { Authorization: `Bearer ${token}` } })
     expect(res.status).toBe(401)
-    await expect(res.json()).resolves.toEqual({ error: 'invalid_api_key' })
+    await expect(res.json()).resolves.toEqual({
+      code: 'invalid_api_key',
+      message: expect.any(String),
+    })
   })
 
   test('updates last_used_at on API key use', async () => {
@@ -785,7 +799,10 @@ describe('POST /api/credits/charge', () => {
       },
     )
     expect(res.status).toBe(400)
-    await expect(res.json()).resolves.toEqual({ error: 'no_payment_method' })
+    await expect(res.json()).resolves.toEqual({
+      code: 'no_payment_method',
+      message: expect.any(String),
+    })
   })
 
   test('returns 400 when no payment methods on file', async () => {
@@ -812,7 +829,10 @@ describe('POST /api/credits/charge', () => {
       },
     )
     expect(res.status).toBe(400)
-    await expect(res.json()).resolves.toEqual({ error: 'no_payment_method' })
+    await expect(res.json()).resolves.toEqual({
+      code: 'no_payment_method',
+      message: expect.any(String),
+    })
   })
 
   test('charges saved card successfully', async () => {
@@ -1024,7 +1044,7 @@ describe('POST /api/tokens', () => {
     )
     expect(res.status).toBe(409)
     const json = await res.json()
-    expect(json).toEqual({ error: 'name_taken' })
+    expect(json).toEqual({ code: 'name_taken', message: expect.any(String) })
   })
 })
 
@@ -1196,7 +1216,7 @@ describe('GET /api/orgs', () => {
     )
     expect(res.status).toBe(200)
     const json = await res.json()
-    assert(!('error' in json), 'expected organizations')
+    assert(!('code' in json), 'expected organizations')
     expect(json.organizations).toHaveLength(2)
     expect(json.organizations).toEqual(
       expect.arrayContaining([
@@ -1241,7 +1261,7 @@ describe('GET /api/orgs/:id', () => {
     )
     expect(res.status).toBe(200)
     const json = await res.json()
-    assert(!('error' in json), 'expected organization')
+    assert(!('code' in json), 'expected organization')
     expect(json.organization).toEqual(
       expect.objectContaining({
         id: org.id,
@@ -1284,7 +1304,8 @@ describe('POST /api/orgs', () => {
     })
     expect(res.status).toBe(400)
     await expect(res.json()).resolves.toEqual({
-      error: 'validation_error',
+      code: 'validation_error',
+      message: expect.any(String),
       issues: expect.arrayContaining([{ path: 'login', message: expect.any(String) }]),
     })
   })
@@ -1296,7 +1317,8 @@ describe('POST /api/orgs', () => {
     })
     expect(res.status).toBe(400)
     await expect(res.json()).resolves.toEqual({
-      error: 'validation_error',
+      code: 'validation_error',
+      message: expect.any(String),
       issues: expect.arrayContaining([{ path: 'login', message: expect.any(String) }]),
     })
   })
@@ -1377,7 +1399,8 @@ describe('POST /api/orgs', () => {
     )
     expect(res.status).toBe(409)
     await expect(res.json()).resolves.toEqual({
-      error: 'login_reserved',
+      code: 'login_reserved',
+      message: expect.any(String),
     })
   })
 
@@ -1395,7 +1418,7 @@ describe('POST /api/orgs', () => {
       },
     )
     expect(res.status).toBe(409)
-    await expect(res.json()).resolves.toEqual({ error: 'login_taken' })
+    await expect(res.json()).resolves.toEqual({ code: 'login_taken', message: expect.any(String) })
   })
 
   test('rejects duplicate login', async () => {
@@ -1413,7 +1436,8 @@ describe('POST /api/orgs', () => {
     )
     expect(res.status).toBe(409)
     await expect(res.json()).resolves.toEqual({
-      error: 'login_taken',
+      code: 'login_taken',
+      message: expect.any(String),
     })
   })
 })
@@ -1464,7 +1488,10 @@ describe('GET /api/cli/latest', () => {
 
     const res = await client.api.cli.latest.$get({ query: {} })
     expect(res.status).toBe(502)
-    await expect(res.json()).resolves.toEqual({ error: 'upstream_error' })
+    await expect(res.json()).resolves.toEqual({
+      code: 'upstream_error',
+      message: expect.any(String),
+    })
   })
 
   test('returns 502 when no latest version in registry', async () => {
@@ -1474,7 +1501,10 @@ describe('GET /api/cli/latest', () => {
 
     const res = await client.api.cli.latest.$get({ query: {} })
     expect(res.status).toBe(502)
-    await expect(res.json()).resolves.toEqual({ error: 'version_not_found' })
+    await expect(res.json()).resolves.toEqual({
+      code: 'version_not_found',
+      message: expect.any(String),
+    })
   })
 
   test('accepts analytics query params', async () => {
@@ -1508,7 +1538,8 @@ test('GET /api/:url rejects invalid url with validation_error', async () => {
   })
   expect(res.status).toBe(400)
   await expect(res.json()).resolves.toEqual({
-    error: 'validation_error',
+    code: 'validation_error',
+    message: expect.any(String),
     issues: expect.arrayContaining([{ path: expect.any(String), message: expect.any(String) }]),
   })
 })
@@ -1529,7 +1560,8 @@ test('GET /api/:url returns 403 for invalid x-organization-id', async () => {
   )
   expect(res.status).toBe(403)
   await expect(res.json()).resolves.toEqual({
-    error: 'organization_access_denied',
+    code: 'organization_access_denied',
+    message: expect.any(String),
   })
 })
 
@@ -1637,7 +1669,10 @@ test('GET /api/:url returns 429 when fetch limit exceeded', async () => {
   )
   expect(res.status).toBe(429)
   expect(res.headers.get('retry-after')).toBeTruthy()
-  await expect(res.json()).resolves.toEqual({ error: 'rate_limit_exceeded' })
+  await expect(res.json()).resolves.toEqual({
+    code: 'rate_limit_exceeded',
+    message: expect.any(String),
+  })
 })
 
 test('GET /api/:url returns 429 when query limit exceeded', async () => {
@@ -1653,7 +1688,10 @@ test('GET /api/:url returns 429 when query limit exceeded', async () => {
   )
   expect(res.status).toBe(429)
   expect(res.headers.get('retry-after')).toBeTruthy()
-  await expect(res.json()).resolves.toEqual({ error: 'rate_limit_exceeded' })
+  await expect(res.json()).resolves.toEqual({
+    code: 'rate_limit_exceeded',
+    message: expect.any(String),
+  })
 })
 
 test('GET /api/:url authed 429 includes credits message', async () => {
@@ -1680,7 +1718,7 @@ test('GET /api/:url authed 429 includes credits message', async () => {
   expect(res.status).toBe(429)
   const json = await res.json()
   expect(json).toEqual({
-    error: 'rate_limit_exceeded',
+    code: 'rate_limit_exceeded',
     message: 'Add credits to remove rate limits',
   })
 })
@@ -2128,7 +2166,10 @@ describe('POST /api/invites/:token/accept', () => {
       },
     )
     expect(res.status).toBe(409)
-    await expect(res.json()).resolves.toEqual({ error: 'already_member' })
+    await expect(res.json()).resolves.toEqual({
+      code: 'already_member',
+      message: expect.any(String),
+    })
 
     const updated = await db
       .selectFrom('organization_invite')
@@ -2940,7 +2981,10 @@ describe('PATCH /api/orgs/:id/members/:memberId', () => {
       },
     )
     expect(res.status).toBe(403)
-    await expect(res.json()).resolves.toEqual({ error: 'cannot_change_owner' })
+    await expect(res.json()).resolves.toEqual({
+      code: 'cannot_change_owner',
+      message: expect.any(String),
+    })
   })
 
   test('returns 404 when member not found', async () => {
@@ -3117,7 +3161,10 @@ describe('DELETE /api/orgs/:id/members/:memberId', () => {
       },
     )
     expect(res.status).toBe(403)
-    await expect(res.json()).resolves.toEqual({ error: 'cannot_remove_self' })
+    await expect(res.json()).resolves.toEqual({
+      code: 'cannot_remove_self',
+      message: expect.any(String),
+    })
   })
 
   test('returns 403 when removing owner', async () => {
@@ -3145,7 +3192,10 @@ describe('DELETE /api/orgs/:id/members/:memberId', () => {
       },
     )
     expect(res.status).toBe(403)
-    await expect(res.json()).resolves.toEqual({ error: 'cannot_remove_owner' })
+    await expect(res.json()).resolves.toEqual({
+      code: 'cannot_remove_owner',
+      message: expect.any(String),
+    })
   })
 
   test('returns 404 when member not found', async () => {
@@ -3182,7 +3232,10 @@ describe('POST /api/stripe/webhook', () => {
       env,
     )
     expect(res.status).toBe(400)
-    await expect(res.json()).resolves.toEqual({ error: 'missing_signature' })
+    await expect(res.json()).resolves.toEqual({
+      code: 'missing_signature',
+      message: expect.any(String),
+    })
   })
 
   test('returns 400 when signature invalid', async () => {
@@ -3199,7 +3252,10 @@ describe('POST /api/stripe/webhook', () => {
       env,
     )
     expect(res.status).toBe(400)
-    await expect(res.json()).resolves.toEqual({ error: 'invalid_signature' })
+    await expect(res.json()).resolves.toEqual({
+      code: 'invalid_signature',
+      message: expect.any(String),
+    })
   })
 
   test('accepts valid signature and queues event', async () => {
@@ -3253,7 +3309,10 @@ describe('POST /api/sentry/tunnel', () => {
   test('returns 400 for invalid envelope', async () => {
     const res = await api.request('/api/sentry/tunnel', { method: 'POST', body: 'no-newline' }, env)
     expect(res.status).toBe(400)
-    await expect(res.json()).resolves.toEqual({ error: 'invalid_envelope' })
+    await expect(res.json()).resolves.toEqual({
+      code: 'invalid_envelope',
+      message: expect.any(String),
+    })
   })
 
   test('forwards envelope to sentry', async () => {
@@ -3285,6 +3344,9 @@ describe('POST /api/sentry/tunnel', () => {
       env,
     )
     expect(res.status).toBe(502)
-    await expect(res.json()).resolves.toEqual({ error: 'sentry_upstream_error' })
+    await expect(res.json()).resolves.toEqual({
+      code: 'sentry_upstream_error',
+      message: expect.any(String),
+    })
   })
 })

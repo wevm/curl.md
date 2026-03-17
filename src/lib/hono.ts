@@ -8,21 +8,22 @@ export const narrowValidation = false as boolean
 /** Typed invalid API key response for RPC. Never reached at runtime (auth middleware handles it). */
 export function invalidApiKey(
   c: Context,
-): TypedResponse<{ error: 'invalid_api_key' }, 401, 'json'> {
-  return c.json({ error: 'invalid_api_key' as const }, 401)
+): TypedResponse<{ code: 'invalid_api_key'; message: string }, 401, 'json'> {
+  return c.json({ code: 'invalid_api_key' as const, message: 'Invalid API key' }, 401)
 }
 
 /** Typed validation error response for RPC. Never reached at runtime (validator middleware handles it). */
 export function validationError(
   c: Context,
 ): TypedResponse<
-  { error: 'validation_error'; issues: { message: string; path: string }[] },
+  { code: 'validation_error'; message: string; issues: { message: string; path: string }[] },
   400,
   'json'
 > {
   return c.json(
     {
-      error: 'validation_error' as const,
+      code: 'validation_error' as const,
+      message: 'Validation failed',
       issues: [] as { message: string; path: string }[],
     },
     400,
@@ -39,7 +40,8 @@ function validationHook(
   if (!result.success)
     return c.json(
       {
-        error: 'validation_error',
+        code: 'validation_error',
+        message: 'Validation failed',
         issues: result.error?.issues.map((i) => ({
           message: i.message,
           path: i.path.join('.'),

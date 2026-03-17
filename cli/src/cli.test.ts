@@ -66,7 +66,7 @@ test('help', async () => {
     Commands:
       auth     Authenticate with curl.md (check, login, logout)
       credits  Manage prepaid credits (add, check)
-      org      Manage organizations (create, invite, list, members, show, switch)
+      org      Manage organizations (create, invite, list, members, switch, view)
       token    Manage API tokens (create, list, delete)
       update   Update curl.md CLI
 
@@ -162,7 +162,7 @@ test('missing url', async () => {
 test('rate limit 429', async () => {
   const originalFetch = globalThis.fetch
   globalThis.fetch = async () =>
-    new Response(JSON.stringify({ error: 'rate_limit_exceeded' }), {
+    new Response(JSON.stringify({ code: 'rate_limit_exceeded', message: 'Rate limit exceeded' }), {
       status: 429,
       headers: {
         'content-type': 'application/json',
@@ -175,14 +175,14 @@ test('rate limit 429', async () => {
 
   const { exitCode, output } = await serve(['example.com'])
   expect(exitCode).toBe(1)
-  expect(output).toContain('RATE_LIMITED')
+  expect(output).toContain('RATE_LIMIT_EXCEEDED')
   expect(output).toContain('3600s')
 })
 
 test('rate limit 429 without retry-after', async () => {
   const originalFetch = globalThis.fetch
   globalThis.fetch = async () =>
-    new Response(JSON.stringify({ error: 'rate_limit_exceeded' }), {
+    new Response(JSON.stringify({ code: 'rate_limit_exceeded', message: 'Rate limit exceeded' }), {
       status: 429,
       headers: { 'content-type': 'application/json' },
     })
@@ -192,14 +192,14 @@ test('rate limit 429 without retry-after', async () => {
 
   const { exitCode, output } = await serve(['example.com'])
   expect(exitCode).toBe(1)
-  expect(output).toContain('RATE_LIMITED')
-  expect(output).toContain('Try again later')
+  expect(output).toContain('RATE_LIMIT_EXCEEDED')
+  expect(output).toContain('Rate limit exceeded')
 })
 
 test('rate limit 429 login cta when unauthenticated', async () => {
   const originalFetch = globalThis.fetch
   globalThis.fetch = async () =>
-    new Response(JSON.stringify({ error: 'rate_limit_exceeded' }), {
+    new Response(JSON.stringify({ code: 'rate_limit_exceeded', message: 'Rate limit exceeded' }), {
       status: 429,
       headers: { 'content-type': 'application/json' },
     })
@@ -215,7 +215,7 @@ test('rate limit 429 credits add cta when authenticated', async () => {
   Session.write({ session_id: 'test' })
   const originalFetch = globalThis.fetch
   globalThis.fetch = async () =>
-    new Response(JSON.stringify({ error: 'rate_limit_exceeded' }), {
+    new Response(JSON.stringify({ code: 'rate_limit_exceeded', message: 'Rate limit exceeded' }), {
       status: 429,
       headers: { 'content-type': 'application/json' },
     })
@@ -231,7 +231,7 @@ test('rate limit 429 credits add cta when authenticated', async () => {
 test('invalid api key 401', async () => {
   const originalFetch = globalThis.fetch
   globalThis.fetch = async () =>
-    new Response(JSON.stringify({ error: 'invalid_api_key' }), {
+    new Response(JSON.stringify({ code: 'invalid_api_key', message: 'Invalid API key' }), {
       status: 401,
       headers: { 'content-type': 'application/json' },
     })
@@ -250,7 +250,8 @@ test('validation error 400', async () => {
   globalThis.fetch = async () =>
     new Response(
       JSON.stringify({
-        error: 'validation_error',
+        code: 'validation_error',
+        message: 'Validation failed',
         issues: [{ path: 'url', message: 'Invalid url' }],
       }),
       { status: 400, headers: { 'content-type': 'application/json' } },
@@ -270,7 +271,7 @@ test('fetch_failed 502', async () => {
   globalThis.fetch = async () =>
     new Response(
       JSON.stringify({
-        error: 'fetch_failed',
+        code: 'fetch_failed',
         message: 'Connection refused',
       }),
       { status: 502, headers: { 'content-type': 'application/json' } },
@@ -508,7 +509,7 @@ describe('auth', () => {
           { status: 200, headers: { 'content-type': 'application/json' } },
         )
       // Second call: POST /api/auth/device/token
-      return new Response(JSON.stringify({ error: 'expired_token' }), {
+      return new Response(JSON.stringify({ code: 'expired_token', message: 'Token has expired' }), {
         status: 400,
         headers: { 'content-type': 'application/json' },
       })
@@ -519,7 +520,7 @@ describe('auth', () => {
 
     const { exitCode, output } = await serve(['auth', 'login'])
     expect(exitCode).toBe(1)
-    expect(output).toContain('AUTH_FAILED')
+    expect(output).toContain('EXPIRED_TOKEN')
   })
 
   test('login - malformed token request', async () => {
@@ -542,7 +543,8 @@ describe('auth', () => {
         )
       return new Response(
         JSON.stringify({
-          error: 'validation_error',
+          code: 'validation_error',
+          message: 'Validation failed',
           issues: [{ path: 'code', message: 'Required' }],
         }),
         { status: 400, headers: { 'content-type': 'application/json' } },
@@ -554,27 +556,30 @@ describe('auth', () => {
 
     const { exitCode, output } = await serve(['auth', 'login'])
     expect(exitCode).toBe(1)
-    expect(output).toContain('AUTH_FAILED')
+    expect(output).toContain('VALIDATION_ERROR')
     expect(output).toContain('code')
   })
 
   test('login - rate limit on device request', async () => {
     const originalFetch = globalThis.fetch
     globalThis.fetch = async () =>
-      new Response(JSON.stringify({ error: 'rate_limit_exceeded' }), {
-        status: 429,
-        headers: {
-          'content-type': 'application/json',
-          'retry-after': '30',
+      new Response(
+        JSON.stringify({ code: 'rate_limit_exceeded', message: 'Rate limit exceeded' }),
+        {
+          status: 429,
+          headers: {
+            'content-type': 'application/json',
+            'retry-after': '30',
+          },
         },
-      })
+      )
     onTestFinished(() => {
       globalThis.fetch = originalFetch
     })
 
     const { exitCode, output } = await serve(['auth', 'login'])
     expect(exitCode).toBe(1)
-    expect(output).toContain('RATE_LIMITED')
+    expect(output).toContain('RATE_LIMIT_EXCEEDED')
     expect(output).toContain('30s')
   })
 
@@ -592,13 +597,16 @@ describe('auth', () => {
       if (url.includes('/api/auth/device/token')) {
         tokenPollCount++
         if (tokenPollCount === 1)
-          return new Response(JSON.stringify({ error: 'rate_limit_exceeded' }), {
-            status: 429,
-            headers: {
-              'content-type': 'application/json',
-              'retry-after': '0',
+          return new Response(
+            JSON.stringify({ code: 'rate_limit_exceeded', message: 'Rate limit exceeded' }),
+            {
+              status: 429,
+              headers: {
+                'content-type': 'application/json',
+                'retry-after': '0',
+              },
             },
-          })
+          )
       }
       return originalFetch(input, init)
     }
@@ -709,7 +717,7 @@ describe('credits', () => {
 
     const { exitCode, output } = await serve(['credits', 'check'])
     expect(exitCode).toBe(1)
-    expect(output).toContain('FORBIDDEN')
+    expect(output).toContain('ORGANIZATION_ACCESS_DENIED')
   })
 
   test('add - forbidden for non-admin org member', async () => {
@@ -725,7 +733,7 @@ describe('credits', () => {
 
     const { exitCode, output } = await serve(['credits', 'add', '5'])
     expect(exitCode).toBe(1)
-    expect(output).toContain('FORBIDDEN')
+    expect(output).toContain('ORGANIZATION_ACCESS_DENIED')
   })
 
   test('add - requires auth', async () => {
@@ -981,17 +989,17 @@ describe('org', () => {
     expect(output).toContain('No organizations.')
   })
 
-  test('show - no active org, no orgs', async () => {
+  test('view - no active org, no orgs', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
     Session.write({ session_id: session.id })
 
-    const { output } = await serve(['org', 'show'])
+    const { output } = await serve(['org', 'view'])
     expect(output).toContain('No active organization')
     expect(output).toContain('org create')
   })
 
-  test('show - no active org, has orgs', async () => {
+  test('view - no active org, has orgs', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
     const org = await factory.organization.insert({})
@@ -1001,7 +1009,7 @@ describe('org', () => {
     })
     Session.write({ session_id: session.id })
 
-    const { output } = await serve(['org', 'show'])
+    const { output } = await serve(['org', 'view'])
     expect(output).toContain('No active organization')
     expect(output).toContain('org switch')
   })
@@ -1022,8 +1030,8 @@ describe('org', () => {
     const { output: switchOutput } = await serve(['org', 'switch', login])
     expect(switchOutput).toContain(`Switched to ${login}`)
 
-    const { output: showOutput } = await serve(['org', 'show'])
-    expect(showOutput).toContain(login)
+    const { output: viewOutput } = await serve(['org', 'view'])
+    expect(viewOutput).toContain(login)
 
     const { output: switchBackOutput } = await serve(['org', 'switch', 'account'])
     expect(switchBackOutput).toContain('Switched to')
@@ -1049,7 +1057,7 @@ describe('org', () => {
     await serve(['org', 'create', login])
     const { exitCode, output } = await serve(['org', 'create', login])
     expect(exitCode).toBe(1)
-    expect(output).toContain('CREATE_FAILED')
+    expect(output).toContain('LOGIN_TAKEN')
   })
 
   test('create - expired session deletes session', async () => {
@@ -1076,7 +1084,7 @@ describe('org', () => {
       organization_id: 'stale',
     })
 
-    const { exitCode, output } = await serve(['org', 'show'])
+    const { exitCode, output } = await serve(['org', 'view'])
     expect(exitCode).toBe(1)
     expect(output).toContain('NOT_AUTHENTICATED')
     expect(Session.read()).toBeNull()
@@ -1112,13 +1120,13 @@ describe('org', () => {
     expect(Session.read()?.organization_id).toBeUndefined()
   })
 
-  test('show - stale org resets to account', async () => {
+  test('view - stale org resets to account', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
     const org = await factory.organization.insert({})
     Session.write({ session_id: session.id, organization_id: org.id })
 
-    const { output } = await serve(['org', 'show'])
+    const { output } = await serve(['org', 'view'])
     expect(output).toContain('no longer accessible')
     expect(Session.read()?.organization_id).toBeUndefined()
   })
@@ -1131,7 +1139,7 @@ describe('org', () => {
 
     const { exitCode, output } = await serve(['example.com'])
     expect(exitCode).toBe(1)
-    expect(output).toContain('no longer accessible')
+    expect(output).toContain('ORGANIZATION_ACCESS_DENIED')
     expect(Session.read()?.organization_id).toBeUndefined()
   })
 })
@@ -1755,8 +1763,8 @@ describe('org member', () => {
 
       const { exitCode, output } = await serve(['org', 'member', 'remove', owner.login, '--force'])
       expect(exitCode).toBe(1)
-      expect(output).toContain('FORBIDDEN')
-      expect(output).toContain('Cannot remove an owner')
+      expect(output).toContain('CANNOT_REMOVE_OWNER')
+      expect(output).toContain('Cannot remove owner')
     })
 
     test('not found', async () => {
@@ -1972,7 +1980,7 @@ describe('org member', () => {
         '--force',
       ])
       expect(exitCode).toBe(1)
-      expect(output).toContain('FORBIDDEN')
+      expect(output).toContain('CANNOT_CHANGE_OWNER')
       expect(output).toContain('Cannot change owner role')
     })
   })

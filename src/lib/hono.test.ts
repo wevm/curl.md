@@ -17,7 +17,8 @@ test('returns validation_error with issues for invalid input', async () => {
   })
   expect(res.status).toBe(400)
   await expect(res.json()).resolves.toEqual({
-    error: 'validation_error',
+    code: 'validation_error',
+    message: expect.any(String),
     issues: [{ path: 'name', message: expect.any(String) }],
   })
 })
@@ -36,7 +37,8 @@ test('returns multiple issues for multiple failures', async () => {
   })
   expect(res.status).toBe(400)
   await expect(res.json()).resolves.toEqual({
-    error: 'validation_error',
+    code: 'validation_error',
+    message: expect.any(String),
     issues: expect.arrayContaining([
       { path: 'name', message: expect.any(String) },
       { path: 'age', message: expect.any(String) },

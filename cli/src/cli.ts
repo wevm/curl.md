@@ -5,14 +5,13 @@ import type { api } from '../../src/api.ts'
 import pkg from '../package.json' with { type: 'json' }
 import * as UI from './ui.ts'
 import {
-  type Client,
-  type Command,
   compareVersions,
   createSpinner,
   formatValidationError,
   installGlobal,
   isStandalone,
   openUrl,
+  parseApiError,
   pollWithCancel,
   relativeTime,
   select,
@@ -145,10 +144,13 @@ const cli = Cli.create('curl.md', {
       },
     })
 
-    if (res.status === 401)
-      return c.error({
+    if (res.status === 401) {
+      const err = parseApiError(await res.json(), {
         code: 'INVALID_API_KEY',
-        message: 'Invalid API key.',
+        message: 'Invalid API key',
+      })
+      return c.error({
+        ...err,
         cta: {
           description: 'Create a new token:',
           commands: [
@@ -160,20 +162,25 @@ const cli = Cli.create('curl.md', {
           ],
         },
       })
+    }
 
     if (res.status === 400) {
       const json = await res.json()
+      const err = parseApiError(json, { code: 'VALIDATION_ERROR', message: 'Validation failed' })
       return c.error({
-        code: 'VALIDATION_ERROR',
+        code: err.code,
         message: formatValidationError(json),
       })
     }
 
     if (res.status === 403) {
+      const err = parseApiError(await res.json(), {
+        code: 'ORGANIZATION_ACCESS_DENIED',
+        message: 'Organization access denied',
+      })
       Session.write({ organization_id: undefined })
       return c.error({
-        code: 'ORG_ACCESS_DENIED',
-        message: 'Organization no longer accessible. Switched to account.',
+        ...err,
         cta: {
           description: 'Switch organization:',
           commands: [
@@ -188,13 +195,14 @@ const cli = Cli.create('curl.md', {
     }
 
     if (res.status === 429) {
+      const err = parseApiError(await res.json(), {
+        code: 'RATE_LIMIT_EXCEEDED',
+        message: 'Rate limit exceeded',
+      })
       const retryAfter = res.headers.get('retry-after')
-      const message = retryAfter
-        ? `Rate limit exceeded. Try again in ${retryAfter}s.`
-        : 'Rate limit exceeded. Try again later.'
       return c.error({
-        code: 'RATE_LIMITED',
-        message,
+        code: err.code,
+        message: retryAfter ? `${err.message}. Try again in ${retryAfter}s` : err.message,
         cta: {
           description: c.var.session
             ? 'Add credits to remove rate limits:'
@@ -221,12 +229,11 @@ const cli = Cli.create('curl.md', {
 
     const text = await res.text()
     if (!res.ok) {
-      let message = text
+      let json: unknown
       try {
-        const json = JSON.parse(text)
-        if (json.message) message = json.message
+        json = JSON.parse(text)
       } catch {}
-      return c.error({ code: 'FETCH_FAILED', message })
+      return c.error(parseApiError(json, { code: 'FETCH_FAILED', message: text }))
     }
 
     if (!c.options.objective && text.length > 10_000)
@@ -277,6 +284,9 @@ cli.use(async (c, next) => {
 
   return next()
 })
+
+type Client = ReturnType<typeof hc<typeof api>>
+type Command = { command: string; description?: string }
 
 // Non-blocking update check: read cache from a previous run, spawn background
 // refresh if stale, set commands var for CTA — never blocks on network.
@@ -396,12 +406,11 @@ const auth = Cli.create('auth', {
 
       const deviceRes = await c.var.client.api.auth.device.$post()
       if (deviceRes.status === 429) {
+        const json = await deviceRes.json()
         const retryAfter = deviceRes.headers.get('retry-after')
         return c.error({
-          code: 'RATE_LIMITED',
-          message: retryAfter
-            ? `Rate limit exceeded. Try again in ${retryAfter}s.`
-            : 'Rate limit exceeded. Try again later.',
+          code: json.code.toUpperCase(),
+          message: retryAfter ? `${json.message}. Try again in ${retryAfter}s` : json.message,
         })
       }
 
@@ -454,7 +463,7 @@ const auth = Cli.create('auth', {
           }
           if (res.status !== 200) {
             const json = await res.json()
-            if (json.error === 'authorization_pending') {
+            if (json.code === 'authorization_pending') {
               await new Promise((r) => {
                 const t = setTimeout(r, interval)
                 abort.signal.addEventListener('abort', () => {
@@ -466,8 +475,8 @@ const auth = Cli.create('auth', {
             }
             spinner.stop()
             return c.error({
-              code: 'AUTH_FAILED',
-              message: formatValidationError(json, json.error),
+              code: json.code.toUpperCase(),
+              message: formatValidationError(json, json.message),
             })
           }
           const json = await res.json()
@@ -520,13 +529,12 @@ const credits = Cli.create('credits', {
       // Check for saved payment method
       const creditsRes = await c.var.client.api.credits.$get()
       if (creditsRes.status === 401) return expiredSession(c)
-      if (creditsRes.status === 403)
-        return c.error({
-          code: 'FORBIDDEN',
-          message: 'Must be owner or admin to add credits.',
-        })
+      if (creditsRes.status === 403) {
+        const json = await creditsRes.json()
+        return c.error({ code: json.code.toUpperCase(), message: json.message })
+      }
       if (creditsRes.status !== 200)
-        return c.error({ code: 'UNKNOWN', message: 'Unexpected error.' })
+        return c.error({ code: 'UNKNOWN', message: 'Unexpected error' })
 
       const commands = [
         {
@@ -581,7 +589,7 @@ const credits = Cli.create('credits', {
           }
           if (chargeRes.status !== 200) {
             spinner.stop()
-            return c.error({ code: 'UNKNOWN', message: 'Unexpected error.' })
+            return c.error({ code: 'UNKNOWN', message: 'Unexpected error' })
           }
 
           const chargeJson = await chargeRes.json()
@@ -627,12 +635,11 @@ const credits = Cli.create('credits', {
       })
 
       if (addRes.status === 401) return expiredSession(c)
-      if (addRes.status === 403)
-        return c.error({
-          code: 'FORBIDDEN',
-          message: 'Must be owner or admin to add credits.',
-        })
-      if (addRes.status !== 200) return c.error({ code: 'UNKNOWN', message: 'Unexpected error.' })
+      if (addRes.status === 403) {
+        const json = await addRes.json()
+        return c.error({ code: json.code.toUpperCase(), message: json.message })
+      }
+      if (addRes.status !== 200) return c.error({ code: 'UNKNOWN', message: 'Unexpected error' })
 
       const addJson = await addRes.json()
       openUrl(addJson.url)
@@ -661,12 +668,11 @@ const credits = Cli.create('credits', {
     async run(c) {
       const res = await c.var.client.api.credits.$get()
       if (res.status === 401) return expiredSession(c)
-      if (res.status === 403)
-        return c.error({
-          code: 'FORBIDDEN',
-          message: 'Must be owner or admin to check credits.',
-        })
-      if (res.status !== 200) return c.error({ code: 'UNKNOWN', message: 'Unexpected error.' })
+      if (res.status === 403) {
+        const json = await res.json()
+        return c.error({ code: json.code.toUpperCase(), message: json.message })
+      }
+      if (res.status !== 200) return c.error({ code: 'UNKNOWN', message: 'Unexpected error' })
 
       const json = await res.json()
       const dollars = (json.balance_mills / 1_000).toFixed(3)
@@ -708,17 +714,15 @@ const invite = Cli.create('invite', {
         param: { token: inviteToken },
       })
       if (res.status === 401) return expiredSession(c)
-      if (res.status === 404)
-        return c.error({
-          code: 'NOT_FOUND',
-          message: 'Invite not found, expired, or fully used.',
-        })
-      if (res.status === 409)
-        return c.error({
-          code: 'ALREADY_MEMBER',
-          message: 'Already a member.',
-        })
-      if (res.status !== 200) return c.error({ code: 'UNKNOWN', message: 'Unexpected error.' })
+      if (res.status === 404) {
+        const json = await res.json()
+        return c.error({ code: json.code.toUpperCase(), message: json.message })
+      }
+      if (res.status === 409) {
+        const json = await res.json()
+        return c.error({ code: json.code.toUpperCase(), message: json.message })
+      }
+      if (res.status !== 200) return c.error({ code: 'UNKNOWN', message: 'Unexpected error' })
 
       const json = await res.json()
       return c.ok(`Joined ${pc.bold(json.organization.login)}.`, {
@@ -758,12 +762,11 @@ const invite = Cli.create('invite', {
         },
       })
       if (res.status === 401) return expiredSession(c)
-      if (res.status === 403)
-        return c.error({
-          code: 'FORBIDDEN',
-          message: 'No permission to create invites.',
-        })
-      if (res.status !== 201) return c.error({ code: 'UNKNOWN', message: 'Unexpected error.' })
+      if (res.status === 403) {
+        const json = await res.json()
+        return c.error({ code: json.code.toUpperCase(), message: json.message })
+      }
+      if (res.status !== 201) return c.error({ code: 'UNKNOWN', message: 'Unexpected error' })
 
       const json = await res.json()
       const inv = json.invite
@@ -796,11 +799,10 @@ const invite = Cli.create('invite', {
         param: { id: orgId },
       })
       if (res.status === 401) return expiredSession(c)
-      if (res.status === 403)
-        return c.error({
-          code: 'FORBIDDEN',
-          message: 'No permission to view invites.',
-        })
+      if (res.status === 403) {
+        const json = await res.json()
+        return c.error({ code: json.code.toUpperCase(), message: json.message })
+      }
 
       const json = await res.json()
       if (!json.invites.length)
@@ -899,8 +901,7 @@ const invite = Cli.create('invite', {
         })
         if (listRes.status === 401) return expiredSession(c)
 
-        if (listRes.status !== 200)
-          return c.error({ code: 'UNKNOWN', message: 'Unexpected error.' })
+        if (listRes.status !== 200) return c.error({ code: 'UNKNOWN', message: 'Unexpected error' })
         const listJson = await listRes.json()
         if (!listJson.invites.length)
           return c.error({
@@ -938,7 +939,10 @@ const invite = Cli.create('invite', {
 
       if (res.status === 401) return expiredSession(c)
 
-      if (res.status === 404) return c.error({ code: 'NOT_FOUND', message: 'Invite not found.' })
+      if (res.status === 404) {
+        const json = await res.json()
+        return c.error({ code: json.code.toUpperCase(), message: json.message })
+      }
 
       return c.ok('Invite revoked.')
     },
@@ -971,21 +975,22 @@ const member = Cli.create('member', {
 
       if (res.status === 401) return expiredSession(c)
 
-      if (res.status === 403)
-        return c.error({
-          code: 'FORBIDDEN',
-          message: 'No permission to add members.',
-        })
+      if (res.status === 403) {
+        const json = await res.json()
+        return c.error({ code: json.code.toUpperCase(), message: json.message })
+      }
 
-      if (res.status === 404) return c.error({ code: 'NOT_FOUND', message: 'Account not found.' })
+      if (res.status === 404) {
+        const json = await res.json()
+        return c.error({ code: json.code.toUpperCase(), message: json.message })
+      }
 
-      if (res.status === 409)
-        return c.error({
-          code: 'ALREADY_MEMBER',
-          message: 'Already a member.',
-        })
+      if (res.status === 409) {
+        const json = await res.json()
+        return c.error({ code: json.code.toUpperCase(), message: json.message })
+      }
 
-      if (res.status !== 201) return c.error({ code: 'UNKNOWN', message: 'Unexpected error.' })
+      if (res.status !== 201) return c.error({ code: 'UNKNOWN', message: 'Unexpected error' })
 
       return c.ok(`Added ${c.args.login} as ${c.options.role}.`)
     },
@@ -1005,11 +1010,10 @@ const member = Cli.create('member', {
 
       if (res.status === 401) return expiredSession(c)
 
-      if (res.status === 403)
-        return c.error({
-          code: 'FORBIDDEN',
-          message: 'No permission to view members.',
-        })
+      if (res.status === 403) {
+        const json = await res.json()
+        return c.error({ code: json.code.toUpperCase(), message: json.message })
+      }
 
       const json = await res.json()
       if (!json.members.length)
@@ -1050,12 +1054,11 @@ const member = Cli.create('member', {
       })
       if (listRes.status === 401) return expiredSession(c)
 
-      if (listRes.status === 403)
-        return c.error({
-          code: 'FORBIDDEN',
-          message: 'No permission to remove members.',
-        })
-      if (listRes.status !== 200) return c.error({ code: 'UNKNOWN', message: 'Unexpected error.' })
+      if (listRes.status === 403) {
+        const json = await listRes.json()
+        return c.error({ code: json.code.toUpperCase(), message: json.message })
+      }
+      if (listRes.status !== 200) return c.error({ code: 'UNKNOWN', message: 'Unexpected error' })
       const listJson = await listRes.json()
       if (!listJson.members.length)
         return c.error({
@@ -1129,15 +1132,13 @@ const member = Cli.create('member', {
 
       if (res.status === 403) {
         const json = await res.json()
-        const message = (() => {
-          if (json.error === 'cannot_remove_self') return 'Cannot remove yourself.'
-          if (json.error === 'cannot_remove_owner') return 'Cannot remove an owner.'
-          return 'No permission to remove members.'
-        })()
-        return c.error({ code: 'FORBIDDEN', message })
+        return c.error({ code: json.code.toUpperCase(), message: json.message })
       }
 
-      if (res.status === 404) return c.error({ code: 'NOT_FOUND', message: 'Member not found.' })
+      if (res.status === 404) {
+        const json = await res.json()
+        return c.error({ code: json.code.toUpperCase(), message: json.message })
+      }
 
       return c.ok(`Removed ${login} from organization.`)
     },
@@ -1164,12 +1165,11 @@ const member = Cli.create('member', {
       })
       if (listRes.status === 401) return expiredSession(c)
 
-      if (listRes.status === 403)
-        return c.error({
-          code: 'FORBIDDEN',
-          message: 'No permission to change roles.',
-        })
-      if (listRes.status !== 200) return c.error({ code: 'UNKNOWN', message: 'Unexpected error.' })
+      if (listRes.status === 403) {
+        const json = await listRes.json()
+        return c.error({ code: json.code.toUpperCase(), message: json.message })
+      }
+      if (listRes.status !== 200) return c.error({ code: 'UNKNOWN', message: 'Unexpected error' })
       const listJson = await listRes.json()
       if (!listJson.members.length)
         return c.error({
@@ -1268,21 +1268,20 @@ const member = Cli.create('member', {
 
       if (res.status === 403) {
         const json = await res.json()
-        const message =
-          json.error === 'cannot_change_owner'
-            ? 'Cannot change owner role.'
-            : 'No permission to change roles.'
-        return c.error({ code: 'FORBIDDEN', message })
+        return c.error({ code: json.code.toUpperCase(), message: json.message })
       }
 
-      if (res.status === 404) return c.error({ code: 'NOT_FOUND', message: 'Member not found.' })
+      if (res.status === 404) {
+        const json = await res.json()
+        return c.error({ code: json.code.toUpperCase(), message: json.message })
+      }
 
       return c.ok(`Changed ${login} role to ${role}.`)
     },
   })
 
 const org = Cli.create('org', {
-  description: 'Manage organizations (create, invite, list, members, show, switch)',
+  description: 'Manage organizations (create, invite, list, members, switch, view)',
   vars,
 })
   .command('create', {
@@ -1303,15 +1302,15 @@ const org = Cli.create('org', {
       if (res.status === 400) {
         const json = await res.json()
         return c.error({
-          code: 'VALIDATION_ERROR',
-          message: formatValidationError(json, json.error),
+          code: json.code.toUpperCase(),
+          message: formatValidationError(json, json.message),
         })
       }
       if (res.status === 401) return expiredSession(c)
 
       if (res.status === 409) {
         const json = await res.json()
-        return c.error({ code: 'CREATE_FAILED', message: json.error })
+        return c.error({ code: json.code.toUpperCase(), message: json.message })
       }
 
       const json = await res.json()
@@ -1374,8 +1373,8 @@ const org = Cli.create('org', {
       return c.ok(UI.table(['login', 'name', 'created'], rows))
     },
   })
-  .command('show', {
-    description: 'Show active organization',
+  .command('view', {
+    description: 'View active organization',
     middleware: [requireAuth],
     output: z.string(),
     format: 'md',
@@ -1499,17 +1498,18 @@ const token = Cli.create('token', {
         json: { name: c.args.name },
       })
       if (res.status === 401) return expiredSession(c)
-      if (res.status === 403)
+      if (res.status === 403) {
+        const json = await res.json()
+        return c.error({ code: json.code.toUpperCase(), message: json.message })
+      }
+      if (res.status === 409) {
+        const json = await res.json()
         return c.error({
-          code: 'FORBIDDEN',
-          message: 'Cannot create tokens with API token.',
+          code: json.code.toUpperCase(),
+          message: `Token ${pc.bold(c.args.name)} already exists`,
         })
-      if (res.status === 409)
-        return c.error({
-          code: 'NAME_TAKEN',
-          message: `Token ${pc.bold(c.args.name)} already exists.`,
-        })
-      if (res.status !== 201) return c.error({ code: 'UNKNOWN', message: 'Unexpected error.' })
+      }
+      if (res.status !== 201) return c.error({ code: 'UNKNOWN', message: 'Unexpected error' })
 
       const json = await res.json()
       return c.ok(
@@ -1648,7 +1648,10 @@ const token = Cli.create('token', {
         param: { id: match.id },
       })
       if (res.status === 401) return expiredSession(c)
-      if (res.status === 404) return c.error({ code: 'NOT_FOUND', message: 'Token not found.' })
+      if (res.status === 404) {
+        const json = await res.json()
+        return c.error({ code: json.code.toUpperCase(), message: json.message })
+      }
 
       return c.ok(`Token ${pc.bold(match.name)} deleted.`)
     },
