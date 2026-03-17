@@ -92,9 +92,9 @@ function DeviceConfirmation() {
               const res = await rpc.api.auth.device.confirm.$post({
                 json: { user_code },
               })
-              if (res.status !== 200) {
+              if (res.status === 400 || res.status === 401 || res.status === 404) {
                 const json = await res.json()
-                setErrorMessage('error' in json ? json.error : 'Failed to confirm device.')
+                setErrorMessage(json.message)
                 setState('error')
                 return
               }

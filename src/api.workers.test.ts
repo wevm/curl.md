@@ -1077,6 +1077,81 @@ describe('GET /api/tokens', () => {
     expect(json.api_keys).toHaveLength(2)
   })
 
+  test('scopes to organization when header present', async () => {
+    const account = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: account.id })
+    const org = await factory.organization.insert({})
+    await factory.organization_member.insert({
+      organization_id: org.id,
+      account_id: account.id,
+    })
+    await factory.api_key.insert({
+      account_id: account.id,
+      organization_id: org.id,
+      key_hash: await ApiKey.hash('curlmd_org1'),
+      key_prefix: 'curlmd_org1',
+      name: 'org key',
+    })
+    await factory.api_key.insert({
+      account_id: account.id,
+      key_hash: await ApiKey.hash('curlmd_acct1'),
+      key_prefix: 'curlmd_acct1',
+      name: 'account key',
+    })
+
+    const res = await client.api.tokens.$get(
+      {},
+      {
+        headers: {
+          Authorization: `Bearer ${session.id}`,
+          'x-organization-id': org.id,
+        },
+      },
+    )
+    expect(res.status).toBe(200)
+    const json = (await res.json()) as Extract<
+      Awaited<ReturnType<typeof res.json>>,
+      { api_keys: unknown[] }
+    >
+    expect(json.api_keys).toHaveLength(1)
+    expect(json.api_keys[0]!.name).toBe('org key')
+  })
+
+  test('shows only account tokens when no org header', async () => {
+    const account = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: account.id })
+    const org = await factory.organization.insert({})
+    await factory.organization_member.insert({
+      organization_id: org.id,
+      account_id: account.id,
+    })
+    await factory.api_key.insert({
+      account_id: account.id,
+      organization_id: org.id,
+      key_hash: await ApiKey.hash('curlmd_org2'),
+      key_prefix: 'curlmd_org2',
+      name: 'org key',
+    })
+    await factory.api_key.insert({
+      account_id: account.id,
+      key_hash: await ApiKey.hash('curlmd_acct2'),
+      key_prefix: 'curlmd_acct2',
+      name: 'account key',
+    })
+
+    const res = await client.api.tokens.$get(
+      {},
+      { headers: { Authorization: `Bearer ${session.id}` } },
+    )
+    expect(res.status).toBe(200)
+    const json = (await res.json()) as Extract<
+      Awaited<ReturnType<typeof res.json>>,
+      { api_keys: unknown[] }
+    >
+    expect(json.api_keys).toHaveLength(1)
+    expect(json.api_keys[0]!.name).toBe('account key')
+  })
+
   test('excludes deleted tokens', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })

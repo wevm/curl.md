@@ -1408,6 +1408,7 @@ export const api = new Hono<{
     const api_keys = await c.var.db
       .selectFrom('api_key')
       .where('account_id', '=', c.var.session.account_id)
+      .where('organization_id', c.var.organization_id ? '=' : 'is', c.var.organization_id)
       .where('deleted_at', 'is', null)
       .select(['id', 'name', 'key_prefix', 'organization_id', 'last_used_at', 'created_at'])
       .orderBy('created_at', 'desc')

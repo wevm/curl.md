@@ -100,6 +100,11 @@ const ANSI_CURSOR_TO_START = '\x1B[G'
 const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
 
 export function createSpinner(message: string) {
+  if (!process.stderr.isTTY) {
+    process.stderr.write(`${message}\n`)
+    return { stop() {} }
+  }
+
   let frame = 0
   const interval = setInterval(() => {
     const symbol = pc.cyan(SPINNER_FRAMES[frame])

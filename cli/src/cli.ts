@@ -3,6 +3,7 @@ import { Cli, type MiddlewareContext, middleware, z } from 'incur'
 import pc from 'picocolors'
 import type { api } from '../../src/api.ts'
 import pkg from '../package.json' with { type: 'json' }
+import { Client, Command } from './types.ts'
 import * as UI from './ui.ts'
 import {
   compareVersions,
@@ -18,6 +19,11 @@ import {
   updateStandalone,
 } from './utils.ts'
 
+const env = z.object({
+  CURLMD_API_KEY: z.string().optional().describe('API key for authentication'),
+  CURLMD_BASE_URL: z.string().default('https://curl.md').describe('Base URL'),
+})
+
 const vars = z.object({
   apiKey: z.custom<string | undefined>(),
   client: z.custom<Client>(),
@@ -31,10 +37,7 @@ const cli = Cli.create('curl.md', {
   aliases,
   description: 'Fetch any URL as Markdown',
   version: pkg.version,
-  env: z.object({
-    CURLMD_API_KEY: z.string().optional().describe('API key for authentication'),
-    CURLMD_BASE_URL: z.string().default('https://curl.md').describe('Base URL'),
-  }),
+  env,
   vars,
   usage: [{ suffix: '<url> [options]' }],
   args: z.object({
@@ -282,9 +285,6 @@ cli.use(async (c, next) => {
 
   return next()
 })
-
-type Client = ReturnType<typeof hc<typeof api>>
-type Command = { command: string; description?: string }
 
 // Non-blocking update check: read cache from a previous run, spawn background
 // refresh if stale, set commands var for CTA — never blocks on network.
@@ -1379,6 +1379,11 @@ const org = Cli.create('org', {
   .command('view', {
     description: 'View active organization',
     middleware: [requireAuth],
+    env,
+    options: z.object({
+      web: z.boolean().optional().describe('Open in browser'),
+    }),
+    alias: { web: 'w' },
     output: z.string(),
     format: 'md',
     async run(c) {
@@ -1415,6 +1420,11 @@ const org = Cli.create('org', {
       }
 
       const json = await res.json()
+      if (c.options.web) {
+        const url = `${c.env.CURLMD_BASE_URL}/${json.organization.login}`
+        openUrl(url)
+        return c.ok(`Opened ${pc.blue(url)}`)
+      }
       return c.ok(`${pc.bold(json.organization.login)} ${pc.dim(`(${json.organization.name})`)}`)
     },
   })

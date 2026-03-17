@@ -68,6 +68,7 @@ export function installGlobal(name: string, version?: string) {
   return execFileAsync('npm', ['install', '-g', spec])
 }
 
+import { Client } from './types.ts'
 import { createSpinner, select } from './ui.ts'
 export { createSpinner, select }
 
