@@ -56,10 +56,7 @@ export async function confirm(message: string): Promise<boolean> {
   })
 }
 
-export function formatDate(date: Date): string {
-  const rel = relativeTime(date)
-  if (rel === 'now') return 'now'
-
+export function formatAbsoluteDate(date: Date): string {
   const months = [
     'Jan',
     'Feb',
@@ -77,6 +74,14 @@ export function formatDate(date: Date): string {
   const month = months[date.getMonth()]
   const day = date.getDate()
   const year = date.getFullYear()
+  return `${month} ${day} ${year}`
+}
+
+export function formatDate(date: Date): string {
+  const rel = relativeTime(date)
+  if (rel === 'now') return 'now'
+
+  const abs = formatAbsoluteDate(date)
 
   const diffMs = Date.now() - date.getTime()
   const hours = Math.abs(diffMs) / (1000 * 60 * 60)
@@ -84,10 +89,10 @@ export function formatDate(date: Date): string {
   if (hours < 24) {
     const hh = String(date.getHours()).padStart(2, '0')
     const mm = String(date.getMinutes()).padStart(2, '0')
-    return `${rel} ${pc.dim(`(${month} ${day} ${year} ${hh}:${mm})`)}`
+    return `${rel} ${pc.dim(`(${abs} ${hh}:${mm})`)}`
   }
 
-  return `${rel} ${pc.dim(`(${month} ${day} ${year})`)}`
+  return `${rel} ${pc.dim(`(${abs})`)}`
 }
 
 const ANSI_CLEAR_LINE = '\x1B[2K'
