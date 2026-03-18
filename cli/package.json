@@ -1,6 +1,6 @@
 {
   "name": "curl.md",
-  "version": "0.0.10",
+  "version": "0.0.11",
   "description": "Fetch any URL as Markdown",
   "license": "MIT",
   "repository": {
