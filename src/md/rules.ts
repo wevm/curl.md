@@ -149,6 +149,11 @@ export const hono = acceptMarkdown({
   patterns: ['hono.dev'],
   checks: [{ url: 'https://hono.dev/docs/getting-started/basic', contains: ['Hono'] }],
 })
+export const resend = acceptMarkdown({
+  key: 'resend',
+  patterns: ['resend.com'],
+  checks: [{ url: 'https://resend.com/docs/introduction', contains: ['Resend'] }],
+})
 
 export const bun = prefixedWithIndex({
   key: 'bun',

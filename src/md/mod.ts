@@ -81,7 +81,7 @@ export function create(options: create.Options = {}): create.ReturnType {
       return {
         ok: true as const,
         status: response.status,
-        content: normalizeMarkdown(result.content),
+        content: normalizeMarkdown(result.content, inputURL.origin),
         meta: sortMeta(result.meta),
       }
     },
@@ -238,9 +238,17 @@ function splitFrontmatter(markdown: string): {
   return { body, meta }
 }
 
-function normalizeMarkdown(content: string): string {
+function normalizeMarkdown(content: string, origin?: string): string {
   return (
     content
+      // Remove links with no text (e.g. `[](/)`)
+      .replace(/\[]\([^)]*\) */g, '')
+      // Relativize same-origin absolute URLs in markdown links/images
+      .replace(/(!?\[[^\]]*\])\((https?:\/\/[^)]+)\)/g, (match, label, url) => {
+        if (!origin || !url.startsWith(origin)) return match
+        const relative = url.slice(origin.length) || '/'
+        return `${label}(${relative})`
+      })
       // Strip utm_* query params from markdown links
       .replace(/\[([^\]]*)\]\(([^)]+)\)/g, (match, text, url) => {
         try {
@@ -267,5 +275,14 @@ function normalizeMarkdown(content: string): string {
       .replace(/^(\| *:?)-+([ :]*\|(?:[ :]*-+[ :]*\|)*)\s*$/gm, (match) =>
         match.replace(/\| *(:?)-+(:?) */g, '| $1---$2 '),
       )
+      // Strip extra padding from table cells (skip separator rows)
+      .replace(/^(\|.*\|)\s*$/gm, (row) => {
+        if (/^\|[ :]*-+[ :]*\|/.test(row)) return row
+        return row
+          .replace(/\|\s*$/g, '|')
+          .replace(/\| +/g, '| ')
+          .replace(/ +\|/g, ' |')
+      })
+      .trim()
   )
 }

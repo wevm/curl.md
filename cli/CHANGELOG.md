@@ -1,11 +1,5 @@
 # curl.md
 
-## 0.0.10
-
-### Patch Changes
-
-- Added API key authentication via `--token` option and `CURLMD_API_KEY` environment variable. Invalid API keys now return a clear error with a CTA to create a new token.
-
 ## 0.0.9
 
 ### Patch Changes

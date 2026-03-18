@@ -1,5 +1,6 @@
 /.changeset
 .env*
+.vite
 !.env.example
 .wrangler
 dist

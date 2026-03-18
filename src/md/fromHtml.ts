@@ -13,7 +13,7 @@ export async function fromHtml(
   const file = await unified()
     .use(rehypeParse)
     .use(rehypeExtractMeta, options?.baseUrl)
-    .use(rehypeStripNoise, options?.baseUrl)
+    .use(rehypeStripNoise)
     .use(rehypeResolveLinks, options?.baseUrl)
     .use(rehypeStripEmpty)
     .use(rehypePreNewlines)
@@ -34,16 +34,7 @@ export async function fromHtml(
     .process(html)
 
   const meta = filterFrontmatterKeys((file.data.meta as Record<string, string> | undefined) ?? {})
-
-  const relatedLinks = (file.data.relatedLinks as Array<{ href: string; text: string }>) ?? []
-  let content = String(file)
-  if (relatedLinks.length > 0) {
-    const links = relatedLinks
-      .slice(0, 25)
-      .map((l) => `- [${l.text.replace(/[[\]]/g, '\\$&')}](${l.href})`)
-      .join('\n')
-    content += `\n<!--\nSitemap:\n${links}\n-->\n`
-  }
+  const content = String(file)
 
   return { content, meta }
 }
@@ -131,9 +122,6 @@ const strippedTagNames = new Set([
 
 const strippedRoles = new Set(['banner', 'complementary', 'contentinfo', 'navigation'])
 
-// Tags that never contain useful links worth collecting
-const noLinkTags = new Set(['form', 'iframe', 'noscript', 'script', 'style', 'svg'])
-
 const noiseClassIdTokens = new Set([
   'ad',
   'ads',
@@ -158,47 +146,29 @@ const noiseClassIdTokens = new Set([
 
 const linkDensityBlockTags = new Set(['div', 'ol', 'section', 'ul'])
 
-type CollectedLink = { href: string; text: string }
-
-function rehypeStripNoise(baseUrl?: string) {
-  return (tree: Root, file: VFile) => {
-    const links: CollectedLink[] = []
-    strip(tree, links, baseUrl)
-    if (links.length > 0) file.data.relatedLinks = deduplicateLinks(links)
+function rehypeStripNoise() {
+  return (tree: Root) => {
+    strip(tree)
   }
 }
 
-function strip(node: Element | Root, links: CollectedLink[], baseUrl?: string) {
+function strip(node: Element | Root) {
   if (!node.children) return
   node.children = node.children.filter((child) => {
     if (child.type === 'comment') return false
     if (child.type !== 'element') return true
 
-    if (strippedTagNames.has(child.tagName)) {
-      if (!noLinkTags.has(child.tagName)) collectLinks(child, links, baseUrl)
-      return false
-    }
+    if (strippedTagNames.has(child.tagName)) return false
 
     const role = child.properties?.role as string | undefined
-    if (role && strippedRoles.has(role)) {
-      collectLinks(child, links, baseUrl)
-      return false
-    }
+    if (role && strippedRoles.has(role)) return false
 
     if (isHidden(child)) return false
     if (isSkipLink(child)) return false
+    if (matchesNoiseClassId(child)) return false
+    if (isHighLinkDensity(child)) return false
 
-    if (matchesNoiseClassId(child)) {
-      collectLinks(child, links, baseUrl)
-      return false
-    }
-
-    if (isHighLinkDensity(child)) {
-      collectLinks(child, links, baseUrl)
-      return false
-    }
-
-    strip(child, links, baseUrl)
+    strip(child)
     return true
   })
 }
@@ -251,28 +221,6 @@ function getLinkTextLength(node: Element): number {
   return length
 }
 
-function collectLinks(node: Element, links: CollectedLink[], baseUrl?: string) {
-  if (node.tagName === 'a') {
-    const href = node.properties?.href
-    if (typeof href !== 'string') return
-    if (href.startsWith('#') || href.startsWith('javascript:')) return
-    const text = hastToText(node).trim()
-    if (text) links.push({ href: resolveUrl(href, baseUrl), text })
-    return
-  }
-  for (const child of node.children)
-    if (child.type === 'element') collectLinks(child, links, baseUrl)
-}
-
-function deduplicateLinks(links: CollectedLink[]): CollectedLink[] {
-  const seen = new Set<string>()
-  return links.filter((link) => {
-    if (seen.has(link.href)) return false
-    seen.add(link.href)
-    return true
-  })
-}
-
 const skipPrefixes = ['http://', 'https://', '//', '#', 'mailto:', 'tel:']
 
 function resolveUrl(url: string, baseUrl?: string): string {
@@ -287,11 +235,15 @@ function resolveUrl(url: string, baseUrl?: string): string {
 function rehypeResolveLinks(baseUrl?: string) {
   return (tree: Root) => {
     if (!baseUrl) return
-    resolveLinks(tree, baseUrl)
+    let baseOrigin: string | undefined
+    try {
+      baseOrigin = new URL(baseUrl).origin
+    } catch {}
+    resolveLinks(tree, baseUrl, baseOrigin)
   }
 }
 
-function resolveLinks(node: Element | Root, baseUrl: string) {
+function resolveLinks(node: Element | Root, baseUrl: string, baseOrigin?: string) {
   if (!('children' in node)) return
   // Unwrap anchor elements with hash-only or missing hrefs (keep children)
   node.children = node.children.flatMap((child) => {
@@ -306,12 +258,22 @@ function resolveLinks(node: Element | Root, baseUrl: string) {
     for (const prop of ['href', 'src'] as const) {
       const value = child.properties?.[prop]
       if (typeof value !== 'string') continue
-      if (skipPrefixes.some((p) => value.startsWith(p))) continue
+      if (skipPrefixes.some((p) => value.startsWith(p))) {
+        // Relativize same-origin absolute URLs
+        if (baseOrigin && value.startsWith(baseOrigin)) {
+          child.properties[prop] = value.slice(baseOrigin.length) || '/'
+        }
+        continue
+      }
       try {
-        child.properties[prop] = new URL(value, baseUrl).href
+        const resolved = new URL(value, baseUrl).href
+        child.properties[prop] =
+          baseOrigin && resolved.startsWith(baseOrigin)
+            ? resolved.slice(baseOrigin.length) || '/'
+            : resolved
       } catch {}
     }
-    resolveLinks(child, baseUrl)
+    resolveLinks(child, baseUrl, baseOrigin)
   }
 }
 

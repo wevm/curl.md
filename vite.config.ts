@@ -15,6 +15,18 @@ export default defineConfig(async () => ({
     allowedHosts: ['curl.local'],
   },
   plugins: [
+    // Vite/Miniflare can throw uncaught socket errors (ECONNRESET, EPIPE) during
+    // SSR fetches when a client disconnects mid-request.
+    {
+      name: 'swallow-socket-errors',
+      configureServer() {
+        const socketErrors = new Set(['ERR_STREAM_WRITE_AFTER_END', 'EPIPE', 'ECONNRESET'])
+        process.on('uncaughtException', (err) => {
+          if ('code' in err && socketErrors.has(err.code as string)) return
+          throw err
+        })
+      },
+    },
     tailwindcss(),
     cloudflare({
       viteEnvironment: { name: 'ssr' },

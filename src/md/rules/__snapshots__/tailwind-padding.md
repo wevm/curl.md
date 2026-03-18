@@ -50,7 +50,6 @@ Utilities for controlling an element's padding.
 | `pl-px` | `padding-left: 1px;` |
 | `pl-(<custom-property>)` | `padding-left: var(<custom-property>);` |
 | `pl-[<value>]` | `padding-left: <value>;` |
-
 ## [Examples](#examples)
 
 ### [Basic example](#basic-example)
@@ -164,32 +163,3 @@ The `p-<number>`,`px-<number>`,`py-<number>`,`ps-<number>`,`pe-<number>`,`pbs-<n
 Learn more about customizing the spacing scale in the [theme variable documentation](/docs/theme).
 
 Copyright © 2026 Tailwind Labs Inc.·[Trademark Policy](/brand)
-
-<!--
-Sitemap:
-- [Docs](/docs)
-- [Blog](/blog)
-- [Showcase](/showcase)
-- [Sponsor](/sponsor)
-- [Plus](/plus?ref=top)
-- [Documentation](/docs/installation)
-- [Components](/plus/ui-blocks?ref=sidebar)
-- [Templates](/plus/templates?ref=sidebar)
-- [UI Kit](/plus/ui-kit?ref=sidebar)
-- [Playground](https://play.tailwindcss.com/)
-- [CourseNew](/build-uis-that-dont-suck)
-- [Community](/sponsor#insiders)
-- [Editor setup](/docs/editor-setup)
-- [Compatibility](/docs/compatibility)
-- [Upgrade guide](/docs/upgrade-guide)
-- [Styling with utility classes](/docs/styling-with-utility-classes)
-- [Hover, focus, and other states](/docs/hover-focus-and-other-states)
-- [Responsive design](/docs/responsive-design)
-- [Dark mode](/docs/dark-mode)
-- [Theme variables](/docs/theme)
-- [Colors](/docs/colors)
-- [Adding custom styles](/docs/adding-custom-styles)
-- [Detecting classes in source files](/docs/detecting-classes-in-source-files)
-- [Functions and directives](/docs/functions-and-directives)
-- [Preflight](/docs/preflight)
--->

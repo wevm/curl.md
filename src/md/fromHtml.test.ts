@@ -151,8 +151,7 @@ describe('strips noise elements', () => {
       html({ body: '<nav><a href="/">Home</a></nav><p>Content</p>' }),
     )
     expect(result).toContain('Content')
-    expect(result).toContain('Sitemap:')
-    expect(result).toContain('[Home](/)')
+    expect(result).not.toContain('Home')
   })
 
   test('preserves header elements', async () => {
@@ -228,13 +227,11 @@ describe('strips noise elements', () => {
         body: '<div role="navigation"><a href="/">Nav</a></div><div role="banner">Banner</div><div role="contentinfo">Info</div><div role="complementary">Side</div><p>Content</p>',
       }),
     )
-    const [main, related] = result.split('Sitemap:')
-    expect(main).toContain('Content')
-    expect(main).not.toContain('Nav')
-    expect(main).not.toContain('Banner')
-    expect(main).not.toContain('Info')
-    expect(main).not.toContain('Side')
-    expect(related).toContain('[Nav](/)')
+    expect(result).toContain('Content')
+    expect(result).not.toContain('Nav')
+    expect(result).not.toContain('Banner')
+    expect(result).not.toContain('Info')
+    expect(result).not.toContain('Side')
   })
 
   test('preserves main content', async () => {
@@ -254,12 +251,9 @@ describe('strips noise elements', () => {
         body: '<nav><ul><li><a href="/">Home</a></li><li><a href="/about">About</a></li></ul></nav><article><p>Article content</p></article>',
       }),
     )
-    const [main, related] = result.split('Sitemap:')
-    expect(main).toContain('Article content')
-    expect(main).not.toContain('Home')
-    expect(main).not.toContain('About')
-    expect(related).toContain('[Home](/)')
-    expect(related).toContain('[About](/about)')
+    expect(result).toContain('Article content')
+    expect(result).not.toContain('Home')
+    expect(result).not.toContain('About')
   })
 })
 
@@ -270,7 +264,7 @@ describe('resolves relative links', () => {
     const { content: result } = await fromHtml(html({ body: '<a href="/about">About</a>' }), {
       baseUrl,
     })
-    expect(result).toContain('[About](https://example.com/about)')
+    expect(result).toContain('[About](/about)')
   })
 
   test('resolves relative src', async () => {
@@ -278,7 +272,7 @@ describe('resolves relative links', () => {
       html({ body: '<img src="/img/photo.jpg" alt="Photo">' }),
       { baseUrl },
     )
-    expect(result).toContain('https://example.com/img/photo.jpg')
+    expect(result).toContain('/img/photo.jpg')
   })
 
   test('preserves absolute links', async () => {
@@ -312,7 +306,7 @@ describe('resolves relative links', () => {
     const { content: result } = await fromHtml(html({ body: '<a href="sibling">Sibling</a>' }), {
       baseUrl,
     })
-    expect(result).toContain('(https://example.com/docs/sibling)')
+    expect(result).toContain('(/docs/sibling)')
   })
 
   test('no-op without baseUrl', async () => {
@@ -420,10 +414,9 @@ describe('strips form elements', () => {
         body: '<div class="sidebar"><p>Side content</p></div><div class="ad-unit"><p>Buy now</p></div><p>Main content</p>',
       }),
     )
-    const [main] = result.split('Sitemap:')
-    expect(main).toContain('Main content')
-    expect(main).not.toContain('Side content')
-    expect(main).not.toContain('Buy now')
+    expect(result).toContain('Main content')
+    expect(result).not.toContain('Side content')
+    expect(result).not.toContain('Buy now')
   })
 
   test('ignores noise tokens inside Tailwind utility classes', async () => {
@@ -441,9 +434,8 @@ describe('strips form elements', () => {
         body: '<div id="comments-section"><p>User comment</p></div><p>Article</p>',
       }),
     )
-    const [main] = result.split('Sitemap:')
-    expect(main).toContain('Article')
-    expect(main).not.toContain('User comment')
+    expect(result).toContain('Article')
+    expect(result).not.toContain('User comment')
   })
 
   test('strips hidden elements', async () => {
@@ -468,20 +460,8 @@ describe('strips form elements', () => {
         body: `<div>${links}</div><p>Main content here</p>`,
       }),
     )
-    const [main, related] = result.split('Sitemap:')
-    expect(main).toContain('Main content')
-    expect(main).not.toContain('Page 0')
-    expect(related).toContain('[Page 0 link text](/page0)')
-  })
-
-  test('deduplicates related links', async () => {
-    const { content: result } = await fromHtml(
-      html({
-        body: '<nav><a href="/home">Home</a></nav><footer><a href="/home">Home</a><a href="/about">About</a></footer><p>Content</p>',
-      }),
-    )
-    const matches = result.match(/\[Home\]/g)
-    expect(matches).toHaveLength(1)
+    expect(result).toContain('Main content')
+    expect(result).not.toContain('Page 0')
   })
 
   test('preserves mark elements', async () => {

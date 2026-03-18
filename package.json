@@ -11,7 +11,7 @@
     "build": "vite build",
     "build:cli": "pnpm --filter curl.md build",
     "changeset:publish": "cd cli && pnpm pkg:publish",
-    "changeset:version": "cd cli && pnpm changeset version",
+    "changeset:version": "cd cli && pnpm changeset version && rm -rf ../.changeset && cp -r .changeset ../.changeset",
     "check": "oxlint && oxfmt",
     "check:deps": "knip -c config/knip.json",
     "check:types": "tsgo -b && pnpm -r check:types",

@@ -21,11 +21,16 @@ export default Sentry.withSentry<Env, QueueHandlerMessage>(
       // Route dot-segment paths (e.g. curl.md/example.com) to the API handler under /api prefix
       const firstSegment = url.pathname.split('/')[1] ?? ''
       if (firstSegment.includes('.') || /^https?:$/.test(firstSegment)) {
-        // Redirect protocol-prefixed paths (e.g. /https://example.com/path → /example.com/path)
         const protocolMatch = url.pathname.match(/^\/(https?:\/\/)(.+)/)
         if (protocolMatch) {
+          const accept = request.headers.get('accept') ?? ''
+          // Redirect protocol-prefixed paths in browsers (e.g. /https://example.com/path → /example.com/path)
+          if (accept.includes('text/html'))
+            return new Response(null, {
+              status: 301,
+              headers: { location: `/${protocolMatch[2]}${url.search}` },
+            })
           url.pathname = `/${protocolMatch[2]}`
-          return Response.redirect(url.toString(), 301)
         }
         url.pathname = `/api${url.pathname}`
         return api.fetch(new Request(url, request), env, ctx)
