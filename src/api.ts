@@ -2,14 +2,14 @@ import { Octokit } from '@octokit/core'
 import * as Sentry from '@sentry/cloudflare'
 import { Hono } from 'hono'
 import { html, raw } from 'hono/html'
-import { Kysely, sql } from 'kysely'
+import { sql } from 'kysely'
 import { jsonArrayFrom } from 'kysely/helpers/postgres'
 import { customAlphabet } from 'nanoid'
 import Stripe from 'stripe'
 import { estimateTokenCount } from 'tokenx'
 import { stringify as yamlStringify } from 'yaml'
 import { z } from 'zod'
-import { createClient } from '#db/client.ts'
+import { createClient, type Database } from '#db/client.ts'
 import type { DB } from '#db/types.gen.ts'
 import * as ApiKey from '#lib/apiKey.ts'
 import * as Constants from '#lib/constants.ts'
@@ -26,7 +26,7 @@ export const api = new Hono<{
   Bindings: Cloudflare.Env
   Variables: {
     api_key_id: string | null
-    db: Kysely<DB>
+    db: Database
     organization_id: string | null
     session: Pick<DB.session, 'account_id'> | null
   }
@@ -122,14 +122,13 @@ export const api = new Hono<{
       const query = c.req.valid('query')
       const state = crypto.randomUUID()
       Cookie.set(c, 'curl.state', state, {
-        domain: Cookie.getDomain(c.env.HOST),
         httpOnly: true,
         maxAge: 600,
         sameSite: 'Lax',
-        secure: true,
+        ...Cookie.secureOpts(c.req.url, c.env.HOST),
       })
 
-      const origin = `https://${c.env.HOST}`
+      const origin = new URL(c.req.url).origin
       const callbackUrl = new URL(`/api/auth/github/callback`, origin)
       if (query.next) {
         try {
@@ -139,7 +138,7 @@ export const api = new Hono<{
         } catch {}
       }
 
-      const url = new URL('https://github.com/login/oauth/authorize')
+      const url = new URL(`${c.env.GH_URL}/login/oauth/authorize`)
       url.searchParams.set('client_id', c.env.GH_CLIENT_ID)
       url.searchParams.set('redirect_uri', callbackUrl.toString())
       url.searchParams.set('state', state)
@@ -178,10 +177,9 @@ export const api = new Hono<{
       }
 
       const cookieState = Cookie.get(c, 'curl.state')
-      Cookie.destroy(c, 'curl.state', {
-        domain: Cookie.getDomain(c.env.HOST),
-      })
-      const errorUrl = new URL('/auth/error', `https://${c.env.HOST}`)
+      Cookie.destroy(c, 'curl.state', Cookie.secureOpts(c.req.url, c.env.HOST))
+      const origin = new URL(c.req.url).origin
+      const errorUrl = new URL('/auth/error', origin)
       if (!cookieState || cookieState !== query.state) {
         errorUrl.searchParams.set('error', 'invalid_request')
         errorUrl.searchParams.set('error_description', 'State mismatch')
@@ -197,13 +195,14 @@ export const api = new Hono<{
         token_type: 'bearer'
       }
       try {
-        const tokenUrl = new URL('https://github.com/login/oauth/access_token')
-        tokenUrl.searchParams.set('client_id', c.env.GH_CLIENT_ID)
-        tokenUrl.searchParams.set('client_secret', c.env.GH_CLIENT_SECRET)
-        tokenUrl.searchParams.set('code', query.code)
-        const tokenRes = await fetch(tokenUrl.toString(), {
+        const tokenRes = await fetch(`${c.env.GH_URL}/login/oauth/access_token`, {
           method: 'POST',
-          headers: { Accept: 'application/json' },
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({
+            client_id: c.env.GH_CLIENT_ID,
+            client_secret: c.env.GH_CLIENT_SECRET,
+            code: query.code,
+          }),
         })
         const json = (await tokenRes.json()) as OneOf<
           | typeof tokenData
@@ -229,7 +228,7 @@ export const api = new Hono<{
         return c.redirect(errorUrl.toString())
       }
 
-      const octokit = new Octokit({ auth: tokenData.access_token })
+      const octokit = new Octokit({ auth: tokenData.access_token, baseUrl: c.env.GH_API_URL })
       const [userRes, emailsRes] = await Promise.all([
         octokit.request('GET /user').catch((e: Error) => e),
         octokit.request('GET /user/emails').catch((e: Error) => e),
@@ -373,14 +372,12 @@ export const api = new Hono<{
       }
 
       await Cookie.setSigned(c, 'curl.session', result.sessionId, c.env.COOKIE_SECRET, {
-        domain: Cookie.getDomain(c.env.HOST),
         httpOnly: true,
         maxAge: 2592000, // 30 days
         sameSite: 'Lax',
-        secure: true,
+        ...Cookie.secureOpts(c.req.url, c.env.HOST),
       })
 
-      const origin = `https://${c.env.HOST}`
       if (query.next) {
         try {
           const nextUrl = new URL(query.next, origin)
@@ -499,11 +496,10 @@ export const api = new Hono<{
     const sessionId = await Cookie.getSigned(c, c.env.COOKIE_SECRET, 'curl.session')
     if (sessionId) await c.var.db.deleteFrom('session').where('id', '=', sessionId).execute()
     Cookie.destroy(c, 'curl.session', {
-      domain: Cookie.getDomain(c.env.HOST),
       httpOnly: true,
       maxAge: 0,
       sameSite: 'Lax',
-      secure: true,
+      ...Cookie.secureOpts(c.req.url, c.env.HOST),
     })
     return c.json({ ok: true }, 200)
   })

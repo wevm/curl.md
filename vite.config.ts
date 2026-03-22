@@ -7,6 +7,7 @@ import autoImport from 'unplugin-auto-import/vite'
 import iconsResolver from 'unplugin-icons/resolver'
 import icons from 'unplugin-icons/vite'
 import { defineConfig } from 'vite'
+import { z } from 'zod'
 import { getWranglerVar } from './config/wrangler.ts'
 import { createClient } from './db/client.ts'
 
@@ -30,16 +31,25 @@ export default defineConfig(async () => ({
     tailwindcss(),
     cloudflare({
       viteEnvironment: { name: 'ssr' },
-      // Override localConnectionString for CLI tests (testcontainers uses a random port)
-      ...(process.env.DB_URL && process.env.VITEST
+      // Override bindings for tests (testcontainers DB, emulate GitHub)
+      ...(process.env.VITEST || process.env.TEST
         ? {
             config(config) {
+              const env = z.parse(
+                z.object({
+                  DB_URL: z.string(),
+                  GH_API_URL: z.string(),
+                  GH_CLIENT_ID: z.string(),
+                  GH_CLIENT_SECRET: z.string(),
+                  GH_URL: z.string(),
+                }),
+                process.env,
+              )
               config.hyperdrive = config.hyperdrive?.map((h) => ({
                 ...h,
-                ...(process.env.DB_URL && {
-                  localConnectionString: process.env.DB_URL,
-                }),
+                localConnectionString: env.DB_URL,
               }))
+              config.vars = { ...config.vars, ...env }
             },
           }
         : {}),

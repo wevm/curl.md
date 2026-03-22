@@ -145,7 +145,7 @@ describe('GET /api/auth/github/callback', () => {
       { headers: { Cookie: `curl.state=${query.state}` } },
     )
     expect(res.status).toBe(302)
-    expect(res.headers.get('location')).toBe(`https://curl.local/${login}`)
+    expect(res.headers.get('location')).toBe(`http://localhost/${login}`)
     expect(res.headers.getSetCookie().some((c) => c.startsWith('curl.session='))).toBe(true)
 
     // Verify account was created in D1
@@ -207,7 +207,7 @@ describe('GET /api/auth/github/callback', () => {
       { headers: { Cookie: `curl.state=${query.state}` } },
     )
     expect(res.status).toBe(302)
-    expect(res.headers.get('location')).toBe(`https://curl.local/${account.login}`)
+    expect(res.headers.get('location')).toBe(`http://localhost/${account.login}`)
 
     // Verify account was updated, not duplicated
     const accounts = await db

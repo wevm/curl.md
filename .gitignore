@@ -10,3 +10,5 @@ node_modules
 .vinxi
 incur.generated.ts
 tsconfig.tsbuildinfo
+/test-results/
+/playwright-report/

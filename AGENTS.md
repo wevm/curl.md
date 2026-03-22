@@ -18,6 +18,7 @@ Prefer running these scripts instead of using `npx`. Use `pnpm` over `npx` for r
 - `pnpm gen:types` - Generate Cloudflare worker types
 - `pnpm test` - Run tests with Vitest (includes all projects)
 - `pnpm test --project name` - Always try to scope tests to specific projects when possible
+- `pnpm test:e2e` - Run E2E tests with Playwright
 
 ## Debugging
 

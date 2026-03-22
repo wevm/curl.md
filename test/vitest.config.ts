@@ -19,7 +19,7 @@ export default defineConfig({
       {
         test: {
           name: 'cli',
-          globalSetup: ['cli/test/globalSetup.ts'],
+          globalSetup: ['cli/test/global.setup.ts'],
           setupFiles: ['cli/test/setup.ts'],
           hookTimeout: 60_000,
           include: ['cli/src/**/*.test.ts'],
@@ -64,7 +64,7 @@ export default defineConfig({
           name: 'workers',
           include: ['src/**/*.workers.test.ts'],
           root,
-          globalSetup: ['test/workers.globalSetup.ts'],
+          globalSetup: ['test/workers.global.setup.ts'],
           setupFiles: ['test/workers.setup.ts'],
         },
       },

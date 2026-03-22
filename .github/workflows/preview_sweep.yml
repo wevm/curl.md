@@ -5,6 +5,8 @@ on:
     - cron: '0 0 * * *' # Daily at midnight UTC
   workflow_dispatch:
 
+permissions: {}
+
 jobs:
   sweep:
     name: Sweep Orphaned Previews

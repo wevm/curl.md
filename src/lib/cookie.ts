@@ -51,6 +51,11 @@ export function getDomain(host: string) {
   return `.${parts.slice(-2).join('.')}`
 }
 
+export function secureOpts(url: string, host: string) {
+  if (new URL(url).protocol === 'https:') return { domain: getDomain(host), secure: true } as const
+  return {} as const
+}
+
 type Name = 'curl.state'
 type SignedName = 'curl.session'
 export type Options = CookieOptions

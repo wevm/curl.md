@@ -1,10 +1,9 @@
 import { env } from 'cloudflare:workers'
-import type { Kysely } from 'kysely'
-import type { DB } from '#db/types.gen.ts'
+import type { Database } from '#db/client.ts'
 
 export async function processStripeWebhookMessage(
   message: Message<processStripeWebhookMessage.Body>,
-  db: Kysely<DB>,
+  db: Database,
 ) {
   const body = message.body
   switch (body.type) {
@@ -19,7 +18,7 @@ export async function processStripeWebhookMessage(
 
 async function processPurchase(
   data: Extract<processStripeWebhookMessage.Body, { type: 'payment_intent.succeeded' }>['data'],
-  db: Kysely<DB>,
+  db: Database,
 ) {
   const amountMills = data.amount_total * 10
 
@@ -70,7 +69,7 @@ async function processPurchase(
 async function processReversal(
   data: Extract<processStripeWebhookMessage.Body, { type: 'charge.dispute.created' }>['data'],
   type: 'chargeback' | 'refund',
-  db: Kysely<DB>,
+  db: Database,
 ) {
   const amountMills = data.amount_total * 10
 
@@ -128,7 +127,7 @@ async function processReversal(
   await env.KV.put(`balance:${entity.id}`, String(newBalance.balance_mills))
 }
 
-async function findEntity(stripeCustomerId: string, db: Kysely<DB>) {
+async function findEntity(stripeCustomerId: string, db: Database) {
   const entity = await db
     .selectFrom((eb) =>
       eb

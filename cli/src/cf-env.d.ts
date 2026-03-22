@@ -12,6 +12,7 @@ declare namespace Cloudflare {
     ASSETS: { fetch(input: any): Promise<Response> }
     GH_CLIENT_ID: string
     GH_CLIENT_SECRET: string
+    GH_URL: string
     TOKEN_ENCRYPTION_KEY: string
     [key: string]: any
   }

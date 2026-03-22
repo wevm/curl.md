@@ -1,10 +1,9 @@
 import { env } from 'cloudflare:workers'
-import type { Kysely } from 'kysely'
-import type { DB } from '#db/types.gen.ts'
+import type { Database } from '#db/client.ts'
 
 export async function processRequestMessage(
   message: Message<processRequestMessage.Body>,
-  db: Kysely<DB>,
+  db: Database,
 ) {
   const body = message.body
 

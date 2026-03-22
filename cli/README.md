@@ -2,13 +2,16 @@
 
 Fetch any URL as Markdown.
 
-## CLI
+## Install
 
 ```sh
-# Install
-npm install -g curl.md
+npm i -g curl.md
+curl -fsSL curl.md/install.sh | sh
+```
 
-# Usage
+## Usage
+
+```sh
 curl.md <url> [options]
 
 # Also available as
@@ -19,36 +22,16 @@ curlmd <url> [options]
 ### Examples
 
 ```sh
-# Fetch a page
+# Fetch page
 md example.com
 
-# Fetch with an objective to narrow results
-md zod.dev/error-formatting -q "tree error formatting"
+# Fetch with objective to narrow results
+md zod.dev/error-formatting --objective "tree error formatting"
 
 # Pre-filter by keywords
-md developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch -q "streaming response body" -k ReadableStream,getReader
-
-# Force fresh fetch (bypass cache)
-md developers.cloudflare.com/d1/get-started -q "how to query D1 from a worker" -f
+md developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch --objective "streaming response body" --keywords ReadableStream,getReader
 ```
 
-## SDK
+## License
 
-```sh
-npm install curl.md
-```
-
-```ts
-import * as Md from 'curl.md'
-
-const md = Md.create({
-  headers: { 'User-Agent': 'my-app/1.0' },
-  rules: Md.rules,
-})
-
-const result = await md.fetch('https://example.com')
-if (result.ok) {
-  console.log(result.content) // Markdown string
-  console.log(result.meta) // { title, description, url, site, ... }
-}
-```
+[MIT](LICENSE)

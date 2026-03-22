@@ -1,6 +1,42 @@
 # curl.md
 
-Fetch any URL as Markdown
+Fetch any URL as Markdown.
+
+```sh
+curl curl.md/example.com
+```
+
+## Usage
+
+```sh
+# Fetch page
+curl curl.md/example.com
+
+# Fetch with objective to narrow results
+curl curl.md/zod.dev/error-formatting?objective=tree+error+formatting
+
+# Pre-filter by keywords
+curl "curl.md/developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch?objective=streaming+response+body&keywords=ReadableStream,getReader"
+```
+
+## CLI
+
+```sh
+# Install
+curl -fsSL curl.md/install.sh | sh
+
+# Or via npm
+npm i -g curl.md
+
+# Fetch page
+md example.com
+
+# Fetch with objective to narrow results
+md zod.dev/error-formatting --objective "tree error formatting"
+
+# Pre-filter by keywords
+md developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch --objective "streaming response body" --keywords ReadableStream,getReader
+```
 
 ## Development
 
@@ -22,7 +58,8 @@ open https://curl.local
 
 OrbStack automatically resolves `curl.local` requests to the container.
 
-## Deploy
+<details>
+<summary>Deploy</summary>
 
 ### GitHub Actions Secrets
 
@@ -125,7 +162,10 @@ Redirect `www.curl.md` to `curl.md` (non-www canonical) via [Bulk Redirects](htt
 3. Go to [Bulk Redirects](https://dash.cloudflare.com/?to=/:account/bulk-redirects)
 4. Create a bulk redirect list with: `www.curl.md` → `https://curl.md` (301, preserve query string, subpath matching, preserve path suffix)
 
-## Preview
+</details>
+
+<details>
+<summary>Preview</summary>
 
 Preview environments deploy per PR with isolated PlanetScale database branches and Cloudflare Hyperdrive configs. On PR close/draft, cleanup deletes the Worker, Hyperdrive config, PlanetScale branch, KV namespace, Queues, and Stripe webhook. A daily sweep catches orphans.
 
@@ -165,6 +205,8 @@ Preview environments use Stripe **test mode** keys so no real charges occur.
 1. Copy your **test mode** secret key from [API keys](https://dashboard.stripe.com/test/apikeys)
 2. Add to the `preview` environment:
    - `STRIPE_SECRET_KEY` — Stripe test mode secret key (starts with `sk_test_`)
+
+</details>
 
 ## License
 

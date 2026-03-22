@@ -1,12 +1,14 @@
-import type { Kysely } from 'kysely'
 import { z } from 'zod'
-import type { DB } from '#db/types.gen.ts'
+import type { Database } from '#db/client.ts'
 import * as Crypto from '#lib/crypto.ts'
 
 export async function resolveToken(
-  db: Kysely<DB>,
+  db: Database,
   accountId: string,
-  env: Pick<Cloudflare.Env, 'GH_CLIENT_ID' | 'GH_CLIENT_SECRET' | 'TOKEN_ENCRYPTION_KEY'>,
+  env: Pick<
+    Cloudflare.Env,
+    'GH_CLIENT_ID' | 'GH_CLIENT_SECRET' | 'GH_URL' | 'TOKEN_ENCRYPTION_KEY'
+  >,
 ): Promise<string | undefined> {
   const provider = await db
     .selectFrom('account_provider')
@@ -40,7 +42,7 @@ export async function resolveToken(
     env.TOKEN_ENCRYPTION_KEY,
   )
 
-  const tokenUrl = new URL('https://github.com/login/oauth/access_token')
+  const tokenUrl = new URL(`${env.GH_URL}/login/oauth/access_token`)
   tokenUrl.searchParams.set('client_id', env.GH_CLIENT_ID)
   tokenUrl.searchParams.set('client_secret', env.GH_CLIENT_SECRET)
   tokenUrl.searchParams.set('grant_type', 'refresh_token')

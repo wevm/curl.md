@@ -27,6 +27,7 @@ auditConfig:
 minimumReleaseAge: 1440
 
 minimumReleaseAgeExclude:
+  - emulate
   - incur
   - kysely
 

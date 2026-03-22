@@ -1,7 +1,6 @@
 import { waitUntil } from 'cloudflare:workers'
-import type { Kysely } from 'kysely'
 import { z } from 'zod'
-import type { DB } from '#db/types.gen.ts'
+import type { Database } from '#db/client.ts'
 import { formatCost } from '#lib/format.ts'
 
 export const schema = z
@@ -14,7 +13,7 @@ export const schema = z
 
 export type query = z.infer<typeof schema>
 
-async function getElement(host: string, env: Cloudflare.Env, db: Kysely<DB>, query: query) {
+async function getElement(host: string, env: Cloudflare.Env, db: Database, query: query) {
   switch (query.page) {
     case 'url': {
       const tokensSaved = await getTokensSaved(env, db, query.url)
@@ -105,7 +104,7 @@ function urlVariant(host: string, urlParam: string, tokensSaved: number) {
   )
 }
 
-async function getTokensSaved(env: Cloudflare.Env, db: Kysely<DB>, urlParam?: string) {
+async function getTokensSaved(env: Cloudflare.Env, db: Database, urlParam?: string) {
   const hostname = urlParam
     ? new URL(/^https?:\/\//.test(urlParam) ? urlParam : `https://${urlParam}`).hostname
     : undefined
@@ -128,7 +127,7 @@ async function getTokensSaved(env: Cloudflare.Env, db: Kysely<DB>, urlParam?: st
   return total
 }
 
-export async function render(request: Request, env: Cloudflare.Env, db: Kysely<DB>, query: query) {
+export async function render(request: Request, env: Cloudflare.Env, db: Database, query: query) {
   const [{ ImageResponse }, module, element, font, fontBold] = await Promise.all([
     import('@takumi-rs/image-response/wasm'),
     import('@takumi-rs/wasm/takumi_wasm_bg.wasm'),
