@@ -38,19 +38,26 @@ export default defineConfig(async () => ({
             config(config) {
               const env = z.parse(
                 z.object({
+                  COOKIE_SECRET: z.string(),
                   DB_URL: z.string(),
                   GH_API_URL: z.string(),
                   GH_CLIENT_ID: z.string(),
                   GH_CLIENT_SECRET: z.string(),
                   GH_URL: z.string(),
+                  HOST: z.string(),
+                  SENTRY_DSN: z.string(),
+                  STRIPE_SECRET_KEY: z.string(),
+                  STRIPE_WEBHOOK_SECRET: z.string(),
+                  TOKEN_ENCRYPTION_KEY: z.string(),
                 }),
                 process.env,
               )
+              const { DB_URL, ...vars } = env
               config.hyperdrive = config.hyperdrive?.map((h) => ({
                 ...h,
-                localConnectionString: env.DB_URL,
+                localConnectionString: DB_URL,
               }))
-              config.vars = { ...config.vars, ...env }
+              config.vars = { ...config.vars, ...vars }
             },
           }
         : {}),
