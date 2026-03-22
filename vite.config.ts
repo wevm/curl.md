@@ -34,6 +34,7 @@ export default defineConfig(async () => ({
       // Override bindings for tests (testcontainers DB, emulate GitHub)
       ...(process.env.VITEST || process.env.TEST
         ? {
+            remoteBindings: false,
             config(config) {
               const env = z.parse(
                 z.object({
@@ -49,7 +50,6 @@ export default defineConfig(async () => ({
                 ...h,
                 localConnectionString: env.DB_URL,
               }))
-              config.ai = { binding: 'AI' }
               config.vars = { ...config.vars, ...env }
             },
           }
