@@ -4,7 +4,8 @@
 
 set -e
 
-REPO="wevm/curl.md"
+BIN_NAME="curl.md"
+REPO="wevm/${BIN_NAME}"
 INSTALL_DIR="${CURLMD_INSTALL_DIR:-$HOME/.local/bin}"
 
 cleanup() {
@@ -33,7 +34,7 @@ main() {
   *) error "Unsupported architecture: $arch" ;;
   esac
 
-  artifact="curl.md-${os}-${arch}"
+  artifact="${BIN_NAME}-${os}-${arch}"
   if [ "$os" = "windows" ]; then
     artifact="${artifact}.exe"
   fi
@@ -53,8 +54,8 @@ main() {
   base_url="https://github.com/${REPO}/releases/download/${tag}"
 
   # TODO: remove gh CLI fallback when repo is public (curl works for public release assets)
-  version="${tag#curl.md@}"
-  info "Downloading curl.md ${version} (${os}/${arch})..."
+  version="${tag#"${BIN_NAME}"@}"
+  info "Downloading ${BIN_NAME} ${version} (${os}/${arch})..."
   tmpfile="$(mktemp)"
   if has_gh_auth; then
     gh release download "$tag" --repo "$REPO" --pattern "$artifact" --output "$tmpfile" --clobber || error "Download failed. Binary may not exist for ${os}/${arch}."
@@ -88,7 +89,7 @@ main() {
   fi
 
   mkdir -p "$INSTALL_DIR"
-  target="${INSTALL_DIR}/curl.md"
+  target="${INSTALL_DIR}/${BIN_NAME}"
   mv "$tmpfile" "$target"
   chmod +x "$target"
 
@@ -96,7 +97,7 @@ main() {
   ln -sf "$target" "${INSTALL_DIR}/md"
   ln -sf "$target" "${INSTALL_DIR}/curlmd"
 
-  info "Installed curl.md to ${target}"
+  info "Installed ${BIN_NAME} to ${target}"
   info "Aliases: md, curlmd"
 
   # Verify installation
@@ -106,7 +107,7 @@ main() {
 
   # PATH setup
   if echo "$PATH" | tr ':' '\n' | grep -qx "$INSTALL_DIR"; then
-    info "Run 'curl.md --help' to get started"
+    info "Run '${BIN_NAME} --help' to get started"
   else
     setup_path
   fi
@@ -115,10 +116,6 @@ main() {
 setup_path() {
   # shellcheck disable=SC2088
   case "$SHELL" in
-  */zsh)
-    shell_rc="$HOME/.zshrc"
-    shell_rc_display="~/.zshrc"
-    ;;
   */bash)
     if [ -f "$HOME/.bashrc" ]; then
       shell_rc="$HOME/.bashrc"
@@ -132,13 +129,24 @@ setup_path() {
     shell_rc="$HOME/.config/fish/config.fish"
     shell_rc_display="~/.config/fish/config.fish"
     ;;
+  */nu)
+    shell_rc="$HOME/.config/nushell/env.nu"
+    shell_rc_display="~/.config/nushell/env.nu"
+    ;;
+  */zsh)
+    shell_rc="$HOME/.zshrc"
+    shell_rc_display="~/.zshrc"
+    ;;
   *)
     shell_rc=""
     shell_rc_display=""
     ;;
   esac
 
-  path_line="export PATH=\"${INSTALL_DIR}:\$PATH\""
+  case "$SHELL" in
+  */nu) path_line="\$env.PATH = (\$env.PATH | prepend '${INSTALL_DIR}')" ;;
+  *) path_line="export PATH=\"${INSTALL_DIR}:\$PATH\"" ;;
+  esac
 
   # Check if already configured
   if [ -n "$shell_rc" ] && [ -f "$shell_rc" ] && grep -q "$INSTALL_DIR" "$shell_rc" 2>/dev/null; then
@@ -171,7 +179,7 @@ setup_path() {
     ;;
   *)
     [ ! -f "$shell_rc" ] && touch "$shell_rc"
-    printf '\n# curl.md\n%s\n' "$path_line" >>"$shell_rc"
+    printf '\n# %s\n%s\n' "$BIN_NAME" "$path_line" >>"$shell_rc"
     info "Added to ${shell_rc_display}"
     info "Run 'source ${shell_rc_display}' or open a new terminal"
     ;;

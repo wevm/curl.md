@@ -7,9 +7,9 @@ import autoImport from 'unplugin-auto-import/vite'
 import iconsResolver from 'unplugin-icons/resolver'
 import icons from 'unplugin-icons/vite'
 import { defineConfig } from 'vite'
-import { z } from 'zod'
 import { getWranglerVar } from './config/wrangler.ts'
 import { createClient } from './db/client.ts'
+import { Env } from './test/env.ts'
 
 export default defineConfig(async () => ({
   server: {
@@ -36,28 +36,13 @@ export default defineConfig(async () => ({
         ? {
             remoteBindings: false,
             config(config) {
-              const env = z.parse(
-                z.object({
-                  COOKIE_SECRET: z.string(),
-                  DB_URL: z.string(),
-                  GH_API_URL: z.string(),
-                  GH_CLIENT_ID: z.string(),
-                  GH_CLIENT_SECRET: z.string(),
-                  GH_URL: z.string(),
-                  HOST: z.string(),
-                  SENTRY_DSN: z.string(),
-                  STRIPE_SECRET_KEY: z.string(),
-                  STRIPE_WEBHOOK_SECRET: z.string(),
-                  TOKEN_ENCRYPTION_KEY: z.string(),
-                }),
-                process.env,
-              )
-              const { DB_URL, ...vars } = env
+              const parsed = Env.parse(process.env)
+              const DB_URL = parsed.DB_URL
               config.hyperdrive = config.hyperdrive?.map((h) => ({
                 ...h,
                 localConnectionString: DB_URL,
               }))
-              config.vars = { ...config.vars, ...vars }
+              config.vars = { ...config.vars, ...parsed }
             },
           }
         : {}),

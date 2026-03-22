@@ -199,7 +199,7 @@ test('callout: returns yellow prefix with message', () => {
   const originalIsTTY = process.stdout.isTTY
   Object.defineProperty(process.stdout, 'isTTY', { value: true, writable: true })
   const result = strip(callout('Warning!'))
-  expect(result).toBe('! Warning!')
+  expect(result).toBe('› Warning!')
   Object.defineProperty(process.stdout, 'isTTY', { value: originalIsTTY, writable: true })
 })
 

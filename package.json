@@ -11,7 +11,7 @@
     "build": "vite build",
     "build:cli": "pnpm --filter curl.md build",
     "check": "oxlint ${CI:+--deny-warnings} && oxfmt",
-    "check:deps": "knip -c config/knip.json",
+    "check:deps": "pnpm --filter curl.md check:deps",
     "check:types": "tsgo -b && pnpm -r check:types",
     "db": "docker exec -it curl-db psql -U postgres -d curl_dev",
     "db:command": "docker exec curl-db psql -U postgres -d curl_dev -c",

@@ -7,6 +7,7 @@ const root = path.resolve(import.meta.dirname, '..')
 
 export default defineConfig({
   test: {
+    reporters: process.env.CI ? ['default', 'github-actions'] : ['default'],
     projects: [
       {
         test: {

@@ -91,6 +91,9 @@ jobs:
       - name: Setup
         uses: ./.github/actions/setup-pnpm
 
+      - name: Check dependencies
+        run: pnpm check:deps
+
       - name: Shellcheck
         run: shellcheck public/install.sh
 

@@ -6,7 +6,7 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  reporter: process.env.CI ? 'dot' : 'list',
+  reporter: process.env.CI ? [['dot'], ['github']] : 'list',
   globalSetup: 'e2e.global.setup.ts',
   use: {
     baseURL: process.env.TEST_BASE_URL,

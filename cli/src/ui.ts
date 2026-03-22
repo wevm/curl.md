@@ -147,7 +147,7 @@ export function summary(fields: [string, string][], title?: string): string {
 
 export function callout(message: string): string {
   if (!process.stdout.isTTY) return ''
-  return `${pc.yellow('!')} ${message}`
+  return `${pc.yellow('›')} ${message}`
 }
 
 export function success(message: string): string {
@@ -155,7 +155,7 @@ export function success(message: string): string {
 }
 
 export function warn(message: string): string {
-  return `${pc.yellow('!')} ${message}`
+  return `${pc.yellow('⚠')} ${message}`
 }
 
 export async function confirm(message: string): Promise<boolean> {

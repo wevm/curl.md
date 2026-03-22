@@ -579,8 +579,8 @@ const credits = Cli.create('credits', {
               'Amount:',
               values.map(
                 (v) =>
-                  `$${v}`.padEnd(maxLen + 1) +
-                  pc.dim(`(~${(Number(v) * 1000).toLocaleString()} requests)`),
+                  `$${v}`.padEnd(maxLen) +
+                  `  ${pc.dim(`~${(Number(v) * 1000).toLocaleString()} requests`)}`,
               ),
               { doneLabels: values.map((v) => `$${v}`) },
             )
@@ -916,11 +916,7 @@ const invite = Cli.create('invite', {
 
         const maxToken = Math.max(...listJson.invites.map((inv) => inv.token.length))
         const choices = listJson.invites.map((inv) => {
-          const expiresAt = new Date(inv.expires_at)
-          const expired = expiresAt < new Date()
-          const uses = inv.max_uses ? `${inv.use_count}/${inv.max_uses}` : `${inv.use_count}/∞`
-          const expiry = expired ? 'expired' : UI.formatDate(expiresAt)
-          return `${inv.token.padEnd(maxToken)}   ${inv.role}   ${uses}   ${expiry}   ${UI.formatDate(new Date(inv.created_at))}`
+          return `${inv.token.padEnd(maxToken)}  ${pc.dim(inv.role)}`
         })
         const doneLabels = listJson.invites.map((inv) => inv.token)
         const index = await UI.select('Revoke invite:', choices, { doneLabels })
@@ -1117,11 +1113,8 @@ const member = Cli.create('member', {
             },
           })
         const maxLogin = Math.max(...listJson.members.map((m) => m.login.length))
-        const maxRole = Math.max(...listJson.members.map((m) => m.role.length))
         const choices = listJson.members.map((m) => {
-          const login = m.login.padEnd(maxLogin)
-          const role = m.role.padEnd(maxRole)
-          return `${login}   ${role}   ${UI.formatDate(new Date(m.created_at))}`
+          return `${m.login.padEnd(maxLogin)}  ${pc.dim(m.role)}`
         })
         const doneLabels = listJson.members.map((m) => m.login)
         const index = await UI.select('Remove member:', choices, { doneLabels })
@@ -1220,11 +1213,8 @@ const member = Cli.create('member', {
             },
           })
         const maxLogin = Math.max(...listJson.members.map((m) => m.login.length))
-        const maxRole = Math.max(...listJson.members.map((m) => m.role.length))
         const choices = listJson.members.map((m) => {
-          const login = m.login.padEnd(maxLogin)
-          const role = m.role.padEnd(maxRole)
-          return `${login}   ${role}   ${UI.formatDate(new Date(m.created_at))}`
+          return `${m.login.padEnd(maxLogin)}  ${pc.dim(m.role)}`
         })
         const doneLabels = listJson.members.map((m) => m.login)
         const index = await UI.select('Change role for:', choices, { doneLabels })
@@ -1248,13 +1238,9 @@ const member = Cli.create('member', {
       let role = c.options.role
       if (!role) {
         const roles = ['member', 'admin'] as const
-        const roleChoices = roles.map((r) => (r === match.role ? `${r} ${pc.dim('(current)')}` : r))
+        const roleChoices = roles.map((r) => (r === match.role ? `${r}  ${pc.dim('current')}` : r))
         const roleIndex = await UI.select('New role:', roleChoices, { doneLabels: [...roles] })
-        if (roleIndex === -1)
-          return c.error({
-            code: 'INVALID_SELECTION',
-            message: 'Selection cancelled.',
-          })
+        if (roleIndex === -1) return c.ok('Cancelled.')
         role = roles[roleIndex]
         if (!role)
           return c.error({
@@ -1484,6 +1470,7 @@ const org = Cli.create('org', {
         return c.ok(`Switched to ${pc.bold(match.login)}`)
       }
 
+      const currentOrgId = c.var.session?.organization_id
       const choices = [
         ...orgsJson.organizations.map((o) => ({
           label: o.login,
@@ -1495,15 +1482,19 @@ const org = Cli.create('org', {
         },
       ]
 
+      const labels = choices.map((c) => c.label)
+      const maxLabel = Math.max(...choices.map((c) => c.label.length))
       const index = await UI.select(
         'Switch to:',
-        choices.map((c) => c.label),
+        choices.map((c) => {
+          const isPersonal = !c.id
+          const isCurrent = c.id === currentOrgId && !isPersonal
+          const suffix = isPersonal ? pc.dim('account') : isCurrent ? pc.dim('current') : ''
+          return suffix ? `${c.label.padEnd(maxLabel)}  ${suffix}` : c.label
+        }),
+        { doneLabels: labels },
       )
-      if (index === -1)
-        return c.error({
-          code: 'INVALID_SELECTION',
-          message: 'Selection cancelled.',
-        })
+      if (index === -1) return c.ok('Cancelled.')
 
       const selected = choices[index]
       if (!selected)
@@ -1667,9 +1658,7 @@ const token = Cli.create('token', {
         })
         const maxName = Math.max(...listJson.api_keys.map((k) => k.name.length))
         const choices = listJson.api_keys.map((k) => {
-          const used = k.last_used_at ? UI.formatDate(new Date(k.last_used_at)) : 'never'
-          const name = k.name.padEnd(maxName)
-          return `${name}   ${k.key_prefix}******   ${used}   ${UI.formatDate(new Date(k.created_at))}`
+          return `${k.name.padEnd(maxName)}  ${pc.dim(`${k.key_prefix}******`)}`
         })
         const doneLabels = listJson.api_keys.map((k) => k.name)
         const index = await UI.select('Delete token:', choices, { doneLabels })
