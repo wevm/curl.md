@@ -18,6 +18,7 @@ export const modes = {
 
 export const pricing = {
   fetchCostMills: 1,
+  freshSurchargeMills: 1,
   queryBaseCostMills: 1,
   queryMarkup: 4,
 } as const

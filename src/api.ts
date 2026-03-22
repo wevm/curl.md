@@ -1812,6 +1812,7 @@ export const api = new Hono<{
       const tokensSaved = estimateTokenCount(response.content) - estimateTokenCount(excerpt)
 
       const costMills = (() => {
+        const freshSurcharge = query.fresh ? Constants.pricing.freshSurchargeMills : 0
         if (query.objective) {
           // CF cost in mills: tokens * pricePerMToken / 1000
           const cfCostMills =
@@ -1819,10 +1820,11 @@ export const api = new Hono<{
             1000
           return (
             Constants.pricing.queryBaseCostMills +
-            Math.ceil(cfCostMills * Constants.pricing.queryMarkup)
+            Math.ceil(cfCostMills * Constants.pricing.queryMarkup) +
+            freshSurcharge
           )
         }
-        return Constants.pricing.fetchCostMills
+        return Constants.pricing.fetchCostMills + freshSurcharge
       })()
 
       const requestId = Nanoid.generate()
