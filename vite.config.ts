@@ -49,6 +49,7 @@ export default defineConfig(async () => ({
                 ...h,
                 localConnectionString: env.DB_URL,
               }))
+              config.ai = { binding: 'AI' }
               config.vars = { ...config.vars, ...env }
             },
           }
