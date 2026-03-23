@@ -46,8 +46,10 @@ export const openai = appendMd({
   patterns: [new URLPattern({ hostname: 'developers.openai.com' })],
   checks: [{ url: 'https://developers.openai.com/docs/quickstart', contains: ['OpenAI'] }],
 })
-export const rolldown = appendMd({
+export const rolldown = repo({
   key: 'rolldown',
+  repo: 'rolldown/rolldown',
+  prefix: 'docs',
   patterns: [new URLPattern({ hostname: 'rolldown.rs' })],
   checks: [{ url: 'https://rolldown.rs/guide/introduction', contains: ['Rolldown'] }],
 })
@@ -85,8 +87,8 @@ export const turbo = appendMd({
 })
 export const vite = appendMd({
   key: 'vite',
-  patterns: [new URLPattern({ hostname: 'vitejs.dev' })],
-  checks: [{ url: 'https://vitejs.dev/guide', contains: ['Vite'] }],
+  patterns: [new URLPattern({ hostname: 'vite.dev' })],
+  checks: [{ url: 'https://vite.dev/guide', contains: ['Vite'] }],
 })
 export const vitest = appendMd({
   key: 'vitest',
@@ -206,6 +208,25 @@ export const vercel = prefixedWithIndex({
   checks: [{ url: 'https://vercel.com/docs/getting-started-with-vercel', contains: ['Vercel'] }],
 })
 
+export const vitePlus = repo({
+  key: 'vitePlus',
+  repo: 'voidzero-dev/vite-plus',
+  prefix: 'docs',
+  patterns: [new URLPattern({ hostname: 'viteplus.dev' })],
+  checks: [{ url: 'https://viteplus.dev/guide/install', contains: ['install'] }],
+})
+export const oxc = defineRule({
+  key: 'oxc',
+  patterns: [new URLPattern({ hostname: 'oxc.rs' })],
+  checks: [{ url: 'https://oxc.rs/docs/guide/usage/linter/config.html', contains: ['oxlint'] }],
+  rewrite(url) {
+    if (url.pathname === '/' || url.pathname === '') return
+    const mdUrl = new URL(
+      `https://raw.githubusercontent.com/oxc-project/website/main/src${url.pathname.replace(/\.html$/, '')}.md`,
+    )
+    return mdUrl
+  },
+})
 export const reactDev = defineRule({
   key: 'reactDev',
   patterns: [new URLPattern({ hostname: 'react.dev' })],

@@ -14,8 +14,6 @@ const extensions = [
   '.env',
   '.eot',
   '.gif',
-  '.htm',
-  '.html',
   '.ico',
   '.jpeg',
   '.jpg',

@@ -8,9 +8,9 @@ export const test = base.extend<{
   factory: ReturnType<typeof createFactory>
   setSession: (accountId: string) => Promise<void>
 }>({
-  // oxlint-disable-next-line no-empty-pattern -- playwright requires destructuring
+  // oxlint-disable-next-line no-empty-pattern: playwright requires destructuring
   db: async ({}, use) => {
-    const db = createClient(process.env.TEST_DB_URL, { max: 1 })
+    const db = createClient(process.env.PLAYWRIGHT_DB_URL, { max: 1 })
     await use(db)
     await db.destroy()
   },
@@ -20,14 +20,19 @@ export const test = base.extend<{
   setSession: async ({ context, factory }, use) => {
     await use(async (accountId: string) => {
       const session = await factory.session.insert({ account_id: accountId })
-      const headerValue = await Cookie.generateSigned('curl.session', session.id, 'test-secret')
-      const cookieValue = headerValue.split(';')[0]!.split('=').slice(1).join('=')
+      const headerValue = await Cookie.generateSigned(
+        'curl.session',
+        session.id,
+        process.env.PLAYWRIGHT_COOKIE_SECRET,
+      )
+      const cookieValue = decodeURIComponent(
+        headerValue.split(';')[0]!.split('=').slice(1).join('='),
+      )
       await context.addCookies([
         {
           name: 'curl.session',
           value: cookieValue,
-          domain: '.curl.local',
-          path: '/',
+          url: process.env.PLAYWRIGHT_BASE_URL,
           httpOnly: true,
           sameSite: 'Lax',
         },

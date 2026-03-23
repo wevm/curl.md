@@ -37,12 +37,6 @@ describe('appendMd', () => {
       url: 'https://developers.openai.com/docs/api',
     },
     {
-      name: 'rolldown',
-      factory: rules.rolldown,
-      hostname: 'rolldown.rs',
-      url: 'https://rolldown.rs/guide/introduction',
-    },
-    {
       name: 'routerVue',
       factory: rules.routerVue,
       hostname: 'router.vuejs.org',
@@ -72,7 +66,7 @@ describe('appendMd', () => {
       hostname: 'turbo.build',
       url: 'https://turbo.build/repo/docs',
     },
-    { name: 'vite', factory: rules.vite, hostname: 'vitejs.dev', url: 'https://vitejs.dev/guide' },
+    { name: 'vite', factory: rules.vite, hostname: 'vite.dev', url: 'https://vite.dev/guide' },
     {
       name: 'vitest',
       factory: rules.vitest,
@@ -250,6 +244,40 @@ describe('repo', () => {
 
   test('deno returns undefined for root', () => {
     const result = rewrite(rules.deno(), 'https://docs.deno.com/')
+    expect(result).toBeUndefined()
+  })
+
+  test('rolldown rewrites to raw.githubusercontent.com with prefix', () => {
+    const rule = rules.rolldown()
+    expect(patternsMatchHostname(rule, 'rolldown.rs')).toBe(true)
+    const result = rewrite(rule, 'https://rolldown.rs/guide/introduction')
+    expect(result?.href).toBe(
+      'https://raw.githubusercontent.com/rolldown/rolldown/main/docs/guide/introduction.md',
+    )
+  })
+
+  test('vitePlus rewrites to raw.githubusercontent.com with prefix', () => {
+    const rule = rules.vitePlus()
+    expect(patternsMatchHostname(rule, 'viteplus.dev')).toBe(true)
+    const result = rewrite(rule, 'https://viteplus.dev/guide/install')
+    expect(result?.href).toBe(
+      'https://raw.githubusercontent.com/voidzero-dev/vite-plus/main/docs/guide/install.md',
+    )
+  })
+})
+
+describe('oxc', () => {
+  test('rewrites .html path to raw.githubusercontent.com', () => {
+    const rule = rules.oxc()
+    expect(patternsMatchHostname(rule, 'oxc.rs')).toBe(true)
+    const result = rewrite(rule, 'https://oxc.rs/docs/guide/usage/linter/config.html')
+    expect(result?.href).toBe(
+      'https://raw.githubusercontent.com/oxc-project/website/main/src/docs/guide/usage/linter/config.md',
+    )
+  })
+
+  test('returns undefined for root', () => {
+    const result = rewrite(rules.oxc(), 'https://oxc.rs/')
     expect(result).toBeUndefined()
   })
 })

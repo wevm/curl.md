@@ -6,11 +6,17 @@
 // biome-ignore lint: disable
 export {}
 declare global {
+  const IconLucideArrowUpRight: typeof import('~icons/lucide/arrow-up-right.jsx').default
   const IconLucideCircleCheck: typeof import('~icons/lucide/circle-check.jsx').default
+  const IconLucideCreditCard: typeof import('~icons/lucide/credit-card.jsx').default
   const IconLucideFingerprint: typeof import('~icons/lucide/fingerprint.jsx').default
+  const IconLucideKey: typeof import('~icons/lucide/key.jsx').default
+  const IconLucideLayoutDashboard: typeof import('~icons/lucide/layout-dashboard.jsx').default
   const IconLucideMonitor: typeof import('~icons/lucide/monitor.jsx').default
   const IconLucideMoon: typeof import('~icons/lucide/moon.jsx').default
+  const IconLucideSettings: typeof import('~icons/lucide/settings.jsx').default
   const IconLucideSun: typeof import('~icons/lucide/sun.jsx').default
+  const IconLucideUsers: typeof import('~icons/lucide/users.jsx').default
   const IconLucideX: typeof import('~icons/lucide/x.jsx').default
   const IconOcticonBook16: typeof import('~icons/octicon/book16.jsx').default
   const IconOcticonCheck16: typeof import('~icons/octicon/check16.jsx').default

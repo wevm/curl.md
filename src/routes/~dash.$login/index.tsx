@@ -1,15 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/~dash/$login/')({
-  component: Dashboard,
+  component: Overview,
 })
 
-function Dashboard() {
-  const { entity } = Route.useRouteContext()
-  return (
-    <div className="flex flex-col gap-4">
-      <h1 className="text-lg font-bold">Dashboard</h1>
-      <p className="text-gray9 dark:text-gray6">Usage overview for {entity.name ?? entity.login}</p>
-    </div>
-  )
+function Overview() {
+  return <h1 className="text-lg font-bold">Overview</h1>
 }

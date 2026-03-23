@@ -39,8 +39,9 @@ export default async function globalSetup() {
   })
   console.log('e2e: started dev server')
 
-  process.env.TEST_BASE_URL = server.baseUrl
-  process.env.TEST_DB_URL = container.getConnectionUri()
+  process.env.PLAYWRIGHT_BASE_URL = server.baseUrl
+  process.env.PLAYWRIGHT_COOKIE_SECRET = process.env.COOKIE_SECRET ?? env.COOKIE_SECRET
+  process.env.PLAYWRIGHT_DB_URL = container.getConnectionUri()
 
   return async () => {
     server.stop()

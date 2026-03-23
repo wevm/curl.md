@@ -43,7 +43,7 @@ export const api = new Hono<{
     c.set('session', null)
 
     // Try cookie → session lookup
-    const cookie = await Cookie.getSigned(c, c.env.COOKIE_SECRET, 'curl.session')
+    const cookie = (await Cookie.getSigned(c, c.env.COOKIE_SECRET, 'curl.session')) || undefined
     const sessionId =
       cookie ??
       (() => {
@@ -123,12 +123,17 @@ export const api = new Hono<{
       const state = crypto.randomUUID()
       Cookie.set(c, 'curl.state', state, {
         httpOnly: true,
-        maxAge: 600,
+        maxAge: 600, // 10m
         sameSite: 'Lax',
-        ...Cookie.secureOpts(c.req.url, c.env.HOST),
+        ...Cookie.secureOpts(c.req.url, c.env.HOST, c.req.header('x-forwarded-proto')),
       })
 
-      const origin = new URL(c.req.url).origin
+      const origin = (() => {
+        const url = new URL(c.req.url)
+        const proto = c.req.header('x-forwarded-proto')
+        if (proto) url.protocol = `${proto}:`
+        return url.origin
+      })()
       const callbackUrl = new URL(`/api/auth/github/callback`, origin)
       if (query.next) {
         try {
@@ -177,8 +182,17 @@ export const api = new Hono<{
       }
 
       const cookieState = Cookie.get(c, 'curl.state')
-      Cookie.destroy(c, 'curl.state', Cookie.secureOpts(c.req.url, c.env.HOST))
-      const origin = new URL(c.req.url).origin
+      Cookie.destroy(
+        c,
+        'curl.state',
+        Cookie.secureOpts(c.req.url, c.env.HOST, c.req.header('x-forwarded-proto')),
+      )
+      const origin = (() => {
+        const url = new URL(c.req.url)
+        const proto = c.req.header('x-forwarded-proto')
+        if (proto) url.protocol = `${proto}:`
+        return url.origin
+      })()
       const errorUrl = new URL('/auth/error', origin)
       if (!cookieState || cookieState !== query.state) {
         errorUrl.searchParams.set('error', 'invalid_request')
@@ -375,7 +389,7 @@ export const api = new Hono<{
         httpOnly: true,
         maxAge: 2592000, // 30 days
         sameSite: 'Lax',
-        ...Cookie.secureOpts(c.req.url, c.env.HOST),
+        ...Cookie.secureOpts(c.req.url, c.env.HOST, c.req.header('x-forwarded-proto')),
       })
 
       if (query.next) {
@@ -499,7 +513,7 @@ export const api = new Hono<{
       httpOnly: true,
       maxAge: 0,
       sameSite: 'Lax',
-      ...Cookie.secureOpts(c.req.url, c.env.HOST),
+      ...Cookie.secureOpts(c.req.url, c.env.HOST, c.req.header('x-forwarded-proto')),
     })
     return c.json({ ok: true }, 200)
   })
@@ -1045,10 +1059,13 @@ export const api = new Hono<{
       const reservedLogins = new Set([
         ...Constants.knownRoutes,
         'account',
+        'admin',
         'api',
         'app',
+        'blog',
         'curl',
         'dash',
+        'docs',
         'org',
       ])
       if (reservedLogins.has(json.login))
@@ -1539,7 +1556,7 @@ export const api = new Hono<{
           .refine(
             (url) =>
               // Extra protection from common bot probe requests (keep in sync with scripts/wafRules.ts)
-              !/\.(action|aspx?|cgi|css|eot|gif|html?|ico|jpe?g|json|jsx?|map|php|png|svg|tsx?|ttf|webp|woff2?|xml|ya?ml)$/i.test(
+              !/\.(action|aspx?|cgi|css|eot|gif|ico|jpe?g|json|jsx?|map|php|png|svg|tsx?|ttf|webp|woff2?|xml|ya?ml)$/i.test(
                 new URL(url).hostname,
               ),
           ),

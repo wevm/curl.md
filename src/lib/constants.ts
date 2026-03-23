@@ -30,7 +30,7 @@ export const attribution = {
 
 export const sentinelValue = 'NONE'
 
-export const routes = ['', 'auth', 'credits', 'invite', 'login', 'playground'] as const
+export const routes = ['', 'auth', 'credits', 'home', 'invite', 'login', 'playground'] as const
 export const knownRoutes: Set<string> = new Set(routes)
 
 export const systemPrompt = `You extract relevant sections from web pages. Rules:

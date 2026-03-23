@@ -18,7 +18,6 @@
     "db:codegen": "node --experimental-strip-types scripts/dbCodegen.ts",
     "db:make": "kysely --config=config/kysely.config.ts migrate make",
     "db:migrate": "kysely --config=config/kysely.config.ts migrate",
-    "deploy": "pnpm run build && wrangler deploy",
     "deps": "pnpx taze -r --no-ignore-other-workspaces --ignore-paths node_modules",
     "deps:ci": "pnpx actions-up --dir .github",
     "dev": "vite dev --port 3000",
@@ -101,7 +100,8 @@
   },
   "lint-staged": {
     "*": "oxfmt --no-error-on-unmatched-pattern",
-    "*.{js,jsx,ts,tsx,mjs,cjs}": "oxlint"
+    "*.{js,jsx,ts,tsx,mjs,cjs}": "oxlint",
+    "*.{ts,tsx}": "bash -c 'pnpm check:types'"
   },
   "devEngines": {
     "runtime": {

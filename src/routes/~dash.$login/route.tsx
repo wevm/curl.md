@@ -1,5 +1,12 @@
 import { useMutation } from '@tanstack/react-query'
-import { createFileRoute, notFound, Outlet, redirect, useRouter } from '@tanstack/react-router'
+import {
+  Link,
+  createFileRoute,
+  notFound,
+  Outlet,
+  redirect,
+  useRouter,
+} from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
 import { env } from 'cloudflare:workers'
@@ -22,8 +29,9 @@ export const Route = createFileRoute('/~dash/$login')({
 })
 
 function DashboardLayout() {
-  const { account } = Route.useRouteContext()
+  const { account, entity } = Route.useRouteContext()
   const router = useRouter()
+  const params = Route.useParams()
 
   const logout = useMutation({
     async mutationFn() {
@@ -35,24 +43,78 @@ function DashboardLayout() {
   })
 
   return (
-    <div className="mx-auto flex min-h-dvh max-w-4xl flex-col px-6 pt-6 pb-16">
-      <div className="flex items-center justify-between border-b pb-4">
-        <div className="flex items-center gap-3">
-          {account.avatar_url ? (
-            <img
-              alt={account.name ?? account.email}
-              className="size-8 rounded-full"
-              src={account.avatar_url}
-            />
-          ) : null}
-          <span className="font-bold">{account.name ?? account.login}</span>
-        </div>
-        <div className="flex items-center gap-3">
-          <a className="text-gray9 hover:text-gray10 dark:text-gray6 hover:underline" href="/">
+    <div className="mx-auto flex min-h-dvh max-w-5xl gap-8 px-6 pt-6 pb-16">
+      <nav className="flex w-48 shrink-0 flex-col gap-1 pt-2">
+        <div className="mb-4 font-bold">{entity.name ?? entity.login}</div>
+
+        <Link
+          activeOptions={{ exact: true }}
+          className="py-1 [&.active]:font-bold"
+          params={params}
+          to="/~dash/$login"
+        >
+          <IconLucideLayoutDashboard className="mr-2 inline-block size-4" />
+          Overview
+        </Link>
+        <Link className="py-1 [&.active]:font-bold" params={params} to="/~dash/$login/requests">
+          <IconLucideArrowUpRight className="mr-2 inline-block size-4" />
+          Requests
+        </Link>
+
+        <hr className="my-3" />
+
+        <span className="mb-1 text-xs font-medium tracking-wide uppercase opacity-50">
+          Settings
+        </span>
+        <Link
+          className="py-1 [&.active]:font-bold"
+          params={params}
+          to="/~dash/$login/settings/general"
+        >
+          <IconLucideSettings className="mr-2 inline-block size-4" />
+          General
+        </Link>
+        <Link
+          className="py-1 [&.active]:font-bold"
+          params={params}
+          to="/~dash/$login/settings/members"
+        >
+          <IconLucideUsers className="mr-2 inline-block size-4" />
+          Members
+        </Link>
+        <Link
+          className="py-1 [&.active]:font-bold"
+          params={params}
+          to="/~dash/$login/settings/billing"
+        >
+          <IconLucideCreditCard className="mr-2 inline-block size-4" />
+          Billing
+        </Link>
+        <Link
+          className="py-1 [&.active]:font-bold"
+          params={params}
+          to="/~dash/$login/settings/tokens"
+        >
+          <IconLucideKey className="mr-2 inline-block size-4" />
+          Tokens
+        </Link>
+
+        <div className="mt-auto flex flex-col gap-1 pt-8">
+          <div className="mb-1 flex items-center gap-2">
+            {account.avatar_url ? (
+              <img
+                alt={account.name ?? account.email}
+                className="size-5 rounded-full"
+                src={account.avatar_url}
+              />
+            ) : null}
+            <span className="text-sm font-medium">{account.name ?? account.login}</span>
+          </div>
+          <a className="py-1 text-sm opacity-60 hover:opacity-100" href="/">
             Home
           </a>
           <button
-            className="text-gray9 hover:text-gray10 dark:text-gray6 hover:underline disabled:opacity-50"
+            className="py-1 text-left text-sm opacity-60 hover:opacity-100 disabled:opacity-30"
             disabled={logout.isPending}
             onClick={() => logout.mutate()}
             type="button"
@@ -60,10 +122,11 @@ function DashboardLayout() {
             Sign Out
           </button>
         </div>
-      </div>
-      <div className="pt-6">
+      </nav>
+
+      <main className="min-w-0 flex-1 pt-2">
         <Outlet />
-      </div>
+      </main>
     </div>
   )
 }

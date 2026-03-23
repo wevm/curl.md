@@ -9,7 +9,7 @@ export default defineConfig({
   reporter: process.env.CI ? [['dot'], ['github']] : 'list',
   globalSetup: 'e2e.global.setup.ts',
   use: {
-    baseURL: process.env.TEST_BASE_URL,
+    baseURL: process.env.PLAYWRIGHT_BASE_URL,
     trace: 'on-first-retry',
   },
   projects: [

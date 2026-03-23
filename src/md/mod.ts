@@ -61,7 +61,9 @@ export function create(options: create.Options = {}): create.ReturnType {
         const text = await response.text()
         const contentType = (response.headers.get('content-type') ?? '').toLowerCase()
         const isMarkdown =
-          contentType.includes('text/markdown') || contentType.includes('text/x-markdown')
+          contentType.includes('text/markdown') ||
+          contentType.includes('text/x-markdown') ||
+          rewrittenUrl.pathname.endsWith('.md')
 
         if (isMarkdown) {
           const split = splitFrontmatter(text)
