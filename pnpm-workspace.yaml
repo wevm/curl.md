@@ -2,8 +2,8 @@ packages:
   - cli
 
 overrides:
-  h3: 2.0.1-rc.17
-  h3-v2: npm:h3@2.0.1-rc.17
+  h3: 2.0.1-rc.18
+  h3-v2: npm:h3@2.0.1-rc.18
   # Override undici to avoid miniflare bug where POST + 401 → 500.
   # TODO: Remove once miniflare ships with a fixed undici version.
   # https://github.com/cloudflare/workers-sdk/issues/12967

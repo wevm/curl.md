@@ -117,7 +117,7 @@ const cli = Cli.create('curl.md', {
         code: 'INVALID_URL',
         message: `Invalid URL: ${c.args.url}`,
         cta: {
-          description: 'url must be valid HTTP(S) address:',
+          description: 'URL must be valid HTTP(S) address:',
           commands: [
             {
               command: c.name,
@@ -156,7 +156,7 @@ const cli = Cli.create('curl.md', {
       return c.error({
         ...err,
         cta: {
-          description: 'create API token:',
+          description: 'Create API token:',
           commands: [
             {
               command: `${c.name} token create <name>`,
@@ -186,7 +186,7 @@ const cli = Cli.create('curl.md', {
       return c.error({
         ...err,
         cta: {
-          description: 'switch organization:',
+          description: 'Switch organization:',
           commands: [
             {
               command: `${c.name} org switch`,
@@ -243,7 +243,7 @@ const cli = Cli.create('curl.md', {
     if (!c.options.objective && text.length > 10_000)
       return c.ok(text, {
         cta: {
-          description: 'narrow results with an objective:',
+          description: 'Narrow results with objective:',
           commands: [
             {
               command: c.name,
@@ -334,11 +334,11 @@ function authError(
     code: 'NOT_AUTHENTICATED',
     message: 'Not authenticated.',
     cta: {
-      description: 'authenticate:',
+      description: 'Authenticate:',
       commands: [
         {
           command: `${c.name} auth login`,
-          description: 'log in',
+          description: 'log in with browser',
         },
         {
           command: `${c.name} auth status --token <token>`,

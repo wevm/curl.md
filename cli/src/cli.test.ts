@@ -142,7 +142,7 @@ test('invalid url', async () => {
 
     ## cta.description
 
-    url must be valid HTTP(S) address:
+    URL must be valid HTTP(S) address:
 
     ## cta.commands
 
@@ -307,7 +307,7 @@ test('objective cta shown for long responses', async () => {
   })
 
   const { output } = await serve(['example.com', '--verbose'])
-  expect(output).toContain('narrow results with an objective')
+  expect(output).toContain('Narrow results with objective')
 })
 
 test('objective cta hidden for short responses', async () => {
