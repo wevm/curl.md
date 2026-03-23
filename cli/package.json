@@ -38,7 +38,7 @@
   },
   "dependencies": {
     "hono": "catalog:",
-    "incur": "0.3.6",
+    "incur": "0.3.8",
     "picocolors": "^1.1.1"
   },
   "devDependencies": {

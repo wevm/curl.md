@@ -213,8 +213,8 @@ importers:
         specifier: 'catalog:'
         version: 4.12.7
       incur:
-        specifier: 0.3.6
-        version: 0.3.6(openapi-types@12.1.3)
+        specifier: 0.3.8
+        version: 0.3.8(openapi-types@12.1.3)
       picocolors:
         specifier: ^1.1.1
         version: 1.1.1
@@ -3050,8 +3050,8 @@ packages:
     resolution: {integrity: sha512-TR3KfrTZTYLPB6jUjfx6MF9WcWrHL9su5TObK4ZkYgBdWKPOFoSoQIdEuTuR82pmtxH2spWG9h6etwfr1pLBqQ==}
     engines: {node: '>=6'}
 
-  incur@0.3.6:
-    resolution: {integrity: sha512-IrRP2VgrY4IWhorWSkwwbVgyyc1mHUUE213cY6vsuFv0sbZDxqMst+GM6JK1PTmZIvReAYGnbfH8Gpuq30Zk5w==}
+  incur@0.3.8:
+    resolution: {integrity: sha512-DHJO3ZqKZrlN5t+HHtSXxPTgcfemoJHbzViEahCMglsG6HpLdMwIPZ8yATN6eavy5dOw/PGQCp67OxC9AzbLgw==}
     hasBin: true
 
   inherits@2.0.4:
@@ -7666,7 +7666,7 @@ snapshots:
       parent-module: 1.0.1
       resolve-from: 4.0.0
 
-  incur@0.3.6(openapi-types@12.1.3):
+  incur@0.3.8(openapi-types@12.1.3):
     dependencies:
       '@modelcontextprotocol/sdk': 1.27.1(zod@4.3.6)
       '@readme/openapi-parser': 6.0.0(openapi-types@12.1.3)

@@ -21,16 +21,14 @@ map(callbackFn, thisArg)
 
 ### Parameters
 
-- `callbackFn`
-  - : A function to execute for each element in the array. Its return value is added as a single element in the new array. The function is called with the following arguments:
+- `callbackFn` — A function to execute for each element in the array. Its return value is added as a single element in the new array. The function is called with the following arguments:
     - `element`
       - : The current element being processed in the array.
     - `index`
       - : The index of the current element being processed in the array.
     - `array`
       - : The array `map()` was called upon.
-- `thisArg` _(optional)_
-  - : A value to use as `this` when executing `callbackFn`. See [iterative methods](/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array#iterative_methods).
+- `thisArg` _(optional)_ — A value to use as `this` when executing `callbackFn`. See [iterative methods](/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array#iterative_methods).
 
 ### Return value
 

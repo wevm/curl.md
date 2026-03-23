@@ -65,8 +65,8 @@ test('help', async () => {
       curl.md zod.dev/error-formatting --objective tree error formatting --keywords treeifyError
 
     Commands:
-      auth     Authenticate with curl.md (check, login, logout)
-      credits  Manage prepaid credits (add, check)
+      auth     Authenticate with curl.md (login, logout, status)
+      credits  Manage prepaid credits (add, status)
       org      Manage organizations (create, invite, list, members, switch, view)
       token    Manage API tokens (create, list, delete)
       update   Update curl.md CLI
@@ -90,7 +90,7 @@ test('help', async () => {
       --version                           Show version
 
     Environment Variables:
-      CURLMD_API_KEY   API key for authentication
+      CURLMD_API_KEY   API token for authentication
       CURLMD_BASE_URL  Base URL (default: https://curl.md)
     "
   `)
@@ -142,14 +142,14 @@ test('invalid url', async () => {
 
     ## cta.description
 
-    URL must be a valid HTTP(S) address:
+    url must be valid HTTP(S) address:
 
     ## cta.commands
 
     | command                          | description             |
     |----------------------------------|-------------------------|
-    | curl.md example.com              | Domain without protocol |
-    | curl.md https://example.com/path | Full URL with protocol  |
+    | curl.md example.com              | domain without protocol |
+    | curl.md https://example.com/path | full URL with protocol  |
     "
   `)
 })
@@ -307,7 +307,7 @@ test('objective cta shown for long responses', async () => {
   })
 
   const { output } = await serve(['example.com', '--verbose'])
-  expect(output).toContain('Narrow results with an objective')
+  expect(output).toContain('narrow results with an objective')
 })
 
 test('objective cta hidden for short responses', async () => {
@@ -318,7 +318,7 @@ test('objective cta hidden for short responses', async () => {
   })
 
   const { output } = await serve(['example.com', '--verbose'])
-  expect(output).not.toContain('Narrow results with an objective')
+  expect(output).not.toContain('narrow results with an objective')
 })
 
 describe('update check middleware', () => {
@@ -326,7 +326,7 @@ describe('update check middleware', () => {
     const spy = vi.spyOn(UpdateCache, 'spawnCheck').mockImplementation(() => {})
     onTestFinished(() => spy.mockRestore())
 
-    await serve(['auth', 'check'])
+    await serve(['auth', 'status'])
     expect(spy).toHaveBeenCalled()
   })
 
@@ -339,7 +339,7 @@ describe('update check middleware', () => {
     const spy = vi.spyOn(UpdateCache, 'spawnCheck').mockImplementation(() => {})
     onTestFinished(() => spy.mockRestore())
 
-    await serve(['auth', 'check'])
+    await serve(['auth', 'status'])
     expect(spy).toHaveBeenCalled()
   })
 
@@ -352,7 +352,7 @@ describe('update check middleware', () => {
     const spy = vi.spyOn(UpdateCache, 'spawnCheck').mockImplementation(() => {})
     onTestFinished(() => spy.mockRestore())
 
-    await serve(['auth', 'check'])
+    await serve(['auth', 'status'])
     expect(spy).not.toHaveBeenCalled()
   })
 
@@ -411,7 +411,7 @@ describe('update check middleware', () => {
 
 describe('auth', () => {
   test('check - not logged in', async () => {
-    const { output } = await serve(['auth', 'check'])
+    const { output } = await serve(['auth', 'status'])
     expect(output).toContain('Not authenticated')
   })
 
@@ -453,7 +453,7 @@ describe('auth', () => {
       process.argv = origArgv
     })
 
-    const { output } = await serve(['auth', 'check', '--token', token])
+    const { output } = await serve(['auth', 'status', '--token', token])
     expect(output).toContain('Logged in as')
     expect(output).toContain(account.login)
     expect(output).toContain('Auth: token')
@@ -468,14 +468,14 @@ describe('auth', () => {
       process.argv = origArgv
     })
 
-    const { output } = await serve(['auth', 'check', '--token', invalidToken])
+    const { output } = await serve(['auth', 'status', '--token', invalidToken])
     expect(output).toContain('Not authenticated')
   })
 
   test('check - expired session', async () => {
     Session.write({ session_id: 'expired-session-id' })
 
-    const { output } = await serve(['auth', 'check'])
+    const { output } = await serve(['auth', 'status'])
     expect(output).toContain('Not authenticated')
     expect(Session.read()).toBeNull()
   })
@@ -661,21 +661,21 @@ describe('auth', () => {
     expect(output).toContain('Logged in as')
     expect(Session.read()).not.toBeNull()
 
-    const { output: checkOutput } = await serve(['auth', 'check'])
+    const { output: checkOutput } = await serve(['auth', 'status'])
     expect(checkOutput).toContain('Logged in as')
   })
 })
 
 describe('credits', () => {
   test('check - requires auth', async () => {
-    const { exitCode, output } = await serve(['credits', 'check'])
+    const { exitCode, output } = await serve(['credits', 'status'])
     expect(exitCode).toBe(1)
     expect(output).toContain('NOT_AUTHENTICATED')
   })
 
   test('check - expired session deletes session', async () => {
     Session.write({ session_id: 'expired-session-id' })
-    const { exitCode, output } = await serve(['credits', 'check'])
+    const { exitCode, output } = await serve(['credits', 'status'])
     expect(exitCode).toBe(1)
     expect(output).toContain('NOT_AUTHENTICATED')
     expect(Session.read()).toBeNull()
@@ -691,7 +691,7 @@ describe('credits', () => {
       .execute()
     Session.write({ session_id: session.id })
 
-    const { output } = await serve(['credits', 'check'])
+    const { output } = await serve(['credits', 'status'])
     expect(output).toContain('$12.500')
   })
 
@@ -700,8 +700,8 @@ describe('credits', () => {
     const session = await factory.session.insert({ account_id: account.id })
     Session.write({ session_id: session.id })
 
-    const { output } = await serve(['credits', 'check'])
-    expect(output).toContain('$0.000')
+    const { output } = await serve(['credits', 'status'])
+    expect(output).toContain('No credits')
   })
 
   test('check - forbidden for non-admin org member', async () => {
@@ -715,7 +715,7 @@ describe('credits', () => {
     })
     Session.write({ session_id: session.id, organization_id: org.id })
 
-    const { exitCode, output } = await serve(['credits', 'check'])
+    const { exitCode, output } = await serve(['credits', 'status'])
     expect(exitCode).toBe(1)
     expect(output).toContain('ORGANIZATION_ACCESS_DENIED')
   })

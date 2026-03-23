@@ -27,24 +27,26 @@ export const mdn = defineRule({
 
     // Extract title and browser-compat query from frontmatter
     let title: string | undefined
-    let bcdQuery: string | undefined
+    let bcdQueries: string[] = []
     let specUrls: string[] = []
     if (text.startsWith('---\n')) {
       const end = text.indexOf('\n---\n', 4)
       if (end !== -1) {
         const fm = text.slice(4, end)
         title = fm.match(/^title:\s*(.+)$/m)?.[1]?.replace(/^["']|["']$/g, '')
-        bcdQuery = fm.match(/^browser-compat:\s*(.+)$/m)?.[1]?.trim()
+        bcdQueries = parseYamlList(fm, 'browser-compat')
         specUrls = parseYamlList(fm, 'spec-urls')
         text = text.slice(end + 5).replace(/^\n+/, '')
       }
     }
 
     // Fetch BCD data for compat table and spec URL fallback
-    const bcd = bcdQuery ? await fetchBcd(bcdQuery) : undefined
-    if (bcd && /^\{\{Compat\}\}\s*$/m.test(text))
-      text = text.replace(/^\{\{Compat\}\}\s*$/m, bcd.compatTable)
-    if (specUrls.length === 0 && bcd) specUrls = bcd.specUrls
+    const bcdResults = await Promise.all(bcdQueries.map(fetchBcd))
+    const bcds = bcdResults.filter((b): b is BcdResult => b !== undefined)
+    if (bcds.length > 0 && /^\{\{Compat\}\}\s*$/m.test(text)) {
+      text = text.replace(/^\{\{Compat\}\}\s*$/m, bcds.map((b) => b.compatTable).join('\n'))
+    }
+    if (specUrls.length === 0) specUrls = bcds.flatMap((b) => b.specUrls)
 
     // Resolve {{Specifications}} to a spec table
     if (specUrls.length > 0 && /^\{\{Specifications\}\}\s*$/m.test(text)) {
@@ -107,6 +109,9 @@ export const mdn = defineRule({
 
     // Strip any remaining macros
     text = text.replace(/\{\{[^}]+\}\}/g, '')
+
+    // Convert MDN definition lists (- term\n  - : desc) to plain list items
+    text = text.replace(/^(-\s+.+)\n\s+-\s+:\s+/gm, '$1 — ')
 
     // Clean code block info strings (remove example-good, hidden, interactive-example, etc.)
     text = text.replace(
@@ -181,9 +186,11 @@ async function fetchBcd(query: string): Promise<BcdResult | undefined> {
     const segments = query.split('.')
     const depth = segments[0] === 'api' ? 2 : 3
     const filePath = segments.slice(0, depth).join('/')
-    const res = await fetch(
-      `https://raw.githubusercontent.com/mdn/browser-compat-data/main/${filePath}.json`,
-    )
+    const base = 'https://raw.githubusercontent.com/mdn/browser-compat-data/main'
+    let res = await fetch(`${base}/${filePath}.json`)
+    // Some global APIs (e.g. api.fetch) live under api/_globals/
+    if (!res.ok && segments[0] === 'api' && depth === 2)
+      res = await fetch(`${base}/api/_globals/${segments[1]}.json`)
     if (!res.ok) return undefined
     const json = (await res.json()) as Record<string, unknown>
 

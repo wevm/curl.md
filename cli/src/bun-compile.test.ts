@@ -64,7 +64,7 @@ describe('bun build --compile', () => {
     const { stdout } = await exec(bin, ['auth', '--help'])
     expect(stdout).toContain('login')
     expect(stdout).toContain('logout')
-    expect(stdout).toContain('check')
+    expect(stdout).toContain('status')
   })
 
   test('errors on missing url', async () => {
