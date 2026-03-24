@@ -92,7 +92,7 @@ jobs:
         uses: ./.github/actions/setup-pnpm
 
       - name: Check dependencies
-        run: pnpm check:deps
+        run: pnpm --filter curl.md check:deps
 
       - name: Shellcheck
         run: shellcheck public/install.sh

@@ -69,7 +69,7 @@ function RootDocument(props: React.PropsWithChildren) {
     <html lang="en" data-theme={resolvedTheme} suppressHydrationWarning>
       <head>
         <script
-          // oxlint-disable-next-line react/no-danger -- theme script is static
+          // oxlint-disable-next-line react/no-danger: theme script is static
           dangerouslySetInnerHTML={{ __html: themeScript }}
           suppressHydrationWarning
         />

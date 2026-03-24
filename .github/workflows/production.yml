@@ -85,7 +85,7 @@ jobs:
           TOKEN_ENCRYPTION_KEY: ${{ secrets.TOKEN_ENCRYPTION_KEY }}
 
       - name: Deploy WAF rules
-        run: node --experimental-strip-types scripts/wafRules.ts
+        run: node --experimental-strip-types scripts/waf.ts
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 

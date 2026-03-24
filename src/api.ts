@@ -1555,7 +1555,7 @@ export const api = new Hono<{
           )
           .refine(
             (url) =>
-              // Extra protection from common bot probe requests (keep in sync with scripts/wafRules.ts)
+              // Extra protection from common bot probe requests (keep in sync with scripts/waf.ts)
               !/\.(action|aspx?|cgi|css|eot|gif|ico|jpe?g|json|jsx?|map|php|png|svg|tsx?|ttf|webp|woff2?|xml|ya?ml)$/i.test(
                 new URL(url).hostname,
               ),
