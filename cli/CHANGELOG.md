@@ -1,5 +1,11 @@
 # curl.md
 
+## 0.0.12
+
+### Patch Changes
+
+- Bumped internal deps
+
 ## 0.0.11
 
 ### Patch Changes
