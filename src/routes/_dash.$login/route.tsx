@@ -123,6 +123,7 @@ function Component() {
           >
             Overview
           </SidebarLink>
+          <SidebarDisabled icon={<IconOcticonGlobe16 />}>Requests</SidebarDisabled>
           {entity.type === 'organization' && (
             <SidebarDisabled icon={<IconOcticonPeople16 />}>Members</SidebarDisabled>
           )}
@@ -207,6 +208,7 @@ function Component() {
           >
             Overview
           </SidebarLink>
+          <SidebarDisabled icon={<IconOcticonGlobe16 />}>Requests</SidebarDisabled>
           {entity.type === 'organization' && (
             <SidebarDisabled icon={<IconOcticonPeople16 />}>Members</SidebarDisabled>
           )}
