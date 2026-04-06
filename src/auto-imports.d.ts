@@ -7,6 +7,7 @@
 export {}
 declare global {
   const IconLucideArrowUpRight: typeof import('~icons/lucide/arrow-up-right.jsx').default
+  const IconLucideChevronDown: typeof import('~icons/lucide/chevron-down.jsx').default
   const IconLucideCircleCheck: typeof import('~icons/lucide/circle-check.jsx').default
   const IconLucideCreditCard: typeof import('~icons/lucide/credit-card.jsx').default
   const IconLucideFingerprint: typeof import('~icons/lucide/fingerprint.jsx').default
@@ -22,6 +23,8 @@ declare global {
   const IconLucideX: typeof import('~icons/lucide/x.jsx').default
   const IconOcticonBook16: typeof import('~icons/octicon/book16.jsx').default
   const IconOcticonCheck16: typeof import('~icons/octicon/check16.jsx').default
+  const IconOcticonChevronDown16: typeof import('~icons/octicon/chevron-down16.jsx').default
+  const IconOcticonCircleSlash16: typeof import('~icons/octicon/circle-slash16.jsx').default
   const IconOcticonClippy16: typeof import('~icons/octicon/clippy16.jsx').default
   const IconOcticonCopy16: typeof import('~icons/octicon/copy16.jsx').default
   const IconOcticonGitCommit16: typeof import('~icons/octicon/git-commit16.jsx').default

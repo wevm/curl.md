@@ -1,10 +1,11 @@
+import { Menu } from '@base-ui/react/menu'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { createFileRoute, notFound, redirect, useRouter } from '@tanstack/react-router'
+import { createFileRoute, Link, notFound, redirect, useRouter } from '@tanstack/react-router'
 import { createServerFn, useServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
 import { env } from 'cloudflare:workers'
+import * as Nav from '#components/Nav.tsx'
 import { createClient } from '#db/client.ts'
-import { useAnimatedValue } from '#hooks/useAnimatedValue.ts'
 import * as Cookie from '#lib/cookie.ts'
 import { formatCost } from '#lib/format.ts'
 import { rpc } from '#lib/rpc.ts'
@@ -29,17 +30,8 @@ export const Route = createFileRoute('/~dash/$login')({
 })
 
 function Component() {
-  const { account, entity } = Route.useRouteContext()
+  const { account, entity, organizations } = Route.useRouteContext()
   const router = useRouter()
-  const loaderData = Route.useLoaderData()
-  const fetchDashboard = useServerFn(getDashboardData)
-
-  const { data: dashboard } = useQuery({
-    initialData: loaderData,
-    queryKey: ['dashboard', entity.id],
-    queryFn: () => fetchDashboard({ data: { entityId: entity.id, entityType: entity.type } }),
-    refetchInterval: 10_000,
-  })
 
   const logout = useMutation({
     async mutationFn() {
@@ -50,85 +42,138 @@ function Component() {
     },
   })
 
-  const animatedBalance = useAnimatedValue(dashboard.balance_mills, {
-    duration: 500,
-    from: 'previous',
-  })
-  const balanceDollars = (animatedBalance / 1000).toFixed(2)
-  const animatedTokens = useAnimatedValue(dashboard.tokens_saved, {
-    duration: 500,
-    from: 'previous',
-  })
+  const others = [
+    ...(account.login !== entity.login
+      ? [{ login: account.login, name: account.name, type: 'account' as const }]
+      : []),
+    ...organizations
+      .filter((o) => o.login !== entity.login)
+      .map((o) => ({ login: o.login, name: o.name, type: 'organization' as const })),
+  ]
 
   return (
-    <div className="mx-auto min-h-dvh max-w-3xl px-6 pt-6 pb-16 font-sans">
-      <div className="flex flex-col gap-8">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {account.avatar_url ? (
-              <img
-                alt={account.name ?? account.email}
-                className="size-8 rounded-full"
-                src={account.avatar_url}
-              />
-            ) : null}
-            <div>
-              <div className="text-sm font-semibold">{entity.name ?? entity.login}</div>
-              <div className="text-gray8 text-xs">
-                {entity.type === 'organization' ? 'Organization' : 'Personal'}
+    <div className="relative flex min-h-dvh flex-col">
+      <Nav.Skip />
+      <Nav.Root>
+        <Menu.Root>
+          <Menu.Trigger className="hover:bg-gray-a2 flex cursor-default items-center gap-2 p-1 text-sm">
+            <EntityAvatar
+              avatarUrl={entity.type === 'account' ? account.avatar_url : undefined}
+              name={entity.name ?? entity.login}
+            />
+            <span>{entity.name ?? entity.login}</span>
+            <IconOcticonChevronDown16 className="text-gray8 size-3.5" />
+          </Menu.Trigger>
+          <Menu.Portal>
+            <Menu.Positioner align="start" sideOffset={8}>
+              <Menu.Popup className="bg-bg1 border-gray-a3 before:bg-gray-a1/50 relative min-w-48 border px-1 py-1 before:absolute before:inset-0 before:-z-1">
+                {others.map((e) => (
+                  <Menu.Item
+                    className="text-gray9 hover:bg-gray-a2 hover:text-gray10 flex items-center gap-2 p-1.5 text-sm"
+                    key={e.login}
+                    render={<Link params={{ login: e.login }} to="/~dash/$login" />}
+                  >
+                    <EntityAvatar
+                      avatarUrl={e.type === 'account' ? account.avatar_url : undefined}
+                      name={e.name ?? e.login}
+                    />
+                    {e.name ?? e.login}
+                  </Menu.Item>
+                ))}
+                <div className="border-gray-a2 -mx-1 my-1 border-t" />
+                <Menu.Item
+                  className="text-gray9 hover:bg-gray-a2 hover:text-gray10 flex min-h-9 items-center p-1.5 text-sm disabled:opacity-30"
+                  disabled={logout.isPending}
+                  onClick={() => logout.mutate()}
+                >
+                  Sign Out
+                </Menu.Item>
+              </Menu.Popup>
+            </Menu.Positioner>
+          </Menu.Portal>
+        </Menu.Root>
+        <Nav.Group>
+          <Link className="text-gray8 hover:text-gray10 px-3 py-1.5 text-sm" to="/">
+            Docs
+          </Link>
+        </Nav.Group>
+      </Nav.Root>
+
+      <main className="flex-1" id={Nav.skipId}>
+        <DashboardContent key={entity.id} />
+      </main>
+    </div>
+  )
+}
+
+function DashboardContent() {
+  const { entity } = Route.useRouteContext()
+  const loaderData = Route.useLoaderData()
+  const fetchDashboard = useServerFn(getDashboardData)
+
+  const { data: dashboard } = useQuery({
+    initialData: loaderData,
+    queryKey: ['dashboard', entity.id],
+    queryFn: () => fetchDashboard({ data: { entityId: entity.id, entityType: entity.type } }),
+    refetchInterval: 10_000,
+  })
+
+  const balanceDollars = (dashboard.balance_mills / 1000).toFixed(2)
+
+  return (
+    <div className="mx-auto flex w-full max-w-2xl flex-col px-6 pb-16">
+      <div className="grid grid-cols-2 gap-4">
+        <StatCard
+          label="Tokens Saved"
+          value={Math.round(dashboard.tokens_saved).toLocaleString()}
+        />
+        <StatCard label="Cost Saved" value={`$${formatCost(dashboard.tokens_saved, 3)}`} />
+      </div>
+
+      <div className="mt-8">
+        <h2 className="text-sm font-bold">Billing</h2>
+        <div className="bg-gray-a1/50 border-gray-a3 mt-4 flex items-center justify-between border px-3 py-3">
+          <span className="text-gray8 text-xs">Credits Remaining</span>
+          <span className="text-sm font-bold tabular-nums">${balanceDollars}</span>
+        </div>
+        {dashboard.payment_method ? (
+          <div className="bg-gray-a1/50 border-gray-a3 -mt-px flex items-center justify-between border px-3 py-3">
+            <div className="flex items-center gap-3">
+              <IconLucideCreditCard className="text-gray8 size-5" />
+              <div>
+                <span className="text-sm font-medium capitalize">
+                  {dashboard.payment_method.brand}
+                </span>
+                <span className="text-gray8 ms-2 text-sm">
+                  **** {dashboard.payment_method.last4}
+                </span>
               </div>
             </div>
           </div>
-          <button
-            className="text-gray8 hover:bg-gray1 hover:text-gray10 rounded-md px-3 py-1.5 text-sm disabled:opacity-30"
-            disabled={logout.isPending}
-            onClick={() => logout.mutate()}
-            type="button"
-          >
-            Sign Out
-          </button>
-        </div>
-
-        <div className="flex flex-col gap-4">
-          <StatCard label="Tokens Saved" value={Math.round(animatedTokens).toLocaleString()} />
-          <div className="grid grid-cols-2 gap-4">
-            <StatCard label="~$ Saved" value={`$${formatCost(animatedTokens, 3)}`} />
-            <StatCard label="Credits Remaining" value={`$${balanceDollars}`} />
+        ) : (
+          <div className="bg-gray-a1/50 border-gray-a3 -mt-px flex items-center justify-between border border-dashed px-3 py-6">
+            <span className="text-gray8 text-sm">No payment method on file</span>
           </div>
-        </div>
-
-        <div>
-          <h2 className="mb-4 text-sm font-semibold">Payment Method</h2>
-          {dashboard.payment_method ? (
-            <div className="border-gray2 flex items-center justify-between rounded-lg border px-4 py-3">
-              <div className="flex items-center gap-3">
-                <IconLucideCreditCard className="text-gray8 size-5" />
-                <div>
-                  <span className="text-sm font-medium capitalize">
-                    {dashboard.payment_method.brand}
-                  </span>
-                  <span className="text-gray8 ms-2 text-sm">
-                    **** {dashboard.payment_method.last4}
-                  </span>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="border-gray3 flex items-center justify-between rounded-lg border border-dashed px-4 py-6">
-              <span className="text-gray8 text-sm">No payment method on file</span>
-            </div>
-          )}
-        </div>
+        )}
       </div>
     </div>
   )
 }
 
+function EntityAvatar(props: { avatarUrl?: string | null | undefined; name: string }) {
+  if (props.avatarUrl) return <img alt={props.name} className="size-6" src={props.avatarUrl} />
+  return (
+    <span className="bg-gray-a3 flex size-6 items-center justify-center text-xs uppercase">
+      {props.name[0]}
+    </span>
+  )
+}
+
 function StatCard(props: { label: string; value: string }) {
   return (
-    <div className="border-gray2 rounded-lg border px-4 py-4">
+    <div className="bg-gray-a1/50 border-gray-a3 border px-3 py-3">
       <div className="text-gray8 text-xs">{props.label}</div>
-      <div className="mt-1 text-2xl font-semibold">{props.value}</div>
+      <div className="mt-1 text-2xl font-bold tabular-nums">{props.value}</div>
     </div>
   )
 }
@@ -162,22 +207,24 @@ const getLayoutData = createServerFn({ method: 'GET' })
       .executeTakeFirst()
     if (!account) return false
 
-    // Check if login matches the logged-in account
-    if (account.login === c.data.login)
-      return { account, entity: { type: 'account' as const, ...account } }
-
-    // Check if login matches an organization the user belongs to
-    const org = await db
+    // Fetch all orgs the user belongs to
+    const organizations = await db
       .selectFrom('organization')
       .innerJoin('organization_member', 'organization_member.organization_id', 'organization.id')
-      .where('organization.login', '=', c.data.login)
       .where('organization.deleted_at', 'is', null)
       .where('organization_member.account_id', '=', accountId)
       .select(['organization.id', 'organization.login', 'organization.name'])
-      .executeTakeFirst()
+      .execute()
+
+    // Check if login matches the logged-in account
+    if (account.login === c.data.login)
+      return { account, entity: { type: 'account' as const, ...account }, organizations }
+
+    // Check if login matches an organization the user belongs to
+    const org = organizations.find((o) => o.login === c.data.login)
     if (!org) return null
 
-    return { account, entity: { type: 'organization' as const, ...org } }
+    return { account, entity: { type: 'organization' as const, ...org }, organizations }
   })
 
 const getDashboardData = createServerFn({ method: 'GET' })

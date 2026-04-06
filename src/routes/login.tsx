@@ -2,7 +2,7 @@ import { createFileRoute, redirect } from '@tanstack/react-router'
 import { hc } from 'hono/client'
 import { z } from 'zod'
 import type { api } from '#api.ts'
-import { Nav } from '#components/Nav.tsx'
+import * as Nav from '#components/Nav.tsx'
 import { getSessionLogin } from '#server/session.ts'
 
 export const Route = createFileRoute('/login')({
@@ -33,7 +33,7 @@ function Component() {
   })()
   return (
     <div className="relative flex min-h-dvh flex-col">
-      <Nav />
+      <Nav.Root fixed />
       <main className="flex flex-1 flex-col items-center px-6 pt-48 pb-32">
         <div className="flex w-full flex-col sm:max-w-sm">
           <h1 className="text-lg font-bold">Sign in</h1>

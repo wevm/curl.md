@@ -9,7 +9,7 @@ import { env } from 'cloudflare:workers'
 import * as React from 'react'
 import Stripe from 'stripe'
 import { z } from 'zod/mini'
-import { Nav } from '#components/Nav.tsx'
+import * as Nav from '#components/Nav.tsx'
 import { useTheme } from '#hooks/useTheme.ts'
 import { creditAmounts, pricing } from '#lib/constants.ts'
 
@@ -33,10 +33,12 @@ function Component() {
 
   if (!data || !stripePromise)
     return (
-      <PageWrapper
-        title="Payment Session Not Found"
-        description="Payment session either expired or not found. Close this page and try again."
-      />
+      <PageWrapper title="Add Credits" description="Add prepaid credits to your account.">
+        <p className="text-red9 border-red-a3 flex h-11 items-center gap-2 border px-3 text-sm">
+          <IconOcticonCircleSlash16 />
+          Payment session expired or not found.
+        </p>
+      </PageWrapper>
     )
 
   return (
@@ -77,6 +79,8 @@ function CheckoutForm(props: { amount: number; id: string; locked: boolean }) {
   const updateAmount = useMutation({
     async mutationFn(newAmount: number) {
       await changeAmount({ data: { id: props.id, amount: newAmount } })
+    },
+    onMutate(newAmount) {
       setAmount(newAmount)
     },
   })
@@ -96,58 +100,63 @@ function CheckoutForm(props: { amount: number; id: string; locked: boolean }) {
     },
   })
 
-  if (payment.isSuccess)
-    return <PageWrapper title="Payment Successful" description="Time to get curling." />
-
   return (
     <PageWrapper title="Add Credits" description="Add prepaid credits to your account.">
-      <form
-        className="flex flex-col gap-4"
-        onSubmit={(e) => {
-          e.preventDefault()
-          payment.mutate()
-        }}
-      >
-        {props.locked ? (
-          <p className="text-gray8 text-sm">Amount: ${(amount / 100).toFixed(2)}</p>
-        ) : (
-          <RadioGroup
-            className="grid grid-cols-1 gap-2 sm:grid-cols-2"
-            disabled={updateAmount.isPending}
-            onValueChange={(value) => updateAmount.mutate(Number(value))}
-            value={String(amount)}
-          >
-            {amounts.map((amount) => (
-              <Radio.Root
-                className="group border-gray-a3 text-gray8 hover:text-gray10 data-[checked]:border-gray10 data-[checked]:text-gray10 bg-gray-a1 flex items-center justify-between border px-3 py-2 text-sm select-none disabled:opacity-50"
-                key={amount}
-                value={String(amount)}
-              >
-                <span className="font-semibold">${amount / 100}</span>
-                <span className="text-gray8 text-xs">~{estimateRequests(amount)} requests</span>
-              </Radio.Root>
-            ))}
-          </RadioGroup>
-        )}
-        <PaymentElement
-          options={{
-            layout: {
-              defaultCollapsed: true,
-              radios: false,
-              type: 'accordion',
-              visibleAccordionItemsCount: 2,
-            },
+      {payment.isSuccess ? (
+        <p className="text-green9 border-green-a3 flex h-11 items-center gap-2 border px-3 text-sm">
+          <IconOcticonCheck16 />
+          Payment successful
+        </p>
+      ) : (
+        <form
+          className="flex flex-col gap-4"
+          onSubmit={(e) => {
+            e.preventDefault()
+            payment.mutate()
           }}
-        />
-        <button
-          className="bg-gray10 text-bg1 flex h-11 items-center justify-center px-4 transition-opacity hover:opacity-90 disabled:opacity-50"
-          disabled={!stripe || payment.isPending || updateAmount.isPending}
-          type="submit"
         >
-          {payment.isPending ? 'Processing' : 'Pay'}
-        </button>
-        {payment.error && <p className="text-red9 -mt-1 text-sm">{payment.error.message}</p>}
-      </form>
+          {props.locked ? (
+            <p className="text-gray8 text-sm">Amount: ${(amount / 100).toFixed(2)}</p>
+          ) : (
+            <RadioGroup
+              className="grid grid-cols-1 gap-2 sm:grid-cols-2"
+              disabled={updateAmount.isPending}
+              onValueChange={(value) => updateAmount.mutate(Number(value))}
+              value={String(amount)}
+            >
+              {amounts.map((amount) => (
+                <Radio.Root
+                  className="group border-gray-a3 data-[checked]:border-gray10 bg-gray-a1/50 flex h-11 items-center justify-between border px-3 text-sm select-none disabled:opacity-50"
+                  key={amount}
+                  value={String(amount)}
+                >
+                  <span className="text-gray10 font-semibold">${amount / 100}</span>
+                  <span className="text-gray8 text-xs">~{estimateRequests(amount)} requests</span>
+                </Radio.Root>
+              ))}
+            </RadioGroup>
+          )}
+          <PaymentElement
+            options={{
+              layout: {
+                defaultCollapsed: true,
+                radios: false,
+                type: 'accordion',
+                visibleAccordionItemsCount: 2,
+              },
+            }}
+          />
+          <button
+            className="bg-gray10 text-bg1 flex h-11 items-center justify-center px-4 transition-opacity hover:opacity-90 data-[submitting]:opacity-50"
+            data-submitting={payment.isPending ? '' : undefined}
+            disabled={!stripe || payment.isPending || updateAmount.isPending}
+            type="submit"
+          >
+            {payment.isPending ? 'Processing' : 'Pay'}
+          </button>
+          {payment.error && <p className="text-red9 -mt-1 text-sm">{payment.error.message}</p>}
+        </form>
+      )}
     </PageWrapper>
   )
 }
@@ -155,7 +164,7 @@ function CheckoutForm(props: { amount: number; id: string; locked: boolean }) {
 function PageWrapper(props: React.PropsWithChildren<{ description: string; title: string }>) {
   return (
     <div className="relative flex min-h-dvh flex-col">
-      <Nav />
+      <Nav.Root fixed />
       <main className="flex flex-1 flex-col items-center px-6 pt-48 pb-32">
         <div className="flex w-full flex-col sm:max-w-sm">
           <h1 className="text-lg font-bold">{props.title}</h1>
@@ -208,7 +217,7 @@ const deletePayment = createServerFn({ method: 'POST' })
 // lightningcss compiles light-dark() so getComputedStyle can't resolve them
 const colors = {
   bg1: { light: 'hsl(0 0% 98%)', dark: 'hsl(0 0% 0%)' },
-  bga1: { light: 'hsl(0 0% 96%)', dark: 'hsl(0 0% 6%)' },
+  bga1: { light: 'hsl(0 0% 97%)', dark: 'hsl(0 0% 3%)' },
   gray8: { light: 'hsl(0 0% 49%)', dark: 'hsl(0 0% 49%)' },
   gray10: { light: 'hsl(0 0% 9%)', dark: 'hsl(0 0% 93%)' },
   blue9: { light: 'hsl(211 100% 42%)', dark: 'hsl(210 100% 66%)' },

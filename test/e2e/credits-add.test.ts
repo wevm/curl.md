@@ -3,8 +3,8 @@ import { test } from '#test/e2e-utils.ts'
 
 test('invalid payment session shows not found', async ({ page }) => {
   await page.goto('/credits/add/nonexistent-id')
-  await expect(page.getByRole('heading', { name: 'Payment Session Not Found' })).toBeVisible()
-  await expect(page.getByText('Payment session either expired or not found')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Add Credits' })).toBeVisible()
+  await expect(page.getByText('Payment session expired or not found.')).toBeVisible()
 })
 
 test('creates payment session and renders add credits page', async ({

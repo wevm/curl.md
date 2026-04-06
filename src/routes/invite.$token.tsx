@@ -4,7 +4,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
 import { env } from 'cloudflare:workers'
 import { z } from 'zod/mini'
-import { Nav } from '#components/Nav.tsx'
+import * as Nav from '#components/Nav.tsx'
 import { createClient } from '#db/client.ts'
 import * as Cookie from '#lib/cookie.ts'
 import { rpc } from '#lib/rpc.ts'
@@ -45,10 +45,10 @@ function Component() {
   if (!loaderData.invite)
     return (
       <div className="relative flex min-h-dvh flex-col">
-        <Nav />
+        <Nav.Root fixed />
         <main className="flex flex-1 flex-col items-center px-6 pt-48 pb-32">
           <div className="flex w-full flex-col sm:max-w-sm">
-            <h1 className="mt-4 text-lg font-bold">Invalid Invite</h1>
+            <h1 className="text-lg font-bold">Invalid Invite</h1>
             <p className="text-gray8 mt-2 text-sm leading-relaxed">
               This invite link is invalid or has expired.
             </p>
@@ -67,7 +67,7 @@ function Component() {
   if (!loaderData.login)
     return (
       <div className="relative flex min-h-dvh flex-col">
-        <Nav />
+        <Nav.Root fixed />
         <main className="flex flex-1 flex-col items-center px-6 pt-48 pb-32">
           <div className="flex w-full flex-col sm:max-w-sm">
             <h1 className="text-lg font-bold">Join {label}</h1>
@@ -91,7 +91,7 @@ function Component() {
 
   return (
     <div className="relative flex min-h-dvh flex-col">
-      <Nav />
+      <Nav.Root fixed />
       <main className="flex flex-1 flex-col items-center px-6 pt-48 pb-32">
         <div className="flex w-full flex-col sm:max-w-sm">
           <h1 className="text-lg font-bold">Join {label}</h1>

@@ -8,7 +8,7 @@ test('shows stats with zero values for new account', async ({ factory, page, set
 
   await expect(page.getByText('Credits Remaining')).toBeVisible()
   await expect(page.getByText('Tokens Saved')).toBeVisible()
-  await expect(page.getByText('~$ Saved')).toBeVisible()
+  await expect(page.getByText('Cost Saved')).toBeVisible()
   await expect(page.getByText('No payment method on file')).toBeVisible()
 })
 

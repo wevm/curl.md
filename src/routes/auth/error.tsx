@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { z } from 'zod'
-import { Nav } from '#components/Nav.tsx'
+import * as Nav from '#components/Nav.tsx'
 
 export const Route = createFileRoute('/auth/error')({
   head() {
@@ -19,7 +19,7 @@ function Component() {
   const search = Route.useSearch()
   return (
     <div className="relative flex min-h-dvh flex-col">
-      <Nav />
+      <Nav.Root fixed />
       <main className="flex flex-1 flex-col items-center px-6 pt-48 pb-32">
         <div className="flex w-full flex-col sm:max-w-sm">
           <h1 className="text-lg font-bold capitalize">{search.error.replace(/[_-]/g, ' ')}</h1>

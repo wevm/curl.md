@@ -4,7 +4,7 @@ import { Link, type MetaDescriptor } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
 import * as React from 'react'
 import { TextMorph } from 'torph/react'
-import { Nav } from '#components/Nav.tsx'
+import * as Nav from '#components/Nav.tsx'
 import { useAnimatedValue } from '#hooks/useAnimatedValue.ts'
 import { useCopyToClipboard } from '#hooks/useCopyToClipboard.ts'
 import { formatCost } from '#lib/format.ts'
@@ -44,15 +44,11 @@ export function Home(props: { login?: string | null | undefined }) {
 
   return (
     <div className="relative flex min-h-dvh flex-col">
-      <a
-        className="bg-gray10 text-bg1 sr-only z-20 text-sm focus:not-sr-only focus:fixed focus:start-6 focus:top-4 focus:block focus:px-3 focus:py-1.5"
-        href="#main"
-      >
-        Skip to content
-      </a>
+      <Nav.Skip />
 
-      <Nav>
-        <div className="flex items-center gap-1.5">
+      <Nav.Root fixed>
+        <Nav.Logo />
+        <Nav.Group>
           <Link className="text-gray8 hover:text-gray10 px-3 py-1.5 text-sm" to="/">
             Docs
           </Link>
@@ -69,10 +65,10 @@ export function Home(props: { login?: string | null | undefined }) {
               Sign in
             </Link>
           )}
-        </div>
-      </Nav>
+        </Nav.Group>
+      </Nav.Root>
 
-      <main className="flex-1" id="main">
+      <main className="flex-1" id={Nav.skipId}>
         <div className="mx-auto flex w-full max-w-2xl flex-col px-6">
           <TokensSaved />
           <h1 className="mt-8 text-4xl leading-[1.15] font-bold md:text-5xl">
@@ -365,7 +361,7 @@ function InstallTabs() {
         ))}
       </Tabs.List>
       <button
-        className="bg-gray-a1/30 dark:bg-gray-a1 border-gray-a3 mt-0 flex w-full items-center justify-between gap-4 border px-3 py-3 text-start transition-opacity hover:opacity-80"
+        className="bg-gray-a1/50 border-gray-a3 mt-0 flex w-full items-center justify-between gap-4 border px-3 py-3 text-start transition-opacity hover:opacity-80"
         onClick={() => copy(active.plaintext)}
         type="button"
       >

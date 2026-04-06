@@ -4,7 +4,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
 import { env } from 'cloudflare:workers'
 import { z } from 'zod'
-import { Nav } from '#components/Nav.tsx'
+import * as Nav from '#components/Nav.tsx'
 import { createClient } from '#db/client.ts'
 import * as Cookie from '#lib/cookie.ts'
 import { rpc } from '#lib/rpc.ts'
@@ -54,7 +54,7 @@ function Component() {
   if (!user_code)
     return (
       <div className="relative flex min-h-dvh flex-col">
-        <Nav />
+        <Nav.Root fixed />
         <main className="flex flex-1 flex-col items-center px-6 pt-48 pb-32">
           <div className="flex w-fit max-w-full flex-col items-center md:items-start">
             <h1 className="text-lg font-bold">No device code provided</h1>
@@ -75,7 +75,7 @@ function Component() {
 
   return (
     <div className="relative flex min-h-dvh flex-col">
-      <Nav />
+      <Nav.Root fixed />
       <main className="flex flex-1 flex-col items-center px-6 pt-48 pb-32">
         <div className="flex w-fit max-w-full flex-col items-center md:items-start">
           <h1 className="text-lg font-bold">
