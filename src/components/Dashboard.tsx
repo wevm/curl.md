@@ -11,9 +11,18 @@ function Heading(props: React.PropsWithChildren<{ level: 1 | 2 }>) {
       <h1 className="bg-bg1 py-4 text-lg font-bold md:sticky md:top-0 md:z-10">{props.children}</h1>
     )
   return (
-    <h2 className="text-gray8 mt-6 mb-2 text-xs font-medium tracking-wide uppercase">
+    <h2 className="text-gray8 mt-8 mb-2 text-xs font-medium tracking-wide uppercase">
       {props.children}
     </h2>
+  )
+}
+
+function Section(props: React.PropsWithChildren<{ title: string }>) {
+  return (
+    <section className="mt-8">
+      <h2 className="text-gray8 mb-2 text-xs font-medium tracking-wide uppercase">{props.title}</h2>
+      {props.children}
+    </section>
   )
 }
 
@@ -28,10 +37,10 @@ function Stat(props: { label: string; tooltip?: React.ReactNode; value?: string 
         <Tooltip.Provider delay={0}>
           <Tooltip.Root>
             <Tooltip.Trigger
-              className="text-gray5 hover:text-gray7 absolute end-3 top-3 cursor-default"
-              render={<span />}
+              className="text-gray7 hover:text-gray9 absolute end-3 top-3 cursor-default"
+              render={<button type="button" />}
             >
-              <IconOcticonInfo16 className="size-3.5" />
+              <IconOcticonInfo16 aria-label="Info" className="size-3.5" />
             </Tooltip.Trigger>
             <Tooltip.Portal>
               <Tooltip.Positioner sideOffset={4}>
@@ -51,7 +60,7 @@ function Table(props: React.PropsWithChildren<{ className?: string }>) {
   return (
     <div className="border-gray-a3 bg-gray-a1/50 border">
       <div className="minimal-scrollbar overflow-x-auto">
-        <table className={`w-full text-xs ${props.className ?? ''}`}>{props.children}</table>
+        <table className={`w-full ${props.className ?? 'text-xs'}`}>{props.children}</table>
       </div>
     </div>
   )
@@ -97,6 +106,7 @@ function Td(props: React.ComponentProps<'td'>) {
 export const Dashboard = {
   Content,
   Heading,
+  Section,
   Stat,
   Table: Object.assign(Table, { Td, Th, Thead, Tr }),
 }

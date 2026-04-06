@@ -1,5 +1,6 @@
 import { Tabs } from '@base-ui/react/tabs'
-import { Tooltip } from '@base-ui/react/tooltip'
+import { Toggle } from '@base-ui/react/toggle'
+import { ToggleGroup } from '@base-ui/react/toggle-group'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { createServerFn, useServerFn } from '@tanstack/react-start'
@@ -9,7 +10,6 @@ import { sql } from 'kysely'
 import * as React from 'react'
 import { Dashboard } from '#components/Dashboard.tsx'
 import { createClient } from '#db/client.ts'
-import type { DB } from '#db/types.gen.ts'
 import { useCopyToClipboard } from '#hooks/useCopyToClipboard.ts'
 import * as Cookie from '#lib/cookie.ts'
 import { formatCost } from '#lib/format.ts'
@@ -52,14 +52,15 @@ function Component() {
           value={data.tokens_saved ? `$${formatCost(data.tokens_saved, 3)}` : undefined}
         />
       </div>
-      <UsageChart daily={data.daily} />
-      <RecentRequests requests={data.recent ?? []} />
 
-      <div className="mt-8 flex flex-col gap-3">
-        <Dashboard.Heading level={2}>Setup Tools</Dashboard.Heading>
-        <InstallCommand />
-        <InstallTabs />
-      </div>
+      <UsageChart daily={data.daily} />
+
+      <Dashboard.Section title="Setup Tools">
+        <div className="flex flex-col gap-3">
+          <InstallCommand />
+          <InstallTabs />
+        </div>
+      </Dashboard.Section>
     </Dashboard.Content>
   )
 }
@@ -109,24 +110,8 @@ const getUsageData = createServerFn({ method: 'GET' })
       daily.push({ date: key, tokens: rowMap.get(key) ?? 0 })
     }
 
-    const recentRequests = await db
-      .selectFrom('request')
-      .where(requestColumn, '=', c.data.entityId)
-      .select(['id', 'url', 'objective', 'keywords', 'cached', 'tokens_saved', 'created_at'])
-      .orderBy('created_at', 'desc')
-      .limit(10)
-      .execute()
-
     return {
       daily,
-      recent: recentRequests.map((r) => ({
-        cached: r.cached ?? false,
-        id: r.id,
-        keywords: r.keywords,
-        objective: r.objective,
-        tokens_saved: r.tokens_saved ?? 0,
-        url: r.url,
-      })),
       tokens_saved: Number(statsResult?.total ?? 0),
     }
   })
@@ -139,119 +124,51 @@ const LazyUsageChart = React.lazy(() =>
 
 function UsageChart(props: { daily: Array<{ date: string; tokens: number }> }) {
   const [mounted, setMounted] = React.useState(false)
+  const [mode, setMode] = React.useState<'cost' | 'tokens'>('tokens')
   React.useEffect(() => setMounted(true), [])
   const hasData = props.daily.some((d) => d.tokens > 0)
   return (
-    <div className="border-gray-a3 bg-gray-a1/50 relative mt-3 border px-3 py-3">
+    <div className="border-gray-a3 bg-gray-a1/50 relative mt-3 flex h-[228px] flex-col border px-3 py-3">
       {hasData ? (
         <>
-          <h2 className="text-gray8 text-xs">Tokens Saved Last 7 Days</h2>
+          <div className="flex items-center gap-2">
+            <ToggleGroup
+              className="border-gray-a3 flex border p-0.5 text-xs"
+              defaultValue={[mode]}
+              onValueChange={(value) => {
+                if (value.length > 0) setMode(value[0] as 'cost' | 'tokens')
+              }}
+            >
+              <Toggle
+                className="text-gray8 hover:text-gray10 data-[pressed]:bg-gray-a2 data-[pressed]:text-gray10 px-2.5 py-1"
+                value="tokens"
+              >
+                Tokens
+              </Toggle>
+              <Toggle
+                className="text-gray8 hover:text-gray10 data-[pressed]:bg-gray-a2 data-[pressed]:text-gray10 px-2.5 py-1"
+                value="cost"
+              >
+                Cost
+              </Toggle>
+            </ToggleGroup>
+            <span className="text-gray8 text-xs">Saved Last 7 Days</span>
+          </div>
           {mounted ? (
-            <React.Suspense fallback={<div className="mt-3 h-40" />}>
-              <LazyUsageChart daily={props.daily} />
+            <React.Suspense fallback={<div className="bg-gray-a1/50 mt-3 h-56" />}>
+              <LazyUsageChart daily={props.daily} mode={mode} />
             </React.Suspense>
           ) : (
-            <div className="mt-3 h-40" />
+            <div className="bg-gray-a1/50 mt-3 h-56" />
           )}
         </>
       ) : (
-        <div className="flex h-[188px] flex-col items-center justify-center">
+        <div className="flex flex-1 flex-col items-center justify-center">
           <span className="text-sm font-bold">No Data</span>
           <span className="text-gray8 mt-1 text-sm">No usage in the last 7 days.</span>
         </div>
       )}
     </div>
-  )
-}
-
-function RecentRequests(props: {
-  requests: Array<
-    Pick<DB.request, 'id' | 'keywords' | 'objective' | 'url'> & {
-      cached: boolean
-      tokens_saved: number
-    }
-  >
-}) {
-  if (props.requests.length === 0) return null
-  return (
-    <div className="mt-6">
-      <h2 className="text-gray8 mb-2 text-xs font-medium tracking-wide uppercase">
-        Recent Requests
-      </h2>
-      <Dashboard.Table className="text-xs">
-        <Dashboard.Table.Thead>
-          <Dashboard.Table.Th>URL</Dashboard.Table.Th>
-          <Dashboard.Table.Th className="hidden md:table-cell" align="end" />
-          <Dashboard.Table.Th align="end">Tokens Saved</Dashboard.Table.Th>
-          <Dashboard.Table.Th align="end">Cost Saved</Dashboard.Table.Th>
-        </Dashboard.Table.Thead>
-        <tbody>
-          {props.requests.map((r) => (
-            <Dashboard.Table.Tr key={r.id}>
-              <Dashboard.Table.Td className="max-w-0">
-                <span className="block truncate" title={r.url}>
-                  {r.url.replace(/^https?:\/\//, '')}
-                </span>
-              </Dashboard.Table.Td>
-              <Dashboard.Table.Td className="hidden w-px whitespace-nowrap md:table-cell">
-                <span className="inline-flex items-center gap-1.5">
-                  {r.objective && (
-                    <RequestIcon
-                      icon={<IconOcticonGoal16 className="size-3" />}
-                      tooltip={r.objective}
-                    />
-                  )}
-                  {r.keywords && (
-                    <RequestIcon
-                      icon={<IconOcticonTag16 className="size-3" />}
-                      tooltip={r.keywords}
-                    />
-                  )}
-                  {r.cached && (
-                    <RequestIcon icon={<IconOcticonZap16 className="size-3" />} tooltip="Cached" />
-                  )}
-                </span>
-              </Dashboard.Table.Td>
-              <Dashboard.Table.Td className="text-end whitespace-nowrap tabular-nums">
-                {r.tokens_saved > 0 ? (
-                  r.tokens_saved.toLocaleString()
-                ) : (
-                  <span className="text-gray5">&mdash;</span>
-                )}
-              </Dashboard.Table.Td>
-              <Dashboard.Table.Td className="text-end whitespace-nowrap tabular-nums">
-                {r.tokens_saved > 0 ? (
-                  `$${formatCost(r.tokens_saved, 3)}`
-                ) : (
-                  <span className="text-gray5">&mdash;</span>
-                )}
-              </Dashboard.Table.Td>
-            </Dashboard.Table.Tr>
-          ))}
-        </tbody>
-      </Dashboard.Table>
-    </div>
-  )
-}
-
-// --- Helpers ---
-
-function RequestIcon(props: { icon: React.ReactNode; tooltip: React.ReactNode }) {
-  return (
-    <Tooltip.Provider delay={0}>
-      <Tooltip.Root>
-        <Tooltip.Trigger className="text-gray6 cursor-default" render={<span />}>
-          {props.icon}
-        </Tooltip.Trigger>
-        <Tooltip.Portal>
-          <Tooltip.Positioner sideOffset={4}>
-            <Tooltip.Popup className="bg-bg1 border-gray-a3 before:bg-gray-a1/50 relative z-50 max-w-64 border px-2.5 py-1.5 text-xs leading-relaxed before:absolute before:inset-0 before:-z-1">
-              {props.tooltip}
-            </Tooltip.Popup>
-          </Tooltip.Positioner>
-        </Tooltip.Portal>
-      </Tooltip.Root>
-    </Tooltip.Provider>
   )
 }
 

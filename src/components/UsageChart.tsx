@@ -1,9 +1,15 @@
 import * as React from 'react'
 import { Bar, BarChart, CartesianGrid, Tooltip, XAxis, YAxis } from 'recharts'
 
-export function UsageChart(props: { daily: Array<{ date: string; tokens: number }> }) {
+const COST_PER_TOKEN = 3 / 1_000_000
+
+export function UsageChart(props: {
+  daily: Array<{ date: string; tokens: number }>
+  mode?: 'cost' | 'tokens'
+}) {
   const ref = React.useRef<HTMLDivElement>(null)
   const [size, setSize] = React.useState<{ height: number; width: number } | null>(null)
+  const isCost = props.mode === 'cost'
 
   React.useEffect(() => {
     const el = ref.current
@@ -17,20 +23,28 @@ export function UsageChart(props: { daily: Array<{ date: string; tokens: number 
     return () => observer.disconnect()
   }, [])
 
-  const data = props.daily.map((d) => ({ ...d, label: formatDate(d.date) }))
-  const max = Math.max(...props.daily.map((d) => d.tokens), 1)
+  const data = props.daily.map((d) => ({
+    ...d,
+    label: formatDate(d.date),
+    value: isCost ? d.tokens * COST_PER_TOKEN : d.tokens,
+  }))
+  const max = Math.max(...data.map((d) => d.value), isCost ? 0.01 : 1)
   const step = niceStep(max)
   const ceil = Math.ceil(max / step) * step
   const ticks = Array.from({ length: Math.round(ceil / step) + 1 }, (_, i) => i * step)
-  const yAxisWidth = Math.max(...ticks.map((t) => formatCompact(t).length)) * 8 + 8
+  const yAxisWidth = isCost
+    ? Math.max(...ticks.map((t) => formatCostCompact(t).length)) * 8 + 8
+    : Math.max(...ticks.map((t) => formatCompact(t).length)) * 8 + 8
   return (
     <div
-      aria-label={`Usage chart: ${data.map((d) => `${d.label} ${d.tokens.toLocaleString()} tokens`).join(', ')}`}
-      className="mt-3 h-40"
+      aria-label={`Usage chart: ${data.map((d) => `${d.label} ${isCost ? `$${d.value.toFixed(2)}` : `${d.tokens.toLocaleString()} tokens`}`).join(', ')}`}
+      className="mt-3 h-56"
       ref={ref}
       role="img"
     >
-      {size && (
+      {!size ? (
+        <div className="bg-gray-a1/50 h-full w-full" />
+      ) : (
         <BarChart
           data={data}
           height={size.height}
@@ -51,25 +65,29 @@ export function UsageChart(props: { daily: Array<{ date: string; tokens: number 
             domain={[0, ceil]}
             width={yAxisWidth}
             tick={{ fill: 'var(--color-gray8)', fontSize: 12 }}
-            tickFormatter={formatCompact}
+            tickFormatter={isCost ? formatCostCompact : formatCompact}
             tickLine={false}
             ticks={ticks}
           />
           <Tooltip
             content={({ active, payload }) => {
               if (!active || !payload?.[0]) return null
-              const { label, tokens } = payload[0].payload
+              const { label, tokens, value } = payload[0].payload
               return (
                 <div className="border-gray-a3 bg-bg1 border px-2.5 py-1.5 text-xs">
                   <div className="font-medium">{label}</div>
-                  <div className="text-gray8 mt-0.5">{Number(tokens).toLocaleString()} tokens</div>
+                  <div className="text-gray8 mt-0.5">
+                    {isCost
+                      ? `$${Number(value).toFixed(2)}`
+                      : `${Number(tokens).toLocaleString()} tokens`}
+                  </div>
                 </div>
               )
             }}
             cursor={{ fill: 'var(--color-gray3)' }}
             isAnimationActive={false}
           />
-          <Bar dataKey="tokens" fill="var(--color-blue9)" isAnimationActive={false} />
+          <Bar dataKey="value" fill="var(--color-blue9)" isAnimationActive={false} />
         </BarChart>
       )}
     </div>
@@ -90,6 +108,15 @@ function niceStep(max: number) {
   if (norm <= 2) return 2 * mag
   if (norm <= 5) return 5 * mag
   return 10 * mag
+}
+
+function formatCostCompact(n: number) {
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1)}M`
+  if (n >= 1_000) return `$${(n / 1_000).toFixed(n % 1_000 === 0 ? 0 : 1)}k`
+  if (n >= 1) return `$${n.toFixed(n % 1 === 0 ? 0 : 2)}`
+  if (n >= 0.01) return `$${n.toFixed(2)}`
+  if (n === 0) return '$0'
+  return `$${n.toFixed(3)}`
 }
 
 function formatDate(iso: string) {

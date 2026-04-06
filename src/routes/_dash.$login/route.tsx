@@ -66,7 +66,7 @@ function Component() {
 
   return (
     <div className="relative flex min-h-dvh flex-col md:flex-row">
-      <aside className="flex flex-row flex-wrap items-center justify-between px-4 py-4 md:sticky md:top-0 md:h-dvh md:w-48 md:flex-col md:flex-nowrap md:items-stretch md:justify-start">
+      <aside className="bg-bg1 sticky top-0 z-10 flex flex-row flex-wrap items-center justify-between px-4 py-4 md:fixed md:top-0 md:h-dvh md:w-48 md:flex-col md:flex-nowrap md:items-stretch md:justify-start">
         <AccountSwitcher
           account={account}
           entity={entity}
@@ -135,7 +135,7 @@ function Component() {
           </Link>
         </nav>
       </aside>
-      <main className="flex-1">
+      <main className="flex-1 md:ms-48">
         <Outlet />
       </main>
     </div>
@@ -162,7 +162,7 @@ function AccountSwitcher(props: {
         <IconOcticonChevronDown16 className="text-gray8 size-3.5" />
       </Menu.Trigger>
       <Menu.Portal>
-        <Menu.Positioner align="start" className="max-md:!w-[calc(100vw-2rem)]" sideOffset={8}>
+        <Menu.Positioner align="start" className="z-20 max-md:!w-[calc(100vw-2rem)]" sideOffset={8}>
           <Menu.Popup className="bg-bg1 border-gray-a3 before:bg-gray-a1/50 relative min-w-48 border px-1 py-1 before:absolute before:inset-0 before:-z-1">
             {props.others.map((e) => (
               <Menu.Item

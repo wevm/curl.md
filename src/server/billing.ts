@@ -25,7 +25,6 @@ export const getBillingData = createServerFn({ method: 'GET' })
         balance_mills: 0,
         payment_methods: [] as PaymentMethod[],
         timezone: undefined as string | undefined,
-        transactions: [] as { amount_mills: number; created_at: Date; type: string }[],
       }
 
     const table = c.data.entityType === 'organization' ? 'organization' : 'account'
@@ -55,19 +54,68 @@ export const getBillingData = createServerFn({ method: 'GET' })
       }
     }
 
-    const entityColumn = c.data.entityType === 'organization' ? 'organization_id' : 'account_id'
-    const transactions = await db
-      .selectFrom('credit_transaction')
-      .where(entityColumn, '=', c.data.entityId)
-      .orderBy('created_at', 'desc')
-      .limit(10)
-      .select(['amount_mills', 'created_at', 'type'])
-      .execute()
-
     return {
       balance_mills: billing?.balance_mills ?? 0,
       payment_methods: paymentMethods,
       timezone: (request as { cf?: { timezone?: string } }).cf?.timezone,
+    }
+  })
+
+export const getTransactions = createServerFn({ method: 'GET' })
+  .inputValidator(
+    (d: {
+      entityId: string
+      entityType: 'account' | 'organization'
+      limit: number
+      offset: number
+    }) => d,
+  )
+  .handler(async (c) => {
+    const request = getRequest()
+    const db = createClient(env.DB.connectionString)
+    const accountId = await resolveAccountId(request, db)
+    if (!accountId)
+      return {
+        prior_sum: 0,
+        total: 0,
+        transactions: [] as { amount_mills: number; created_at: Date; type: string }[],
+      }
+
+    const col = c.data.entityType === 'organization' ? 'organization_id' : 'account_id'
+
+    const [countResult, transactions, priorResult] = await Promise.all([
+      db
+        .selectFrom('credit_transaction')
+        .where(col, '=', c.data.entityId)
+        .select((eb) => eb.fn.countAll<number>().as('total'))
+        .executeTakeFirstOrThrow(),
+      db
+        .selectFrom('credit_transaction')
+        .where(col, '=', c.data.entityId)
+        .orderBy('created_at', 'desc')
+        .offset(c.data.offset)
+        .limit(c.data.limit)
+        .select(['amount_mills', 'created_at', 'type'])
+        .execute(),
+      c.data.offset > 0
+        ? db
+            .selectFrom(
+              db
+                .selectFrom('credit_transaction')
+                .where(col, '=', c.data.entityId)
+                .orderBy('created_at', 'desc')
+                .limit(c.data.offset)
+                .select('amount_mills')
+                .as('prior'),
+            )
+            .select((eb) => eb.fn.sum<number>('amount_mills').as('sum'))
+            .executeTakeFirst()
+        : null,
+    ])
+
+    return {
+      prior_sum: Number(priorResult?.sum ?? 0),
+      total: Number(countResult.total),
       transactions,
     }
   })

@@ -1,7 +1,7 @@
 import { Menu } from '@base-ui/react/menu'
 import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js'
 import { loadStripe } from '@stripe/stripe-js'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
 import * as React from 'react'
@@ -14,15 +14,30 @@ import { estimateRequests, formatMills } from '#lib/format.ts'
 import { rpc } from '#lib/rpc.ts'
 import {
   getBillingData,
+  getTransactions,
   removePaymentMethod,
   setupPaymentMethod,
   type PaymentMethod,
 } from '#server/billing.ts'
 
+const PAGE_SIZE = 10
+
 export const Route = createFileRoute('/_dash/$login/billing')({
   head: () => ({ meta: [{ title: `Billing - ${__HOST__}` }] }),
-  loader: ({ context }) =>
-    getBillingData({ data: { entityId: context.entity.id, entityType: context.entity.type } }),
+  async loader({ context }) {
+    const [billing, transactions] = await Promise.all([
+      getBillingData({ data: { entityId: context.entity.id, entityType: context.entity.type } }),
+      getTransactions({
+        data: {
+          entityId: context.entity.id,
+          entityType: context.entity.type,
+          limit: PAGE_SIZE,
+          offset: 0,
+        },
+      }),
+    ])
+    return { billing, transactions }
+  },
   component: Component,
 })
 
@@ -34,7 +49,7 @@ function Component() {
   const queryClient = useQueryClient()
 
   const { data } = useQuery({
-    initialData: loaderData,
+    initialData: loaderData.billing,
     queryKey: ['dashboard-billing', entity.id],
     queryFn: () => fetchBilling({ data: { entityId: entity.id, entityType: entity.type } }),
     refetchInterval: 10_000,
@@ -92,7 +107,7 @@ function Component() {
       <div className="mt-3 flex flex-wrap gap-2">
         {amounts.map((amount) => (
           <button
-            className="bg-gray10 text-bg1 px-3 py-1.5 text-sm disabled:opacity-50"
+            className="bg-gray10 text-bg1 px-3 py-1.5 text-sm transition-opacity hover:opacity-90 disabled:opacity-50"
             disabled={addCredits.isPending}
             key={amount}
             onClick={() => addCredits.mutate(String(amount) as (typeof creditAmounts)[number])}
@@ -104,104 +119,73 @@ function Component() {
       </div>
       {addCredits.isError && <p className="text-red9 mt-2 text-sm">{addCredits.error.message}</p>}
 
-      <Dashboard.Heading level={2}>Payment Methods</Dashboard.Heading>
-      {data.payment_methods.length > 0
-        ? data.payment_methods.map((pm) => (
-            <div
-              className="bg-gray-a1/50 border-gray-a3 -mt-px flex items-center justify-between gap-3 border px-3 py-3"
-              key={pm.id}
-            >
-              <div className="flex min-w-0 flex-col gap-2 md:flex-row md:items-center md:gap-3">
-                <CardBrandIcon brand={pm.brand} />
-                <div className="min-w-0 text-sm">
-                  <div className="truncate">
-                    {!knownCardBrands.has(pm.brand) && (
-                      <span className="font-medium capitalize">{pm.brand} </span>
-                    )}
-                    {pm.funding !== 'unknown' && <span className="text-gray8">{pm.funding} </span>}
-                    <span className="text-gray8">&bull;&bull;&bull;&bull; {pm.last4}</span>
-                  </div>
-                  <div className="text-gray8 text-xs md:hidden">
-                    Valid until {pm.exp_month}/{String(pm.exp_year).slice(-2)}
+      <Dashboard.Section title="Payment Methods">
+        {data.payment_methods.length > 0
+          ? data.payment_methods.map((pm) => (
+              <div
+                className="bg-gray-a1/50 border-gray-a3 -mt-px flex items-center justify-between gap-3 border px-3 py-3"
+                key={pm.id}
+              >
+                <div className="flex min-w-0 flex-col gap-2 md:flex-row md:items-center md:gap-3">
+                  <CardBrandIcon brand={pm.brand} />
+                  <div className="min-w-0 text-sm">
+                    <div className="truncate">
+                      {!knownCardBrands.has(pm.brand) && (
+                        <span className="font-medium capitalize">{pm.brand} </span>
+                      )}
+                      {pm.funding !== 'unknown' && (
+                        <span className="text-gray8">{pm.funding} </span>
+                      )}
+                      <span className="text-gray8">&bull;&bull;&bull;&bull; {pm.last4}</span>
+                    </div>
+                    <div className="text-gray8 text-xs md:hidden">
+                      Valid until {pm.exp_month}/{String(pm.exp_year).slice(-2)}
+                    </div>
                   </div>
                 </div>
+                <div className="flex shrink-0 items-center gap-3">
+                  <span className="text-gray8 hidden text-sm md:inline">
+                    Valid until {pm.exp_month}/{String(pm.exp_year).slice(-2)}
+                  </span>
+                  <Menu.Root>
+                    <Menu.Trigger className="text-gray8 hover:bg-gray-a2 p-1">
+                      <IconOcticonKebabHorizontal16 className="size-4" />
+                    </Menu.Trigger>
+                    <Menu.Portal>
+                      <Menu.Positioner align="end" sideOffset={4}>
+                        <Menu.Popup className="bg-bg1 border-gray-a3 before:bg-gray-a1/50 relative min-w-36 border px-1 py-1 before:absolute before:inset-0 before:-z-1">
+                          <Menu.Item
+                            className="text-red9 hover:bg-red2/80 flex items-center gap-2 p-1.5 text-sm"
+                            onClick={() => setDeleteTarget(pm)}
+                          >
+                            Remove
+                          </Menu.Item>
+                        </Menu.Popup>
+                      </Menu.Positioner>
+                    </Menu.Portal>
+                  </Menu.Root>
+                </div>
               </div>
-              <div className="flex shrink-0 items-center gap-3">
-                <span className="text-gray8 hidden text-sm md:inline">
-                  Valid until {pm.exp_month}/{String(pm.exp_year).slice(-2)}
-                </span>
-                <Menu.Root>
-                  <Menu.Trigger className="text-gray8 hover:bg-gray-a2 p-1">
-                    <IconOcticonKebabHorizontal16 className="size-4" />
-                  </Menu.Trigger>
-                  <Menu.Portal>
-                    <Menu.Positioner align="end" sideOffset={4}>
-                      <Menu.Popup className="bg-bg1 border-gray-a3 before:bg-gray-a1/50 relative min-w-36 border px-1 py-1 before:absolute before:inset-0 before:-z-1">
-                        <Menu.Item
-                          className="text-red9 hover:bg-red2/80 flex items-center gap-2 p-1.5 text-sm"
-                          onClick={() => setDeleteTarget(pm)}
-                        >
-                          Remove
-                        </Menu.Item>
-                      </Menu.Popup>
-                    </Menu.Positioner>
-                  </Menu.Portal>
-                </Menu.Root>
-              </div>
-            </div>
-          ))
-        : null}
-      <button
-        className="bg-gray10 text-bg1 mt-3 self-start px-3 py-1.5 text-sm"
-        onClick={() => setSetupOpen(true)}
-        type="button"
-      >
-        Add payment method
-      </button>
-      {remove.isError && <p className="text-red9 mt-2 text-sm">{remove.error.message}</p>}
+            ))
+          : null}
+        <button
+          className="bg-gray10 text-bg1 self-start px-3 py-1.5 text-sm transition-opacity hover:opacity-90 data-[has-methods]:mt-3"
+          data-has-methods={data.payment_methods.length > 0 ? '' : undefined}
+          onClick={() => setSetupOpen(true)}
+          type="button"
+        >
+          Add payment method
+        </button>
+        {remove.isError && <p className="text-red9 mt-2 text-sm">{remove.error.message}</p>}
+      </Dashboard.Section>
 
-      {data.transactions.length > 0 && (
-        <>
-          <Dashboard.Heading level={2}>History</Dashboard.Heading>
-          <Dashboard.Table className="text-xs">
-            <Dashboard.Table.Thead>
-              <Dashboard.Table.Th className="w-px whitespace-nowrap">Date</Dashboard.Table.Th>
-              <Dashboard.Table.Th className="w-px whitespace-nowrap">Type</Dashboard.Table.Th>
-              <Dashboard.Table.Th align="end">Amount</Dashboard.Table.Th>
-              <Dashboard.Table.Th align="end" className="ps-6">
-                Balance
-              </Dashboard.Table.Th>
-            </Dashboard.Table.Thead>
-            <tbody>
-              {data.transactions.map((tx, i) => {
-                const balanceAfter =
-                  data.balance_mills -
-                  data.transactions.slice(0, i).reduce((sum, t) => sum + t.amount_mills, 0)
-                return (
-                  <Dashboard.Table.Tr key={`${tx.created_at}-${i}`}>
-                    <Dashboard.Table.Td className="text-gray8 whitespace-nowrap">
-                      <LocalTime timezone={data.timezone} value={tx.created_at} />
-                    </Dashboard.Table.Td>
-                    <Dashboard.Table.Td className="whitespace-nowrap capitalize">
-                      {tx.type}
-                    </Dashboard.Table.Td>
-                    <Dashboard.Table.Td
-                      className="data-[credit]:text-green9 data-[debit]:text-red9 text-end whitespace-nowrap tabular-nums"
-                      data-credit={tx.amount_mills > 0 ? '' : undefined}
-                      data-debit={tx.amount_mills < 0 ? '' : undefined}
-                    >
-                      {tx.amount_mills >= 0 ? '+' : '-'}${formatMills(tx.amount_mills)}
-                    </Dashboard.Table.Td>
-                    <Dashboard.Table.Td className="text-gray8 ps-6 text-end whitespace-nowrap tabular-nums">
-                      ${formatMills(balanceAfter, 3)}
-                    </Dashboard.Table.Td>
-                  </Dashboard.Table.Tr>
-                )
-              })}
-            </tbody>
-          </Dashboard.Table>
-        </>
-      )}
+      <TransactionHistory
+        balanceMills={data.balance_mills}
+        entityId={entity.id}
+        entityType={entity.type}
+        initialData={loaderData.transactions}
+        timezone={data.timezone}
+      />
 
       <Dialog.Root
         open={setupOpen}
@@ -369,6 +353,110 @@ function SetupFormInner(props: { onSuccess: () => void }) {
 }
 
 const knownCardBrands = new Set(['amex', 'diners', 'discover', 'jcb', 'mastercard', 'visa'])
+
+function TransactionHistory(props: {
+  balanceMills: number
+  entityId: string
+  entityType: 'account' | 'organization'
+  initialData: Awaited<ReturnType<typeof getTransactions>>
+  timezone?: string | undefined
+}) {
+  const [page, setPage] = React.useState(0)
+  const fetchTransactions = useServerFn(getTransactions)
+  const queryClient = useQueryClient()
+
+  queryClient.setQueryData(['transactions', props.entityId, 0], props.initialData)
+
+  const { data } = useQuery({
+    queryKey: ['transactions', props.entityId, page],
+    queryFn: () =>
+      fetchTransactions({
+        data: {
+          entityId: props.entityId,
+          entityType: props.entityType,
+          limit: PAGE_SIZE,
+          offset: page * PAGE_SIZE,
+        },
+      }),
+    placeholderData: keepPreviousData,
+    retry: false,
+    staleTime: 60_000,
+  })
+
+  if (!data || data.total === 0) return null
+
+  const totalPages = Math.ceil(data.total / PAGE_SIZE)
+
+  return (
+    <section className="mt-8">
+      <div className="mb-2 flex items-center justify-between">
+        <h2 className="text-gray8 text-xs font-medium tracking-wide uppercase">History</h2>
+        {totalPages > 1 && (
+          <div className="flex items-center gap-2">
+            {page > 0 && (
+              <button
+                className="text-gray9 hover:bg-gray-a2 hover:text-gray12 p-0.5"
+                onClick={() => setPage(page - 1)}
+                type="button"
+              >
+                <IconOcticonChevronLeft16 className="size-3.5" />
+              </button>
+            )}
+            <span className="text-gray8 text-xs tabular-nums">
+              {page + 1} / {totalPages}
+            </span>
+            <button
+              className="text-gray9 hover:bg-gray-a2 hover:text-gray12 p-0.5 disabled:opacity-30"
+              disabled={page >= totalPages - 1}
+              onClick={() => setPage(page + 1)}
+              type="button"
+            >
+              <IconOcticonChevronRight16 className="size-3.5" />
+            </button>
+          </div>
+        )}
+      </div>
+      <Dashboard.Table className="text-sm">
+        <Dashboard.Table.Thead>
+          <Dashboard.Table.Th className="w-px whitespace-nowrap">Date</Dashboard.Table.Th>
+          <Dashboard.Table.Th className="w-px whitespace-nowrap">Type</Dashboard.Table.Th>
+          <Dashboard.Table.Th align="end">Amount</Dashboard.Table.Th>
+          <Dashboard.Table.Th align="end" className="ps-6">
+            Balance
+          </Dashboard.Table.Th>
+        </Dashboard.Table.Thead>
+        <tbody>
+          {data.transactions.map((tx, i) => {
+            const balanceAfter =
+              props.balanceMills -
+              data.prior_sum -
+              data.transactions.slice(0, i).reduce((sum, t) => sum + t.amount_mills, 0)
+            return (
+              <Dashboard.Table.Tr key={`${tx.created_at}-${i}`}>
+                <Dashboard.Table.Td className="text-gray8 whitespace-nowrap">
+                  <LocalTime timezone={props.timezone} value={tx.created_at} />
+                </Dashboard.Table.Td>
+                <Dashboard.Table.Td className="whitespace-nowrap capitalize">
+                  {tx.type}
+                </Dashboard.Table.Td>
+                <Dashboard.Table.Td
+                  className="data-[credit]:text-green9 data-[debit]:text-red9 text-end whitespace-nowrap tabular-nums"
+                  data-credit={tx.amount_mills > 0 ? '' : undefined}
+                  data-debit={tx.amount_mills < 0 ? '' : undefined}
+                >
+                  {tx.amount_mills >= 0 ? '+' : '-'}${formatMills(tx.amount_mills)}
+                </Dashboard.Table.Td>
+                <Dashboard.Table.Td className="text-gray8 ps-6 text-end whitespace-nowrap tabular-nums">
+                  ${formatMills(balanceAfter, 3)}
+                </Dashboard.Table.Td>
+              </Dashboard.Table.Tr>
+            )
+          })}
+        </tbody>
+      </Dashboard.Table>
+    </section>
+  )
+}
 
 function LocalTime(props: { timezone?: string | undefined; value: Date | string }) {
   return new Date(props.value).toLocaleString(undefined, {
