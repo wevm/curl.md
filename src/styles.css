@@ -1,5 +1,4 @@
 @import '@fontsource-variable/geist-mono';
-@import '@fontsource-variable/inter';
 @import '@fontsource/silkscreen';
 @import 'tailwindcss';
 
@@ -11,7 +10,6 @@ html {
 
 @theme {
   --font-mono: 'Geist Mono Variable', monospace;
-  --font-sans: 'Inter Variable', sans-serif;
   --font-pixel: 'Silkscreen', monospace;
   --color-*: initial;
   --color-black: #000;

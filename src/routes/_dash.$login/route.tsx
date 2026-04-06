@@ -66,7 +66,7 @@ function Component() {
 
   return (
     <div className="relative flex min-h-dvh flex-col md:flex-row">
-      <aside className="bg-bg1 sticky top-0 z-10 flex flex-row flex-wrap items-center justify-between px-4 py-4 md:fixed md:top-0 md:h-dvh md:w-48 md:flex-col md:flex-nowrap md:items-stretch md:justify-start">
+      <aside className="bg-bg1 border-gray-a3 sticky top-0 z-10 flex flex-row flex-wrap items-center justify-between border-b px-4 py-4 md:fixed md:top-0 md:h-dvh md:w-52 md:flex-col md:flex-nowrap md:items-stretch md:justify-start md:border-e md:border-b-0">
         <AccountSwitcher
           account={account}
           entity={entity}
@@ -135,7 +135,7 @@ function Component() {
           </Link>
         </nav>
       </aside>
-      <main className="flex-1 md:ms-48">
+      <main className="flex-1 md:ms-52">
         <Outlet />
       </main>
     </div>
@@ -158,12 +158,12 @@ function AccountSwitcher(props: {
           avatarUrl={props.entity.type === 'account' ? props.account.avatar_url : undefined}
           name={props.entity.name ?? props.entity.login}
         />
-        <span>{props.entity.name ?? props.entity.login}</span>
-        <IconOcticonChevronDown16 className="text-gray8 size-3.5" />
+        <span className="truncate">{props.entity.name ?? props.entity.login}</span>
+        <IconOcticonChevronDown16 className="text-gray8 size-3.5 shrink-0" />
       </Menu.Trigger>
       <Menu.Portal>
         <Menu.Positioner align="start" className="z-20 max-md:!w-[calc(100vw-2rem)]" sideOffset={8}>
-          <Menu.Popup className="bg-bg1 border-gray-a3 before:bg-gray-a1/50 relative min-w-48 border px-1 py-1 before:absolute before:inset-0 before:-z-1">
+          <Menu.Popup className="bg-bg1 border-gray-a3 before:bg-gray-a1/50 relative min-w-56 border px-1 py-1 before:absolute before:inset-0 before:-z-1 md:max-w-64">
             {props.others.map((e) => (
               <Menu.Item
                 className="text-gray9 hover:bg-gray-a2 hover:text-gray10 flex items-center gap-2 p-1.5 text-sm"
@@ -174,7 +174,7 @@ function AccountSwitcher(props: {
                   avatarUrl={e.type === 'account' ? props.account.avatar_url : undefined}
                   name={e.name ?? e.login}
                 />
-                {e.name ?? e.login}
+                <span className="truncate">{e.name ?? e.login}</span>
               </Menu.Item>
             ))}
             <div className="border-gray-a2 -mx-1 my-1 border-t" />
@@ -224,9 +224,10 @@ function SidebarDisabled(props: React.PropsWithChildren<{ icon: React.ReactNode 
 }
 
 function EntityAvatar(props: { avatarUrl?: string | null | undefined; name: string }) {
-  if (props.avatarUrl) return <img alt={props.name} className="size-6" src={props.avatarUrl} />
+  if (props.avatarUrl)
+    return <img alt={props.name} className="size-6 shrink-0" src={props.avatarUrl} />
   return (
-    <span className="bg-gray-a3 flex size-6 items-center justify-center text-xs uppercase">
+    <span className="bg-gray-a3 flex size-6 shrink-0 items-center justify-center text-xs uppercase">
       {props.name[0]}
     </span>
   )

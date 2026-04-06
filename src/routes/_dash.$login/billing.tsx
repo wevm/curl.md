@@ -126,7 +126,7 @@ function Component() {
                 className="bg-gray-a1/50 border-gray-a3 -mt-px flex items-center justify-between gap-3 border px-3 py-3"
                 key={pm.id}
               >
-                <div className="flex min-w-0 flex-col gap-2 md:flex-row md:items-center md:gap-3">
+                <div className="flex min-w-0 flex-col gap-0.5 md:flex-row md:items-center md:gap-3">
                   <CardBrandIcon brand={pm.brand} />
                   <div className="min-w-0 text-sm">
                     <div className="truncate">
@@ -138,7 +138,7 @@ function Component() {
                       )}
                       <span className="text-gray8">&bull;&bull;&bull;&bull; {pm.last4}</span>
                     </div>
-                    <div className="text-gray8 text-xs md:hidden">
+                    <div className="text-gray8 md:hidden">
                       Valid until {pm.exp_month}/{String(pm.exp_year).slice(-2)}
                     </div>
                   </div>
@@ -470,7 +470,7 @@ function LocalTime(props: { timezone?: string | undefined; value: Date | string 
 }
 
 function CardBrandIcon(props: { brand: string }) {
-  const className = 'size-7'
+  const className = 'size-8'
   switch (props.brand) {
     case 'amex':
       return (
