@@ -21,6 +21,7 @@ declare global {
   const IconLucideSun: typeof import('~icons/lucide/sun.jsx').default
   const IconLucideUsers: typeof import('~icons/lucide/users.jsx').default
   const IconLucideX: typeof import('~icons/lucide/x.jsx').default
+  const IconOcticonAlert16: typeof import('~icons/octicon/alert16.jsx').default
   const IconOcticonBook16: typeof import('~icons/octicon/book16.jsx').default
   const IconOcticonCheck16: typeof import('~icons/octicon/check16.jsx').default
   const IconOcticonChevronDown16: typeof import('~icons/octicon/chevron-down16.jsx').default
@@ -31,13 +32,18 @@ declare global {
   const IconOcticonGear16: typeof import('~icons/octicon/gear16.jsx').default
   const IconOcticonGitCommit16: typeof import('~icons/octicon/git-commit16.jsx').default
   const IconOcticonGitPullRequest16: typeof import('~icons/octicon/git-pull-request16.jsx').default
+  const IconOcticonGoal16: typeof import('~icons/octicon/goal16.jsx').default
   const IconOcticonGraph16: typeof import('~icons/octicon/graph16.jsx').default
   const IconOcticonInfo16: typeof import('~icons/octicon/info16.jsx').default
+  const IconOcticonKey16: typeof import('~icons/octicon/key16.jsx').default
   const IconOcticonMarkGithub16: typeof import('~icons/octicon/mark-github16.jsx').default
   const IconOcticonMarkdown16: typeof import('~icons/octicon/markdown16.jsx').default
   const IconOcticonMeter16: typeof import('~icons/octicon/meter16.jsx').default
   const IconOcticonPaintbrush16: typeof import('~icons/octicon/paintbrush16.jsx').default
+  const IconOcticonPeople16: typeof import('~icons/octicon/people16.jsx').default
   const IconOcticonSync16: typeof import('~icons/octicon/sync16.jsx').default
+  const IconOcticonTag16: typeof import('~icons/octicon/tag16.jsx').default
+  const IconOcticonTerminal16: typeof import('~icons/octicon/terminal16.jsx').default
   const IconOcticonThreeBars16: typeof import('~icons/octicon/three-bars16.jsx').default
   const IconOcticonX16: typeof import('~icons/octicon/x16.jsx').default
   const IconOcticonXCircleFill16: typeof import('~icons/octicon/x-circle-fill16.jsx').default

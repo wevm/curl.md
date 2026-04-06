@@ -7,18 +7,16 @@ import { getRequest } from '@tanstack/react-start/server'
 import { env } from 'cloudflare:workers'
 import { sql } from 'kysely'
 import * as React from 'react'
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { createClient } from '#db/client.ts'
+import type { DB } from '#db/types.gen.ts'
 import { useCopyToClipboard } from '#hooks/useCopyToClipboard.ts'
 import * as Cookie from '#lib/cookie.ts'
 import { formatCost } from '#lib/format.ts'
 
-export const Route = createFileRoute('/~dash/$login/')({
+export const Route = createFileRoute('/_dash/$login/')({
   head: () => ({ meta: [{ title: __HOST__ }] }),
-  loader: ({ context }) => {
-    if (!context.entity) return { daily: [], tokens_saved: 0 }
-    return getUsageData({ data: { entityId: context.entity.id, entityType: context.entity.type } })
-  },
+  loader: ({ context }) =>
+    getUsageData({ data: { entityId: context.entity.id, entityType: context.entity.type } }),
   component: Component,
 })
 
@@ -36,9 +34,12 @@ function Component() {
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col px-6 pb-16">
-      <h1 className="text-lg font-bold">Overview</h1>
+      <h1 className="bg-bg1 sticky top-0 z-10 py-4 text-lg font-bold">Overview</h1>
       <div className="mt-4 grid grid-cols-2 gap-4">
-        <StatCard label="Tokens Saved" value={Math.round(data.tokens_saved).toLocaleString()} />
+        <StatCard
+          label="Tokens Saved"
+          value={data.tokens_saved ? Math.round(data.tokens_saved).toLocaleString() : undefined}
+        />
         <StatCard
           label="Cost Saved"
           tooltip={
@@ -47,13 +48,14 @@ function Component() {
               Actual savings depend on your provider and model.
             </>
           }
-          value={`$${formatCost(data.tokens_saved, 3)}`}
+          value={data.tokens_saved ? `$${formatCost(data.tokens_saved, 3)}` : undefined}
         />
       </div>
       <UsageChart daily={data.daily} />
+      <RecentRequests requests={data.recent ?? []} />
 
       <div className="mt-8 flex flex-col gap-6">
-        <h2 className="text-gray8 text-sm font-bold">Setup</h2>
+        <h2 className="text-gray8 text-sm font-bold">Setup Tools</h2>
         <InstallCommand />
         <InstallTabs />
       </div>
@@ -106,19 +108,37 @@ const getUsageData = createServerFn({ method: 'GET' })
       daily.push({ date: key, tokens: rowMap.get(key) ?? 0 })
     }
 
+    const recentRequests = await db
+      .selectFrom('request')
+      .where(requestColumn, '=', c.data.entityId)
+      .select(['id', 'url', 'objective', 'keywords', 'cached', 'tokens_saved', 'created_at'])
+      .orderBy('created_at', 'desc')
+      .limit(10)
+      .execute()
+
     return {
       daily,
+      recent: recentRequests.map((r) => ({
+        cached: r.cached ?? false,
+        id: r.id,
+        keywords: r.keywords,
+        objective: r.objective,
+        tokens_saved: r.tokens_saved ?? 0,
+        url: r.url,
+      })),
       tokens_saved: Number(statsResult?.total ?? 0),
     }
   })
 
 // --- Components ---
 
-function StatCard(props: { label: string; tooltip?: React.ReactNode; value: string }) {
+function StatCard(props: { label: string; tooltip?: React.ReactNode; value?: string | undefined }) {
   return (
     <div className="bg-gray-a1/50 border-gray-a3 relative border px-3 py-3">
       <div className="text-gray8 text-xs">{props.label}</div>
-      <div className="mt-1 text-2xl font-bold tabular-nums">{props.value}</div>
+      <div className="mt-1 text-2xl font-bold tabular-nums">
+        {props.value ?? <span className="text-gray5">&mdash;</span>}
+      </div>
       {props.tooltip && (
         <BaseTooltip.Provider delay={0}>
           <BaseTooltip.Root>
@@ -142,71 +162,29 @@ function StatCard(props: { label: string; tooltip?: React.ReactNode; value: stri
   )
 }
 
+const LazyUsageChart = React.lazy(() =>
+  import('#components/UsageChart.tsx').then((m) => ({ default: m.UsageChart })),
+)
+
 function UsageChart(props: { daily: Array<{ date: string; tokens: number }> }) {
+  const [mounted, setMounted] = React.useState(false)
+  React.useEffect(() => setMounted(true), [])
   const hasData = props.daily.some((d) => d.tokens > 0)
-  const data = hasData ? props.daily.map((d) => ({ ...d, label: formatDate(d.date) })) : []
-  const max = Math.max(...props.daily.map((d) => d.tokens), 1)
-  const step = niceStep(max)
-  const ceil = Math.ceil(max / step) * step
-  const ticks = Array.from({ length: Math.round(ceil / step) + 1 }, (_, i) => i * step)
-  const yAxisWidth = Math.max(...ticks.map((t) => formatCompact(t).length)) * 8 + 8
   return (
     <div className="border-gray-a3 bg-gray-a1/50 relative mt-4 border px-3 py-3">
       {hasData ? (
         <>
           <h2 className="text-gray8 text-xs">Tokens Saved Last 7 Days</h2>
-          <div
-            aria-label={`Usage chart: ${data.map((d) => `${d.label} ${d.tokens.toLocaleString()} tokens`).join(', ')}`}
-            className="mt-3 h-40"
-            role="img"
-          >
-            <ResponsiveContainer height="100%" width="100%">
-              <BarChart data={data} margin={{ top: 8, right: 0, bottom: 0, left: 0 }}>
-                <CartesianGrid
-                  horizontalValues={ticks}
-                  vertical={false}
-                  stroke="var(--color-gray3)"
-                />
-                <XAxis
-                  axisLine={false}
-                  dataKey="label"
-                  height={24}
-                  minTickGap={4}
-                  tick={{ fill: 'var(--color-gray8)', fontSize: 12 }}
-                  tickLine={false}
-                />
-                <YAxis
-                  axisLine={false}
-                  domain={[0, ceil]}
-                  width={yAxisWidth}
-                  tick={{ fill: 'var(--color-gray8)', fontSize: 12 }}
-                  tickFormatter={formatCompact}
-                  tickLine={false}
-                  ticks={ticks}
-                />
-                <Tooltip
-                  content={({ active, payload }) => {
-                    if (!active || !payload?.[0]) return null
-                    const { label, tokens } = payload[0].payload
-                    return (
-                      <div className="border-gray-a3 bg-bg1 border px-2.5 py-1.5 text-xs">
-                        <div className="font-medium">{label}</div>
-                        <div className="text-gray8 mt-0.5">
-                          {Number(tokens).toLocaleString()} tokens
-                        </div>
-                      </div>
-                    )
-                  }}
-                  cursor={{ fill: 'var(--color-gray3)' }}
-                  isAnimationActive={false}
-                />
-                <Bar dataKey="tokens" fill="var(--color-blue9)" isAnimationActive={false} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          {mounted ? (
+            <React.Suspense fallback={<div className="mt-3 h-40" />}>
+              <LazyUsageChart daily={props.daily} />
+            </React.Suspense>
+          ) : (
+            <div className="mt-3 h-40" />
+          )}
         </>
       ) : (
-        <div className="flex h-48 flex-col items-center justify-center">
+        <div className="flex h-[188px] flex-col items-center justify-center">
           <span className="text-sm font-bold">No Data</span>
           <span className="text-gray8 mt-1 text-sm">No usage in the last 7 days.</span>
         </div>
@@ -215,27 +193,107 @@ function UsageChart(props: { daily: Array<{ date: string; tokens: number }> }) {
   )
 }
 
+function RecentRequests(props: {
+  requests: Array<
+    Pick<DB.request, 'id' | 'keywords' | 'objective' | 'url'> & {
+      cached: boolean
+      tokens_saved: number
+    }
+  >
+}) {
+  if (props.requests.length === 0) return null
+  return (
+    <div className="border-gray-a3 bg-gray-a1/50 mt-4 border">
+      <h2 className="text-gray8 px-3 pt-3 text-xs">Recent Requests</h2>
+      <div className="mt-2 overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="text-gray8 border-gray-a3 border-b text-start">
+              <th className="px-3 py-1.5 text-start font-medium">URL</th>
+              <th className="w-px px-3 py-1.5" />
+              <th className="w-px px-3 py-1.5 text-end font-medium whitespace-nowrap">
+                Tokens Saved
+              </th>
+              <th className="w-px px-3 py-1.5 text-end font-medium whitespace-nowrap">
+                Cost Saved
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {props.requests.map((r) => (
+              <tr
+                className="border-gray-a3 hover:bg-gray-a2/50 border-b last:border-b-0"
+                key={r.id}
+              >
+                <td className="max-w-0 px-3 py-1.5">
+                  <span className="block truncate" title={r.url}>
+                    {r.url.replace(/^https?:\/\//, '')}
+                  </span>
+                </td>
+                <td className="w-px px-3 py-1.5 whitespace-nowrap">
+                  <span className="inline-flex items-center gap-1.5">
+                    {r.objective && (
+                      <RequestIcon
+                        icon={<IconOcticonGoal16 className="size-3" />}
+                        tooltip={r.objective}
+                      />
+                    )}
+                    {r.keywords && (
+                      <RequestIcon
+                        icon={<IconOcticonTag16 className="size-3" />}
+                        tooltip={r.keywords}
+                      />
+                    )}
+                    {r.cached && (
+                      <RequestIcon
+                        icon={<IconOcticonZap16 className="size-3" />}
+                        tooltip="Cached"
+                      />
+                    )}
+                  </span>
+                </td>
+                <td className="px-3 py-1.5 text-end whitespace-nowrap tabular-nums">
+                  {r.tokens_saved > 0 ? (
+                    r.tokens_saved.toLocaleString()
+                  ) : (
+                    <span className="text-gray5">&mdash;</span>
+                  )}
+                </td>
+                <td className="px-3 py-1.5 text-end whitespace-nowrap tabular-nums">
+                  {r.tokens_saved > 0 ? (
+                    `$${formatCost(r.tokens_saved, 3)}`
+                  ) : (
+                    <span className="text-gray5">&mdash;</span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
 // --- Helpers ---
 
-function formatCompact(n: number) {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1)}M`
-  if (n >= 1_000) return `${(n / 1_000).toFixed(n % 1_000 === 0 ? 0 : 1)}k`
-  return String(n)
-}
-
-function niceStep(max: number) {
-  const rough = max / 4
-  const mag = 10 ** Math.floor(Math.log10(rough))
-  const norm = rough / mag
-  if (norm <= 1) return mag
-  if (norm <= 2) return 2 * mag
-  if (norm <= 5) return 5 * mag
-  return 10 * mag
-}
-
-function formatDate(iso: string) {
-  const [y, m, d] = iso.split('-').map(Number)
-  return new Date(y!, m! - 1, d!).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+function RequestIcon(props: { icon: React.ReactNode; tooltip: React.ReactNode }) {
+  return (
+    <BaseTooltip.Provider delay={0}>
+      <BaseTooltip.Root>
+        <BaseTooltip.Trigger className="text-gray6 cursor-default" render={<span />}>
+          {props.icon}
+        </BaseTooltip.Trigger>
+        <BaseTooltip.Portal>
+          <BaseTooltip.Positioner sideOffset={4}>
+            <BaseTooltip.Popup className="bg-bg1 border-gray-a3 before:bg-gray-a1/50 relative z-50 max-w-64 border px-2.5 py-1.5 text-xs leading-relaxed before:absolute before:inset-0 before:-z-1">
+              {props.tooltip}
+            </BaseTooltip.Popup>
+          </BaseTooltip.Positioner>
+        </BaseTooltip.Portal>
+      </BaseTooltip.Root>
+    </BaseTooltip.Provider>
+  )
 }
 
 const installCommands = [
@@ -289,7 +347,7 @@ function InstallTabs() {
         ))}
       </Tabs.List>
       <button
-        className="bg-gray-a1/50 border-gray-a3 mt-0 flex w-full items-center justify-between gap-4 border px-3 py-3 text-start transition-opacity hover:opacity-80"
+        className="bg-gray-a1/50 border-gray-a3 hover:bg-gray-a2/50 mt-0 flex w-full items-center justify-between gap-4 border border-b-0 px-3 py-3 text-start transition-colors"
         onClick={() => copy(active.plaintext)}
         type="button"
       >
@@ -298,7 +356,26 @@ function InstallTabs() {
           {copied ? <IconOcticonCheck16 className="text-teal9" /> : <IconOcticonCopy16 />}
         </span>
       </button>
+      <AuthLoginCommand />
     </Tabs.Root>
+  )
+}
+
+function AuthLoginCommand() {
+  const { copied, copy } = useCopyToClipboard()
+  return (
+    <button
+      className="bg-gray-a1/50 border-gray-a3 hover:bg-gray-a2/50 flex w-full items-center justify-between gap-4 border px-3 py-3 text-start transition-colors"
+      onClick={() => copy('curl.md auth login')}
+      type="button"
+    >
+      <code>
+        <span className="text-gray8">curl.md</span> <span className="text-gray10">auth login</span>
+      </code>
+      <span className="text-gray8 shrink-0">
+        {copied ? <IconOcticonCheck16 className="text-teal9" /> : <IconOcticonCopy16 />}
+      </span>
+    </button>
   )
 }
 

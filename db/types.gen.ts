@@ -110,6 +110,7 @@ type organization_member = {
 type request = {
   account_id: string | null
   api_key_id: string | null
+  cached: boolean | null
   created_at: GeneratedTimestamp
   hostname: string
   id: k.Generated<string>

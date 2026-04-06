@@ -16,11 +16,11 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as AuthErrorRouteImport } from './routes/auth/error'
 import { Route as AuthDeviceRouteImport } from './routes/auth/device'
-import { Route as Char126dashLoginRouteRouteImport } from './routes/~dash.$login/route'
-import { Route as Char126dashLoginIndexRouteImport } from './routes/~dash.$login/index'
+import { Route as DashLoginRouteRouteImport } from './routes/_dash.$login/route'
+import { Route as DashLoginIndexRouteImport } from './routes/_dash.$login/index'
 import { Route as CreditsAddIdRouteImport } from './routes/credits.add.$id'
-import { Route as Char126dashLoginChar126SettingsRouteImport } from './routes/~dash.$login/~/settings'
-import { Route as Char126dashLoginChar126BillingRouteImport } from './routes/~dash.$login/~/billing'
+import { Route as DashLoginSettingsRouteImport } from './routes/_dash.$login/settings'
+import { Route as DashLoginBillingRouteImport } from './routes/_dash.$login/billing'
 
 const PlaygroundRoute = PlaygroundRouteImport.update({
   id: '/playground',
@@ -57,47 +57,45 @@ const AuthDeviceRoute = AuthDeviceRouteImport.update({
   path: '/auth/device',
   getParentRoute: () => rootRouteImport,
 } as any)
-const Char126dashLoginRouteRoute = Char126dashLoginRouteRouteImport.update({
-  id: '/~dash/$login',
-  path: '/~dash/$login',
+const DashLoginRouteRoute = DashLoginRouteRouteImport.update({
+  id: '/_dash/$login',
+  path: '/$login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const Char126dashLoginIndexRoute = Char126dashLoginIndexRouteImport.update({
+const DashLoginIndexRoute = DashLoginIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => Char126dashLoginRouteRoute,
+  getParentRoute: () => DashLoginRouteRoute,
 } as any)
 const CreditsAddIdRoute = CreditsAddIdRouteImport.update({
   id: '/credits/add/$id',
   path: '/credits/add/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
-const Char126dashLoginChar126SettingsRoute =
-  Char126dashLoginChar126SettingsRouteImport.update({
-    id: '/~/settings',
-    path: '/~/settings',
-    getParentRoute: () => Char126dashLoginRouteRoute,
-  } as any)
-const Char126dashLoginChar126BillingRoute =
-  Char126dashLoginChar126BillingRouteImport.update({
-    id: '/~/billing',
-    path: '/~/billing',
-    getParentRoute: () => Char126dashLoginRouteRoute,
-  } as any)
+const DashLoginSettingsRoute = DashLoginSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => DashLoginRouteRoute,
+} as any)
+const DashLoginBillingRoute = DashLoginBillingRouteImport.update({
+  id: '/billing',
+  path: '/billing',
+  getParentRoute: () => DashLoginRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/home': typeof HomeRoute
   '/login': typeof LoginRoute
   '/playground': typeof PlaygroundRoute
-  '/~dash/$login': typeof Char126dashLoginRouteRouteWithChildren
+  '/$login': typeof DashLoginRouteRouteWithChildren
   '/auth/device': typeof AuthDeviceRoute
   '/auth/error': typeof AuthErrorRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/$login/billing': typeof DashLoginBillingRoute
+  '/$login/settings': typeof DashLoginSettingsRoute
   '/credits/add/$id': typeof CreditsAddIdRoute
-  '/~dash/$login/': typeof Char126dashLoginIndexRoute
-  '/~dash/$login/~/billing': typeof Char126dashLoginChar126BillingRoute
-  '/~dash/$login/~/settings': typeof Char126dashLoginChar126SettingsRoute
+  '/$login/': typeof DashLoginIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -107,10 +105,10 @@ export interface FileRoutesByTo {
   '/auth/device': typeof AuthDeviceRoute
   '/auth/error': typeof AuthErrorRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/$login/billing': typeof DashLoginBillingRoute
+  '/$login/settings': typeof DashLoginSettingsRoute
   '/credits/add/$id': typeof CreditsAddIdRoute
-  '/~dash/$login': typeof Char126dashLoginIndexRoute
-  '/~dash/$login/~/billing': typeof Char126dashLoginChar126BillingRoute
-  '/~dash/$login/~/settings': typeof Char126dashLoginChar126SettingsRoute
+  '/$login': typeof DashLoginIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -118,14 +116,14 @@ export interface FileRoutesById {
   '/home': typeof HomeRoute
   '/login': typeof LoginRoute
   '/playground': typeof PlaygroundRoute
-  '/~dash/$login': typeof Char126dashLoginRouteRouteWithChildren
+  '/_dash/$login': typeof DashLoginRouteRouteWithChildren
   '/auth/device': typeof AuthDeviceRoute
   '/auth/error': typeof AuthErrorRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/_dash/$login/billing': typeof DashLoginBillingRoute
+  '/_dash/$login/settings': typeof DashLoginSettingsRoute
   '/credits/add/$id': typeof CreditsAddIdRoute
-  '/~dash/$login/': typeof Char126dashLoginIndexRoute
-  '/~dash/$login/~/billing': typeof Char126dashLoginChar126BillingRoute
-  '/~dash/$login/~/settings': typeof Char126dashLoginChar126SettingsRoute
+  '/_dash/$login/': typeof DashLoginIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -134,14 +132,14 @@ export interface FileRouteTypes {
     | '/home'
     | '/login'
     | '/playground'
-    | '/~dash/$login'
+    | '/$login'
     | '/auth/device'
     | '/auth/error'
     | '/invite/$token'
+    | '/$login/billing'
+    | '/$login/settings'
     | '/credits/add/$id'
-    | '/~dash/$login/'
-    | '/~dash/$login/~/billing'
-    | '/~dash/$login/~/settings'
+    | '/$login/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -151,24 +149,24 @@ export interface FileRouteTypes {
     | '/auth/device'
     | '/auth/error'
     | '/invite/$token'
+    | '/$login/billing'
+    | '/$login/settings'
     | '/credits/add/$id'
-    | '/~dash/$login'
-    | '/~dash/$login/~/billing'
-    | '/~dash/$login/~/settings'
+    | '/$login'
   id:
     | '__root__'
     | '/'
     | '/home'
     | '/login'
     | '/playground'
-    | '/~dash/$login'
+    | '/_dash/$login'
     | '/auth/device'
     | '/auth/error'
     | '/invite/$token'
+    | '/_dash/$login/billing'
+    | '/_dash/$login/settings'
     | '/credits/add/$id'
-    | '/~dash/$login/'
-    | '/~dash/$login/~/billing'
-    | '/~dash/$login/~/settings'
+    | '/_dash/$login/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -176,7 +174,7 @@ export interface RootRouteChildren {
   HomeRoute: typeof HomeRoute
   LoginRoute: typeof LoginRoute
   PlaygroundRoute: typeof PlaygroundRoute
-  Char126dashLoginRouteRoute: typeof Char126dashLoginRouteRouteWithChildren
+  DashLoginRouteRoute: typeof DashLoginRouteRouteWithChildren
   AuthDeviceRoute: typeof AuthDeviceRoute
   AuthErrorRoute: typeof AuthErrorRoute
   InviteTokenRoute: typeof InviteTokenRoute
@@ -234,19 +232,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthDeviceRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/~dash/$login': {
-      id: '/~dash/$login'
-      path: '/~dash/$login'
-      fullPath: '/~dash/$login'
-      preLoaderRoute: typeof Char126dashLoginRouteRouteImport
+    '/_dash/$login': {
+      id: '/_dash/$login'
+      path: '/$login'
+      fullPath: '/$login'
+      preLoaderRoute: typeof DashLoginRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/~dash/$login/': {
-      id: '/~dash/$login/'
+    '/_dash/$login/': {
+      id: '/_dash/$login/'
       path: '/'
-      fullPath: '/~dash/$login/'
-      preLoaderRoute: typeof Char126dashLoginIndexRouteImport
-      parentRoute: typeof Char126dashLoginRouteRoute
+      fullPath: '/$login/'
+      preLoaderRoute: typeof DashLoginIndexRouteImport
+      parentRoute: typeof DashLoginRouteRoute
     }
     '/credits/add/$id': {
       id: '/credits/add/$id'
@@ -255,46 +253,45 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CreditsAddIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/~dash/$login/~/settings': {
-      id: '/~dash/$login/~/settings'
-      path: '/~/settings'
-      fullPath: '/~dash/$login/~/settings'
-      preLoaderRoute: typeof Char126dashLoginChar126SettingsRouteImport
-      parentRoute: typeof Char126dashLoginRouteRoute
+    '/_dash/$login/settings': {
+      id: '/_dash/$login/settings'
+      path: '/settings'
+      fullPath: '/$login/settings'
+      preLoaderRoute: typeof DashLoginSettingsRouteImport
+      parentRoute: typeof DashLoginRouteRoute
     }
-    '/~dash/$login/~/billing': {
-      id: '/~dash/$login/~/billing'
-      path: '/~/billing'
-      fullPath: '/~dash/$login/~/billing'
-      preLoaderRoute: typeof Char126dashLoginChar126BillingRouteImport
-      parentRoute: typeof Char126dashLoginRouteRoute
+    '/_dash/$login/billing': {
+      id: '/_dash/$login/billing'
+      path: '/billing'
+      fullPath: '/$login/billing'
+      preLoaderRoute: typeof DashLoginBillingRouteImport
+      parentRoute: typeof DashLoginRouteRoute
     }
   }
 }
 
-interface Char126dashLoginRouteRouteChildren {
-  Char126dashLoginIndexRoute: typeof Char126dashLoginIndexRoute
-  Char126dashLoginChar126BillingRoute: typeof Char126dashLoginChar126BillingRoute
-  Char126dashLoginChar126SettingsRoute: typeof Char126dashLoginChar126SettingsRoute
+interface DashLoginRouteRouteChildren {
+  DashLoginBillingRoute: typeof DashLoginBillingRoute
+  DashLoginSettingsRoute: typeof DashLoginSettingsRoute
+  DashLoginIndexRoute: typeof DashLoginIndexRoute
 }
 
-const Char126dashLoginRouteRouteChildren: Char126dashLoginRouteRouteChildren = {
-  Char126dashLoginIndexRoute: Char126dashLoginIndexRoute,
-  Char126dashLoginChar126BillingRoute: Char126dashLoginChar126BillingRoute,
-  Char126dashLoginChar126SettingsRoute: Char126dashLoginChar126SettingsRoute,
+const DashLoginRouteRouteChildren: DashLoginRouteRouteChildren = {
+  DashLoginBillingRoute: DashLoginBillingRoute,
+  DashLoginSettingsRoute: DashLoginSettingsRoute,
+  DashLoginIndexRoute: DashLoginIndexRoute,
 }
 
-const Char126dashLoginRouteRouteWithChildren =
-  Char126dashLoginRouteRoute._addFileChildren(
-    Char126dashLoginRouteRouteChildren,
-  )
+const DashLoginRouteRouteWithChildren = DashLoginRouteRoute._addFileChildren(
+  DashLoginRouteRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   HomeRoute: HomeRoute,
   LoginRoute: LoginRoute,
   PlaygroundRoute: PlaygroundRoute,
-  Char126dashLoginRouteRoute: Char126dashLoginRouteRouteWithChildren,
+  DashLoginRouteRoute: DashLoginRouteRouteWithChildren,
   AuthDeviceRoute: AuthDeviceRoute,
   AuthErrorRoute: AuthErrorRoute,
   InviteTokenRoute: InviteTokenRoute,

@@ -33,6 +33,19 @@ export const sentinelValue = 'NONE'
 export const routes = ['', 'auth', 'credits', 'home', 'invite', 'login', 'playground'] as const
 export const knownRoutes: Set<string> = new Set(routes)
 
+export const reservedLogins: Set<string> = new Set([
+  ...knownRoutes,
+  'account',
+  'admin',
+  'api',
+  'app',
+  'blog',
+  'curl',
+  'dash',
+  'docs',
+  'org',
+])
+
 export const systemPrompt = `You extract relevant sections from web pages. Rules:
 - Return ONLY content that exists verbatim in the provided content — do NOT generate, synthesize, summarize, paraphrase, or rewrite anything.
 - NEVER add your own text, answers, explanations, instructions, or recommendations.

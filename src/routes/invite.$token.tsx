@@ -36,7 +36,7 @@ function Component() {
     },
     onSuccess(organization) {
       return router.navigate({
-        to: '/~dash/$login',
+        to: '/$login',
         params: { login: organization.login },
       })
     },

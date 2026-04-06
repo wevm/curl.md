@@ -13,6 +13,7 @@ export async function processRequestMessage(
     .values({
       account_id: body.account_id,
       api_key_id: body.api_key_id,
+      cached: body.cached,
       hostname: body.hostname,
       id: body.id,
       keywords: body.keywords,
@@ -85,6 +86,7 @@ export namespace processRequestMessage {
     account_id: string | null
     api_key_id: string | null
     billable: boolean
+    cached: boolean
     cost_mills: number
     hostname: string
     id: string

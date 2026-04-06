@@ -12,7 +12,7 @@ export const Route = createFileRoute('/login')({
   validateSearch: z.object({ next: z.string().optional() }),
   async beforeLoad() {
     const login = await getSessionLogin()
-    if (login) throw redirect({ to: '/~dash/$login', params: { login } })
+    if (login) throw redirect({ to: '/$login', params: { login } })
   },
   component: Component,
 })

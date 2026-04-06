@@ -86,6 +86,7 @@ function Component() {
       const data: { content: string } | { error: string } = await res.json()
       if ('error' in data) throw new Error(data.error)
       return {
+        cached: res.headers.get('x-cache') === 'HIT',
         fetchedUrl: `${__HOST__}${path}`,
         markdown: data.content.replace(attribution.pattern, ''),
         stats: {
@@ -146,7 +147,7 @@ function Component() {
     if (err instanceof z.ZodError) return 'Invalid URL'
     return err.message || 'Failed to fetch page'
   })()
-  const { fetchedUrl = '', markdown = '', stats = null } = mutation.data ?? {}
+  const { cached = false, fetchedUrl = '', markdown = '', stats = null } = mutation.data ?? {}
   const hasResult = (markdown || error) && (fetchedUrl || error)
 
   const examples = [
@@ -320,7 +321,7 @@ function Component() {
                       <span className="text-gray10">
                         {stats.tokensCount.toLocaleString('en-US')}
                       </span>{' '}
-                      tokens
+                      tokens{cached ? ' (cached)' : ''}
                     </span>
                     {stats.tokensSaved > 0 && (
                       <>

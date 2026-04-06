@@ -6,14 +6,10 @@ import { env } from 'cloudflare:workers'
 import { createClient } from '#db/client.ts'
 import * as Cookie from '#lib/cookie.ts'
 
-export const Route = createFileRoute('/~dash/$login/~/billing')({
+export const Route = createFileRoute('/_dash/$login/billing')({
   head: () => ({ meta: [{ title: `Billing - ${__HOST__}` }] }),
-  loader: ({ context }) => {
-    if (!context.entity) return { balance_mills: 0, payment_method: null }
-    return getBillingData({
-      data: { entityId: context.entity.id, entityType: context.entity.type },
-    })
-  },
+  loader: ({ context }) =>
+    getBillingData({ data: { entityId: context.entity.id, entityType: context.entity.type } }),
   component: Component,
 })
 
@@ -33,7 +29,7 @@ function Component() {
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col px-6 pb-16">
-      <h1 className="text-lg font-bold">Billing</h1>
+      <h1 className="bg-bg1 sticky top-0 z-10 py-4 text-lg font-bold">Billing</h1>
       <div className="bg-gray-a1/50 border-gray-a3 mt-4 flex items-center justify-between border px-3 py-3">
         <span className="text-gray8 text-xs">Credits Remaining</span>
         <span className="text-sm font-bold tabular-nums">${balanceDollars}</span>

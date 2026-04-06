@@ -17,7 +17,7 @@ import { createClient } from '#db/client.ts'
 import * as Cookie from '#lib/cookie.ts'
 import { rpc } from '#lib/rpc.ts'
 
-export const Route = createFileRoute('/~dash/$login')({
+export const Route = createFileRoute('/_dash/$login')({
   async beforeLoad({ location, params }) {
     const data = await getLayoutData({ data: { login: params.login } })
     if (data === false)
@@ -28,6 +28,7 @@ export const Route = createFileRoute('/~dash/$login')({
     if (!data) throw notFound()
     return data
   },
+  loader: () => {},
   component: Component,
 })
 
@@ -56,11 +57,11 @@ function Component() {
   const matches = useMatches()
   const leafRouteId = matches[matches.length - 1]?.routeId
   const switchTo =
-    leafRouteId === '/~dash/$login/~/billing'
-      ? '/~dash/$login/~/billing'
-      : leafRouteId === '/~dash/$login/~/settings'
-        ? '/~dash/$login/~/settings'
-        : '/~dash/$login'
+    leafRouteId === '/_dash/$login/billing'
+      ? '/$login/billing'
+      : leafRouteId === '/_dash/$login/settings'
+        ? '/$login/settings'
+        : '/$login'
   const [open, setOpen] = React.useState(false)
 
   return (
@@ -118,24 +119,29 @@ function Component() {
             activeOptions={{ exact: true }}
             icon={<IconOcticonMeter16 />}
             params={{ login: entity.login }}
-            to="/~dash/$login"
+            to="/$login"
           >
             Overview
           </SidebarLink>
+          {entity.type === 'organization' && (
+            <SidebarDisabled icon={<IconOcticonPeople16 />}>Members</SidebarDisabled>
+          )}
+          <SidebarDisabled icon={<IconOcticonKey16 />}>API Tokens</SidebarDisabled>
           <SidebarLink
             icon={<IconOcticonCreditCard16 />}
             params={{ login: entity.login }}
-            to="/~dash/$login/~/billing"
+            to="/$login/billing"
           >
             Billing
           </SidebarLink>
           <SidebarLink
             icon={<IconOcticonGear16 />}
             params={{ login: entity.login }}
-            to="/~dash/$login/~/settings"
+            to="/$login/settings"
           >
             Settings
           </SidebarLink>
+
           <Link
             className="text-gray8 hover:text-gray10 flex items-center gap-2 px-2 py-1.5 text-sm"
             to="/"
@@ -143,10 +149,17 @@ function Component() {
             <IconOcticonBook16 />
             Docs
           </Link>
+          <Link
+            className="text-gray8 hover:text-gray10 flex items-center gap-2 px-2 py-1.5 text-sm"
+            to="/playground"
+          >
+            <IconOcticonTerminal16 />
+            Playground
+          </Link>
         </nav>
       )}
 
-      <aside className="hidden w-48 flex-col px-4 py-4 md:flex">
+      <aside className="sticky top-0 hidden h-dvh w-48 flex-col px-4 py-4 md:flex">
         <Menu.Root>
           <Menu.Trigger className="hover:bg-gray-a2 flex cursor-default items-center gap-2 px-2 py-1.5 text-sm">
             <EntityAvatar
@@ -190,24 +203,29 @@ function Component() {
             activeOptions={{ exact: true }}
             icon={<IconOcticonMeter16 />}
             params={{ login: entity.login }}
-            to="/~dash/$login"
+            to="/$login"
           >
             Overview
           </SidebarLink>
+          {entity.type === 'organization' && (
+            <SidebarDisabled icon={<IconOcticonPeople16 />}>Members</SidebarDisabled>
+          )}
+          <SidebarDisabled icon={<IconOcticonKey16 />}>API Tokens</SidebarDisabled>
           <SidebarLink
             icon={<IconOcticonCreditCard16 />}
             params={{ login: entity.login }}
-            to="/~dash/$login/~/billing"
+            to="/$login/billing"
           >
             Billing
           </SidebarLink>
           <SidebarLink
             icon={<IconOcticonGear16 />}
             params={{ login: entity.login }}
-            to="/~dash/$login/~/settings"
+            to="/$login/settings"
           >
             Settings
           </SidebarLink>
+
           <Link
             className="text-gray8 hover:text-gray10 hover:bg-gray-a2 flex items-center gap-2 px-2 py-1.5 text-sm"
             to="/"
@@ -215,10 +233,17 @@ function Component() {
             <IconOcticonBook16 />
             Docs
           </Link>
+          <Link
+            className="text-gray8 hover:text-gray10 hover:bg-gray-a2 flex items-center gap-2 px-2 py-1.5 text-sm"
+            to="/playground"
+          >
+            <IconOcticonTerminal16 />
+            Playground
+          </Link>
         </nav>
       </aside>
-      <main className="flex-1 pt-4">
-        <Outlet key={entity.login} />
+      <main className="flex-1">
+        <Outlet />
       </main>
     </div>
   )
@@ -245,6 +270,15 @@ function SidebarLink(
       {props.icon}
       {props.children}
     </Link>
+  )
+}
+
+function SidebarDisabled(props: React.PropsWithChildren<{ icon: React.ReactNode }>) {
+  return (
+    <span className="text-gray5 flex cursor-not-allowed items-center gap-2 px-2 py-1.5 text-sm">
+      {props.icon}
+      {props.children}
+    </span>
   )
 }
 
