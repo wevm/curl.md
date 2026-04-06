@@ -92,6 +92,7 @@ Follow [PlanetScale Postgres skill](https://github.com/planetscale/database-skil
   - Good: `function MyComponent(props: { foo: string; bar: number }) { const { foo, bar } = props; ... }`
 - Server functions should go below component
 - Use `React.PropsWithChildren` over `{ children: React.ReactNode }`
+- **Shared components** use namespace pattern: define private functions, export a single const object (e.g., `export const Nav = { Group, Logo, Root, Skip }`). Import as `import { Nav } from '#components/Nav.tsx'`, use as `<Nav.Root>`. See `Dialog.tsx`, `Dashboard.tsx`, `Nav.tsx` for examples.
 
 ## UI
 

@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { z } from 'zod'
-import * as Nav from '#components/Nav.tsx'
+import { Nav } from '#components/Nav.tsx'
 
 export const Route = createFileRoute('/auth/error')({
   head() {

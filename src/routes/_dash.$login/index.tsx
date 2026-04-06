@@ -1,5 +1,5 @@
 import { Tabs } from '@base-ui/react/tabs'
-import { Tooltip as BaseTooltip } from '@base-ui/react/tooltip'
+import { Tooltip } from '@base-ui/react/tooltip'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { createServerFn, useServerFn } from '@tanstack/react-start'
@@ -7,6 +7,7 @@ import { getRequest } from '@tanstack/react-start/server'
 import { env } from 'cloudflare:workers'
 import { sql } from 'kysely'
 import * as React from 'react'
+import { Dashboard } from '#components/Dashboard.tsx'
 import { createClient } from '#db/client.ts'
 import type { DB } from '#db/types.gen.ts'
 import { useCopyToClipboard } from '#hooks/useCopyToClipboard.ts'
@@ -33,14 +34,14 @@ function Component() {
   })
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col px-6 pb-16">
-      <h1 className="bg-bg1 sticky top-0 z-10 py-4 text-lg font-bold">Overview</h1>
-      <div className="mt-4 grid grid-cols-2 gap-4">
-        <StatCard
+    <Dashboard.Content>
+      <Dashboard.Heading level={1}>Overview</Dashboard.Heading>
+      <div className="grid gap-3 md:grid-cols-2">
+        <Dashboard.Stat
           label="Tokens Saved"
           value={data.tokens_saved ? Math.round(data.tokens_saved).toLocaleString() : undefined}
         />
-        <StatCard
+        <Dashboard.Stat
           label="Cost Saved"
           tooltip={
             <>
@@ -54,12 +55,12 @@ function Component() {
       <UsageChart daily={data.daily} />
       <RecentRequests requests={data.recent ?? []} />
 
-      <div className="mt-8 flex flex-col gap-6">
-        <h2 className="text-gray8 text-sm font-bold">Setup Tools</h2>
+      <div className="mt-8 flex flex-col gap-3">
+        <Dashboard.Heading level={2}>Setup Tools</Dashboard.Heading>
         <InstallCommand />
         <InstallTabs />
       </div>
-    </div>
+    </Dashboard.Content>
   )
 }
 
@@ -132,36 +133,6 @@ const getUsageData = createServerFn({ method: 'GET' })
 
 // --- Components ---
 
-function StatCard(props: { label: string; tooltip?: React.ReactNode; value?: string | undefined }) {
-  return (
-    <div className="bg-gray-a1/50 border-gray-a3 relative border px-3 py-3">
-      <div className="text-gray8 text-xs">{props.label}</div>
-      <div className="mt-1 text-2xl font-bold tabular-nums">
-        {props.value ?? <span className="text-gray5">&mdash;</span>}
-      </div>
-      {props.tooltip && (
-        <BaseTooltip.Provider delay={0}>
-          <BaseTooltip.Root>
-            <BaseTooltip.Trigger
-              className="text-gray5 hover:text-gray7 absolute end-3 top-3 cursor-default"
-              render={<span />}
-            >
-              <IconOcticonInfo16 className="size-3.5" />
-            </BaseTooltip.Trigger>
-            <BaseTooltip.Portal>
-              <BaseTooltip.Positioner sideOffset={4}>
-                <BaseTooltip.Popup className="bg-bg1 border-gray-a3 before:bg-gray-a1/50 relative z-50 max-w-64 border px-2.5 py-1.5 text-xs leading-relaxed before:absolute before:inset-0 before:-z-1">
-                  {props.tooltip}
-                </BaseTooltip.Popup>
-              </BaseTooltip.Positioner>
-            </BaseTooltip.Portal>
-          </BaseTooltip.Root>
-        </BaseTooltip.Provider>
-      )}
-    </div>
-  )
-}
-
 const LazyUsageChart = React.lazy(() =>
   import('#components/UsageChart.tsx').then((m) => ({ default: m.UsageChart })),
 )
@@ -171,7 +142,7 @@ function UsageChart(props: { daily: Array<{ date: string; tokens: number }> }) {
   React.useEffect(() => setMounted(true), [])
   const hasData = props.daily.some((d) => d.tokens > 0)
   return (
-    <div className="border-gray-a3 bg-gray-a1/50 relative mt-4 border px-3 py-3">
+    <div className="border-gray-a3 bg-gray-a1/50 relative mt-3 border px-3 py-3">
       {hasData ? (
         <>
           <h2 className="text-gray8 text-xs">Tokens Saved Last 7 Days</h2>
@@ -203,74 +174,62 @@ function RecentRequests(props: {
 }) {
   if (props.requests.length === 0) return null
   return (
-    <div className="border-gray-a3 bg-gray-a1/50 mt-4 border">
-      <h2 className="text-gray8 px-3 pt-3 text-xs">Recent Requests</h2>
-      <div className="mt-2 overflow-x-auto">
-        <table className="w-full text-xs">
-          <thead>
-            <tr className="text-gray8 border-gray-a3 border-b text-start">
-              <th className="px-3 py-1.5 text-start font-medium">URL</th>
-              <th className="w-px px-3 py-1.5" />
-              <th className="w-px px-3 py-1.5 text-end font-medium whitespace-nowrap">
-                Tokens Saved
-              </th>
-              <th className="w-px px-3 py-1.5 text-end font-medium whitespace-nowrap">
-                Cost Saved
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {props.requests.map((r) => (
-              <tr
-                className="border-gray-a3 hover:bg-gray-a2/50 border-b last:border-b-0"
-                key={r.id}
-              >
-                <td className="max-w-0 px-3 py-1.5">
-                  <span className="block truncate" title={r.url}>
-                    {r.url.replace(/^https?:\/\//, '')}
-                  </span>
-                </td>
-                <td className="w-px px-3 py-1.5 whitespace-nowrap">
-                  <span className="inline-flex items-center gap-1.5">
-                    {r.objective && (
-                      <RequestIcon
-                        icon={<IconOcticonGoal16 className="size-3" />}
-                        tooltip={r.objective}
-                      />
-                    )}
-                    {r.keywords && (
-                      <RequestIcon
-                        icon={<IconOcticonTag16 className="size-3" />}
-                        tooltip={r.keywords}
-                      />
-                    )}
-                    {r.cached && (
-                      <RequestIcon
-                        icon={<IconOcticonZap16 className="size-3" />}
-                        tooltip="Cached"
-                      />
-                    )}
-                  </span>
-                </td>
-                <td className="px-3 py-1.5 text-end whitespace-nowrap tabular-nums">
-                  {r.tokens_saved > 0 ? (
-                    r.tokens_saved.toLocaleString()
-                  ) : (
-                    <span className="text-gray5">&mdash;</span>
+    <div className="mt-6">
+      <h2 className="text-gray8 mb-2 text-xs font-medium tracking-wide uppercase">
+        Recent Requests
+      </h2>
+      <Dashboard.Table className="text-xs">
+        <Dashboard.Table.Thead>
+          <Dashboard.Table.Th>URL</Dashboard.Table.Th>
+          <Dashboard.Table.Th className="hidden md:table-cell" align="end" />
+          <Dashboard.Table.Th align="end">Tokens Saved</Dashboard.Table.Th>
+          <Dashboard.Table.Th align="end">Cost Saved</Dashboard.Table.Th>
+        </Dashboard.Table.Thead>
+        <tbody>
+          {props.requests.map((r) => (
+            <Dashboard.Table.Tr key={r.id}>
+              <Dashboard.Table.Td className="max-w-0">
+                <span className="block truncate" title={r.url}>
+                  {r.url.replace(/^https?:\/\//, '')}
+                </span>
+              </Dashboard.Table.Td>
+              <Dashboard.Table.Td className="hidden w-px whitespace-nowrap md:table-cell">
+                <span className="inline-flex items-center gap-1.5">
+                  {r.objective && (
+                    <RequestIcon
+                      icon={<IconOcticonGoal16 className="size-3" />}
+                      tooltip={r.objective}
+                    />
                   )}
-                </td>
-                <td className="px-3 py-1.5 text-end whitespace-nowrap tabular-nums">
-                  {r.tokens_saved > 0 ? (
-                    `$${formatCost(r.tokens_saved, 3)}`
-                  ) : (
-                    <span className="text-gray5">&mdash;</span>
+                  {r.keywords && (
+                    <RequestIcon
+                      icon={<IconOcticonTag16 className="size-3" />}
+                      tooltip={r.keywords}
+                    />
                   )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                  {r.cached && (
+                    <RequestIcon icon={<IconOcticonZap16 className="size-3" />} tooltip="Cached" />
+                  )}
+                </span>
+              </Dashboard.Table.Td>
+              <Dashboard.Table.Td className="text-end whitespace-nowrap tabular-nums">
+                {r.tokens_saved > 0 ? (
+                  r.tokens_saved.toLocaleString()
+                ) : (
+                  <span className="text-gray5">&mdash;</span>
+                )}
+              </Dashboard.Table.Td>
+              <Dashboard.Table.Td className="text-end whitespace-nowrap tabular-nums">
+                {r.tokens_saved > 0 ? (
+                  `$${formatCost(r.tokens_saved, 3)}`
+                ) : (
+                  <span className="text-gray5">&mdash;</span>
+                )}
+              </Dashboard.Table.Td>
+            </Dashboard.Table.Tr>
+          ))}
+        </tbody>
+      </Dashboard.Table>
     </div>
   )
 }
@@ -279,20 +238,20 @@ function RecentRequests(props: {
 
 function RequestIcon(props: { icon: React.ReactNode; tooltip: React.ReactNode }) {
   return (
-    <BaseTooltip.Provider delay={0}>
-      <BaseTooltip.Root>
-        <BaseTooltip.Trigger className="text-gray6 cursor-default" render={<span />}>
+    <Tooltip.Provider delay={0}>
+      <Tooltip.Root>
+        <Tooltip.Trigger className="text-gray6 cursor-default" render={<span />}>
           {props.icon}
-        </BaseTooltip.Trigger>
-        <BaseTooltip.Portal>
-          <BaseTooltip.Positioner sideOffset={4}>
-            <BaseTooltip.Popup className="bg-bg1 border-gray-a3 before:bg-gray-a1/50 relative z-50 max-w-64 border px-2.5 py-1.5 text-xs leading-relaxed before:absolute before:inset-0 before:-z-1">
+        </Tooltip.Trigger>
+        <Tooltip.Portal>
+          <Tooltip.Positioner sideOffset={4}>
+            <Tooltip.Popup className="bg-bg1 border-gray-a3 before:bg-gray-a1/50 relative z-50 max-w-64 border px-2.5 py-1.5 text-xs leading-relaxed before:absolute before:inset-0 before:-z-1">
               {props.tooltip}
-            </BaseTooltip.Popup>
-          </BaseTooltip.Positioner>
-        </BaseTooltip.Portal>
-      </BaseTooltip.Root>
-    </BaseTooltip.Provider>
+            </Tooltip.Popup>
+          </Tooltip.Positioner>
+        </Tooltip.Portal>
+      </Tooltip.Root>
+    </Tooltip.Provider>
   )
 }
 

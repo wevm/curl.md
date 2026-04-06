@@ -66,140 +66,31 @@ function Component() {
 
   return (
     <div className="relative flex min-h-dvh flex-col md:flex-row">
-      <header className="flex items-center justify-between px-4 py-4 md:hidden">
-        <Menu.Root>
-          <Menu.Trigger className="hover:bg-gray-a2 flex cursor-default items-center gap-2 px-2 py-1.5 text-sm">
-            <EntityAvatar
-              avatarUrl={entity.type === 'account' ? account.avatar_url : undefined}
-              name={entity.name ?? entity.login}
-            />
-            <span>{entity.name ?? entity.login}</span>
-            <IconOcticonChevronDown16 className="text-gray8 size-3.5" />
-          </Menu.Trigger>
-          <Menu.Portal>
-            <Menu.Positioner align="start" sideOffset={8}>
-              <Menu.Popup className="bg-bg1 border-gray-a3 before:bg-gray-a1/50 relative min-w-48 border px-1 py-1 before:absolute before:inset-0 before:-z-1">
-                {others.map((e) => (
-                  <Menu.Item
-                    className="text-gray9 hover:bg-gray-a2 hover:text-gray10 flex items-center gap-2 p-1.5 text-sm"
-                    key={e.login}
-                    render={<Link params={{ login: e.login }} to={switchTo} />}
-                  >
-                    <EntityAvatar
-                      avatarUrl={e.type === 'account' ? account.avatar_url : undefined}
-                      name={e.name ?? e.login}
-                    />
-                    {e.name ?? e.login}
-                  </Menu.Item>
-                ))}
-                <div className="border-gray-a2 -mx-1 my-1 border-t" />
-                <Menu.Item
-                  className="text-gray9 hover:bg-gray-a2 hover:text-gray10 flex min-h-9 items-center p-1.5 text-sm disabled:opacity-30"
-                  disabled={logout.isPending}
-                  onClick={() => logout.mutate()}
-                >
-                  Sign Out
-                </Menu.Item>
-              </Menu.Popup>
-            </Menu.Positioner>
-          </Menu.Portal>
-        </Menu.Root>
-        <button className="hover:bg-gray-a2 p-1.5" onClick={() => setOpen((o) => !o)} type="button">
+      <aside className="flex flex-row flex-wrap items-center justify-between px-4 py-4 md:sticky md:top-0 md:h-dvh md:w-48 md:flex-col md:flex-nowrap md:items-stretch md:justify-start">
+        <AccountSwitcher
+          account={account}
+          entity={entity}
+          logout={logout}
+          others={others}
+          switchTo={switchTo}
+        />
+        <button
+          className="hover:bg-gray-a2 p-1.5 md:hidden"
+          onClick={() => setOpen((o) => !o)}
+          type="button"
+        >
           {open ? (
             <IconOcticonX16 className="size-4" />
           ) : (
             <IconOcticonThreeBars16 className="size-4" />
           )}
         </button>
-      </header>
 
-      {open && (
-        <nav className="flex flex-col gap-0.5 px-4 pb-4 md:hidden" onClick={() => setOpen(false)}>
-          <SidebarLink
-            activeOptions={{ exact: true }}
-            icon={<IconOcticonMeter16 />}
-            params={{ login: entity.login }}
-            to="/$login"
-          >
-            Overview
-          </SidebarLink>
-          <SidebarDisabled icon={<IconOcticonGlobe16 />}>Requests</SidebarDisabled>
-          {entity.type === 'organization' && (
-            <SidebarDisabled icon={<IconOcticonPeople16 />}>Members</SidebarDisabled>
-          )}
-          <SidebarDisabled icon={<IconOcticonKey16 />}>API Tokens</SidebarDisabled>
-          <SidebarLink
-            icon={<IconOcticonCreditCard16 />}
-            params={{ login: entity.login }}
-            to="/$login/billing"
-          >
-            Billing
-          </SidebarLink>
-          <SidebarLink
-            icon={<IconOcticonGear16 />}
-            params={{ login: entity.login }}
-            to="/$login/settings"
-          >
-            Settings
-          </SidebarLink>
-
-          <Link
-            className="text-gray8 hover:text-gray10 flex items-center gap-2 px-2 py-1.5 text-sm"
-            to="/"
-          >
-            <IconOcticonBook16 />
-            Docs
-          </Link>
-          <Link
-            className="text-gray8 hover:text-gray10 flex items-center gap-2 px-2 py-1.5 text-sm"
-            to="/playground"
-          >
-            <IconOcticonTerminal16 />
-            Playground
-          </Link>
-        </nav>
-      )}
-
-      <aside className="sticky top-0 hidden h-dvh w-48 flex-col px-4 py-4 md:flex">
-        <Menu.Root>
-          <Menu.Trigger className="hover:bg-gray-a2 flex cursor-default items-center gap-2 px-2 py-1.5 text-sm">
-            <EntityAvatar
-              avatarUrl={entity.type === 'account' ? account.avatar_url : undefined}
-              name={entity.name ?? entity.login}
-            />
-            <span>{entity.name ?? entity.login}</span>
-            <IconOcticonChevronDown16 className="text-gray8 size-3.5" />
-          </Menu.Trigger>
-          <Menu.Portal>
-            <Menu.Positioner align="start" sideOffset={8}>
-              <Menu.Popup className="bg-bg1 border-gray-a3 before:bg-gray-a1/50 relative min-w-48 border px-1 py-1 before:absolute before:inset-0 before:-z-1">
-                {others.map((e) => (
-                  <Menu.Item
-                    className="text-gray9 hover:bg-gray-a2 hover:text-gray10 flex items-center gap-2 p-1.5 text-sm"
-                    key={e.login}
-                    render={<Link params={{ login: e.login }} to={switchTo} />}
-                  >
-                    <EntityAvatar
-                      avatarUrl={e.type === 'account' ? account.avatar_url : undefined}
-                      name={e.name ?? e.login}
-                    />
-                    {e.name ?? e.login}
-                  </Menu.Item>
-                ))}
-                <div className="border-gray-a2 -mx-1 my-1 border-t" />
-                <Menu.Item
-                  className="text-gray9 hover:bg-gray-a2 hover:text-gray10 flex min-h-9 items-center p-1.5 text-sm disabled:opacity-30"
-                  disabled={logout.isPending}
-                  onClick={() => logout.mutate()}
-                >
-                  Sign Out
-                </Menu.Item>
-              </Menu.Popup>
-            </Menu.Positioner>
-          </Menu.Portal>
-        </Menu.Root>
-
-        <nav className="mt-4 flex flex-col gap-0.5">
+        <nav
+          className="mt-4 hidden w-full flex-col gap-0.5 data-[open]:flex md:flex"
+          data-open={open ? '' : undefined}
+          onClick={() => setOpen(false)}
+        >
           <SidebarLink
             activeOptions={{ exact: true }}
             icon={<IconOcticonMeter16 />}
@@ -252,6 +143,54 @@ function Component() {
 }
 
 // --- Internal components ---
+
+function AccountSwitcher(props: {
+  account: { avatar_url: string | null; login: string }
+  entity: { login: string; name: string | null; type: 'account' | 'organization' }
+  logout: { isPending: boolean; mutate: () => void }
+  others: Array<{ login: string; name: string | null; type: 'account' | 'organization' }>
+  switchTo: string
+}) {
+  return (
+    <Menu.Root>
+      <Menu.Trigger className="hover:bg-gray-a2 flex cursor-default items-center gap-2 px-2 py-1.5 text-sm">
+        <EntityAvatar
+          avatarUrl={props.entity.type === 'account' ? props.account.avatar_url : undefined}
+          name={props.entity.name ?? props.entity.login}
+        />
+        <span>{props.entity.name ?? props.entity.login}</span>
+        <IconOcticonChevronDown16 className="text-gray8 size-3.5" />
+      </Menu.Trigger>
+      <Menu.Portal>
+        <Menu.Positioner align="start" className="max-md:!w-[calc(100vw-2rem)]" sideOffset={8}>
+          <Menu.Popup className="bg-bg1 border-gray-a3 before:bg-gray-a1/50 relative min-w-48 border px-1 py-1 before:absolute before:inset-0 before:-z-1">
+            {props.others.map((e) => (
+              <Menu.Item
+                className="text-gray9 hover:bg-gray-a2 hover:text-gray10 flex items-center gap-2 p-1.5 text-sm"
+                key={e.login}
+                render={<Link params={{ login: e.login }} to={props.switchTo} />}
+              >
+                <EntityAvatar
+                  avatarUrl={e.type === 'account' ? props.account.avatar_url : undefined}
+                  name={e.name ?? e.login}
+                />
+                {e.name ?? e.login}
+              </Menu.Item>
+            ))}
+            <div className="border-gray-a2 -mx-1 my-1 border-t" />
+            <Menu.Item
+              className="text-gray9 hover:bg-gray-a2 hover:text-gray10 flex min-h-9 items-center p-1.5 text-sm disabled:opacity-30"
+              disabled={props.logout.isPending}
+              onClick={() => props.logout.mutate()}
+            >
+              Sign Out
+            </Menu.Item>
+          </Menu.Popup>
+        </Menu.Positioner>
+      </Menu.Portal>
+    </Menu.Root>
+  )
+}
 
 function SidebarLink(
   props: React.PropsWithChildren<{

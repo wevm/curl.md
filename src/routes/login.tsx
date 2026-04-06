@@ -2,7 +2,7 @@ import { createFileRoute, redirect } from '@tanstack/react-router'
 import { hc } from 'hono/client'
 import { z } from 'zod'
 import type { api } from '#api.ts'
-import * as Nav from '#components/Nav.tsx'
+import { Nav } from '#components/Nav.tsx'
 import { getSessionLogin } from '#server/session.ts'
 
 export const Route = createFileRoute('/login')({

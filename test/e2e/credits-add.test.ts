@@ -27,3 +27,21 @@ test('creates payment session and renders add credits page', async ({
   await expect(page.getByRole('heading', { name: 'Add Credits' })).toBeVisible()
   await expect(page.getByText('Add prepaid credits to your account.')).toBeVisible()
 })
+
+test('locked payment session hides amount selector', async ({ factory, page, setSession }) => {
+  const account = await factory.account.insert({})
+  await setSession(account.id)
+
+  const res = await page.request.post('/api/credits/add', {
+    data: { amount: '500', locked: true },
+    headers: { 'content-type': 'application/json' },
+  })
+  expect(res.status()).toBe(200)
+  const json = await res.json()
+
+  await page.goto(`/credits/add/${json.payment_id}`)
+  await expect(page.getByRole('heading', { name: 'Add Credits' })).toBeVisible()
+  await expect(page.getByText('Amount: $5')).toBeVisible()
+  await expect(page.getByText(/~[\d,]+ requests/)).toBeVisible()
+  await expect(page.getByRole('radiogroup')).not.toBeVisible()
+})

@@ -6,10 +6,13 @@ test('shows stats with zero values for new account', async ({ factory, page, set
   await setSession(account.id)
   await page.goto(`/${account.login}`)
 
-  await expect(page.getByText('Credits Remaining')).toBeVisible()
   await expect(page.getByText('Tokens Saved')).toBeVisible()
   await expect(page.getByText('Cost Saved')).toBeVisible()
-  await expect(page.getByText('No payment method on file')).toBeVisible()
+
+  // Credits and payment method are on the billing page
+  await page.goto(`/${account.login}/billing`)
+  await expect(page.getByText('Credits Remaining')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Add payment method' })).toBeVisible()
 })
 
 test('shows tokens saved and dollar savings from requests', async ({
@@ -41,7 +44,7 @@ test('shows credit balance', async ({ db, factory, page, setSession }) => {
     .where('id', '=', account.id)
     .execute()
 
-  await page.goto(`/${account.login}`)
+  await page.goto(`/${account.login}/billing`)
 
   await expect(page.getByText('$50.00')).toBeVisible({ timeout: 10000 })
 })

@@ -3,26 +3,30 @@ import { RadioGroup } from '@base-ui/react/radio-group'
 import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js'
 import { loadStripe } from '@stripe/stripe-js'
 import { useMutation } from '@tanstack/react-query'
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { env } from 'cloudflare:workers'
 import * as React from 'react'
 import Stripe from 'stripe'
 import { z } from 'zod/mini'
-import * as Nav from '#components/Nav.tsx'
+import { Nav } from '#components/Nav.tsx'
+import { stripeAppearance } from '#components/stripe.ts'
 import { useTheme } from '#hooks/useTheme.ts'
-import { creditAmounts, pricing } from '#lib/constants.ts'
+import { creditAmounts } from '#lib/constants.ts'
+import { estimateRequests } from '#lib/format.ts'
 
 export const Route = createFileRoute('/credits/add/$id')({
   head() {
     return { meta: [{ title: `Add Credits - ${__HOST__}` }] }
   },
+  validateSearch: z.object({ next: z.optional(z.string()) }),
   loader: ({ params }) => getPayment({ data: { id: params.id } }),
   component: Component,
 })
 
 function Component() {
   const params = Route.useParams()
+  const search = Route.useSearch()
   const data = Route.useLoaderData()
 
   const { resolvedTheme } = useTheme()
@@ -44,34 +48,26 @@ function Component() {
   return (
     <Elements
       options={{
-        appearance: {
-          disableAnimations: true,
-          theme: resolvedTheme === 'dark' ? 'night' : 'stripe',
-          variables: {
-            borderRadius: '0px',
-            colorBackground: c(resolvedTheme, 'bga1'),
-            colorDanger: c(resolvedTheme, 'red9'),
-            colorSuccess: c(resolvedTheme, 'green9'),
-            colorPrimary: c(resolvedTheme, 'gray10'),
-            colorText: c(resolvedTheme, 'gray10'),
-            colorTextSecondary: c(resolvedTheme, 'gray8'),
-            fontFamily: '"Geist Mono Variable", monospace',
-            fontSizeBase: '14px',
-          },
-        },
+        appearance: stripeAppearance(resolvedTheme),
         clientSecret: data.pi_secret,
         customerSessionClientSecret: data.cs_secret,
       }}
       stripe={stripePromise}
     >
-      <CheckoutForm amount={data.amount} id={params.id} locked={data.locked} />
+      <CheckoutForm amount={data.amount} id={params.id} locked={data.locked} next={search.next} />
     </Elements>
   )
 }
 
 const amounts = creditAmounts.map(Number)
 
-function CheckoutForm(props: { amount: number; id: string; locked: boolean }) {
+function CheckoutForm(props: {
+  amount: number
+  id: string
+  locked: boolean
+  next?: string | undefined
+}) {
+  const router = useRouter()
   const stripe = useStripe()
   const elements = useElements()
   const [amount, setAmount] = React.useState(props.amount)
@@ -97,12 +93,13 @@ function CheckoutForm(props: { amount: number; id: string; locked: boolean }) {
     },
     onSuccess() {
       void deletePayment({ data: { id: props.id } })
+      if (props.next) router.navigate({ to: props.next })
     },
   })
 
   return (
     <PageWrapper title="Add Credits" description="Add prepaid credits to your account.">
-      {payment.isSuccess ? (
+      {payment.isSuccess && !props.next ? (
         <p className="text-green9 border-green-a3 flex h-11 items-center gap-2 border px-3 text-sm">
           <IconOcticonCheck16 />
           Payment successful
@@ -116,7 +113,10 @@ function CheckoutForm(props: { amount: number; id: string; locked: boolean }) {
           }}
         >
           {props.locked ? (
-            <p className="text-gray8 text-sm">Amount: ${(amount / 100).toFixed(2)}</p>
+            <div className="border-gray-a3 bg-gray-a1/50 flex h-11 items-center justify-between border px-3 text-sm">
+              <span className="text-gray10 font-semibold">Amount: ${amount / 100}</span>
+              <span className="text-gray8 text-sm">~{estimateRequests(amount * 10)} requests</span>
+            </div>
           ) : (
             <RadioGroup
               className="grid grid-cols-1 gap-2 sm:grid-cols-2"
@@ -131,7 +131,9 @@ function CheckoutForm(props: { amount: number; id: string; locked: boolean }) {
                   value={String(amount)}
                 >
                   <span className="text-gray10 font-semibold">${amount / 100}</span>
-                  <span className="text-gray8 text-xs">~{estimateRequests(amount)} requests</span>
+                  <span className="text-gray8 text-xs">
+                    ~{estimateRequests(amount * 10)} requests
+                  </span>
                 </Radio.Root>
               ))}
             </RadioGroup>
@@ -212,26 +214,3 @@ const deletePayment = createServerFn({ method: 'POST' })
   .handler(async (c) => {
     await env.KV.delete(`payment:${c.data.id}`)
   })
-
-// Mirrors light-dark() values from styles.css @theme
-// lightningcss compiles light-dark() so getComputedStyle can't resolve them
-const colors = {
-  bg1: { light: 'hsl(0 0% 98%)', dark: 'hsl(0 0% 0%)' },
-  bga1: { light: 'hsl(0 0% 97%)', dark: 'hsl(0 0% 3%)' },
-  gray8: { light: 'hsl(0 0% 49%)', dark: 'hsl(0 0% 49%)' },
-  gray10: { light: 'hsl(0 0% 9%)', dark: 'hsl(0 0% 93%)' },
-  blue9: { light: 'hsl(211 100% 42%)', dark: 'hsl(210 100% 66%)' },
-  green9: { light: 'hsl(133 50% 32%)', dark: 'hsl(131 43% 57%)' },
-  red9: { light: 'hsl(358 66% 48%)', dark: 'hsl(358 100% 69%)' },
-} as const
-
-function c(theme: 'light' | 'dark', name: keyof typeof colors) {
-  const value = colors[name]
-  return typeof value === 'string' ? value : value[theme]
-}
-
-function estimateRequests(amountCents: number) {
-  const mills = amountCents * 10
-  const costPerRequest = pricing.fetchCostMills + pricing.queryBaseCostMills * pricing.queryMarkup
-  return Math.floor(mills / costPerRequest).toLocaleString()
-}

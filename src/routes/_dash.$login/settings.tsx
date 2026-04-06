@@ -1,4 +1,3 @@
-import { Dialog } from '@base-ui/react/dialog'
 import { Field } from '@base-ui/react/field'
 import { useMutation } from '@tanstack/react-query'
 import { createFileRoute, useRouter } from '@tanstack/react-router'
@@ -7,6 +6,8 @@ import { getRequest } from '@tanstack/react-start/server'
 import { env } from 'cloudflare:workers'
 import * as React from 'react'
 import { z } from 'zod/v4'
+import { Dashboard } from '#components/Dashboard.tsx'
+import { Dialog } from '#components/Dialog.tsx'
 import { createClient } from '#db/client.ts'
 import * as Constants from '#lib/constants.ts'
 import * as Cookie from '#lib/cookie.ts'
@@ -21,15 +22,14 @@ function Component() {
   const router = useRouter()
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col px-6 pb-16">
-      <h1 className="bg-bg1 sticky top-0 z-10 py-4 text-lg font-bold">Settings</h1>
+    <Dashboard.Content>
+      <Dashboard.Heading level={1}>Settings</Dashboard.Heading>
       <SettingsForm
-        className="mt-4"
         entity={entity}
         key={entity.id}
         onSaved={(login) => router.navigate({ params: { login }, to: '/$login/settings' })}
       />
-    </div>
+    </Dashboard.Content>
   )
 }
 
@@ -166,9 +166,10 @@ function SettingsForm(props: {
         }}
       >
         <Dialog.Portal>
-          <Dialog.Backdrop className="fixed inset-0 z-50 bg-black/60" />
-          <Dialog.Popup className="bg-bg1 border-gray-a3 fixed start-1/2 top-[40%] z-50 flex w-full max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4 border p-6">
-            <Dialog.Title className="text-base font-bold">Change login</Dialog.Title>
+          <Dialog.Backdrop />
+          <Dialog.Popup>
+            <Dialog.CloseX />
+            <Dialog.Title>Change login</Dialog.Title>
             <div className="bg-amber3/20 border-amber5/30 text-amber9 border px-3 py-2 text-sm">
               <p className="flex items-center gap-1.5 font-medium">
                 <IconOcticonAlert16 />
@@ -179,7 +180,7 @@ function SettingsForm(props: {
                 login. This action cannot be undone automatically.
               </p>
             </div>
-            <Dialog.Description className="text-gray9 text-sm">
+            <Dialog.Description>
               To confirm, type your current login{' '}
               <span className="text-gray12 font-medium">{entity.login}</span>.
             </Dialog.Description>

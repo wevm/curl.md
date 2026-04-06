@@ -36,18 +36,27 @@ declare global {
   const IconOcticonGoal16: typeof import('~icons/octicon/goal16.jsx').default
   const IconOcticonGraph16: typeof import('~icons/octicon/graph16.jsx').default
   const IconOcticonInfo16: typeof import('~icons/octicon/info16.jsx').default
+  const IconOcticonKebabHorizontal16: typeof import('~icons/octicon/kebab-horizontal16.jsx').default
   const IconOcticonKey16: typeof import('~icons/octicon/key16.jsx').default
   const IconOcticonMarkGithub16: typeof import('~icons/octicon/mark-github16.jsx').default
   const IconOcticonMarkdown16: typeof import('~icons/octicon/markdown16.jsx').default
   const IconOcticonMeter16: typeof import('~icons/octicon/meter16.jsx').default
   const IconOcticonPaintbrush16: typeof import('~icons/octicon/paintbrush16.jsx').default
   const IconOcticonPeople16: typeof import('~icons/octicon/people16.jsx').default
+  const IconOcticonPlus16: typeof import('~icons/octicon/plus16.jsx').default
   const IconOcticonSync16: typeof import('~icons/octicon/sync16.jsx').default
   const IconOcticonTag16: typeof import('~icons/octicon/tag16.jsx').default
   const IconOcticonTerminal16: typeof import('~icons/octicon/terminal16.jsx').default
   const IconOcticonThreeBars16: typeof import('~icons/octicon/three-bars16.jsx').default
+  const IconOcticonTrash16: typeof import('~icons/octicon/trash16.jsx').default
   const IconOcticonX16: typeof import('~icons/octicon/x16.jsx').default
   const IconOcticonXCircleFill16: typeof import('~icons/octicon/x-circle-fill16.jsx').default
   const IconOcticonZap16: typeof import('~icons/octicon/zap16.jsx').default
+  const IconSimpleIconsAmericanexpress: typeof import('~icons/simple-icons/americanexpress.jsx').default
+  const IconSimpleIconsDinersclub: typeof import('~icons/simple-icons/dinersclub.jsx').default
+  const IconSimpleIconsDiscover: typeof import('~icons/simple-icons/discover.jsx').default
+  const IconSimpleIconsJcb: typeof import('~icons/simple-icons/jcb.jsx').default
+  const IconSimpleIconsMastercard: typeof import('~icons/simple-icons/mastercard.jsx').default
+  const IconSimpleIconsVisa: typeof import('~icons/simple-icons/visa.jsx').default
   const IconSimpleIconsX: typeof import('~icons/simple-icons/x.jsx').default
 }
