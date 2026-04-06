@@ -1380,6 +1380,165 @@ export const api = new Hono<{
 
     return c.json({ ok: true }, 200)
   })
+  .patch(
+    '/api/account',
+    validator(
+      'json',
+      z.object({
+        login: z
+          .string()
+          .min(2)
+          .max(50)
+          .regex(
+            /^[a-z0-9][a-z0-9-]*[a-z0-9]$/,
+            'Must start and end with a lowercase letter or number, and contain only lowercase letters, numbers, or hyphens',
+          )
+          .optional(),
+        name: z.string().min(1).max(100).optional(),
+      }),
+    ),
+    async (c) => {
+      if (narrowValidation) return validationError(c)
+      if (!c.var.session)
+        return c.json({ code: 'unauthorized', message: 'Authentication required' }, 401)
+
+      const json = c.req.valid('json')
+      if (!json.login && !json.name)
+        return c.json({ code: 'no_changes', message: 'No changes provided' }, 400)
+
+      if (json.login) {
+        const reservedLogins = new Set([
+          ...Constants.knownRoutes,
+          'account',
+          'admin',
+          'api',
+          'app',
+          'blog',
+          'curl',
+          'dash',
+          'docs',
+          'org',
+        ])
+        if (reservedLogins.has(json.login))
+          return c.json({ code: 'login_reserved', message: 'Login is reserved' }, 409)
+
+        const existingLogin = await c.var.db
+          .selectFrom((eb) =>
+            eb
+              .selectFrom('account')
+              .select('id')
+              .where('login', '=', json.login!)
+              .where('id', '!=', c.var.session!.account_id)
+              .unionAll(eb.selectFrom('organization').select('id').where('login', '=', json.login!))
+              .as('existing'),
+          )
+          .select('id')
+          .limit(1)
+          .executeTakeFirst()
+        if (existingLogin)
+          return c.json({ code: 'login_taken', message: 'Login is already taken' }, 409)
+      }
+
+      const set: Record<string, string> = {}
+      if (json.login) set.login = json.login
+      if (json.name) set.name = json.name
+
+      await c.var.db
+        .updateTable('account')
+        .set(set)
+        .where('id', '=', c.var.session.account_id)
+        .execute()
+
+      return c.json({ ok: true }, 200)
+    },
+  )
+  .patch(
+    '/api/orgs/:id',
+    validator(
+      'json',
+      z.object({
+        login: z
+          .string()
+          .min(2)
+          .max(50)
+          .regex(
+            /^[a-z0-9][a-z0-9-]*[a-z0-9]$/,
+            'Must start and end with a lowercase letter or number, and contain only lowercase letters, numbers, or hyphens',
+          )
+          .optional(),
+        name: z.string().min(1).max(100).optional(),
+      }),
+    ),
+    async (c) => {
+      if (narrowValidation) return validationError(c)
+      if (!c.var.session)
+        return c.json({ code: 'unauthorized', message: 'Authentication required' }, 401)
+
+      const member = await c.var.db
+        .selectFrom('organization_member')
+        .where('organization_id', '=', c.req.param('id'))
+        .where('account_id', '=', c.var.session.account_id)
+        .where('role', 'in', ['owner', 'admin'])
+        .select('id')
+        .executeTakeFirst()
+      if (!member) return c.json({ code: 'forbidden', message: 'Insufficient permissions' }, 403)
+
+      const json = c.req.valid('json')
+      if (!json.login && !json.name)
+        return c.json({ code: 'no_changes', message: 'No changes provided' }, 400)
+
+      if (json.login) {
+        const reservedLogins = new Set([
+          ...Constants.knownRoutes,
+          'account',
+          'admin',
+          'api',
+          'app',
+          'blog',
+          'curl',
+          'dash',
+          'docs',
+          'org',
+        ])
+        if (reservedLogins.has(json.login))
+          return c.json({ code: 'login_reserved', message: 'Login is reserved' }, 409)
+
+        const existingLogin = await c.var.db
+          .selectFrom((eb) =>
+            eb
+              .selectFrom('account')
+              .select('id')
+              .where('login', '=', json.login!)
+              .unionAll(
+                eb
+                  .selectFrom('organization')
+                  .select('id')
+                  .where('login', '=', json.login!)
+                  .where('id', '!=', c.req.param('id')),
+              )
+              .as('existing'),
+          )
+          .select('id')
+          .limit(1)
+          .executeTakeFirst()
+        if (existingLogin)
+          return c.json({ code: 'login_taken', message: 'Login is already taken' }, 409)
+      }
+
+      const set: Record<string, string> = {}
+      if (json.login) set.login = json.login
+      if (json.name) set.name = json.name
+
+      await c.var.db
+        .updateTable('organization')
+        .set(set)
+        .where('id', '=', c.req.param('id'))
+        .where('deleted_at', 'is', null)
+        .execute()
+
+      return c.json({ ok: true }, 200)
+    },
+  )
   .post(
     '/api/tokens',
     validator('json', z.object({ name: z.string().min(1).max(255) })),

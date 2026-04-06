@@ -28,13 +28,18 @@ declare global {
   const IconOcticonClippy16: typeof import('~icons/octicon/clippy16.jsx').default
   const IconOcticonCopy16: typeof import('~icons/octicon/copy16.jsx').default
   const IconOcticonCreditCard16: typeof import('~icons/octicon/credit-card16.jsx').default
+  const IconOcticonGear16: typeof import('~icons/octicon/gear16.jsx').default
   const IconOcticonGitCommit16: typeof import('~icons/octicon/git-commit16.jsx').default
   const IconOcticonGitPullRequest16: typeof import('~icons/octicon/git-pull-request16.jsx').default
+  const IconOcticonGraph16: typeof import('~icons/octicon/graph16.jsx').default
   const IconOcticonInfo16: typeof import('~icons/octicon/info16.jsx').default
   const IconOcticonMarkGithub16: typeof import('~icons/octicon/mark-github16.jsx').default
   const IconOcticonMarkdown16: typeof import('~icons/octicon/markdown16.jsx').default
+  const IconOcticonMeter16: typeof import('~icons/octicon/meter16.jsx').default
   const IconOcticonPaintbrush16: typeof import('~icons/octicon/paintbrush16.jsx').default
   const IconOcticonSync16: typeof import('~icons/octicon/sync16.jsx').default
+  const IconOcticonThreeBars16: typeof import('~icons/octicon/three-bars16.jsx').default
+  const IconOcticonX16: typeof import('~icons/octicon/x16.jsx').default
   const IconOcticonXCircleFill16: typeof import('~icons/octicon/x-circle-fill16.jsx').default
   const IconOcticonZap16: typeof import('~icons/octicon/zap16.jsx').default
   const IconSimpleIconsX: typeof import('~icons/simple-icons/x.jsx').default
