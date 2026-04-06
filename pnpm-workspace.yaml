@@ -51,5 +51,6 @@ overrides:
 trustPolicy: no-downgrade
 
 trustPolicyExclude:
+  - react-redux@9.2.0
   - reselect@5.1.1
   - semver@6.3.1

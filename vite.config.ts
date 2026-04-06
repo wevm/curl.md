@@ -48,7 +48,7 @@ export default defineConfig(async () => ({
         iconsResolver({
           prefix: 'Icon',
           extension: 'jsx',
-          alias: { lucide: 'lucide', octicon: 'octicon', 'simple-icons': 'simple-icons' },
+          alias: { octicon: 'octicon', 'simple-icons': 'simple-icons' },
         }),
       ],
     }),

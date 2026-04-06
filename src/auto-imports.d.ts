@@ -27,8 +27,10 @@ declare global {
   const IconOcticonCircleSlash16: typeof import('~icons/octicon/circle-slash16.jsx').default
   const IconOcticonClippy16: typeof import('~icons/octicon/clippy16.jsx').default
   const IconOcticonCopy16: typeof import('~icons/octicon/copy16.jsx').default
+  const IconOcticonCreditCard16: typeof import('~icons/octicon/credit-card16.jsx').default
   const IconOcticonGitCommit16: typeof import('~icons/octicon/git-commit16.jsx').default
   const IconOcticonGitPullRequest16: typeof import('~icons/octicon/git-pull-request16.jsx').default
+  const IconOcticonInfo16: typeof import('~icons/octicon/info16.jsx').default
   const IconOcticonMarkGithub16: typeof import('~icons/octicon/mark-github16.jsx').default
   const IconOcticonMarkdown16: typeof import('~icons/octicon/markdown16.jsx').default
   const IconOcticonPaintbrush16: typeof import('~icons/octicon/paintbrush16.jsx').default

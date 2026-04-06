@@ -1,9 +1,13 @@
 import { Menu } from '@base-ui/react/menu'
+import { Tooltip as BaseTooltip } from '@base-ui/react/tooltip'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link, notFound, redirect, useRouter } from '@tanstack/react-router'
 import { createServerFn, useServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
 import { env } from 'cloudflare:workers'
+import { sql } from 'kysely'
+import * as React from 'react'
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import * as Nav from '#components/Nav.tsx'
 import { createClient } from '#db/client.ts'
 import * as Cookie from '#lib/cookie.ts'
@@ -93,7 +97,7 @@ function Component() {
           </Menu.Portal>
         </Menu.Root>
         <Nav.Group>
-          <Link className="text-gray8 hover:text-gray10 px-3 py-1.5 text-sm" to="/">
+          <Link className="bg-gray10 text-bg1 px-3 py-1.5 text-sm" to="/">
             Docs
           </Link>
         </Nav.Group>
@@ -127,8 +131,19 @@ function DashboardContent() {
           label="Tokens Saved"
           value={Math.round(dashboard.tokens_saved).toLocaleString()}
         />
-        <StatCard label="Cost Saved" value={`$${formatCost(dashboard.tokens_saved, 3)}`} />
+        <StatCard
+          label="Cost Saved"
+          tooltip={
+            <>
+              Estimated savings based on <strong>$3/M input tokens</strong> (typical LLM rate).
+              Actual savings depend on your provider and model.
+            </>
+          }
+          value={`$${formatCost(dashboard.tokens_saved, 3)}`}
+        />
       </div>
+
+      <UsageChart daily={dashboard.daily} />
 
       <div className="mt-8">
         <h2 className="text-sm font-bold">Billing</h2>
@@ -139,13 +154,13 @@ function DashboardContent() {
         {dashboard.payment_method ? (
           <div className="bg-gray-a1/50 border-gray-a3 -mt-px flex items-center justify-between border px-3 py-3">
             <div className="flex items-center gap-3">
-              <IconLucideCreditCard className="text-gray8 size-5" />
+              <IconOcticonCreditCard16 className="text-gray8 size-5" />
               <div>
                 <span className="text-sm font-medium capitalize">
                   {dashboard.payment_method.brand}
                 </span>
                 <span className="text-gray8 ms-2 text-sm">
-                  **** {dashboard.payment_method.last4}
+                  •••• {dashboard.payment_method.last4}
                 </span>
               </div>
             </div>
@@ -169,11 +184,105 @@ function EntityAvatar(props: { avatarUrl?: string | null | undefined; name: stri
   )
 }
 
-function StatCard(props: { label: string; value: string }) {
+function StatCard(props: { label: string; tooltip?: React.ReactNode; value: string }) {
   return (
-    <div className="bg-gray-a1/50 border-gray-a3 border px-3 py-3">
+    <div className="bg-gray-a1/50 border-gray-a3 relative border px-3 py-3">
       <div className="text-gray8 text-xs">{props.label}</div>
       <div className="mt-1 text-2xl font-bold tabular-nums">{props.value}</div>
+      {props.tooltip && (
+        <BaseTooltip.Provider delay={0}>
+          <BaseTooltip.Root>
+            <BaseTooltip.Trigger
+              className="text-gray5 hover:text-gray7 absolute end-3 top-3 cursor-default"
+              render={<span />}
+            >
+              <IconOcticonInfo16 className="size-3.5" />
+            </BaseTooltip.Trigger>
+            <BaseTooltip.Portal>
+              <BaseTooltip.Positioner sideOffset={4}>
+                <BaseTooltip.Popup className="bg-bg1 border-gray-a3 before:bg-gray-a1/50 relative z-50 max-w-64 border px-2.5 py-1.5 text-xs leading-relaxed before:absolute before:inset-0 before:-z-1">
+                  {props.tooltip}
+                </BaseTooltip.Popup>
+              </BaseTooltip.Positioner>
+            </BaseTooltip.Portal>
+          </BaseTooltip.Root>
+        </BaseTooltip.Provider>
+      )}
+    </div>
+  )
+}
+
+function UsageChart(props: { daily: Array<{ date: string; tokens: number }> }) {
+  const hasData = props.daily.some((d) => d.tokens > 0)
+  const data = hasData ? props.daily.map((d) => ({ ...d, label: formatDate(d.date) })) : []
+  const max = Math.max(...props.daily.map((d) => d.tokens), 1)
+  const step = niceStep(max)
+  const ceil = Math.ceil(max / step) * step
+  const ticks = Array.from({ length: Math.round(ceil / step) + 1 }, (_, i) => i * step)
+  const yAxisWidth = Math.max(...ticks.map((t) => formatCompact(t).length)) * 8 + 8
+  return (
+    <div className="border-gray-a3 bg-gray-a1/50 relative mt-4 border px-3 py-3">
+      {hasData ? (
+        <>
+          <h2 className="text-sm">
+            <span className="font-bold">Tokens Saved Last 7 Days</span>
+          </h2>
+          <div
+            aria-label={`Usage chart: ${data.map((d) => `${d.label} ${d.tokens.toLocaleString()} tokens`).join(', ')}`}
+            className="mt-3 h-40"
+            role="img"
+          >
+            <ResponsiveContainer height="100%" width="100%">
+              <BarChart data={data} margin={{ top: 8, right: 0, bottom: 0, left: 0 }}>
+                <CartesianGrid
+                  horizontalValues={ticks}
+                  vertical={false}
+                  stroke="var(--color-gray3)"
+                />
+                <XAxis
+                  axisLine={false}
+                  dataKey="label"
+                  height={24}
+                  minTickGap={4}
+                  tick={{ fill: 'var(--color-gray8)', fontSize: 12 }}
+                  tickLine={false}
+                />
+                <YAxis
+                  axisLine={false}
+                  domain={[0, ceil]}
+                  width={yAxisWidth}
+                  tick={{ fill: 'var(--color-gray8)', fontSize: 12 }}
+                  tickFormatter={formatCompact}
+                  tickLine={false}
+                  ticks={ticks}
+                />
+                <Tooltip
+                  content={({ active, payload }) => {
+                    if (!active || !payload?.[0]) return null
+                    const { label, tokens } = payload[0].payload
+                    return (
+                      <div className="border-gray-a3 bg-bg1 border px-2.5 py-1.5 text-xs">
+                        <div className="font-medium">{label}</div>
+                        <div className="text-gray8 mt-0.5">
+                          {Number(tokens).toLocaleString()} tokens
+                        </div>
+                      </div>
+                    )
+                  }}
+                  cursor={{ fill: 'var(--color-gray3)' }}
+                  isAnimationActive={false}
+                />
+                <Bar dataKey="tokens" fill="var(--color-blue9)" isAnimationActive={false} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </>
+      ) : (
+        <div className="flex h-48 flex-col items-center justify-center">
+          <span className="text-sm font-bold">No Data</span>
+          <span className="text-gray8 mt-1 text-sm">No usage in the last 7 days.</span>
+        </div>
+      )}
     </div>
   )
 }
@@ -237,7 +346,7 @@ const getDashboardData = createServerFn({ method: 'GET' })
       env.COOKIE_SECRET,
       'curl.session',
     )
-    if (!sessionId) return { balance_mills: 0, payment_method: null, tokens_saved: 0 }
+    if (!sessionId) return { balance_mills: 0, daily: [], payment_method: null, tokens_saved: 0 }
 
     const table = c.data.entityType === 'organization' ? 'organization' : 'account'
     const billing = await db
@@ -271,9 +380,55 @@ const getDashboardData = createServerFn({ method: 'GET' })
       .select((eb) => eb.fn.sum<number>('tokens_saved').as('total'))
       .executeTakeFirst()
 
+    const sevenDaysAgo = new Date()
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6)
+    sevenDaysAgo.setHours(0, 0, 0, 0)
+
+    const dailyRows = await db
+      .selectFrom('request')
+      .where(requestColumn, '=', c.data.entityId)
+      .where('created_at', '>=', sevenDaysAgo)
+      .select([
+        sql<string>`to_char(created_at, 'YYYY-MM-DD')`.as('date'),
+        (eb) => eb.fn.coalesce(eb.fn.sum<number>('tokens_saved'), sql<number>`0`).as('tokens'),
+      ])
+      .groupBy(sql`to_char(created_at, 'YYYY-MM-DD')`)
+      .execute()
+
+    const rowMap = new Map(dailyRows.map((r) => [r.date, Number(r.tokens)]))
+    const daily: Array<{ date: string; tokens: number }> = []
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(sevenDaysAgo)
+      d.setDate(d.getDate() + i)
+      const key = d.toISOString().slice(0, 10)
+      daily.push({ date: key, tokens: rowMap.get(key) ?? 0 })
+    }
+
     return {
       balance_mills: billing?.balance_mills ?? 0,
+      daily,
       payment_method: paymentMethod,
       tokens_saved: Number(statsResult?.total ?? 0),
     }
   })
+
+function formatCompact(n: number) {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1)}M`
+  if (n >= 1_000) return `${(n / 1_000).toFixed(n % 1_000 === 0 ? 0 : 1)}k`
+  return String(n)
+}
+
+function niceStep(max: number) {
+  const rough = max / 4
+  const mag = 10 ** Math.floor(Math.log10(rough))
+  const norm = rough / mag
+  if (norm <= 1) return mag
+  if (norm <= 2) return 2 * mag
+  if (norm <= 5) return 5 * mag
+  return 10 * mag
+}
+
+function formatDate(iso: string) {
+  const [y, m, d] = iso.split('-').map(Number)
+  return new Date(y!, m! - 1, d!).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}

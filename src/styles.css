@@ -47,7 +47,7 @@ html {
   --color-blue6: light-dark(hsl(208 100% 66%), hsl(206 100% 50%));
   --color-blue7: light-dark(hsl(212 100% 48%), hsl(212 100% 48%));
   --color-blue8: light-dark(hsl(212 100% 41%), hsl(212 100% 41%));
-  --color-blue9: light-dark(hsl(211 100% 42%), hsl(210 100% 66%));
+  --color-blue9: light-dark(hsl(211 100% 42%), hsl(212 100% 48%));
   --color-blue10: light-dark(hsl(211 100% 15%), hsl(206 100% 96%));
 
   /* Geist Red */
