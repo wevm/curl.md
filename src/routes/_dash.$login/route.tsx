@@ -1,3 +1,4 @@
+import { Field } from '@base-ui/react/field'
 import { Menu } from '@base-ui/react/menu'
 import { useMutation } from '@tanstack/react-query'
 import {
@@ -13,6 +14,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
 import { env } from 'cloudflare:workers'
 import * as React from 'react'
+import { Dialog } from '#components/Dialog.tsx'
 import { Nav } from '#components/Nav.tsx'
 import { createClient } from '#db/client.ts'
 import * as Cookie from '#lib/cookie.ts'
@@ -64,6 +66,7 @@ function Component() {
         ? '/$login/settings'
         : '/$login'
   const [open, setOpen] = React.useState(false)
+  const [createOrgOpen, setCreateOrgOpen] = React.useState(false)
 
   return (
     <div className="relative flex min-h-dvh flex-col md:flex-row">
@@ -73,6 +76,7 @@ function Component() {
           account={account}
           entity={entity}
           logout={logout}
+          onCreateOrg={() => setCreateOrgOpen(true)}
           others={others}
           switchTo={switchTo}
         />
@@ -139,6 +143,14 @@ function Component() {
           </Link>
         </nav>
       </aside>
+      <CreateOrgDialog
+        onSuccess={(login) => {
+          setCreateOrgOpen(false)
+          router.navigate({ params: { login }, to: '/$login' })
+        }}
+        open={createOrgOpen}
+        setOpen={setCreateOrgOpen}
+      />
       <main className="min-w-0 flex-1 md:ms-52" id={Nav.skipId}>
         <Outlet />
       </main>
@@ -152,6 +164,7 @@ function AccountSwitcher(props: {
   account: { avatar_url: string | null; login: string }
   entity: { login: string; name: string | null; type: 'account' | 'organization' }
   logout: { isPending: boolean; mutate: () => void }
+  onCreateOrg: () => void
   others: Array<{ login: string; name: string | null; type: 'account' | 'organization' }>
   switchTo: string
 }) {
@@ -183,16 +196,120 @@ function AccountSwitcher(props: {
             ))}
             <div className="border-gray-a2 -mx-1 my-1 border-t" />
             <Menu.Item
-              className="text-gray9 hover:bg-gray-a2 hover:text-gray10 flex min-h-9 items-center p-1.5 text-sm disabled:opacity-30"
+              className="text-gray9 hover:bg-gray-a2 hover:text-gray10 flex min-h-9 items-center gap-2 p-1.5 text-sm"
+              onClick={props.onCreateOrg}
+            >
+              <IconOcticonPlus16 className="size-4" />
+              Create Organization
+            </Menu.Item>
+            <div className="border-gray-a2 -mx-1 my-1 border-t" />
+            <Menu.Item
+              className="text-gray9 hover:bg-gray-a2 hover:text-gray10 flex min-h-9 items-center gap-2 p-1.5 text-sm disabled:opacity-30"
               disabled={props.logout.isPending}
               onClick={() => props.logout.mutate()}
             >
+              <IconOcticonSignOut16 className="size-4" />
               Sign Out
             </Menu.Item>
           </Menu.Popup>
         </Menu.Positioner>
       </Menu.Portal>
     </Menu.Root>
+  )
+}
+
+function CreateOrgDialog(props: {
+  onSuccess: (login: string) => void
+  open: boolean
+  setOpen: (open: boolean) => void
+}) {
+  const [error, setError] = React.useState<string | null>(null)
+  const create = useMutation({
+    async mutationFn(formData: FormData) {
+      const login = formData.get('login') as string
+      const name = (formData.get('name') as string) || undefined
+      const res = await rpc.api.orgs.$post({ json: { login, name } })
+      if (res.status !== 200) {
+        const body = await res.json()
+        throw new Error('message' in body ? body.message : 'Failed to create organization')
+      }
+      return res.json()
+    },
+    onError(err) {
+      setError(err.message)
+    },
+    onSuccess(data) {
+      props.onSuccess(data.login)
+    },
+  })
+
+  return (
+    <Dialog.Root
+      open={props.open}
+      onOpenChange={(open) => {
+        props.setOpen(open)
+        if (!open) {
+          setError(null)
+          create.reset()
+        }
+      }}
+    >
+      <Dialog.Portal>
+        <Dialog.Backdrop />
+        <Dialog.Popup>
+          <Dialog.CloseX />
+          <Dialog.Title>Create Organization</Dialog.Title>
+          <Dialog.Description>
+            Organizations let you collaborate with others and manage shared usage.
+          </Dialog.Description>
+          <form
+            className="flex flex-col gap-4"
+            data-1p-ignore
+            onSubmit={(e) => {
+              e.preventDefault()
+              create.mutate(new FormData(e.currentTarget))
+            }}
+          >
+            <Field.Root>
+              <Field.Label className="text-gray9 text-sm">Login</Field.Label>
+              <Field.Control
+                autoComplete="off"
+                className="bg-gray-a1/50 border-gray-a3 w-full border px-3 py-2 text-sm"
+                data-1p-ignore
+                name="login"
+                pattern="[a-z0-9][a-z0-9-]*[a-z0-9]"
+                placeholder="my-org"
+                required
+              />
+              <Field.Description className="text-gray8 text-xs">
+                Lowercase letters, numbers, and hyphens only.
+              </Field.Description>
+            </Field.Root>
+            <Field.Root>
+              <Field.Label className="text-gray9 text-sm">Name (optional)</Field.Label>
+              <Field.Control
+                className="bg-gray-a1/50 border-gray-a3 w-full border px-3 py-2 text-sm"
+                name="name"
+                placeholder="My Organization"
+              />
+            </Field.Root>
+            {error && <p className="text-red9 text-sm">{error}</p>}
+            <div className="flex justify-end gap-2">
+              <Dialog.Close className="text-gray9 hover:bg-gray-a2 px-3 py-1.5 text-sm">
+                Cancel
+              </Dialog.Close>
+              <button
+                className="bg-gray10 text-bg1 px-3 py-1.5 text-sm disabled:opacity-50"
+                disabled={create.isPending}
+                type="submit"
+              >
+                {create.isPending ? 'Creating' : 'Create'}
+              </button>
+            </div>
+          </form>
+        </Dialog.Popup>
+      </Dialog.Portal>
+    </Dialog.Root>
   )
 }
 

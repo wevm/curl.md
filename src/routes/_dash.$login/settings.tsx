@@ -18,7 +18,7 @@ export const Route = createFileRoute('/_dash/$login/settings')({
 })
 
 function Component() {
-  const { entity } = Route.useRouteContext()
+  const { account, entity } = Route.useRouteContext()
   const router = useRouter()
 
   return (
@@ -29,6 +29,14 @@ function Component() {
         key={entity.id}
         onSaved={(login) => router.navigate({ params: { login }, to: '/$login/settings' })}
       />
+      {entity.type === 'organization' ? (
+        <DeleteOrganization
+          entity={entity}
+          onDeleted={() => router.navigate({ params: { login: account.login }, to: '/$login' })}
+        />
+      ) : (
+        <DeleteAccount account={account} onDeleted={() => router.navigate({ to: '/' })} />
+      )}
     </Dashboard.Content>
   )
 }
@@ -214,6 +222,191 @@ function SettingsForm(props: {
   )
 }
 
+function DeleteOrganization(props: {
+  entity: { id: string; login: string; name: string | null }
+  onDeleted: () => void
+}) {
+  const [confirmLogin, setConfirmLogin] = React.useState('')
+  const [open, setOpen] = React.useState(false)
+
+  const remove = useMutation({
+    async mutationFn() {
+      await deleteOrganization({ data: { organizationId: props.entity.id } })
+    },
+    onSuccess() {
+      setOpen(false)
+      props.onDeleted()
+    },
+  })
+
+  return (
+    <Dashboard.Section title="Danger">
+      <div className="border-red9/30 border p-4">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium">Delete organization</p>
+            <p className="text-gray8 mt-0.5 text-sm">
+              Permanently delete this organization and all its data.
+            </p>
+          </div>
+          <button
+            className="bg-red9 text-bg1 shrink-0 px-3 py-1.5 text-sm transition-opacity hover:opacity-90"
+            onClick={() => setOpen(true)}
+            type="button"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+
+      <Dialog.Root
+        open={open}
+        onOpenChange={(open) => {
+          if (!open) {
+            setOpen(false)
+            setConfirmLogin('')
+            remove.reset()
+          }
+        }}
+      >
+        <Dialog.Portal>
+          <Dialog.Backdrop />
+          <Dialog.Popup>
+            <Dialog.CloseX />
+            <Dialog.Title>Delete organization</Dialog.Title>
+            <div className="bg-red3/20 border-red5/30 text-red9 border px-3 py-2 text-sm">
+              <p className="flex items-center gap-1.5 font-medium">
+                <IconOcticonStop16 />
+                Danger
+              </p>
+              <p className="mt-1">
+                This is permanent and cannot be undone. All organization data will be deleted.
+              </p>
+            </div>
+            <Dialog.Description>
+              To confirm, type the organization login{' '}
+              <span className="text-gray12 font-medium">{props.entity.login}</span>.
+            </Dialog.Description>
+            <input
+              autoComplete="off"
+              className="bg-gray-a1/50 border-gray-a3 w-full border px-3 py-2 text-sm"
+              data-1p-ignore
+              onChange={(e) => setConfirmLogin(e.target.value)}
+              placeholder={props.entity.login}
+              value={confirmLogin}
+            />
+            {remove.isError && <p className="text-red9 text-sm">{remove.error.message}</p>}
+            <div className="flex justify-end gap-2">
+              <Dialog.Close className="text-gray9 hover:bg-gray-a2 px-3 py-1.5 text-sm">
+                Cancel
+              </Dialog.Close>
+              <button
+                className="bg-red9 text-bg1 px-3 py-1.5 text-sm disabled:opacity-50"
+                disabled={confirmLogin !== props.entity.login || remove.isPending}
+                onClick={() => remove.mutate()}
+                type="button"
+              >
+                {remove.isPending ? 'Deleting' : 'Delete organization'}
+              </button>
+            </div>
+          </Dialog.Popup>
+        </Dialog.Portal>
+      </Dialog.Root>
+    </Dashboard.Section>
+  )
+}
+
+function DeleteAccount(props: { account: { id: string; login: string }; onDeleted: () => void }) {
+  const [confirmLogin, setConfirmLogin] = React.useState('')
+  const [open, setOpen] = React.useState(false)
+
+  const remove = useMutation({
+    async mutationFn() {
+      await deleteAccount({ data: { accountId: props.account.id } })
+    },
+    onSuccess() {
+      setOpen(false)
+      props.onDeleted()
+    },
+  })
+
+  return (
+    <Dashboard.Section title="Danger">
+      <div className="border-red9/30 border p-4">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium">Delete account</p>
+            <p className="text-gray8 mt-0.5 text-sm">
+              Permanently delete your account and all its data.
+            </p>
+          </div>
+          <button
+            className="bg-red9 text-bg1 shrink-0 px-3 py-1.5 text-sm transition-opacity hover:opacity-90"
+            onClick={() => setOpen(true)}
+            type="button"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+
+      <Dialog.Root
+        open={open}
+        onOpenChange={(open) => {
+          if (!open) {
+            setOpen(false)
+            setConfirmLogin('')
+            remove.reset()
+          }
+        }}
+      >
+        <Dialog.Portal>
+          <Dialog.Backdrop />
+          <Dialog.Popup>
+            <Dialog.CloseX />
+            <Dialog.Title>Delete account</Dialog.Title>
+            <div className="bg-red3/20 border-red5/30 text-red9 border px-3 py-2 text-sm">
+              <p className="flex items-center gap-1.5 font-medium">
+                <IconOcticonStop16 />
+                Danger
+              </p>
+              <p className="mt-1">
+                This is permanent and cannot be undone. All account data will be deleted.
+              </p>
+            </div>
+            <Dialog.Description>
+              To confirm, type your login{' '}
+              <span className="text-gray12 font-medium">{props.account.login}</span>.
+            </Dialog.Description>
+            <input
+              autoComplete="off"
+              className="bg-gray-a1/50 border-gray-a3 w-full border px-3 py-2 text-sm"
+              data-1p-ignore
+              onChange={(e) => setConfirmLogin(e.target.value)}
+              placeholder={props.account.login}
+              value={confirmLogin}
+            />
+            {remove.isError && <p className="text-red9 text-sm">{remove.error.message}</p>}
+            <div className="flex justify-end gap-2">
+              <Dialog.Close className="text-gray9 hover:bg-gray-a2 px-3 py-1.5 text-sm">
+                Cancel
+              </Dialog.Close>
+              <button
+                className="bg-red9 text-bg1 px-3 py-1.5 text-sm disabled:opacity-50"
+                disabled={confirmLogin !== props.account.login || remove.isPending}
+                onClick={() => remove.mutate()}
+                type="button"
+              >
+                {remove.isPending ? 'Deleting' : 'Delete account'}
+              </button>
+            </div>
+          </Dialog.Popup>
+        </Dialog.Portal>
+      </Dialog.Root>
+    </Dashboard.Section>
+  )
+}
+
 // --- Server Functions ---
 
 const updateEntityInput = z.object({
@@ -306,4 +499,102 @@ const updateEntity = createServerFn({ method: 'POST' })
     } else {
       await db.updateTable('account').set(set).where('id', '=', accountId).execute()
     }
+  })
+
+const deleteOrganization = createServerFn({ method: 'POST' })
+  .inputValidator((data: { organizationId: string }) => data)
+  .handler(async (c) => {
+    const request = getRequest()
+    const db = createClient(env.DB.connectionString)
+    const sessionId = await Cookie.parseSigned(
+      request.headers.get('cookie') ?? '',
+      env.COOKIE_SECRET,
+      'curl.session',
+    )
+    const accountId = sessionId
+      ? ((
+          await db
+            .selectFrom('session')
+            .where('id', '=', sessionId)
+            .where('expires_at', '>', new Date())
+            .select('account_id')
+            .executeTakeFirst()
+        )?.account_id ?? null)
+      : null
+    if (!accountId) throw new Error('Authentication required')
+
+    const member = await db
+      .selectFrom('organization_member')
+      .where('organization_id', '=', c.data.organizationId)
+      .where('account_id', '=', accountId)
+      .where('role', '=', 'owner')
+      .select('id')
+      .executeTakeFirst()
+    if (!member) throw new Error('Insufficient permissions')
+
+    const org = await db
+      .selectFrom('organization')
+      .where('id', '=', c.data.organizationId)
+      .where('deleted_at', 'is', null)
+      .select('balance_mills')
+      .executeTakeFirst()
+    if (!org) throw new Error('Organization not found')
+    if (org.balance_mills !== 0) throw new Error('Organization has a non-zero balance')
+
+    await db
+      .updateTable('organization')
+      .set({ deleted_at: new Date() })
+      .where('id', '=', c.data.organizationId)
+      .where('deleted_at', 'is', null)
+      .execute()
+  })
+
+const deleteAccount = createServerFn({ method: 'POST' })
+  .inputValidator((data: { accountId: string }) => data)
+  .handler(async (c) => {
+    const request = getRequest()
+    const db = createClient(env.DB.connectionString)
+    const sessionId = await Cookie.parseSigned(
+      request.headers.get('cookie') ?? '',
+      env.COOKIE_SECRET,
+      'curl.session',
+    )
+    const accountId = sessionId
+      ? ((
+          await db
+            .selectFrom('session')
+            .where('id', '=', sessionId)
+            .where('expires_at', '>', new Date())
+            .select('account_id')
+            .executeTakeFirst()
+        )?.account_id ?? null)
+      : null
+    if (!accountId) throw new Error('Authentication required')
+    if (accountId !== c.data.accountId) throw new Error('Insufficient permissions')
+
+    const account = await db
+      .selectFrom('account')
+      .where('id', '=', accountId)
+      .where('deleted_at', 'is', null)
+      .select('balance_mills')
+      .executeTakeFirst()
+    if (!account) throw new Error('Account not found')
+    if (account.balance_mills !== 0) throw new Error('Account has a non-zero balance')
+
+    const ownedOrg = await db
+      .selectFrom('organization_member')
+      .innerJoin('organization', 'organization.id', 'organization_member.organization_id')
+      .where('organization_member.account_id', '=', accountId)
+      .where('organization_member.role', '=', 'owner')
+      .where('organization.deleted_at', 'is', null)
+      .select('organization.id')
+      .executeTakeFirst()
+    if (ownedOrg) throw new Error('You must transfer or delete owned organizations first')
+
+    await db
+      .updateTable('account')
+      .set({ deleted_at: new Date() })
+      .where('id', '=', accountId)
+      .where('deleted_at', 'is', null)
+      .execute()
   })

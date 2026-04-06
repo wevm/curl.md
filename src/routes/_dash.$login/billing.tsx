@@ -100,7 +100,7 @@ function Component() {
         <Dashboard.Stat label="Credits Remaining" value={`$${balanceDollars}`} />
         <Dashboard.Stat
           label="Requests Remaining"
-          value={`~${estimateRequests(data.balance_mills)}`}
+          value={data.balance_mills ? `~${estimateRequests(data.balance_mills)}` : undefined}
         />
       </div>
 

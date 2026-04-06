@@ -30,7 +30,7 @@ function Popup(props: React.ComponentProps<typeof BaseDialog.Popup>) {
   return (
     <BaseDialog.Popup
       {...props}
-      className="bg-bg1 border-gray-a3 fixed start-1/2 top-[40%] z-50 flex w-full max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4 border p-6"
+      className="bg-bg1 border-gray-a3 fixed start-1/2 top-[15%] z-50 flex w-full max-w-md -translate-x-1/2 flex-col gap-4 border p-6"
     />
   )
 }

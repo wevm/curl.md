@@ -50,6 +50,8 @@ declare global {
   const IconOcticonPaintbrush16: typeof import('~icons/octicon/paintbrush16.jsx').default
   const IconOcticonPeople16: typeof import('~icons/octicon/people16.jsx').default
   const IconOcticonPlus16: typeof import('~icons/octicon/plus16.jsx').default
+  const IconOcticonSignOut16: typeof import('~icons/octicon/sign-out16.jsx').default
+  const IconOcticonStop16: typeof import('~icons/octicon/stop16.jsx').default
   const IconOcticonSync16: typeof import('~icons/octicon/sync16.jsx').default
   const IconOcticonTag16: typeof import('~icons/octicon/tag16.jsx').default
   const IconOcticonTerminal16: typeof import('~icons/octicon/terminal16.jsx').default
