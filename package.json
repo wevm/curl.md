@@ -94,7 +94,7 @@
     "tiny-jsonc": "^1.0.2",
     "unplugin-auto-import": "^21.0.0",
     "unplugin-icons": "^23.0.1",
-    "vite": "^8.0.0",
+    "vite": "^8.0.5",
     "vitest": "^4.1.0",
     "wrangler": "^4.80.0"
   },
