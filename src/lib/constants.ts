@@ -30,7 +30,16 @@ export const attribution = {
 
 export const sentinelValue = 'NONE'
 
-export const routes = ['', 'auth', 'credits', 'home', 'invite', 'login', 'playground'] as const
+export const routes = [
+  '',
+  'auth',
+  'credits',
+  'docs',
+  'home',
+  'invite',
+  'login',
+  'playground',
+] as const
 export const knownRoutes: Set<string> = new Set(routes)
 
 export const reservedLogins: Set<string> = new Set([

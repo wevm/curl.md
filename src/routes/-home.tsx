@@ -49,7 +49,7 @@ export function Home(props: { login?: string | null | undefined }) {
       <Nav.Root fixed>
         <Nav.Logo />
         <Nav.Group>
-          <Link className="text-gray8 hover:text-gray10 px-3 py-1.5 text-sm" to="/">
+          <Link className="text-gray8 hover:text-gray10 px-3 py-1.5 text-sm" to="/docs">
             Docs
           </Link>
           {login ? (
@@ -121,7 +121,7 @@ export function Home(props: { login?: string | null | undefined }) {
 
       <footer className="mt-24 flex w-full items-center justify-center gap-4 px-6 py-6 text-sm md:mt-48">
         <div className="flex flex-wrap items-center justify-center gap-4 md:gap-6">
-          <Link className="text-gray8 hover:text-gray10" to="/">
+          <Link className="text-gray8 hover:text-gray10" to="/docs">
             Docs
           </Link>
           <Link className="text-gray8 hover:text-gray10" to="/">
@@ -282,9 +282,9 @@ function TokensSaved() {
       <span className="text-gray8">
         <span className="tabular-nums">{Math.round(animated).toLocaleString()}</span> tokens saved
       </span>
-      <a className="text-gray8/90 hidden hover:underline md:inline" href="/docs/TODO">
+      <Link className="text-gray8/90 hidden hover:underline md:inline" to="/docs">
         Install now
-      </a>
+      </Link>
     </p>
   )
 }

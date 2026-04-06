@@ -13,6 +13,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
 import { env } from 'cloudflare:workers'
 import * as React from 'react'
+import { Nav } from '#components/Nav.tsx'
 import { createClient } from '#db/client.ts'
 import * as Cookie from '#lib/cookie.ts'
 import { rpc } from '#lib/rpc.ts'
@@ -66,6 +67,7 @@ function Component() {
 
   return (
     <div className="relative flex min-h-dvh flex-col md:flex-row">
+      <Nav.Skip />
       <aside className="bg-bg1 border-gray-a3 sticky top-0 z-10 flex flex-row flex-wrap items-center justify-between border-b px-4 py-4 md:fixed md:top-0 md:h-dvh md:w-52 md:flex-col md:flex-nowrap md:items-stretch md:justify-start md:border-e md:border-b-0">
         <AccountSwitcher
           account={account}
@@ -119,9 +121,11 @@ function Component() {
             Settings
           </SidebarLink>
 
+          <div className="border-gray-a3 my-1.5 border-t" />
+
           <Link
             className="text-gray8 hover:text-gray10 hover:bg-gray-a2 flex items-center gap-2 px-2 py-1.5 text-sm"
-            to="/"
+            to="/docs"
           >
             <IconOcticonBook16 />
             Docs
@@ -135,7 +139,7 @@ function Component() {
           </Link>
         </nav>
       </aside>
-      <main className="flex-1 md:ms-52">
+      <main className="min-w-0 flex-1 md:ms-52" id={Nav.skipId}>
         <Outlet />
       </main>
     </div>
@@ -153,13 +157,13 @@ function AccountSwitcher(props: {
 }) {
   return (
     <Menu.Root>
-      <Menu.Trigger className="hover:bg-gray-a2 flex cursor-default items-center gap-2 px-2 py-1.5 text-sm">
+      <Menu.Trigger className="hover:bg-gray-a2 flex cursor-default items-center gap-2 px-2 py-1.5 text-sm md:w-full">
         <EntityAvatar
           avatarUrl={props.entity.type === 'account' ? props.account.avatar_url : undefined}
           name={props.entity.name ?? props.entity.login}
         />
         <span className="truncate">{props.entity.name ?? props.entity.login}</span>
-        <IconOcticonChevronDown16 className="text-gray8 size-3.5 shrink-0" />
+        <IconLucideChevronsUpDown className="text-gray8 ms-auto size-3.5 shrink-0" />
       </Menu.Trigger>
       <Menu.Portal>
         <Menu.Positioner align="start" className="z-20 max-md:!w-[calc(100vw-2rem)]" sideOffset={8}>
