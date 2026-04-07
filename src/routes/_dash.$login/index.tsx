@@ -31,6 +31,7 @@ function Component() {
     queryKey: ['dashboard-usage', entity.id],
     queryFn: () => fetchUsage({ data: { entityId: entity.id, entityType: entity.type } }),
     refetchInterval: 10_000,
+    staleTime: 10_000,
   })
 
   return (

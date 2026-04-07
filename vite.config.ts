@@ -1,15 +1,12 @@
 import * as child from 'node:child_process'
 import { cloudflare } from '@cloudflare/vite-plugin'
-import mdx from '@mdx-js/rollup'
 import tailwindcss from '@tailwindcss/vite'
 import { tanstackStart } from '@tanstack/react-start/plugin/vite'
 import viteReact from '@vitejs/plugin-react'
-import remarkGfm from 'remark-gfm'
 import autoImport from 'unplugin-auto-import/vite'
 import iconsResolver from 'unplugin-icons/resolver'
 import icons from 'unplugin-icons/vite'
-import { defineConfig, type Plugin } from 'vite'
-import { parse as parseYaml } from 'yaml'
+import { defineConfig } from 'vite'
 import { explorerOriginRewrite, getWranglerVar } from './config/wrangler.ts'
 import { createClient } from './db/client.ts'
 import { Env } from './test/env.ts'
@@ -20,8 +17,6 @@ export default defineConfig(async () => ({
   },
   plugins: [
     tailwindcss(),
-    mdxFrontmatter(),
-    viteMdx(),
     // Vite/Miniflare can throw uncaught socket errors (ECONNRESET, EPIPE) during
     // SSR fetches when a client disconnects mid-request.
     // https://github.com/cloudflare/workers-sdk/issues/12047
@@ -72,7 +67,7 @@ export default defineConfig(async () => ({
         }),
       ],
     }),
-    viteReact({ include: [/\.[jt]sx?$/, /\.mdx?$/] }),
+    viteReact(),
   ],
   define: {
     __GIT_SHA__: JSON.stringify(
@@ -107,39 +102,3 @@ export default defineConfig(async () => ({
     })(),
   },
 }))
-
-function mdxFrontmatter(): Plugin {
-  return {
-    enforce: 'pre',
-    name: 'mdx-frontmatter',
-    transform(code, id) {
-      if (!/\.mdx?$/.test(id)) return
-
-      const { content, frontmatter } = parseFrontmatter(code, id)
-      return {
-        code: `export const frontmatter = ${JSON.stringify(frontmatter)}\n${content}`,
-        map: null,
-      }
-    },
-  }
-}
-
-function viteMdx(): Plugin {
-  const plugin = mdx({ include: /\.mdx?$/, remarkPlugins: [remarkGfm] }) as Plugin
-  return { ...plugin, enforce: 'pre' }
-}
-
-function parseFrontmatter(code: string, id: string) {
-  const match = code.match(/^\uFEFF?---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/)
-  if (!match) return { content: code, frontmatter: {} }
-
-  const parsed = parseYaml(match[1] ?? '')
-  if (parsed == null) return { content: code.slice(match[0].length), frontmatter: {} }
-  if (typeof parsed !== 'object' || Array.isArray(parsed))
-    throw new Error(`Frontmatter in ${id} must be a YAML object`)
-
-  return {
-    content: code.slice(match[0].length),
-    frontmatter: parsed,
-  }
-}

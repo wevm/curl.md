@@ -69,7 +69,6 @@
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "~0.14.1",
     "@iconify/json": "^2.2.344",
-    "@mdx-js/rollup": "^3.1.1",
     "@playwright/test": "^1.58.2",
     "@svgr/core": "^8.1.0",
     "@svgr/plugin-jsx": "^8.1.0",

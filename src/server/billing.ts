@@ -5,14 +5,11 @@ import Stripe from 'stripe'
 import { createClient } from '#db/client.ts'
 import * as Cookie from '#lib/cookie.ts'
 
-export type PaymentMethod = {
-  brand: string
-  exp_month: number
-  exp_year: number
-  funding: string
-  id: string
-  last4: string
-}
+export type PaymentMethod = Pick<Stripe.PaymentMethod, 'id'> &
+  Pick<
+    NonNullable<Stripe.PaymentMethod['card']>,
+    'brand' | 'exp_month' | 'exp_year' | 'funding' | 'last4'
+  >
 
 export const getBillingData = createServerFn({ method: 'GET' })
   .inputValidator((d: { entityId: string; entityType: 'account' | 'organization' }) => d)
