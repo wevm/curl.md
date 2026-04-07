@@ -131,46 +131,49 @@ function UsageChart(props: { daily: Array<{ date: string; tokens: number }> }) {
   const [mode, setMode] = React.useState<'cost' | 'tokens'>('tokens')
   React.useEffect(() => setMounted(true), [])
   const hasData = props.daily.some((d) => d.tokens > 0)
-  return (
-    <div className="border-gray-a3 bg-gray-a1/50 relative mt-3 flex h-[228px] flex-col border px-3 py-3">
-      {hasData ? (
-        <>
-          <div className="flex items-center gap-2">
-            <ToggleGroup
-              className="border-gray-a3 flex border p-0.5 text-xs"
-              defaultValue={[mode]}
-              onValueChange={(value) => {
-                if (value.length > 0) setMode(value[0] as 'cost' | 'tokens')
-              }}
-            >
-              <Toggle
-                className="text-gray8 hover:text-gray10 data-[pressed]:bg-gray-a2 data-[pressed]:text-gray10 px-2.5 py-1"
-                value="tokens"
-              >
-                Tokens
-              </Toggle>
-              <Toggle
-                className="text-gray8 hover:text-gray10 data-[pressed]:bg-gray-a2 data-[pressed]:text-gray10 px-2.5 py-1"
-                value="cost"
-              >
-                Cost
-              </Toggle>
-            </ToggleGroup>
-            <span className="text-gray8 text-xs">Saved Last 7 Days</span>
-          </div>
-          {mounted ? (
-            <React.Suspense fallback={<div className="bg-gray-a1/50 mt-3 h-56" />}>
-              <LazyUsageChart daily={props.daily} mode={mode} />
-            </React.Suspense>
-          ) : (
-            <div className="bg-gray-a1/50 mt-3 h-56" />
-          )}
-        </>
-      ) : (
+
+  if (!hasData) {
+    return (
+      <div className="border-gray-a3 bg-gray-a1/50 relative mt-3 flex h-[228px] flex-col border px-3 py-3">
         <div className="flex flex-1 flex-col items-center justify-center">
           <span className="text-sm font-bold">No Data</span>
           <span className="text-gray8 mt-1 text-sm">No usage in the last 7 days.</span>
         </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="border-gray-a3 bg-gray-a1/50 relative mt-3 flex h-[228px] flex-col border px-3 py-3">
+      <div className="flex items-center gap-2">
+        <ToggleGroup
+          className="border-gray-a3 flex border p-0.5 text-xs"
+          defaultValue={[mode]}
+          onValueChange={(value) => {
+            if (value.length > 0) setMode(value[0] as 'cost' | 'tokens')
+          }}
+        >
+          <Toggle
+            className="text-gray8 hover:text-gray10 data-[pressed]:bg-gray-a2 data-[pressed]:text-gray10 px-2.5 py-1"
+            value="tokens"
+          >
+            Tokens
+          </Toggle>
+          <Toggle
+            className="text-gray8 hover:text-gray10 data-[pressed]:bg-gray-a2 data-[pressed]:text-gray10 px-2.5 py-1"
+            value="cost"
+          >
+            Cost
+          </Toggle>
+        </ToggleGroup>
+        <span className="text-gray8 text-xs">Saved Last 7 Days</span>
+      </div>
+      {mounted ? (
+        <React.Suspense fallback={<div className="bg-gray-a1/50 mt-3 h-56" />}>
+          <LazyUsageChart daily={props.daily} mode={mode} />
+        </React.Suspense>
+      ) : (
+        <div className="bg-gray-a1/50 mt-3 h-56" />
       )}
     </div>
   )

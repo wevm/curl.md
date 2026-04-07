@@ -1,7 +1,6 @@
 import * as React from 'react'
 import { Bar, BarChart, CartesianGrid, Tooltip, XAxis, YAxis } from 'recharts'
-
-const COST_PER_TOKEN = 3 / 1_000_000
+import { estimateCost } from '#lib/format.ts'
 
 export function UsageChart(props: {
   daily: Array<{ date: string; tokens: number }>
@@ -26,7 +25,7 @@ export function UsageChart(props: {
   const data = props.daily.map((d) => ({
     ...d,
     label: formatDate(d.date),
-    value: isCost ? d.tokens * COST_PER_TOKEN : d.tokens,
+    value: isCost ? estimateCost(d.tokens, 3) : d.tokens,
   }))
   const max = Math.max(...data.map((d) => d.value), isCost ? 0.01 : 1)
   const step = niceStep(max)
