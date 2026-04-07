@@ -16,6 +16,7 @@ import { getRequest } from '@tanstack/react-start/server'
 import { env } from 'cloudflare:workers'
 import * as React from 'react'
 import { z } from 'zod/v4'
+import { Dashboard } from '#components/Dashboard.tsx'
 import { Dialog } from '#components/Dialog.tsx'
 import { Nav } from '#components/Nav.tsx'
 import { createClient } from '#db/client.ts'
@@ -40,6 +41,7 @@ export const Route = createFileRoute('/_dash/$login')({
   validateSearch: searchSchema,
   loader: () => {},
   component: Component,
+  notFoundComponent: DashboardNotFound,
 })
 
 function Component() {
@@ -208,7 +210,7 @@ function AccountSwitcher(props: {
                 <span className="truncate">{e.name ?? e.login}</span>
               </Menu.Item>
             ))}
-            <div className="border-gray-a2 -mx-1 my-1 border-t" />
+            {props.others.length > 0 && <div className="border-gray-a2 -mx-1 my-1 border-t" />}
             <Menu.Item
               className="text-gray9 hover:bg-gray-a2 hover:text-gray10 flex min-h-9 items-center gap-2 p-1.5 text-sm select-none"
               onClick={props.onCreateOrg}
@@ -229,6 +231,27 @@ function AccountSwitcher(props: {
         </Menu.Positioner>
       </Menu.Portal>
     </Menu.Root>
+  )
+}
+
+function DashboardNotFound() {
+  const { login } = Route.useParams()
+
+  return (
+    <Dashboard.Content>
+      <Dashboard.Heading level={1}>Not Found</Dashboard.Heading>
+      <div className="bg-gray-a1/50 border-gray-a3 border px-4 py-5">
+        <p className="text-sm font-bold">This dashboard page does not exist.</p>
+        <p className="text-gray8 mt-1 text-sm">Check the URL or go back to the overview.</p>
+        <Link
+          className="bg-gray10 text-bg1 mt-4 inline-flex px-3 py-1.5 text-sm transition-opacity hover:opacity-90"
+          params={{ login }}
+          to="/$login"
+        >
+          Back to overview
+        </Link>
+      </div>
+    </Dashboard.Content>
   )
 }
 
