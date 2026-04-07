@@ -1,7 +1,8 @@
 import { Dialog as BaseDialog } from '@base-ui/react/dialog'
+import * as React from 'react'
 
-function Backdrop(props: React.ComponentProps<typeof BaseDialog.Backdrop>) {
-  return <BaseDialog.Backdrop {...props} className="fixed inset-0 z-50 bg-black/80" />
+function Backdrop() {
+  return null
 }
 
 function Close(props: React.ComponentProps<typeof BaseDialog.Close>) {
@@ -27,11 +28,31 @@ function Description(props: React.ComponentProps<typeof BaseDialog.Description>)
 }
 
 function Popup(props: React.ComponentProps<typeof BaseDialog.Popup>) {
+  const { children, ...rest } = props
+  const closeRef = React.useRef<HTMLButtonElement>(null)
+
   return (
-    <BaseDialog.Popup
-      {...props}
-      className="bg-bg1 border-gray-a3 fixed start-1/2 top-[15%] z-50 flex w-full max-w-md -translate-x-1/2 flex-col gap-4 border p-6"
-    />
+    <div
+      className="fixed inset-0 z-50 overflow-y-auto bg-black/80 [scrollbar-gutter:stable] [scrollbar-width:thin]"
+      onPointerDown={(e) => {
+        if (e.target === e.currentTarget) closeRef.current?.click()
+      }}
+    >
+      <BaseDialog.Close ref={closeRef} className="hidden" tabIndex={-1} />
+      <div
+        className="flex min-h-full items-start justify-center"
+        onPointerDown={(e) => {
+          if (e.target === e.currentTarget) closeRef.current?.click()
+        }}
+      >
+        <BaseDialog.Popup
+          {...rest}
+          className="bg-bg1 border-gray-a3 pointer-events-auto relative my-[15dvh] flex w-full max-w-md flex-col gap-4 border p-6"
+        >
+          {children}
+        </BaseDialog.Popup>
+      </div>
+    </div>
   )
 }
 

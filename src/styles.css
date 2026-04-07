@@ -180,6 +180,11 @@ html[data-theme='dark'] {
   color-scheme: dark;
 }
 
+@utility dialog-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-gray-a5) transparent;
+}
+
 @utility minimal-scrollbar {
   scrollbar-width: thin;
   scrollbar-color: var(--color-gray-a3) transparent;

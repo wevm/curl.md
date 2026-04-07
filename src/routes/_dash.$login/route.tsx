@@ -8,17 +8,23 @@ import {
   Outlet,
   redirect,
   useMatches,
+  useNavigate,
   useRouter,
 } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
 import { env } from 'cloudflare:workers'
 import * as React from 'react'
+import { z } from 'zod/v4'
 import { Dialog } from '#components/Dialog.tsx'
 import { Nav } from '#components/Nav.tsx'
 import { createClient } from '#db/client.ts'
 import * as Cookie from '#lib/cookie.ts'
 import { rpc } from '#lib/rpc.ts'
+
+const searchSchema = z.object({
+  modal: z.enum(['create_org']).optional(),
+})
 
 export const Route = createFileRoute('/_dash/$login')({
   async beforeLoad({ location, params }) {
@@ -31,6 +37,7 @@ export const Route = createFileRoute('/_dash/$login')({
     if (!data) throw notFound()
     return data
   },
+  validateSearch: searchSchema,
   loader: () => {},
   component: Component,
 })
@@ -66,7 +73,17 @@ function Component() {
         ? '/$login/settings'
         : '/$login'
   const [open, setOpen] = React.useState(false)
-  const [createOrgOpen, setCreateOrgOpen] = React.useState(false)
+  const { modal } = Route.useSearch()
+  const navigate = useNavigate()
+  const createOrgOpen = modal === 'create_org'
+  const setCreateOrgOpen = React.useCallback(
+    (open: boolean) =>
+      navigate({
+        from: '/$login',
+        search: (prev) => ({ ...prev, modal: open ? ('create_org' as const) : undefined }),
+      }),
+    [navigate],
+  )
 
   return (
     <div className="relative flex min-h-dvh flex-col md:flex-row">
@@ -144,10 +161,7 @@ function Component() {
         </nav>
       </aside>
       <CreateOrgDialog
-        onSuccess={(login) => {
-          setCreateOrgOpen(false)
-          router.navigate({ params: { login }, to: '/$login' })
-        }}
+        onSuccess={(login) => router.navigate({ params: { login }, search: {}, to: '/$login' })}
         open={createOrgOpen}
         setOpen={setCreateOrgOpen}
       />
