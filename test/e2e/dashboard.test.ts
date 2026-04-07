@@ -15,20 +15,48 @@ test('shows stats with zero values for new account', async ({ factory, page, set
   await expect(page.getByRole('button', { name: 'Add payment method' })).toBeVisible()
 })
 
-test('opens add payment method dialog from query param', async ({ factory, page, setSession }) => {
+test('opens add payment method dialog with a masked route', async ({
+  factory,
+  page,
+  setSession,
+}) => {
   const account = await factory.account.insert({})
   await setSession(account.id)
 
-  await page.goto(`/${account.login}/billing?modal=add_payment_method`)
+  await page.goto(`/${account.login}/billing`, { waitUntil: 'networkidle' })
+  await page.getByRole('button', { name: 'Add payment method' }).click()
 
+  await expect(page.getByRole('heading', { name: 'Add payment method' })).toBeVisible()
+  await expect(page).toHaveURL(new RegExp(`/${account.login}/billing$`))
+
+  await page.reload()
+
+  await page.waitForURL(new RegExp(`/${account.login}/billing/add_payment_method$`))
   await expect(page.getByRole('heading', { name: 'Add payment method' })).toBeVisible()
 })
 
-test('opens add credits dialog from query param', async ({ factory, page, setSession }) => {
+test('opens add credits dialog with a masked route', async ({ factory, page, setSession }) => {
   const account = await factory.account.insert({})
   await setSession(account.id)
 
-  await page.goto(`/${account.login}/billing?modal=add_credits&payment_id=nonexistent-id`)
+  await page.goto(`/${account.login}/billing`, { waitUntil: 'networkidle' })
+  await page.getByRole('button', { exact: true, name: 'Add $5' }).click()
+
+  await expect(page.getByRole('heading', { name: 'Add credits' })).toBeVisible()
+  await expect(page.getByText('Add prepaid credits to your account.')).toBeVisible()
+  await expect(page).toHaveURL(new RegExp(`/${account.login}/billing$`))
+
+  await page.goBack()
+
+  await expect(page.getByRole('heading', { name: 'Add credits' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Add payment method' })).toBeVisible()
+})
+
+test('opens add credits dialog from the direct route', async ({ factory, page, setSession }) => {
+  const account = await factory.account.insert({})
+  await setSession(account.id)
+
+  await page.goto(`/${account.login}/billing/add_credits/nonexistent-id`)
 
   await expect(page.getByRole('heading', { name: 'Add credits' })).toBeVisible()
   await expect(page.getByText('Add prepaid credits to your account.')).toBeVisible()

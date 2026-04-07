@@ -23,12 +23,6 @@ const executionCtx = {
 }
 const client = testClient(api, env, executionCtx)
 
-function toSearchParams(formData: FormData) {
-  return new URLSearchParams(
-    Array.from(formData.entries()).map(([key, value]) => [key, String(value)]),
-  )
-}
-
 afterAll(() => db.destroy())
 
 describe('GET /api/auth/github', () => {
@@ -780,7 +774,7 @@ describe('POST /api/credits/add', () => {
         stripeVersions.add(request.headers.get('stripe-version') ?? '')
         customerSessionBody = toSearchParams(await request.formData()).toString()
         return HttpResponse.json({
-          client_secret: '[REDACTED:secret-value]',
+          client_secret: 'cs_test_dummy_secret',
           object: 'customer_session',
         })
       }),
@@ -895,7 +889,7 @@ describe('POST /api/credits/add', () => {
           toSearchParams(await request.formData()).toString(),
         )
         return HttpResponse.json({
-          client_secret: '[REDACTED:secret-value]',
+          client_secret: 'cs_test_dummy_secret',
           object: 'customer_session',
         })
       }),
@@ -951,7 +945,7 @@ describe('POST /api/credits/add', () => {
           )
 
         return HttpResponse.json({
-          client_secret: '[REDACTED:secret-value]',
+          client_secret: 'cs_test_dummy_secret',
           object: 'customer_session',
         })
       }),
@@ -975,7 +969,7 @@ describe('POST /api/credits/add', () => {
 
     const kvData = await env.KV.get(`payment:${json.payment_id}`, 'json')
     expect(kvData).toMatchObject({
-      cs_secret: '[REDACTED:secret-value]',
+      cs_secret: 'cs_test_dummy_secret',
       has_saved_payment_methods: true,
       saved_payment_methods_unavailable: false,
     })
@@ -1390,7 +1384,7 @@ describe('POST /api/credits/charge', () => {
       ),
       http.post('https://api.stripe.com/v1/customer_sessions', () =>
         HttpResponse.json({
-          client_secret: '[REDACTED:secret-value]',
+          client_secret: 'cs_test_dummy_secret',
           object: 'customer_session',
         }),
       ),
@@ -1416,7 +1410,7 @@ describe('POST /api/credits/charge', () => {
     const kvData = await env.KV.get(`payment:${json.payment_id}`, 'json')
     expect(kvData).toMatchObject({
       amount: 1000,
-      cs_secret: '[REDACTED:secret-value]',
+      cs_secret: 'cs_test_dummy_secret',
       locked: true,
       pi_secret: 'pi_3ds_error_secret',
     })
@@ -3983,3 +3977,9 @@ describe('POST /api/sentry/tunnel', () => {
     })
   })
 })
+
+function toSearchParams(formData: FormData) {
+  return new URLSearchParams(
+    Array.from(formData.entries()).map(([key, value]) => [key, String(value)]),
+  )
+}
