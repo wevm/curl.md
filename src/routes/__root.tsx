@@ -74,6 +74,10 @@ function RootDocument(props: React.PropsWithChildren) {
           dangerouslySetInnerHTML={{ __html: themeScript }}
           suppressHydrationWarning
         />
+        <script
+          // oxlint-disable-next-line react/no-danger: reload script is static
+          dangerouslySetInnerHTML={{ __html: maskedRouteReloadScript }}
+        />
         <HeadContent />
       </head>
       <body>
@@ -83,3 +87,23 @@ function RootDocument(props: React.PropsWithChildren) {
     </html>
   )
 }
+
+const maskedRouteReloadScript = `
+(() => {
+  const billingDialogPath = new RegExp(
+    '^/[^/]+/billing/(add_payment_method|add_credits/[^/]+|remove_payment_method/[^/]+)$',
+  )
+  const tempLocation = window.history.state?.__tempLocation
+  if (!tempLocation?.pathname) return
+  if (
+    tempLocation.pathname === window.location.pathname &&
+    (tempLocation.search ?? '') === window.location.search &&
+    (tempLocation.hash ?? '') === window.location.hash
+  ) return
+  if (!billingDialogPath.test(tempLocation.pathname))
+    return
+  window.location.replace(
+    tempLocation.pathname + (tempLocation.search ?? '') + (tempLocation.hash ?? ''),
+  )
+})()
+`

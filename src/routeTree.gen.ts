@@ -22,6 +22,9 @@ import { Route as DashLoginIndexRouteImport } from './routes/_dash.$login/index'
 import { Route as CreditsAddIdRouteImport } from './routes/credits.add.$id'
 import { Route as DashLoginSettingsRouteImport } from './routes/_dash.$login/settings'
 import { Route as DashLoginBillingRouteImport } from './routes/_dash.$login/billing'
+import { Route as DashLoginBillingAdd_payment_methodRouteImport } from './routes/_dash.$login/billing.add_payment_method'
+import { Route as DashLoginBillingRemove_payment_methodPaymentMethodIdRouteImport } from './routes/_dash.$login/billing.remove_payment_method.$paymentMethodId'
+import { Route as DashLoginBillingAdd_creditsPaymentIdRouteImport } from './routes/_dash.$login/billing.add_credits.$paymentId'
 
 const PlaygroundRoute = PlaygroundRouteImport.update({
   id: '/playground',
@@ -88,6 +91,24 @@ const DashLoginBillingRoute = DashLoginBillingRouteImport.update({
   path: '/billing',
   getParentRoute: () => DashLoginRouteRoute,
 } as any)
+const DashLoginBillingAdd_payment_methodRoute =
+  DashLoginBillingAdd_payment_methodRouteImport.update({
+    id: '/add_payment_method',
+    path: '/add_payment_method',
+    getParentRoute: () => DashLoginBillingRoute,
+  } as any)
+const DashLoginBillingRemove_payment_methodPaymentMethodIdRoute =
+  DashLoginBillingRemove_payment_methodPaymentMethodIdRouteImport.update({
+    id: '/remove_payment_method/$paymentMethodId',
+    path: '/remove_payment_method/$paymentMethodId',
+    getParentRoute: () => DashLoginBillingRoute,
+  } as any)
+const DashLoginBillingAdd_creditsPaymentIdRoute =
+  DashLoginBillingAdd_creditsPaymentIdRouteImport.update({
+    id: '/add_credits/$paymentId',
+    path: '/add_credits/$paymentId',
+    getParentRoute: () => DashLoginBillingRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -99,10 +120,13 @@ export interface FileRoutesByFullPath {
   '/auth/device': typeof AuthDeviceRoute
   '/auth/error': typeof AuthErrorRoute
   '/invite/$token': typeof InviteTokenRoute
-  '/$login/billing': typeof DashLoginBillingRoute
+  '/$login/billing': typeof DashLoginBillingRouteWithChildren
   '/$login/settings': typeof DashLoginSettingsRoute
   '/credits/add/$id': typeof CreditsAddIdRoute
   '/$login/': typeof DashLoginIndexRoute
+  '/$login/billing/add_payment_method': typeof DashLoginBillingAdd_payment_methodRoute
+  '/$login/billing/add_credits/$paymentId': typeof DashLoginBillingAdd_creditsPaymentIdRoute
+  '/$login/billing/remove_payment_method/$paymentMethodId': typeof DashLoginBillingRemove_payment_methodPaymentMethodIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -113,10 +137,13 @@ export interface FileRoutesByTo {
   '/auth/device': typeof AuthDeviceRoute
   '/auth/error': typeof AuthErrorRoute
   '/invite/$token': typeof InviteTokenRoute
-  '/$login/billing': typeof DashLoginBillingRoute
+  '/$login/billing': typeof DashLoginBillingRouteWithChildren
   '/$login/settings': typeof DashLoginSettingsRoute
   '/credits/add/$id': typeof CreditsAddIdRoute
   '/$login': typeof DashLoginIndexRoute
+  '/$login/billing/add_payment_method': typeof DashLoginBillingAdd_payment_methodRoute
+  '/$login/billing/add_credits/$paymentId': typeof DashLoginBillingAdd_creditsPaymentIdRoute
+  '/$login/billing/remove_payment_method/$paymentMethodId': typeof DashLoginBillingRemove_payment_methodPaymentMethodIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -129,10 +156,13 @@ export interface FileRoutesById {
   '/auth/device': typeof AuthDeviceRoute
   '/auth/error': typeof AuthErrorRoute
   '/invite/$token': typeof InviteTokenRoute
-  '/_dash/$login/billing': typeof DashLoginBillingRoute
+  '/_dash/$login/billing': typeof DashLoginBillingRouteWithChildren
   '/_dash/$login/settings': typeof DashLoginSettingsRoute
   '/credits/add/$id': typeof CreditsAddIdRoute
   '/_dash/$login/': typeof DashLoginIndexRoute
+  '/_dash/$login/billing/add_payment_method': typeof DashLoginBillingAdd_payment_methodRoute
+  '/_dash/$login/billing/add_credits/$paymentId': typeof DashLoginBillingAdd_creditsPaymentIdRoute
+  '/_dash/$login/billing/remove_payment_method/$paymentMethodId': typeof DashLoginBillingRemove_payment_methodPaymentMethodIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -150,6 +180,9 @@ export interface FileRouteTypes {
     | '/$login/settings'
     | '/credits/add/$id'
     | '/$login/'
+    | '/$login/billing/add_payment_method'
+    | '/$login/billing/add_credits/$paymentId'
+    | '/$login/billing/remove_payment_method/$paymentMethodId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -164,6 +197,9 @@ export interface FileRouteTypes {
     | '/$login/settings'
     | '/credits/add/$id'
     | '/$login'
+    | '/$login/billing/add_payment_method'
+    | '/$login/billing/add_credits/$paymentId'
+    | '/$login/billing/remove_payment_method/$paymentMethodId'
   id:
     | '__root__'
     | '/'
@@ -179,6 +215,9 @@ export interface FileRouteTypes {
     | '/_dash/$login/settings'
     | '/credits/add/$id'
     | '/_dash/$login/'
+    | '/_dash/$login/billing/add_payment_method'
+    | '/_dash/$login/billing/add_credits/$paymentId'
+    | '/_dash/$login/billing/remove_payment_method/$paymentMethodId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -287,17 +326,56 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashLoginBillingRouteImport
       parentRoute: typeof DashLoginRouteRoute
     }
+    '/_dash/$login/billing/add_payment_method': {
+      id: '/_dash/$login/billing/add_payment_method'
+      path: '/add_payment_method'
+      fullPath: '/$login/billing/add_payment_method'
+      preLoaderRoute: typeof DashLoginBillingAdd_payment_methodRouteImport
+      parentRoute: typeof DashLoginBillingRoute
+    }
+    '/_dash/$login/billing/remove_payment_method/$paymentMethodId': {
+      id: '/_dash/$login/billing/remove_payment_method/$paymentMethodId'
+      path: '/remove_payment_method/$paymentMethodId'
+      fullPath: '/$login/billing/remove_payment_method/$paymentMethodId'
+      preLoaderRoute: typeof DashLoginBillingRemove_payment_methodPaymentMethodIdRouteImport
+      parentRoute: typeof DashLoginBillingRoute
+    }
+    '/_dash/$login/billing/add_credits/$paymentId': {
+      id: '/_dash/$login/billing/add_credits/$paymentId'
+      path: '/add_credits/$paymentId'
+      fullPath: '/$login/billing/add_credits/$paymentId'
+      preLoaderRoute: typeof DashLoginBillingAdd_creditsPaymentIdRouteImport
+      parentRoute: typeof DashLoginBillingRoute
+    }
   }
 }
 
+interface DashLoginBillingRouteChildren {
+  DashLoginBillingAdd_payment_methodRoute: typeof DashLoginBillingAdd_payment_methodRoute
+  DashLoginBillingAdd_creditsPaymentIdRoute: typeof DashLoginBillingAdd_creditsPaymentIdRoute
+  DashLoginBillingRemove_payment_methodPaymentMethodIdRoute: typeof DashLoginBillingRemove_payment_methodPaymentMethodIdRoute
+}
+
+const DashLoginBillingRouteChildren: DashLoginBillingRouteChildren = {
+  DashLoginBillingAdd_payment_methodRoute:
+    DashLoginBillingAdd_payment_methodRoute,
+  DashLoginBillingAdd_creditsPaymentIdRoute:
+    DashLoginBillingAdd_creditsPaymentIdRoute,
+  DashLoginBillingRemove_payment_methodPaymentMethodIdRoute:
+    DashLoginBillingRemove_payment_methodPaymentMethodIdRoute,
+}
+
+const DashLoginBillingRouteWithChildren =
+  DashLoginBillingRoute._addFileChildren(DashLoginBillingRouteChildren)
+
 interface DashLoginRouteRouteChildren {
-  DashLoginBillingRoute: typeof DashLoginBillingRoute
+  DashLoginBillingRoute: typeof DashLoginBillingRouteWithChildren
   DashLoginSettingsRoute: typeof DashLoginSettingsRoute
   DashLoginIndexRoute: typeof DashLoginIndexRoute
 }
 
 const DashLoginRouteRouteChildren: DashLoginRouteRouteChildren = {
-  DashLoginBillingRoute: DashLoginBillingRoute,
+  DashLoginBillingRoute: DashLoginBillingRouteWithChildren,
   DashLoginSettingsRoute: DashLoginSettingsRoute,
   DashLoginIndexRoute: DashLoginIndexRoute,
 }

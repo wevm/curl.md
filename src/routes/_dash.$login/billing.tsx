@@ -1,34 +1,20 @@
 import { Menu } from '@base-ui/react/menu'
-import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js'
-import { loadStripe } from '@stripe/stripe-js'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, Outlet, useNavigate } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
 import * as React from 'react'
 import { z } from 'zod/v4'
 import { Dashboard } from '#components/Dashboard.tsx'
-import { Dialog } from '#components/Dialog.tsx'
-import { stripeAppearance } from '#components/stripe.ts'
-import { useTheme } from '#hooks/useTheme.ts'
 import { creditAmounts, maxSavedPaymentMethods } from '#lib/constants.ts'
 import { estimateRequests, formatMills } from '#lib/format.ts'
 import { rpc } from '#lib/rpc.ts'
-import {
-  deletePayment,
-  getBillingData,
-  getPayment,
-  getTransactions,
-  removePaymentMethod,
-  setDefaultPaymentMethod,
-  setupPaymentMethod,
-  type PaymentMethod,
-} from '#server/billing.ts'
+import { getBillingData, getTransactions, setDefaultPaymentMethod } from '#server/billing.ts'
 
 const PAGE_SIZE = 10
 const checkoutRefreshDuration = 20_000
 const searchSchema = z.object({
-  modal: z.enum(['add_credits', 'add_payment_method']).optional(),
-  payment_id: z.string().optional(),
+  notice: z.enum(['credits_added']).optional(),
+  notice_amount: z.coerce.number().optional(),
 })
 
 export const Route = createFileRoute('/_dash/$login/billing')({
@@ -54,11 +40,15 @@ export const Route = createFileRoute('/_dash/$login/billing')({
 function Component() {
   const { entity } = Route.useRouteContext()
   const loaderData = Route.useLoaderData()
-  const { modal, payment_id } = Route.useSearch()
+  const search = Route.useSearch()
   const navigate = useNavigate()
   const fetchBilling = useServerFn(getBillingData)
   const queryClient = useQueryClient()
   const [refreshAfterCheckout, setRefreshAfterCheckout] = React.useState(false)
+  const [addCreditsNotice, setAddCreditsNotice] = React.useState<{
+    kind: 'error' | 'success'
+    message: string
+  } | null>(null)
 
   React.useEffect(() => {
     if (!refreshAfterCheckout) return
@@ -66,6 +56,17 @@ function Component() {
     const timeout = window.setTimeout(() => setRefreshAfterCheckout(false), checkoutRefreshDuration)
     return () => window.clearTimeout(timeout)
   }, [refreshAfterCheckout])
+
+  React.useEffect(() => {
+    if (search.notice !== 'credits_added' || search.notice_amount === undefined) return
+
+    setAddCreditsNotice({
+      kind: 'success',
+      message: `Payment successful. $${formatMills(search.notice_amount * 10)} in credits will update shortly.`,
+    })
+    setRefreshAfterCheckout(true)
+    navigate({ params: { login: entity.login }, replace: true, search: {}, to: '/$login/billing' })
+  }, [entity.login, navigate, search.notice, search.notice_amount])
 
   const { data } = useQuery({
     initialData: loaderData.billing,
@@ -76,19 +77,6 @@ function Component() {
   })
   const hasReachedPaymentMethodLimit = data.payment_methods.length >= maxSavedPaymentMethods
 
-  React.useEffect(() => {
-    if (!hasReachedPaymentMethodLimit || modal !== 'add_payment_method') return
-
-    navigate({
-      from: '/$login/billing',
-      replace: true,
-      search: (prev) => ({ ...prev, modal: undefined, payment_id: undefined }),
-    })
-  }, [hasReachedPaymentMethodLimit, modal, navigate])
-
-  const addCreditsOpen = modal === 'add_credits' && Boolean(payment_id)
-  const setupOpen = modal === 'add_payment_method' && !hasReachedPaymentMethodLimit
-
   const refreshBilling = React.useCallback(() => {
     setRefreshAfterCheckout(true)
     void queryClient.invalidateQueries({ queryKey: ['dashboard-billing', entity.id] })
@@ -96,53 +84,27 @@ function Component() {
   }, [entity.id, queryClient])
 
   const openCreditsDialog = React.useCallback(
-    (nextPaymentId: string) => {
+    (paymentId: string) =>
       navigate({
-        from: '/$login/billing',
-        search: (prev) => ({ ...prev, modal: 'add_credits', payment_id: nextPaymentId }),
-      })
-    },
-    [navigate],
+        params: { login: entity.login, paymentId },
+        to: '/$login/billing/add_credits/$paymentId',
+      }),
+    [entity.login, navigate],
   )
 
-  const closeCreditsDialog = React.useCallback(
-    () =>
-      navigate({
-        from: '/$login/billing',
-        search: (prev) => ({ ...prev, modal: undefined, payment_id: undefined }),
-      }),
-    [navigate],
+  const openSetupDialog = React.useCallback(
+    () => navigate({ params: { login: entity.login }, to: '/$login/billing/add_payment_method' }),
+    [entity.login, navigate],
   )
 
-  const setSetupOpen = React.useCallback(
-    (open: boolean) =>
+  const openRemoveDialog = React.useCallback(
+    (paymentMethodId: string) =>
       navigate({
-        from: '/$login/billing',
-        search: (prev) => ({
-          ...prev,
-          modal: open ? 'add_payment_method' : undefined,
-          payment_id: undefined,
-        }),
+        params: { login: entity.login, paymentMethodId },
+        to: '/$login/billing/remove_payment_method/$paymentMethodId',
       }),
-    [navigate],
+    [entity.login, navigate],
   )
-
-  const [deleteTarget, setDeleteTarget] = React.useState<PaymentMethod | null>(null)
-  const [addCreditsNotice, setAddCreditsNotice] = React.useState<{
-    kind: 'error' | 'success'
-    message: string
-  } | null>(null)
-
-  const remove = useMutation({
-    mutationFn: (paymentMethodId: string) =>
-      removePaymentMethod({
-        data: { entityId: entity.id, entityType: entity.type, paymentMethodId },
-      }),
-    onSuccess() {
-      setDeleteTarget(null)
-      void queryClient.invalidateQueries({ queryKey: ['dashboard-billing', entity.id] })
-    },
-  })
 
   const setDefault = useMutation({
     mutationFn: (paymentMethodId: string) =>
@@ -296,7 +258,7 @@ function Component() {
                             <>
                               <Menu.Item
                                 className="text-gray9 hover:bg-gray-a2 hover:text-gray10 flex items-center gap-2 p-1.5 text-sm disabled:opacity-30"
-                                disabled={remove.isPending || setDefault.isPending}
+                                disabled={setDefault.isPending}
                                 onClick={() => setDefault.mutate(pm.id)}
                               >
                                 {setDefault.isPending && setDefault.variables === pm.id
@@ -308,8 +270,8 @@ function Component() {
                           )}
                           <Menu.Item
                             className="text-red9 hover:bg-red2/80 flex items-center gap-2 p-1.5 text-sm"
-                            disabled={remove.isPending || setDefault.isPending}
-                            onClick={() => setDeleteTarget(pm)}
+                            disabled={setDefault.isPending}
+                            onClick={() => openRemoveDialog(pm.id)}
                           >
                             Remove
                           </Menu.Item>
@@ -326,14 +288,13 @@ function Component() {
           <button
             className="bg-gray10 text-bg1 self-start px-3 py-1.5 text-sm transition-opacity hover:opacity-90 data-[has-methods]:mt-3"
             data-has-methods={data.payment_methods.length > 0 ? '' : undefined}
-            onClick={() => setSetupOpen(true)}
+            onClick={openSetupDialog}
             type="button"
           >
             Add payment method
           </button>
         )}
         {setDefault.isError && <p className="text-red9 mt-2 text-sm">{setDefault.error.message}</p>}
-        {remove.isError && <p className="text-red9 mt-2 text-sm">{remove.error.message}</p>}
       </Dashboard.Section>
 
       <TransactionHistory
@@ -345,328 +306,8 @@ function Component() {
         timezone={data.timezone}
       />
 
-      <Dialog.Root
-        open={addCreditsOpen}
-        onOpenChange={(open) => {
-          if (!open) closeCreditsDialog()
-        }}
-      >
-        <Dialog.Portal>
-          <Dialog.Backdrop />
-          <Dialog.Popup>
-            <Dialog.CloseX />
-            <Dialog.Title>Add credits</Dialog.Title>
-            <Dialog.Description>Add prepaid credits to your account.</Dialog.Description>
-            {payment_id && (
-              <AddCreditsDialogLoader
-                onSuccess={(amount) => {
-                  refreshBilling()
-                  setAddCreditsNotice({
-                    kind: 'success',
-                    message: `Payment successful. $${formatMills(amount * 10)} in credits will update shortly.`,
-                  })
-                  closeCreditsDialog()
-                }}
-                paymentId={payment_id}
-              />
-            )}
-          </Dialog.Popup>
-        </Dialog.Portal>
-      </Dialog.Root>
-
-      <Dialog.Root
-        open={setupOpen}
-        onOpenChange={(open) => {
-          if (!open) setSetupOpen(false)
-        }}
-      >
-        <Dialog.Portal>
-          <Dialog.Backdrop />
-          <Dialog.Popup>
-            <Dialog.CloseX />
-            <Dialog.Title>Add payment method</Dialog.Title>
-            {setupOpen && (
-              <SetupFormLoader
-                entityId={entity.id}
-                entityType={entity.type}
-                onSuccess={() => {
-                  setSetupOpen(false)
-                  queryClient.invalidateQueries({ queryKey: ['dashboard-billing', entity.id] })
-                }}
-              />
-            )}
-          </Dialog.Popup>
-        </Dialog.Portal>
-      </Dialog.Root>
-
-      <Dialog.Root
-        open={deleteTarget !== null}
-        onOpenChange={(open) => {
-          if (!open && !remove.isPending) setDeleteTarget(null)
-        }}
-      >
-        <Dialog.Portal>
-          <Dialog.Backdrop />
-          <Dialog.Popup>
-            <Dialog.CloseX />
-            <Dialog.Title>Remove payment method</Dialog.Title>
-            <Dialog.Description>
-              Are you sure you want to remove{' '}
-              <span className="text-gray12 font-medium">
-                {deleteTarget?.brand} &bull;&bull;&bull;&bull; {deleteTarget?.last4}
-              </span>
-              ? This action cannot be undone.
-            </Dialog.Description>
-            <div className="flex justify-end gap-2">
-              <Dialog.Close
-                className="text-gray9 hover:bg-gray-a2 px-3 py-1.5 text-sm"
-                disabled={remove.isPending}
-              >
-                Cancel
-              </Dialog.Close>
-              <button
-                className="bg-red9 text-bg1 px-3 py-1.5 text-sm disabled:opacity-50"
-                disabled={remove.isPending}
-                onClick={() => {
-                  if (deleteTarget) remove.mutate(deleteTarget.id)
-                }}
-                type="button"
-              >
-                {remove.isPending ? 'Removing' : 'Remove'}
-              </button>
-            </div>
-          </Dialog.Popup>
-        </Dialog.Portal>
-      </Dialog.Root>
+      <Outlet />
     </Dashboard.Content>
-  )
-}
-
-function AddCreditsDialogLoader(props: { onSuccess: (amount: number) => void; paymentId: string }) {
-  const fetchPayment = useServerFn(getPayment)
-  const { data, error, isPending } = useQuery({
-    queryKey: ['payment', props.paymentId],
-    queryFn: () => fetchPayment({ data: { id: props.paymentId } }),
-    retry: false,
-  })
-  const { resolvedTheme } = useTheme()
-  const stripePromise = React.useMemo(
-    () => (data ? loadStripe(data.publishable_key) : null),
-    [data?.publishable_key, data],
-  )
-
-  if (isPending) return <p className="text-gray8 text-sm">Loading payment form...</p>
-
-  if (!data || !stripePromise)
-    return <p className="text-red9 text-sm">Payment session expired or not found.</p>
-
-  return (
-    <Elements
-      options={{
-        appearance: stripeAppearance(resolvedTheme),
-        clientSecret: data.pi_secret,
-        ...(data.cs_secret ? { customerSessionClientSecret: data.cs_secret } : {}),
-      }}
-      stripe={stripePromise}
-    >
-      {data.saved_payment_methods_unavailable && (
-        <div className="text-yellow11 bg-yellow-a2 border-yellow-a4 flex items-start gap-2 border px-3 py-2 text-sm">
-          <IconOcticonAlert16 aria-hidden className="mt-0.5 size-4 shrink-0" />
-          <div>
-            <p className="font-medium">Saved payment methods unavailable</p>
-            <p>
-              Saved payment methods are temporarily unavailable for this payment. You can still use
-              a new payment method below.
-            </p>
-          </div>
-        </div>
-      )}
-      <AddCreditsForm amount={data.amount} id={props.paymentId} onSuccess={props.onSuccess} />
-      {error && <p className="text-red9 -mt-1 text-sm">{error.message}</p>}
-    </Elements>
-  )
-}
-
-function AddCreditsForm(props: {
-  amount: number
-  id: string
-  onSuccess: (amount: number) => void
-}) {
-  const stripe = useStripe()
-  const elements = useElements()
-
-  const payment = useMutation({
-    async mutationFn() {
-      if (!stripe || !elements) throw new Error('Stripe not loaded.')
-      const result = await stripe.confirmPayment({
-        confirmParams: { return_url: window.location.href },
-        elements,
-        redirect: 'if_required',
-      })
-      if (result.error) throw new Error(result.error.message ?? 'Payment failed.')
-    },
-    onSuccess() {
-      void deletePayment({ data: { id: props.id } })
-      props.onSuccess(props.amount)
-    },
-  })
-
-  return (
-    <form
-      className="flex flex-col gap-4"
-      onSubmit={(e) => {
-        e.preventDefault()
-        payment.mutate()
-      }}
-    >
-      <div className="border-gray-a3 bg-gray-a1/50 flex h-11 items-center justify-between border px-3 text-sm">
-        <span className="text-gray10 font-semibold">Amount: ${props.amount / 100}</span>
-        <span className="text-gray8 text-sm">~{estimateRequests(props.amount * 10)} requests</span>
-      </div>
-      <PaymentElement
-        options={{
-          layout: {
-            defaultCollapsed: true,
-            radios: false,
-            type: 'accordion',
-            visibleAccordionItemsCount: 2,
-          },
-        }}
-      />
-      <button
-        className="bg-gray10 text-bg1 flex h-11 items-center justify-center px-4 transition-opacity hover:opacity-90 data-[submitting]:opacity-50"
-        data-submitting={payment.isPending ? '' : undefined}
-        disabled={!stripe || payment.isPending}
-        type="submit"
-      >
-        {payment.isPending ? 'Processing' : 'Pay'}
-      </button>
-      {payment.error && <p className="text-red9 -mt-1 text-sm">{payment.error.message}</p>}
-    </form>
-  )
-}
-
-function SetupFormLoader(props: {
-  entityId: string
-  entityType: 'account' | 'organization'
-  onSuccess: () => void
-}) {
-  const [isSaving, setIsSaving] = React.useState(false)
-  const setup = useMutation({
-    mutationFn: () =>
-      setupPaymentMethod({ data: { entityId: props.entityId, entityType: props.entityType } }),
-  })
-
-  React.useEffect(() => {
-    setup.mutate()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  return (
-    <div className="flex min-h-64 flex-col gap-4">
-      <div className="min-h-48">
-        {setup.isError ? (
-          <p className="text-red9 text-sm">{setup.error.message}</p>
-        ) : setup.data && (!setup.data.client_secret || !setup.data.publishable_key) ? (
-          <p className="text-red9 text-sm">Failed to initialize payment form.</p>
-        ) : !setup.data ? null : (
-          <SetupForm
-            clientSecret={setup.data.client_secret}
-            onSuccess={props.onSuccess}
-            onSavingChange={setIsSaving}
-            publishableKey={setup.data.publishable_key}
-          />
-        )}
-      </div>
-      <div className="flex justify-end gap-2">
-        <Dialog.Close className="text-gray9 hover:bg-gray-a2 px-3 py-1.5 text-sm">
-          Cancel
-        </Dialog.Close>
-        <button
-          className="bg-gray10 text-bg1 px-3 py-1.5 text-sm disabled:opacity-50"
-          disabled={!setup.data || isSaving}
-          form="setup-payment-method"
-          type="submit"
-        >
-          {isSaving ? 'Saving' : 'Save'}
-        </button>
-      </div>
-    </div>
-  )
-}
-
-function SetupForm(props: {
-  clientSecret: string
-  onSuccess: () => void
-  onSavingChange: (saving: boolean) => void
-  publishableKey: string
-}) {
-  const { resolvedTheme } = useTheme()
-  const stripePromise = React.useMemo(
-    () => loadStripe(props.publishableKey),
-    [props.publishableKey],
-  )
-
-  return (
-    <Elements
-      options={{
-        appearance: stripeAppearance(resolvedTheme),
-        clientSecret: props.clientSecret,
-      }}
-      stripe={stripePromise}
-    >
-      <SetupFormInner onSavingChange={props.onSavingChange} onSuccess={props.onSuccess} />
-    </Elements>
-  )
-}
-
-function SetupFormInner(props: {
-  onSavingChange: (saving: boolean) => void
-  onSuccess: () => void
-}) {
-  const stripe = useStripe()
-  const elements = useElements()
-
-  const confirm = useMutation({
-    async mutationFn() {
-      if (!stripe || !elements) throw new Error('Stripe not loaded.')
-      const returnUrl = new URL(window.location.href)
-      returnUrl.searchParams.delete('modal')
-      const result = await stripe.confirmSetup({
-        confirmParams: {
-          payment_method_data: { allow_redisplay: 'always' },
-          return_url: returnUrl.toString(),
-        },
-        elements,
-        redirect: 'if_required',
-      })
-      if (result.error) throw new Error(result.error.message ?? 'Setup failed.')
-    },
-    onSuccess() {
-      props.onSuccess()
-    },
-  })
-
-  React.useEffect(() => {
-    props.onSavingChange(confirm.isPending)
-    return () => props.onSavingChange(false)
-  }, [confirm.isPending, props.onSavingChange])
-
-  return (
-    <form
-      id="setup-payment-method"
-      onSubmit={(e) => {
-        e.preventDefault()
-        confirm.mutate()
-      }}
-    >
-      <PaymentElement
-        options={{
-          layout: { defaultCollapsed: false, type: 'tabs' },
-          wallets: { link: 'never' },
-        }}
-      />
-      {confirm.isError && <p className="text-red9 mt-2 text-sm">{confirm.error.message}</p>}
-    </form>
   )
 }
 

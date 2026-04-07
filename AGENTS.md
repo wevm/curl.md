@@ -64,6 +64,10 @@ Follow [PlanetScale Postgres skill](https://github.com/planetscale/database-skil
 
 - Avoid hyphens in command names, route paths, and identifiers — they break double-click-to-select
 
+## Routing
+
+- Prefer TanStack route masking for URL-backed `Dialog` flows instead of search-param/local-state dialog toggles when the dialog is page-local and benefits from deep-linking/reload support
+
 ## Code Style
 
 - Component/page component should be the first thing in the file (after imports)

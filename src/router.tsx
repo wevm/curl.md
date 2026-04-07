@@ -1,12 +1,41 @@
 import * as Sentry from '@sentry/react'
-import { createRouter } from '@tanstack/react-router'
+import { createRouteMask, createRouter } from '@tanstack/react-router'
 import { rpc } from '#lib/rpc.ts'
 import { routeTree } from './routeTree.gen'
+
+const billingAddCreditsMask = createRouteMask({
+  from: '/$login/billing/add_credits/$paymentId',
+  params: (prev) => ({ login: prev.login }),
+  routeTree,
+  to: '/$login/billing',
+  unmaskOnReload: true,
+})
+
+const billingAddPaymentMethodMask = createRouteMask({
+  from: '/$login/billing/add_payment_method',
+  params: (prev) => ({ login: prev.login }),
+  routeTree,
+  to: '/$login/billing',
+  unmaskOnReload: true,
+})
+
+const billingRemovePaymentMethodMask = createRouteMask({
+  from: '/$login/billing/remove_payment_method/$paymentMethodId',
+  params: (prev) => ({ login: prev.login }),
+  routeTree,
+  to: '/$login/billing',
+  unmaskOnReload: true,
+})
 
 export function getRouter() {
   const router = createRouter({
     routeTree,
     context: {},
+    routeMasks: [
+      billingAddCreditsMask,
+      billingAddPaymentMethodMask,
+      billingRemovePaymentMethodMask,
+    ],
     scrollRestoration: true,
     defaultPreloadStaleTime: 0,
   })
