@@ -15,6 +15,7 @@ import { Route as HomeRouteImport } from './routes/home'
 import { Route as DocsRouteImport } from './routes/docs'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
+import { Route as DocsSplatRouteImport } from './routes/docs.$'
 import { Route as AuthErrorRouteImport } from './routes/auth/error'
 import { Route as AuthDeviceRouteImport } from './routes/auth/device'
 import { Route as DashLoginRouteRouteImport } from './routes/_dash.$login/route'
@@ -52,6 +53,11 @@ const InviteTokenRoute = InviteTokenRouteImport.update({
   id: '/invite/$token',
   path: '/invite/$token',
   getParentRoute: () => rootRouteImport,
+} as any)
+const DocsSplatRoute = DocsSplatRouteImport.update({
+  id: '/$',
+  path: '/$',
+  getParentRoute: () => DocsRoute,
 } as any)
 const AuthErrorRoute = AuthErrorRouteImport.update({
   id: '/auth/error',
@@ -91,13 +97,14 @@ const DashLoginBillingRoute = DashLoginBillingRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/docs': typeof DocsRoute
+  '/docs': typeof DocsRouteWithChildren
   '/home': typeof HomeRoute
   '/login': typeof LoginRoute
   '/playground': typeof PlaygroundRoute
   '/$login': typeof DashLoginRouteRouteWithChildren
   '/auth/device': typeof AuthDeviceRoute
   '/auth/error': typeof AuthErrorRoute
+  '/docs/$': typeof DocsSplatRoute
   '/invite/$token': typeof InviteTokenRoute
   '/$login/billing': typeof DashLoginBillingRoute
   '/$login/settings': typeof DashLoginSettingsRoute
@@ -106,12 +113,13 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/docs': typeof DocsRoute
+  '/docs': typeof DocsRouteWithChildren
   '/home': typeof HomeRoute
   '/login': typeof LoginRoute
   '/playground': typeof PlaygroundRoute
   '/auth/device': typeof AuthDeviceRoute
   '/auth/error': typeof AuthErrorRoute
+  '/docs/$': typeof DocsSplatRoute
   '/invite/$token': typeof InviteTokenRoute
   '/$login/billing': typeof DashLoginBillingRoute
   '/$login/settings': typeof DashLoginSettingsRoute
@@ -121,13 +129,14 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/docs': typeof DocsRoute
+  '/docs': typeof DocsRouteWithChildren
   '/home': typeof HomeRoute
   '/login': typeof LoginRoute
   '/playground': typeof PlaygroundRoute
   '/_dash/$login': typeof DashLoginRouteRouteWithChildren
   '/auth/device': typeof AuthDeviceRoute
   '/auth/error': typeof AuthErrorRoute
+  '/docs/$': typeof DocsSplatRoute
   '/invite/$token': typeof InviteTokenRoute
   '/_dash/$login/billing': typeof DashLoginBillingRoute
   '/_dash/$login/settings': typeof DashLoginSettingsRoute
@@ -145,6 +154,7 @@ export interface FileRouteTypes {
     | '/$login'
     | '/auth/device'
     | '/auth/error'
+    | '/docs/$'
     | '/invite/$token'
     | '/$login/billing'
     | '/$login/settings'
@@ -159,6 +169,7 @@ export interface FileRouteTypes {
     | '/playground'
     | '/auth/device'
     | '/auth/error'
+    | '/docs/$'
     | '/invite/$token'
     | '/$login/billing'
     | '/$login/settings'
@@ -174,6 +185,7 @@ export interface FileRouteTypes {
     | '/_dash/$login'
     | '/auth/device'
     | '/auth/error'
+    | '/docs/$'
     | '/invite/$token'
     | '/_dash/$login/billing'
     | '/_dash/$login/settings'
@@ -183,7 +195,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  DocsRoute: typeof DocsRoute
+  DocsRoute: typeof DocsRouteWithChildren
   HomeRoute: typeof HomeRoute
   LoginRoute: typeof LoginRoute
   PlaygroundRoute: typeof PlaygroundRoute
@@ -238,6 +250,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InviteTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/docs/$': {
+      id: '/docs/$'
+      path: '/$'
+      fullPath: '/docs/$'
+      preLoaderRoute: typeof DocsSplatRouteImport
+      parentRoute: typeof DocsRoute
+    }
     '/auth/error': {
       id: '/auth/error'
       path: '/auth/error'
@@ -290,6 +309,16 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface DocsRouteChildren {
+  DocsSplatRoute: typeof DocsSplatRoute
+}
+
+const DocsRouteChildren: DocsRouteChildren = {
+  DocsSplatRoute: DocsSplatRoute,
+}
+
+const DocsRouteWithChildren = DocsRoute._addFileChildren(DocsRouteChildren)
+
 interface DashLoginRouteRouteChildren {
   DashLoginBillingRoute: typeof DashLoginBillingRoute
   DashLoginSettingsRoute: typeof DashLoginSettingsRoute
@@ -308,7 +337,7 @@ const DashLoginRouteRouteWithChildren = DashLoginRouteRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  DocsRoute: DocsRoute,
+  DocsRoute: DocsRouteWithChildren,
   HomeRoute: HomeRoute,
   LoginRoute: LoginRoute,
   PlaygroundRoute: PlaygroundRoute,
