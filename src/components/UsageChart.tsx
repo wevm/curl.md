@@ -121,5 +121,5 @@ function formatCostCompact(n: number) {
 
 function formatDate(iso: string) {
   const [y, m, d] = iso.split('-').map(Number)
-  return new Date(y!, m! - 1, d!).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  return new Date(y!, m! - 1, d!).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }

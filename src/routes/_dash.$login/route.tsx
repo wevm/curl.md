@@ -23,7 +23,7 @@ import * as Cookie from '#lib/cookie.ts'
 import { rpc } from '#lib/rpc.ts'
 
 const searchSchema = z.object({
-  modal: z.enum(['create_org']).optional(),
+  modal: z.enum(['add_payment_method', 'create_org']).optional(),
 })
 
 export const Route = createFileRoute('/_dash/$login')({
@@ -86,7 +86,7 @@ function Component() {
   )
 
   return (
-    <div className="relative flex min-h-dvh flex-col md:flex-row">
+    <div className="relative flex min-h-dvh flex-col md:flex-row" data-dashboard>
       <Nav.Skip />
       <aside className="bg-bg1 border-gray-a3 sticky top-0 z-10 flex flex-row flex-wrap items-center justify-between border-b px-4 py-4 md:fixed md:top-0 md:h-dvh md:w-52 md:flex-col md:flex-nowrap md:items-stretch md:justify-start md:border-e md:border-b-0">
         <AccountSwitcher
@@ -184,7 +184,7 @@ function AccountSwitcher(props: {
 }) {
   return (
     <Menu.Root>
-      <Menu.Trigger className="hover:bg-gray-a2 flex cursor-default items-center gap-2 px-2 py-1.5 text-sm md:w-full">
+      <Menu.Trigger className="hover:bg-gray-a2 flex cursor-default items-center gap-2 px-2 py-1.5 text-sm select-none md:w-full">
         <EntityAvatar
           avatarUrl={props.entity.type === 'account' ? props.account.avatar_url : undefined}
           name={props.entity.name ?? props.entity.login}
@@ -194,10 +194,10 @@ function AccountSwitcher(props: {
       </Menu.Trigger>
       <Menu.Portal>
         <Menu.Positioner align="start" className="z-20 max-md:!w-[calc(100vw-2rem)]" sideOffset={8}>
-          <Menu.Popup className="bg-bg1 border-gray-a3 before:bg-gray-a1/50 relative min-w-56 border px-1 py-1 before:absolute before:inset-0 before:-z-1 md:max-w-64">
+          <Menu.Popup className="bg-bg1 border-gray-a3 before:bg-gray-a1/50 relative min-w-56 border px-1 py-1 select-none before:absolute before:inset-0 before:-z-1 md:max-w-64">
             {props.others.map((e) => (
               <Menu.Item
-                className="text-gray9 hover:bg-gray-a2 hover:text-gray10 flex items-center gap-2 p-1.5 text-sm"
+                className="text-gray9 hover:bg-gray-a2 hover:text-gray10 flex items-center gap-2 p-1.5 text-sm select-none"
                 key={e.login}
                 render={<Link params={{ login: e.login }} to={props.switchTo} />}
               >
@@ -210,7 +210,7 @@ function AccountSwitcher(props: {
             ))}
             <div className="border-gray-a2 -mx-1 my-1 border-t" />
             <Menu.Item
-              className="text-gray9 hover:bg-gray-a2 hover:text-gray10 flex min-h-9 items-center gap-2 p-1.5 text-sm"
+              className="text-gray9 hover:bg-gray-a2 hover:text-gray10 flex min-h-9 items-center gap-2 p-1.5 text-sm select-none"
               onClick={props.onCreateOrg}
             >
               <IconOcticonPlus16 className="size-4" />
@@ -218,7 +218,7 @@ function AccountSwitcher(props: {
             </Menu.Item>
             <div className="border-gray-a2 -mx-1 my-1 border-t" />
             <Menu.Item
-              className="text-gray9 hover:bg-gray-a2 hover:text-gray10 flex min-h-9 items-center gap-2 p-1.5 text-sm disabled:opacity-30"
+              className="text-gray9 hover:bg-gray-a2 hover:text-gray10 flex min-h-9 items-center gap-2 p-1.5 text-sm select-none disabled:opacity-30"
               disabled={props.logout.isPending}
               onClick={() => props.logout.mutate()}
             >
@@ -351,7 +351,7 @@ function SidebarLink(
 
 function SidebarDisabled(props: React.PropsWithChildren<{ icon: React.ReactNode }>) {
   return (
-    <span className="text-gray5 flex cursor-not-allowed items-center gap-2 px-2 py-1.5 text-sm">
+    <span className="text-gray5 flex cursor-not-allowed items-center gap-2 px-2 py-1.5 text-sm select-none">
       {props.icon}
       {props.children}
     </span>

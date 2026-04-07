@@ -138,6 +138,12 @@ form button:focus-visible {
   outline-offset: -1px;
 }
 
+:is([data-dashboard], [data-dialog-ui])
+  :is(a[href], button, [role='button'], [role='menuitem'], [role='tab']) {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
 input {
   caret-shape: block;
 }
@@ -178,11 +184,6 @@ html::-webkit-scrollbar-thumb {
 
 html[data-theme='dark'] {
   color-scheme: dark;
-}
-
-@utility dialog-scrollbar {
-  scrollbar-width: thin;
-  scrollbar-color: var(--color-gray-a5) transparent;
 }
 
 @utility minimal-scrollbar {

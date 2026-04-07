@@ -72,6 +72,7 @@ const getUsageData = createServerFn({ method: 'GET' })
   .handler(async (c) => {
     const request = getRequest()
     const db = createClient(env.DB.connectionString)
+    const timeZone = (request as { cf?: { timezone?: string } }).cf?.timezone ?? 'UTC'
     const sessionId = await Cookie.parseSigned(
       request.headers.get('cookie') ?? '',
       env.COOKIE_SECRET,
@@ -86,29 +87,32 @@ const getUsageData = createServerFn({ method: 'GET' })
       .select((eb) => eb.fn.sum<number>('tokens_saved').as('total'))
       .executeTakeFirst()
 
-    const sevenDaysAgo = new Date()
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6)
-    sevenDaysAgo.setHours(0, 0, 0, 0)
+    const startOfWindowSql = sql<Date>`((date_trunc('day', now() AT TIME ZONE ${timeZone}) - interval '6 days') AT TIME ZONE ${timeZone})`
 
     const dailyRows = await db
-      .selectFrom('request')
-      .where(requestColumn, '=', c.data.entityId)
-      .where('created_at', '>=', sevenDaysAgo)
+      .selectFrom(
+        db
+          .selectFrom('request')
+          .where(requestColumn, '=', c.data.entityId)
+          .where('created_at', '>=', startOfWindowSql)
+          .select([
+            sql<string>`to_char(created_at AT TIME ZONE ${timeZone}, 'YYYY-MM-DD')`.as('date'),
+            'tokens_saved',
+          ])
+          .as('daily_request'),
+      )
       .select([
-        sql<string>`to_char(created_at, 'YYYY-MM-DD')`.as('date'),
+        'date',
         (eb) => eb.fn.coalesce(eb.fn.sum<number>('tokens_saved'), sql<number>`0`).as('tokens'),
       ])
-      .groupBy(sql`to_char(created_at, 'YYYY-MM-DD')`)
+      .groupBy('date')
       .execute()
 
     const rowMap = new Map(dailyRows.map((r) => [r.date, Number(r.tokens)]))
-    const daily: Array<{ date: string; tokens: number }> = []
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(sevenDaysAgo)
-      d.setDate(d.getDate() + i)
-      const key = d.toISOString().slice(0, 10)
-      daily.push({ date: key, tokens: rowMap.get(key) ?? 0 })
-    }
+    const daily = getTrailingDateKeys(new Date(), 7, timeZone).map((date) => ({
+      date,
+      tokens: rowMap.get(date) ?? 0,
+    }))
 
     return {
       daily,
@@ -289,4 +293,37 @@ If not, do this instead: curl -fsSL https://curl.md/install.sh | bash`,
       </span>
     </button>
   )
+}
+
+const dateKeyFormatters = new Map<string, Intl.DateTimeFormat>()
+
+export function formatDateKey(date: Date, timeZone: string) {
+  const parts = getDateKeyFormatter(timeZone).formatToParts(date)
+  const day = parts.find((part) => part.type === 'day')?.value
+  const month = parts.find((part) => part.type === 'month')?.value
+  const year = parts.find((part) => part.type === 'year')?.value
+  if (!day || !month || !year) throw new Error(`Could not format date key for ${timeZone}`)
+  return `${year}-${month}-${day}`
+}
+
+export function getTrailingDateKeys(now: Date, days: number, timeZone: string) {
+  return Array.from({ length: days }, (_, i) => {
+    const date = new Date(now)
+    date.setUTCDate(date.getUTCDate() - (days - i - 1))
+    return formatDateKey(date, timeZone)
+  })
+}
+
+function getDateKeyFormatter(timeZone: string) {
+  const existing = dateKeyFormatters.get(timeZone)
+  if (existing) return existing
+
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    day: '2-digit',
+    month: '2-digit',
+    timeZone,
+    year: 'numeric',
+  })
+  dateKeyFormatters.set(timeZone, formatter)
+  return formatter
 }

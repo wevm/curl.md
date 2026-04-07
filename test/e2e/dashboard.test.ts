@@ -15,6 +15,15 @@ test('shows stats with zero values for new account', async ({ factory, page, set
   await expect(page.getByRole('button', { name: 'Add payment method' })).toBeVisible()
 })
 
+test('opens add payment method dialog from query param', async ({ factory, page, setSession }) => {
+  const account = await factory.account.insert({})
+  await setSession(account.id)
+
+  await page.goto(`/${account.login}/billing?modal=add_payment_method`)
+
+  await expect(page.getByRole('heading', { name: 'Add payment method' })).toBeVisible()
+})
+
 test('shows tokens saved and dollar savings from requests', async ({
   factory,
   page,

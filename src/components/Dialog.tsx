@@ -46,6 +46,7 @@ function Popup(props: React.ComponentProps<typeof BaseDialog.Popup>) {
         }}
       >
         <BaseDialog.Popup
+          data-dialog-ui
           {...rest}
           className="bg-bg1 border-gray-a3 pointer-events-auto relative my-[15dvh] flex w-full max-w-md flex-col gap-4 border p-6"
         >

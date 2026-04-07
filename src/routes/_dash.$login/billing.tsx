@@ -2,9 +2,10 @@ import { Menu } from '@base-ui/react/menu'
 import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js'
 import { loadStripe } from '@stripe/stripe-js'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { createFileRoute, useRouter } from '@tanstack/react-router'
+import { createFileRoute, useNavigate, useRouter } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
 import * as React from 'react'
+import { z } from 'zod/v4'
 import { Dashboard } from '#components/Dashboard.tsx'
 import { Dialog } from '#components/Dialog.tsx'
 import { stripeAppearance } from '#components/stripe.ts'
@@ -21,9 +22,11 @@ import {
 } from '#server/billing.ts'
 
 const PAGE_SIZE = 10
+const searchSchema = z.object({ modal: z.string().optional() })
 
 export const Route = createFileRoute('/_dash/$login/billing')({
   head: () => ({ meta: [{ title: `Billing - ${__HOST__}` }] }),
+  validateSearch: searchSchema,
   async loader({ context }) {
     const [billing, transactions] = await Promise.all([
       getBillingData({ data: { entityId: context.entity.id, entityType: context.entity.type } }),
@@ -44,6 +47,8 @@ export const Route = createFileRoute('/_dash/$login/billing')({
 function Component() {
   const { entity } = Route.useRouteContext()
   const loaderData = Route.useLoaderData()
+  const { modal } = Route.useSearch()
+  const navigate = useNavigate()
   const router = useRouter()
   const fetchBilling = useServerFn(getBillingData)
   const queryClient = useQueryClient()
@@ -55,7 +60,15 @@ function Component() {
     refetchInterval: 10_000,
   })
 
-  const [setupOpen, setSetupOpen] = React.useState(false)
+  const setupOpen = modal === 'add_payment_method'
+  const setSetupOpen = React.useCallback(
+    (open: boolean) =>
+      navigate({
+        from: '/$login/billing',
+        search: (prev) => ({ ...prev, modal: open ? 'add_payment_method' : undefined }),
+      }),
+    [navigate],
+  )
 
   const [deleteTarget, setDeleteTarget] = React.useState<PaymentMethod | null>(null)
 
@@ -276,6 +289,8 @@ function SetupFormLoader(props: {
       <div className="min-h-48">
         {setup.isError ? (
           <p className="text-red9 text-sm">{setup.error.message}</p>
+        ) : setup.data && (!setup.data.client_secret || !setup.data.publishable_key) ? (
+          <p className="text-red9 text-sm">Failed to initialize payment form.</p>
         ) : !setup.data ? null : (
           <SetupForm
             clientSecret={setup.data.client_secret}
@@ -328,8 +343,10 @@ function SetupFormInner(props: { onSuccess: () => void }) {
   const confirm = useMutation({
     async mutationFn() {
       if (!stripe || !elements) throw new Error('Stripe not loaded.')
+      const returnUrl = new URL(window.location.href)
+      returnUrl.searchParams.delete('modal')
       const result = await stripe.confirmSetup({
-        confirmParams: { return_url: window.location.href },
+        confirmParams: { return_url: returnUrl.toString() },
         elements,
         redirect: 'if_required',
       })
