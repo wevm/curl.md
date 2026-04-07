@@ -190,6 +190,10 @@ export function relativeTime(date: Date) {
   return `${days}d`
 }
 
+export function estimateRequests(balanceMills: number) {
+  return Math.floor(balanceMills).toLocaleString()
+}
+
 export function formatValidationError(json: unknown, fallback = 'Invalid request'): string {
   if (
     typeof json !== 'object' ||

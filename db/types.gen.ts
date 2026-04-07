@@ -23,6 +23,7 @@ type account = {
   balance_mills: k.Generated<number>
   created_at: GeneratedTimestamp
   deleted_at: Timestamp | null
+  default_payment_method_id: string | null
   email: string
   id: k.Generated<string>
   login: string
@@ -80,6 +81,7 @@ type organization = {
   balance_mills: k.Generated<number>
   created_at: GeneratedTimestamp
   deleted_at: Timestamp | null
+  default_payment_method_id: string | null
   id: k.Generated<string>
   login: string
   name: string

@@ -1,6 +1,8 @@
 export const packageName = 'curl.md'
 
 export const creditAmounts = ['500', '1000', '2000', '5000'] as const
+export const maxSavedPaymentMethods = 3
+export const stripeApiVersion = '2026-02-25.clover'
 
 // https://developers.cloudflare.com/workers-ai/platform/pricing/
 export const modes = {

@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { Bar, BarChart, CartesianGrid, Tooltip, XAxis, YAxis } from 'recharts'
-import { estimateCost } from '#lib/format.ts'
+import { estimateCost, formatDollars } from '#lib/format.ts'
 
 export function UsageChart(props: {
   daily: Array<{ date: string; tokens: number }>
@@ -36,7 +36,7 @@ export function UsageChart(props: {
     : Math.max(...ticks.map((t) => formatCompact(t).length)) * 8 + 8
   return (
     <div
-      aria-label={`Usage chart: ${data.map((d) => `${d.label} ${isCost ? `$${d.value.toFixed(2)}` : `${d.tokens.toLocaleString()} tokens`}`).join(', ')}`}
+      aria-label={`Usage chart: ${data.map((d) => `${d.label} ${isCost ? `$${formatDollars(d.value)}` : `${d.tokens.toLocaleString()} tokens`}`).join(', ')}`}
       className="mt-3 h-56"
       ref={ref}
       role="img"
@@ -77,7 +77,7 @@ export function UsageChart(props: {
                   <div className="font-medium">{label}</div>
                   <div className="text-gray8 mt-0.5">
                     {isCost
-                      ? `$${Number(value).toFixed(2)}`
+                      ? `$${formatDollars(Number(value))}`
                       : `${Number(tokens).toLocaleString()} tokens`}
                   </div>
                 </div>
@@ -115,7 +115,7 @@ function formatCostCompact(n: number) {
   if (n >= 1) return `$${n.toFixed(n % 1 === 0 ? 0 : 2)}`
   if (n >= 0.01) return `$${n.toFixed(2)}`
   if (n === 0) return '$0'
-  return `$${n.toFixed(3)}`
+  return `$${formatDollars(n)}`
 }
 
 function formatDate(iso: string) {

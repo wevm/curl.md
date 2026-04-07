@@ -7,6 +7,7 @@ import type { Client, Command } from './types.ts'
 import * as UI from './ui.ts'
 import {
   compareVersions,
+  estimateRequests,
   formatValidationError,
   installGlobal,
   isStandalone,
@@ -49,6 +50,7 @@ const cli = Cli.create('curl.md', {
     mode: z
       .enum(['rush', 'smart'])
       .optional()
+      .default('smart')
       .describe('Mode when narrowing content with --objective'),
     objective: z.string().optional().describe('Narrow content to a specific objective'),
     token: z.string().optional().describe('API token for authentication (env: CURLMD_API_KEY)'),
@@ -580,7 +582,7 @@ const credits = Cli.create('credits', {
               values.map(
                 (v) =>
                   `$${v}`.padEnd(maxLen) +
-                  `  ${pc.dim(`~${(Number(v) * 1000).toLocaleString()} requests`)}`,
+                  `  ${pc.dim(`~${estimateRequests(Number(v) * 1000)} requests`)}`,
               ),
               { doneLabels: values.map((v) => `$${v}`) },
             )
@@ -603,7 +605,12 @@ const credits = Cli.create('credits', {
           }
           if (chargeRes.status !== 200) {
             spinner.stop()
-            return c.error({ code: 'UNKNOWN', message: 'Unexpected error.' })
+            return c.error(
+              parseApiError(await chargeRes.json(), {
+                code: 'UNKNOWN',
+                message: 'Unexpected error.',
+              }),
+            )
           }
 
           const chargeJson = await chargeRes.json()
@@ -690,7 +697,7 @@ const credits = Cli.create('credits', {
 
       const json = await res.json()
       const dollars = (json.balance_mills / 1_000).toFixed(3)
-      const requests = json.balance_mills.toLocaleString()
+      const requests = estimateRequests(json.balance_mills)
       const lines =
         json.balance_mills > 0
           ? [

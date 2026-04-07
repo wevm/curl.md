@@ -18,6 +18,13 @@ import * as Crypto from '#lib/crypto.ts'
 import * as GitHub from '#lib/github.ts'
 import { invalidApiKey, narrowValidation, validationError, validator } from '#lib/hono.ts'
 import * as Nanoid from '#lib/nanoid.ts'
+import {
+  createPaymentElementCustomerSession,
+  getDefaultPaymentMethod,
+  getSavedPaymentMethodCount,
+  listCardPaymentMethods,
+  stripeOptions,
+} from '#lib/stripe.ts'
 import * as Md from '#md/index.ts'
 import * as Og from '#og.tsx'
 
@@ -628,22 +635,30 @@ export const api = new Hono<{
         )
     }
 
+    const entityType = organizationId ? 'organization' : 'account'
+    const entityId = organizationId ?? c.var.session.account_id
     const billing = await c.var.db
-      .selectFrom(organizationId ? 'organization' : 'account')
-      .where('id', '=', organizationId ?? c.var.session.account_id)
-      .select(['balance_mills', 'stripe_customer_id'])
+      .selectFrom(entityType)
+      .where('id', '=', entityId)
+      .select(['balance_mills', 'default_payment_method_id', 'stripe_customer_id'])
       .executeTakeFirst()
     if (!billing) return c.json({ code: 'not_found', message: 'Not found' }, 404)
 
     let method: Pick<Stripe.PaymentMethod.Card, 'brand' | 'last4'> | null = null
     if (billing.stripe_customer_id) {
       const stripe = new Stripe(c.env.STRIPE_SECRET_KEY, stripeOptions(c.env.STRIPE_API_URL))
-      const methods = await stripe.paymentMethods.list({
-        customer: billing.stripe_customer_id,
-        type: 'card',
-        limit: 1,
-      })
-      const card = methods.data[0]?.card
+      const paymentMethods = await listCardPaymentMethods(stripe, billing.stripe_customer_id)
+      const defaultPaymentMethod = getDefaultPaymentMethod(
+        billing.default_payment_method_id,
+        paymentMethods,
+      )
+      if (defaultPaymentMethod?.id !== billing.default_payment_method_id)
+        await c.var.db
+          .updateTable(entityType)
+          .set({ default_payment_method_id: defaultPaymentMethod?.id ?? null })
+          .where('id', '=', entityId)
+          .execute()
+      const card = defaultPaymentMethod?.card
       if (card) method = { brand: card.brand, last4: card.last4 }
     }
 
@@ -724,34 +739,34 @@ export const api = new Hono<{
       }
 
       if (!stripeCustomerId) return c.json({ code: 'not_found', message: 'Not found' }, 404)
+      const savedPaymentMethods = await listCardPaymentMethods(
+        stripe,
+        stripeCustomerId,
+        Constants.maxSavedPaymentMethods + 1,
+      )
+      const canSavePaymentMethod = savedPaymentMethods.length < Constants.maxSavedPaymentMethods
 
       const paymentIntent = await stripe.paymentIntents.create({
         amount,
         currency: 'usd',
         customer: stripeCustomerId,
         metadata: { entity_type: entityType, entity_id: entityId },
-        ...(json.save ? { setup_future_usage: 'off_session' } : {}),
+        ...(json.save && canSavePaymentMethod ? { setup_future_usage: 'off_session' } : {}),
       })
 
-      // TODO: Remove try-catch once merged https://github.com/vercel-labs/emulate/pull/47
       let csSecret: string | null = null
+      let savedPaymentMethodsUnavailable = false
       try {
-        const customerSession = await stripe.customerSessions.create({
-          components: {
-            payment_element: {
-              enabled: true,
-              features: {
-                payment_method_redisplay: 'enabled',
-                payment_method_remove: 'disabled',
-                payment_method_save: 'enabled',
-                payment_method_save_usage: 'off_session',
-              },
-            },
-          },
-          customer: stripeCustomerId,
-        })
+        const customerSession = await createPaymentElementCustomerSession(
+          stripe,
+          stripeCustomerId,
+          canSavePaymentMethod,
+        )
         csSecret = customerSession.client_secret
-      } catch {}
+      } catch (error) {
+        Sentry.captureException(error)
+        savedPaymentMethodsUnavailable = savedPaymentMethods.length > 0
+      }
 
       const paymentId = Nanoid.generate()
       await c.env.KV.put(
@@ -759,8 +774,10 @@ export const api = new Hono<{
         JSON.stringify({
           amount,
           cs_secret: csSecret,
+          has_saved_payment_methods: savedPaymentMethods.length > 0,
           locked: json.locked ?? false,
           pi_secret: paymentIntent.client_secret,
+          saved_payment_methods_unavailable: savedPaymentMethodsUnavailable,
         }),
         { expirationTtl: 1800 },
       )
@@ -811,7 +828,7 @@ export const api = new Hono<{
       const billing = await c.var.db
         .selectFrom(entityType)
         .where('id', '=', entityId)
-        .select('stripe_customer_id')
+        .select(['default_payment_method_id', 'stripe_customer_id'])
         .executeTakeFirst()
       if (!billing) return c.json({ code: 'not_found', message: 'Not found' }, 404)
 
@@ -821,42 +838,33 @@ export const api = new Hono<{
 
       const stripe = new Stripe(c.env.STRIPE_SECRET_KEY, stripeOptions(c.env.STRIPE_API_URL))
 
-      const methods = await stripe.paymentMethods.list({
-        customer: stripeCustomerId,
-        type: 'card',
-        limit: 1,
-      })
-      if (!methods.data[0])
+      const paymentMethods = await listCardPaymentMethods(stripe, stripeCustomerId)
+      const defaultPaymentMethod = getDefaultPaymentMethod(
+        billing.default_payment_method_id,
+        paymentMethods,
+      )
+      if (!defaultPaymentMethod)
         return c.json({ code: 'no_payment_method', message: 'No payment method on file' }, 400)
+      if (defaultPaymentMethod.id !== billing.default_payment_method_id)
+        await c.var.db
+          .updateTable(entityType)
+          .set({ default_payment_method_id: defaultPaymentMethod.id })
+          .where('id', '=', entityId)
+          .execute()
 
-      const paymentIntent = await stripe.paymentIntents.create({
-        amount,
-        confirm: true,
-        currency: 'usd',
-        customer: stripeCustomerId,
-        metadata: { entity_type: entityType, entity_id: entityId },
-        off_session: true,
-        payment_method: methods.data[0].id,
-      })
+      const createRequiresActionResponse = async (paymentIntent: Stripe.PaymentIntent) => {
+        if (!paymentIntent.client_secret)
+          return c.json({ code: 'payment_failed', message: 'Payment failed' }, 400)
 
-      if (paymentIntent.status === 'succeeded')
-        return c.json({ payment_id: paymentIntent.id, status: 'succeeded' } as const, 200)
-
-      if (paymentIntent.status === 'requires_action') {
-        const customerSession = await stripe.customerSessions.create({
-          components: {
-            payment_element: {
-              enabled: true,
-              features: {
-                payment_method_redisplay: 'enabled',
-                payment_method_remove: 'disabled',
-                payment_method_save: 'enabled',
-                payment_method_save_usage: 'off_session',
-              },
-            },
-          },
-          customer: stripeCustomerId,
-        })
+        // Only enable saving in the Payment Element when the customer is still below our cap.
+        const canSavePaymentMethod =
+          (await getSavedPaymentMethodCount(stripe, stripeCustomerId)) <
+          Constants.maxSavedPaymentMethods
+        const customerSession = await createPaymentElementCustomerSession(
+          stripe,
+          stripeCustomerId,
+          canSavePaymentMethod,
+        )
 
         const paymentId = Nanoid.generate()
         await c.env.KV.put(
@@ -879,6 +887,47 @@ export const api = new Hono<{
           200,
         )
       }
+
+      let paymentIntent: Stripe.PaymentIntent
+      try {
+        paymentIntent = await stripe.paymentIntents.create({
+          amount,
+          confirm: true,
+          currency: 'usd',
+          customer: stripeCustomerId,
+          metadata: { entity_type: entityType, entity_id: entityId },
+          off_session: true,
+          payment_method: defaultPaymentMethod.id,
+        })
+      } catch (error) {
+        if (
+          error instanceof Stripe.errors.StripeCardError &&
+          error.code === 'authentication_required' &&
+          error.payment_intent
+        )
+          return createRequiresActionResponse(error.payment_intent)
+
+        if (error instanceof Stripe.errors.StripeError)
+          return c.json(
+            {
+              code: 'payment_failed',
+              // Stripe's generic message is vague here; show a clearer recovery path.
+              message:
+                error instanceof Stripe.errors.StripeCardError &&
+                error.decline_code === 'fraudulent'
+                  ? 'Your card was declined as fraudulent. Try a different payment method.'
+                  : error.message,
+            },
+            400,
+          )
+        throw error
+      }
+
+      if (paymentIntent.status === 'succeeded')
+        return c.json({ payment_id: paymentIntent.id, status: 'succeeded' } as const, 200)
+
+      if (paymentIntent.status === 'requires_action')
+        return createRequiresActionResponse(paymentIntent)
 
       return c.json({ code: 'payment_failed', message: 'Payment failed' }, 400)
     },
@@ -1912,14 +1961,4 @@ async function rateLimit(
   )
 
   return { error: false } as const
-}
-
-function stripeOptions(apiUrl: string) {
-  const url = new URL(apiUrl)
-  // TODO: Pin Stripe API version
-  return {
-    host: url.hostname,
-    port: Number(url.port) || (url.protocol === 'https:' ? 443 : 80),
-    protocol: url.protocol.replace(':', '') as 'http' | 'https',
-  }
 }

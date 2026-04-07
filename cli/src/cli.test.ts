@@ -50,9 +50,9 @@ test('help', async () => {
       url  URL to fetch
 
     Options:
-      --fresh, -f <boolean>     Force fresh fetch (bypass cache)
+      --fresh, -f               Force fresh fetch (bypass cache)
       --keywords, -k <array>    Pre-filter by keywords (comma-separated)
-      --mode, -m <rush|smart>   Mode when narrowing content with --objective
+      --mode, -m <rush|smart>   Mode when narrowing content with --objective (default: smart)
       --objective, -o <string>  Narrow content to a specific objective
       --token, -t <string>      API token for authentication (env: CURLMD_API_KEY)
 
@@ -847,6 +847,56 @@ describe('credits', () => {
     expect(selectSpy).toHaveBeenCalled()
     expect(output).toContain('Credits added')
     expect(output).toContain('$15.000')
+  })
+
+  test('add - surfaces declined saved card message', async () => {
+    const account = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: account.id })
+    Session.write({ session_id: session.id })
+
+    const selectSpy = vi.spyOn(UI, 'select').mockResolvedValue(0)
+
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = async (input, init) => {
+      const url = input.toString()
+
+      if (
+        url.includes('/api/credits') &&
+        !url.includes('/add') &&
+        !url.includes('/charge') &&
+        !url.includes('/payment')
+      )
+        return new Response(
+          JSON.stringify({
+            balance_mills: 5_000,
+            payment_method: { brand: 'visa', last4: '0019' },
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        )
+
+      if (url.includes('/api/credits/charge') && init?.method === 'POST')
+        return new Response(
+          JSON.stringify({
+            code: 'payment_failed',
+            message: 'Your card was declined as fraudulent. Try a different payment method.',
+          }),
+          { status: 400, headers: { 'content-type': 'application/json' } },
+        )
+
+      return originalFetch(input, init)
+    }
+
+    onTestFinished(() => {
+      selectSpy.mockRestore()
+      globalThis.fetch = originalFetch
+    })
+
+    const { exitCode, output } = await serve(['credits', 'add', '10'])
+    expect(exitCode).toBe(1)
+    expect(output).toContain('PAYMENT_FAILED')
+    expect(output).toContain(
+      'Your card was declined as fraudulent. Try a different payment method.',
+    )
   })
 
   test('add - falls back to browser on requires_action', async () => {

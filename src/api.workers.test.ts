@@ -6,6 +6,7 @@ import { afterAll, afterEach, describe, expect, test, vi } from 'vitest'
 import { api } from '#api.ts'
 import { createClient } from '#db/client.ts'
 import * as ApiKey from '#lib/apiKey.ts'
+import * as Constants from '#lib/constants.ts'
 import * as Cookie from '#lib/cookie.ts'
 import * as Crypto from '#lib/crypto.ts'
 import * as Nanoid from '#lib/nanoid.ts'
@@ -21,6 +22,12 @@ const executionCtx = {
   props: {},
 }
 const client = testClient(api, env, executionCtx)
+
+function toSearchParams(formData: FormData) {
+  return new URLSearchParams(
+    Array.from(formData.entries()).map(([key, value]) => [key, String(value)]),
+  )
+}
 
 afterAll(() => db.destroy())
 
@@ -690,6 +697,53 @@ describe('GET /api/credits', () => {
       payment_method: null,
     })
   })
+
+  test('returns default payment_method when configured', async () => {
+    const account = await factory.account.insert({})
+    await db
+      .updateTable('account')
+      .set({
+        default_payment_method_id: 'pm_default',
+        stripe_customer_id: `cus_${Nanoid.generate()}`,
+      })
+      .where('id', '=', account.id)
+      .execute()
+    const session = await factory.session.insert({ account_id: account.id })
+
+    server.use(
+      http.get('https://api.stripe.com/v1/payment_methods', () =>
+        HttpResponse.json({
+          object: 'list',
+          data: [
+            {
+              id: 'pm_other',
+              object: 'payment_method',
+              card: { brand: 'mastercard', last4: '4444' },
+            },
+            {
+              id: 'pm_default',
+              object: 'payment_method',
+              card: { brand: 'visa', last4: '4242' },
+            },
+          ],
+        }),
+      ),
+    )
+
+    const res = await client.api.credits.$get(
+      {},
+      {
+        headers: {
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
+        },
+      },
+    )
+    expect(res.status).toBe(200)
+    await expect(res.json()).resolves.toEqual({
+      balance_mills: 0,
+      payment_method: { brand: 'visa', last4: '4242' },
+    })
+  })
 })
 
 describe('POST /api/credits/add', () => {
@@ -703,24 +757,33 @@ describe('POST /api/credits/add', () => {
   test('creates payment intent for account', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
+    let customerSessionBody = ''
+    const stripeVersions = new Set<string>()
 
     server.use(
       http.post('https://api.stripe.com/v1/customers', () =>
         HttpResponse.json({ id: 'cus_test_123', object: 'customer' }),
       ),
-      http.post('https://api.stripe.com/v1/payment_intents', () =>
-        HttpResponse.json({
+      http.get('https://api.stripe.com/v1/payment_methods', ({ request }) => {
+        stripeVersions.add(request.headers.get('stripe-version') ?? '')
+        return HttpResponse.json({ data: [], object: 'list' })
+      }),
+      http.post('https://api.stripe.com/v1/payment_intents', ({ request }) => {
+        stripeVersions.add(request.headers.get('stripe-version') ?? '')
+        return HttpResponse.json({
           id: 'pi_test_123',
           object: 'payment_intent',
           client_secret: 'pi_test_123_secret',
-        }),
-      ),
-      http.post('https://api.stripe.com/v1/customer_sessions', () =>
-        HttpResponse.json({
-          client_secret: 'cs_session_test_123',
+        })
+      }),
+      http.post('https://api.stripe.com/v1/customer_sessions', async ({ request }) => {
+        stripeVersions.add(request.headers.get('stripe-version') ?? '')
+        customerSessionBody = toSearchParams(await request.formData()).toString()
+        return HttpResponse.json({
+          client_secret: '[REDACTED:secret-value]',
           object: 'customer_session',
-        }),
-      ),
+        })
+      }),
     )
 
     const res = await client.api.credits.add.$post(
@@ -746,6 +809,11 @@ describe('POST /api/credits/add', () => {
       .select('stripe_customer_id')
       .executeTakeFirstOrThrow()
     expect(updated.stripe_customer_id).toBe('cus_test_123')
+    expect(customerSessionBody).toContain('payment_method_allow_redisplay_filters')
+    expect(customerSessionBody).toContain('always')
+    expect(customerSessionBody).toContain('limited')
+    expect(customerSessionBody).toContain('unspecified')
+    expect(stripeVersions).toEqual(new Set([Constants.stripeApiVersion]))
   })
 
   test('creates payment intent with save flag', async () => {
@@ -758,6 +826,9 @@ describe('POST /api/credits/add', () => {
     const session = await factory.session.insert({ account_id: account.id })
 
     server.use(
+      http.get('https://api.stripe.com/v1/payment_methods', () =>
+        HttpResponse.json({ data: [], object: 'list' }),
+      ),
       http.post('https://api.stripe.com/v1/payment_intents', () =>
         HttpResponse.json({
           id: 'pi_save_123',
@@ -786,6 +857,176 @@ describe('POST /api/credits/add', () => {
     assert('payment_id' in json, 'expected payment_id')
     expect(json.payment_id).toEqual(expect.any(String))
     expect(json.url).toMatch(/^https:\/\/curl\.local\/credits\/add\//)
+  })
+
+  test('disables card saving when max payment methods already exist', async () => {
+    const account = await factory.account.insert({})
+    await db
+      .updateTable('account')
+      .set({ stripe_customer_id: `cus_${Nanoid.generate()}` })
+      .where('id', '=', account.id)
+      .execute()
+    const session = await factory.session.insert({ account_id: account.id })
+
+    let customerSessionBody = ''
+    let paymentIntentBody = ''
+
+    server.use(
+      http.get('https://api.stripe.com/v1/payment_methods', () =>
+        HttpResponse.json({
+          data: [
+            { id: 'pm_1', card: { brand: 'visa', last4: '4242' } },
+            { id: 'pm_2', card: { brand: 'visa', last4: '4243' } },
+            { id: 'pm_3', card: { brand: 'visa', last4: '4244' } },
+          ],
+          object: 'list',
+        }),
+      ),
+      http.post('https://api.stripe.com/v1/payment_intents', async ({ request }) => {
+        paymentIntentBody = decodeURIComponent(toSearchParams(await request.formData()).toString())
+        return HttpResponse.json({
+          id: 'pi_save_limited',
+          object: 'payment_intent',
+          client_secret: 'pi_save_limited_secret',
+        })
+      }),
+      http.post('https://api.stripe.com/v1/customer_sessions', async ({ request }) => {
+        customerSessionBody = decodeURIComponent(
+          toSearchParams(await request.formData()).toString(),
+        )
+        return HttpResponse.json({
+          client_secret: '[REDACTED:secret-value]',
+          object: 'customer_session',
+        })
+      }),
+    )
+
+    const res = await client.api.credits.add.$post(
+      { json: { amount: '1000', save: true } },
+      {
+        headers: {
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
+        },
+      },
+    )
+    expect(res.status).toBe(200)
+    expect(paymentIntentBody).not.toContain('setup_future_usage=off_session')
+    expect(customerSessionBody).toContain('[payment_method_save]=disabled')
+    expect(customerSessionBody).not.toContain('payment_method_save_usage')
+  })
+
+  test('falls back to legacy customer session features when Stripe rejects redisplay filters', async () => {
+    const account = await factory.account.insert({})
+    await db
+      .updateTable('account')
+      .set({ stripe_customer_id: `cus_${Nanoid.generate()}` })
+      .where('id', '=', account.id)
+      .execute()
+    const session = await factory.session.insert({ account_id: account.id })
+
+    const customerSessionBodies: string[] = []
+
+    server.use(
+      http.get('https://api.stripe.com/v1/payment_methods', () =>
+        HttpResponse.json({
+          data: [{ id: 'pm_1', card: { brand: 'visa', last4: '4242' } }],
+          object: 'list',
+        }),
+      ),
+      http.post('https://api.stripe.com/v1/payment_intents', () =>
+        HttpResponse.json({
+          id: 'pi_retry_123',
+          object: 'payment_intent',
+          client_secret: 'pi_retry_123_secret',
+        }),
+      ),
+      http.post('https://api.stripe.com/v1/customer_sessions', async ({ request }) => {
+        customerSessionBodies.push(
+          decodeURIComponent(toSearchParams(await request.formData()).toString()),
+        )
+        if (customerSessionBodies.length === 1)
+          return HttpResponse.json(
+            { error: { message: 'Unknown parameter: payment_method_allow_redisplay_filters' } },
+            { status: 400 },
+          )
+
+        return HttpResponse.json({
+          client_secret: '[REDACTED:secret-value]',
+          object: 'customer_session',
+        })
+      }),
+    )
+
+    const res = await client.api.credits.add.$post(
+      { json: { amount: '500' } },
+      {
+        headers: {
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
+        },
+      },
+    )
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    assert('payment_id' in json, 'expected payment_id')
+
+    expect(customerSessionBodies).toHaveLength(2)
+    expect(customerSessionBodies[0]).toContain('payment_method_allow_redisplay_filters')
+    expect(customerSessionBodies[1]).not.toContain('payment_method_allow_redisplay_filters')
+
+    const kvData = await env.KV.get(`payment:${json.payment_id}`, 'json')
+    expect(kvData).toMatchObject({
+      cs_secret: '[REDACTED:secret-value]',
+      has_saved_payment_methods: true,
+      saved_payment_methods_unavailable: false,
+    })
+  })
+
+  test('flags saved methods as unavailable when customer session creation fails', async () => {
+    const account = await factory.account.insert({})
+    await db
+      .updateTable('account')
+      .set({ stripe_customer_id: `cus_${Nanoid.generate()}` })
+      .where('id', '=', account.id)
+      .execute()
+    const session = await factory.session.insert({ account_id: account.id })
+
+    server.use(
+      http.get('https://api.stripe.com/v1/payment_methods', () =>
+        HttpResponse.json({
+          data: [{ id: 'pm_1', card: { brand: 'visa', last4: '4242' } }],
+          object: 'list',
+        }),
+      ),
+      http.post('https://api.stripe.com/v1/payment_intents', () =>
+        HttpResponse.json({
+          id: 'pi_flagged_123',
+          object: 'payment_intent',
+          client_secret: 'pi_flagged_123_secret',
+        }),
+      ),
+      http.post('https://api.stripe.com/v1/customer_sessions', () =>
+        HttpResponse.json({ error: { message: 'boom' } }, { status: 500 }),
+      ),
+    )
+
+    const res = await client.api.credits.add.$post(
+      { json: { amount: '500' } },
+      {
+        headers: {
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
+        },
+      },
+    )
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    assert('payment_id' in json, 'expected payment_id')
+
+    const kvData = await env.KV.get(`payment:${json.payment_id}`, 'json')
+    expect(kvData).toMatchObject({
+      cs_secret: null,
+      has_saved_payment_methods: true,
+      saved_payment_methods_unavailable: true,
+    })
   })
 
   test('returns 403 for org when not owner/admin', async () => {
@@ -907,6 +1148,159 @@ describe('POST /api/credits/charge', () => {
     })
   })
 
+  test('returns payment_failed when saved card is declined', async () => {
+    const account = await factory.account.insert({})
+    await db
+      .updateTable('account')
+      .set({ stripe_customer_id: `cus_${Nanoid.generate()}` })
+      .where('id', '=', account.id)
+      .execute()
+    const session = await factory.session.insert({ account_id: account.id })
+
+    server.use(
+      http.get('https://api.stripe.com/v1/payment_methods', () =>
+        HttpResponse.json({
+          data: [{ id: 'pm_declined', card: { brand: 'visa', last4: '0019' } }],
+          object: 'list',
+        }),
+      ),
+      http.post('https://api.stripe.com/v1/payment_intents', () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: 'card_declined',
+              decline_code: 'fraudulent',
+              message: 'Your card was declined.',
+              type: 'card_error',
+            },
+          },
+          { status: 402 },
+        ),
+      ),
+    )
+
+    const res = await client.api.credits.charge.$post(
+      { json: { amount: '1000' } },
+      {
+        headers: {
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
+        },
+      },
+    )
+    expect(res.status).toBe(400)
+    await expect(res.json()).resolves.toEqual({
+      code: 'payment_failed',
+      message: 'Your card was declined as fraudulent. Try a different payment method.',
+    })
+  })
+
+  test('charges default saved card when configured', async () => {
+    const account = await factory.account.insert({})
+    await db
+      .updateTable('account')
+      .set({
+        default_payment_method_id: 'pm_default',
+        stripe_customer_id: `cus_${Nanoid.generate()}`,
+      })
+      .where('id', '=', account.id)
+      .execute()
+    const session = await factory.session.insert({ account_id: account.id })
+
+    let paymentIntentBody = ''
+
+    server.use(
+      http.get('https://api.stripe.com/v1/payment_methods', () =>
+        HttpResponse.json({
+          data: [
+            { id: 'pm_other', card: { brand: 'mastercard', last4: '4444' } },
+            { id: 'pm_default', card: { brand: 'visa', last4: '4242' } },
+          ],
+          object: 'list',
+        }),
+      ),
+      http.post('https://api.stripe.com/v1/payment_intents', async ({ request }) => {
+        paymentIntentBody = toSearchParams(await request.formData()).toString()
+        return HttpResponse.json({
+          id: 'pi_charge_default',
+          status: 'succeeded',
+          object: 'payment_intent',
+        })
+      }),
+    )
+
+    const res = await client.api.credits.charge.$post(
+      { json: { amount: '1000' } },
+      {
+        headers: {
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
+        },
+      },
+    )
+    expect(res.status).toBe(200)
+    expect(paymentIntentBody).toContain('payment_method=pm_default')
+    await expect(res.json()).resolves.toEqual({
+      payment_id: 'pi_charge_default',
+      status: 'succeeded',
+    })
+  })
+
+  test('repairs stale default payment method before charging', async () => {
+    const account = await factory.account.insert({})
+    await db
+      .updateTable('account')
+      .set({
+        default_payment_method_id: 'pm_stale',
+        stripe_customer_id: `cus_${Nanoid.generate()}`,
+      })
+      .where('id', '=', account.id)
+      .execute()
+    const session = await factory.session.insert({ account_id: account.id })
+
+    let paymentIntentBody = ''
+
+    server.use(
+      http.get('https://api.stripe.com/v1/payment_methods', () =>
+        HttpResponse.json({
+          data: [
+            { id: 'pm_fallback', card: { brand: 'visa', last4: '4242' } },
+            { id: 'pm_other', card: { brand: 'mastercard', last4: '4444' } },
+          ],
+          object: 'list',
+        }),
+      ),
+      http.post('https://api.stripe.com/v1/payment_intents', async ({ request }) => {
+        paymentIntentBody = toSearchParams(await request.formData()).toString()
+        return HttpResponse.json({
+          id: 'pi_charge_fallback',
+          status: 'succeeded',
+          object: 'payment_intent',
+        })
+      }),
+    )
+
+    const res = await client.api.credits.charge.$post(
+      { json: { amount: '1000' } },
+      {
+        headers: {
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
+        },
+      },
+    )
+    expect(res.status).toBe(200)
+    expect(paymentIntentBody).toContain('payment_method=pm_fallback')
+    await expect(res.json()).resolves.toEqual({
+      payment_id: 'pi_charge_fallback',
+      status: 'succeeded',
+    })
+
+    const updated = await db
+      .selectFrom('account')
+      .where('id', '=', account.id)
+      .select('default_payment_method_id')
+      .executeTakeFirstOrThrow()
+    expect(updated.default_payment_method_id).toBe('pm_fallback')
+  })
+
   test('returns requires_action with fallback URL when 3DS required', async () => {
     const account = await factory.account.insert({})
     await db
@@ -958,6 +1352,74 @@ describe('POST /api/credits/charge', () => {
 
     const kvData = await env.KV.get(`payment:${json.payment_id}`, 'json')
     expect(kvData).toBeTruthy()
+  })
+
+  test('returns requires_action when off-session charge needs authentication', async () => {
+    const account = await factory.account.insert({})
+    await db
+      .updateTable('account')
+      .set({ stripe_customer_id: `cus_${Nanoid.generate()}` })
+      .where('id', '=', account.id)
+      .execute()
+    const session = await factory.session.insert({ account_id: account.id })
+
+    server.use(
+      http.get('https://api.stripe.com/v1/payment_methods', () =>
+        HttpResponse.json({
+          data: [{ id: 'pm_3ds_error', card: { brand: 'visa', last4: '4242' } }],
+          object: 'list',
+        }),
+      ),
+      http.post('https://api.stripe.com/v1/payment_intents', () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: 'authentication_required',
+              message: 'This transaction requires authentication.',
+              payment_intent: {
+                client_secret: 'pi_3ds_error_secret',
+                id: 'pi_3ds_error',
+                object: 'payment_intent',
+                status: 'requires_payment_method',
+              },
+              type: 'card_error',
+            },
+          },
+          { status: 402 },
+        ),
+      ),
+      http.post('https://api.stripe.com/v1/customer_sessions', () =>
+        HttpResponse.json({
+          client_secret: '[REDACTED:secret-value]',
+          object: 'customer_session',
+        }),
+      ),
+    )
+
+    const res = await client.api.credits.charge.$post(
+      { json: { amount: '1000' } },
+      {
+        headers: {
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
+        },
+      },
+    )
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    assert('payment_id' in json, 'expected payment_id')
+    expect(json).toEqual({
+      payment_id: expect.any(String),
+      status: 'requires_action',
+      url: expect.stringContaining('/credits/add/'),
+    })
+
+    const kvData = await env.KV.get(`payment:${json.payment_id}`, 'json')
+    expect(kvData).toMatchObject({
+      amount: 1000,
+      cs_secret: '[REDACTED:secret-value]',
+      locked: true,
+      pi_secret: 'pi_3ds_error_secret',
+    })
   })
 
   test('returns 403 for org when not owner/admin', async () => {

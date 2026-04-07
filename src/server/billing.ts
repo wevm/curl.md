@@ -3,13 +3,20 @@ import { getRequest } from '@tanstack/react-start/server'
 import { env } from 'cloudflare:workers'
 import Stripe from 'stripe'
 import { createClient } from '#db/client.ts'
+import * as Constants from '#lib/constants.ts'
 import * as Cookie from '#lib/cookie.ts'
+import {
+  getDefaultPaymentMethod,
+  getSavedPaymentMethodCount,
+  listCardPaymentMethods,
+  stripeOptions,
+} from '#lib/stripe.ts'
 
 export type PaymentMethod = Pick<Stripe.PaymentMethod, 'id'> &
   Pick<
     NonNullable<Stripe.PaymentMethod['card']>,
     'brand' | 'exp_month' | 'exp_year' | 'funding' | 'last4'
-  >
+  > & { is_default: boolean }
 
 export const getBillingData = createServerFn({ method: 'GET' })
   .inputValidator((d: { entityId: string; entityType: 'account' | 'organization' }) => d)
@@ -28,27 +35,32 @@ export const getBillingData = createServerFn({ method: 'GET' })
     const billing = await db
       .selectFrom(table)
       .where('id', '=', c.data.entityId)
-      .select(['balance_mills', 'stripe_customer_id'])
+      .select(['balance_mills', 'default_payment_method_id', 'stripe_customer_id'])
       .executeTakeFirst()
 
-    const paymentMethods: PaymentMethod[] = []
+    let paymentMethods: PaymentMethod[] = []
     if (billing?.stripe_customer_id) {
       const stripe = createStripe()
-      const methods = await stripe.paymentMethods.list({
-        customer: billing.stripe_customer_id,
-        type: 'card',
-      })
-      for (const pm of methods.data) {
-        if (pm.card)
-          paymentMethods.push({
-            brand: pm.card.brand,
-            exp_month: pm.card.exp_month,
-            exp_year: pm.card.exp_year,
-            funding: pm.card.funding,
-            id: pm.id,
-            last4: pm.card.last4,
-          })
-      }
+      const methods = await listCardPaymentMethods(stripe, billing.stripe_customer_id)
+      const defaultPaymentMethod = getDefaultPaymentMethod(
+        billing.default_payment_method_id,
+        methods,
+      )
+      if (defaultPaymentMethod?.id !== billing.default_payment_method_id)
+        await db
+          .updateTable(table)
+          .set({ default_payment_method_id: defaultPaymentMethod?.id ?? null })
+          .where('id', '=', c.data.entityId)
+          .execute()
+      paymentMethods = methods.map((pm) => ({
+        brand: pm.card.brand,
+        exp_month: pm.card.exp_month,
+        exp_year: pm.card.exp_year,
+        funding: pm.card.funding,
+        id: pm.id,
+        is_default: pm.id === defaultPaymentMethod?.id,
+        last4: pm.card.last4,
+      }))
     }
 
     return {
@@ -117,6 +129,37 @@ export const getTransactions = createServerFn({ method: 'GET' })
     }
   })
 
+export const getPayment = createServerFn({ method: 'GET' })
+  .inputValidator((d: { id: string }) => d)
+  .handler(async (c) => {
+    const data = await env.KV.get(`payment:${c.data.id}`, 'json')
+    if (!data) return null
+    return { ...data, publishable_key: env.STRIPE_PUBLISHABLE_KEY }
+  })
+
+const allowedPaymentAmounts = new Set(Constants.creditAmounts.map(Number))
+
+export const changePaymentAmount = createServerFn({ method: 'POST' })
+  .inputValidator((d: { amount: number; id: string }) => d)
+  .handler(async (c) => {
+    if (!allowedPaymentAmounts.has(c.data.amount)) throw new Error('invalid_amount')
+
+    const data = await env.KV.get(`payment:${c.data.id}`, 'json')
+    if (!data || data.locked) throw new Error('not_found')
+
+    const piId = data.pi_secret.slice(0, data.pi_secret.indexOf('_secret_'))
+    await createStripe().paymentIntents.update(piId, { amount: c.data.amount })
+    await env.KV.put(`payment:${c.data.id}`, JSON.stringify({ ...data, amount: c.data.amount }), {
+      expirationTtl: 1800,
+    })
+  })
+
+export const deletePayment = createServerFn({ method: 'POST' })
+  .inputValidator((d: { id: string }) => d)
+  .handler(async (c) => {
+    await env.KV.delete(`payment:${c.data.id}`)
+  })
+
 export const setupPaymentMethod = createServerFn({ method: 'POST' })
   .inputValidator((d: { entityId: string; entityType: 'account' | 'organization' }) => d)
   .handler(async (c) => {
@@ -165,6 +208,11 @@ export const setupPaymentMethod = createServerFn({ method: 'POST' })
     }
 
     if (!stripeCustomerId) throw new Error('Not found')
+    if (
+      (await getSavedPaymentMethodCount(stripe, stripeCustomerId)) >=
+      Constants.maxSavedPaymentMethods
+    )
+      throw new Error(`Maximum ${Constants.maxSavedPaymentMethods} payment methods allowed.`)
 
     const setupIntent = await stripe.setupIntents.create({
       customer: stripeCustomerId,
@@ -177,7 +225,7 @@ export const setupPaymentMethod = createServerFn({ method: 'POST' })
     }
   })
 
-export const removePaymentMethod = createServerFn({ method: 'POST' })
+export const setDefaultPaymentMethod = createServerFn({ method: 'POST' })
   .inputValidator(
     (d: { entityId: string; entityType: 'account' | 'organization'; paymentMethodId: string }) => d,
   )
@@ -199,12 +247,60 @@ export const removePaymentMethod = createServerFn({ method: 'POST' })
       .executeTakeFirst()
     if (!billing?.stripe_customer_id) throw new Error('Not found')
 
+    const methods = await listCardPaymentMethods(createStripe(), billing.stripe_customer_id)
+    if (!methods.some((paymentMethod) => paymentMethod.id === c.data.paymentMethodId))
+      throw new Error('Not found')
+
+    await db
+      .updateTable(table)
+      .set({ default_payment_method_id: c.data.paymentMethodId })
+      .where('id', '=', c.data.entityId)
+      .execute()
+  })
+
+export const removePaymentMethod = createServerFn({ method: 'POST' })
+  .inputValidator(
+    (d: { entityId: string; entityType: 'account' | 'organization'; paymentMethodId: string }) => d,
+  )
+  .handler(async (c) => {
+    const request = getRequest()
+    const db = createClient(env.DB.connectionString)
+    const accountId = await resolveAccountId(request, db)
+    if (!accountId) throw new Error('Authentication required')
+
+    const table = c.data.entityType === 'organization' ? 'organization' : 'account'
+    if (c.data.entityType === 'organization') {
+      await requireOrgAdmin(db, c.data.entityId, accountId)
+    }
+
+    const billing = await db
+      .selectFrom(table)
+      .where('id', '=', c.data.entityId)
+      .select(['default_payment_method_id', 'stripe_customer_id'])
+      .executeTakeFirst()
+    if (!billing?.stripe_customer_id) throw new Error('Not found')
+
     const stripe = createStripe()
 
-    const pm = await stripe.paymentMethods.retrieve(c.data.paymentMethodId)
-    if (pm.customer !== billing.stripe_customer_id) throw new Error('Not found')
+    const methods = await listCardPaymentMethods(stripe, billing.stripe_customer_id)
+    if (!methods.some((paymentMethod) => paymentMethod.id === c.data.paymentMethodId))
+      throw new Error('Not found')
 
     await stripe.paymentMethods.detach(c.data.paymentMethodId)
+
+    const remainingMethods = await listCardPaymentMethods(stripe, billing.stripe_customer_id)
+    const defaultPaymentMethod = getDefaultPaymentMethod(
+      billing.default_payment_method_id === c.data.paymentMethodId
+        ? null
+        : billing.default_payment_method_id,
+      remainingMethods,
+    )
+    if (defaultPaymentMethod?.id !== billing.default_payment_method_id)
+      await db
+        .updateTable(table)
+        .set({ default_payment_method_id: defaultPaymentMethod?.id ?? null })
+        .where('id', '=', c.data.entityId)
+        .execute()
   })
 
 async function resolveAccountId(request: Request, db: ReturnType<typeof createClient>) {
@@ -239,10 +335,5 @@ async function requireOrgAdmin(
 }
 
 function createStripe() {
-  const url = new URL(env.STRIPE_API_URL)
-  return new Stripe(env.STRIPE_SECRET_KEY, {
-    host: url.hostname,
-    port: Number(url.port) || (url.protocol === 'https:' ? 443 : 80),
-    protocol: url.protocol.replace(':', '') as 'http' | 'https',
-  })
+  return new Stripe(env.STRIPE_SECRET_KEY, stripeOptions(env.STRIPE_API_URL))
 }

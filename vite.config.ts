@@ -7,7 +7,7 @@ import autoImport from 'unplugin-auto-import/vite'
 import iconsResolver from 'unplugin-icons/resolver'
 import icons from 'unplugin-icons/vite'
 import { defineConfig } from 'vite'
-import { explorerOriginRewrite, getWranglerVar } from './config/wrangler.ts'
+import { cloudflareDevWorkarounds, getWranglerVar } from './config/wrangler.ts'
 import { createClient } from './db/client.ts'
 import { Env } from './test/env.ts'
 
@@ -17,22 +17,7 @@ export default defineConfig(async () => ({
   },
   plugins: [
     tailwindcss(),
-    // Vite/Miniflare can throw uncaught socket errors (ECONNRESET, EPIPE) during
-    // SSR fetches when a client disconnects mid-request.
-    // https://github.com/cloudflare/workers-sdk/issues/12047
-    {
-      name: 'swallow-socket-errors',
-      configureServer() {
-        const socketErrors = new Set(['ERR_STREAM_WRITE_AFTER_END', 'EPIPE', 'ECONNRESET'])
-        process.on('uncaughtException', (err) => {
-          if ('code' in err && socketErrors.has(err.code as string)) return
-          // Miniflare cancels in-flight requests when the worker restarts during HMR
-          if (err.message?.includes('Workers runtime canceled this request')) return
-          throw err
-        })
-      },
-    },
-    explorerOriginRewrite(),
+    cloudflareDevWorkarounds(),
     cloudflare({
       viteEnvironment: { name: 'ssr' },
       // Override bindings for tests (testcontainers DB, emulate GitHub)

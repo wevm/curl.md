@@ -24,6 +24,17 @@ test('opens add payment method dialog from query param', async ({ factory, page,
   await expect(page.getByRole('heading', { name: 'Add payment method' })).toBeVisible()
 })
 
+test('opens add credits dialog from query param', async ({ factory, page, setSession }) => {
+  const account = await factory.account.insert({})
+  await setSession(account.id)
+
+  await page.goto(`/${account.login}/billing?modal=add_credits&payment_id=nonexistent-id`)
+
+  await expect(page.getByRole('heading', { name: 'Add credits' })).toBeVisible()
+  await expect(page.getByText('Add prepaid credits to your account.')).toBeVisible()
+  await expect(page.getByText('Payment session expired or not found.')).toBeVisible()
+})
+
 test('shows tokens saved and dollar savings from requests', async ({
   factory,
   page,
@@ -56,4 +67,31 @@ test('shows credit balance', async ({ db, factory, page, setSession }) => {
   await page.goto(`/${account.login}/billing`)
 
   await expect(page.getByText('$50.00')).toBeVisible({ timeout: 10000 })
+})
+
+test('shows mill precision only when needed in billing balances', async ({
+  db,
+  factory,
+  page,
+  setSession,
+}) => {
+  const account = await factory.account.insert({})
+  await setSession(account.id)
+
+  await db
+    .updateTable('account')
+    .set({ balance_mills: 5005 })
+    .where('id', '=', account.id)
+    .execute()
+
+  await factory.credit_transaction.insert({
+    account_id: account.id,
+    amount_mills: 5005,
+    balance_after_mills: 5005,
+    type: 'purchase',
+  })
+
+  await page.goto(`/${account.login}/billing`)
+
+  await expect(page.getByText('$5.005')).toHaveCount(3)
 })

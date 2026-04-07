@@ -24,7 +24,8 @@ import * as Cookie from '#lib/cookie.ts'
 import { rpc } from '#lib/rpc.ts'
 
 const searchSchema = z.object({
-  modal: z.enum(['add_payment_method', 'create_org']).optional(),
+  modal: z.enum(['add_credits', 'add_payment_method', 'create_org']).optional(),
+  payment_id: z.string().optional(),
 })
 
 export const Route = createFileRoute('/_dash/$login')({

@@ -26,9 +26,11 @@ declare namespace KV {
     | (key extends `payment:${string}`
         ? {
             amount: number
-            cs_secret: string
+            cs_secret: string | null
+            has_saved_payment_methods: boolean
             locked: boolean
             pi_secret: string
+            saved_payment_methods_unavailable: boolean
           }
         : never)
     | (key extends `session:${string}` ? string : never)

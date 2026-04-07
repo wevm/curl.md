@@ -39,7 +39,7 @@ function Stat(props: { label: string; tooltip?: React.ReactNode; value?: string 
         <Tooltip.Provider delay={0}>
           <Tooltip.Root>
             <Tooltip.Trigger
-              className="text-gray7 hover:text-gray9 absolute end-3 top-3 cursor-default"
+              className="text-gray7 hover:text-gray9 absolute end-3 top-3 hidden cursor-default sm:block"
               render={<button type="button" />}
             >
               <IconOcticonInfo16 aria-label="Info" className="size-3.5" />

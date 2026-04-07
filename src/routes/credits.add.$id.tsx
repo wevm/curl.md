@@ -4,16 +4,14 @@ import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-
 import { loadStripe } from '@stripe/stripe-js'
 import { useMutation } from '@tanstack/react-query'
 import { createFileRoute, useRouter } from '@tanstack/react-router'
-import { createServerFn } from '@tanstack/react-start'
-import { env } from 'cloudflare:workers'
 import * as React from 'react'
-import Stripe from 'stripe'
 import { z } from 'zod/mini'
 import { Nav } from '#components/Nav.tsx'
 import { stripeAppearance } from '#components/stripe.ts'
 import { useTheme } from '#hooks/useTheme.ts'
 import { creditAmounts } from '#lib/constants.ts'
 import { estimateRequests } from '#lib/format.ts'
+import { changePaymentAmount, deletePayment, getPayment } from '#server/billing.ts'
 
 export const Route = createFileRoute('/credits/add/$id')({
   head() {
@@ -50,11 +48,17 @@ function Component() {
       options={{
         appearance: stripeAppearance(resolvedTheme),
         clientSecret: data.pi_secret,
-        customerSessionClientSecret: data.cs_secret,
+        ...(data.cs_secret ? { customerSessionClientSecret: data.cs_secret } : {}),
       }}
       stripe={stripePromise}
     >
-      <CheckoutForm amount={data.amount} id={params.id} locked={data.locked} next={search.next} />
+      <CheckoutForm
+        amount={data.amount}
+        id={params.id}
+        locked={data.locked}
+        next={search.next}
+        savedPaymentMethodsUnavailable={data.saved_payment_methods_unavailable}
+      />
     </Elements>
   )
 }
@@ -66,6 +70,7 @@ function CheckoutForm(props: {
   id: string
   locked: boolean
   next?: string | undefined
+  savedPaymentMethodsUnavailable: boolean
 }) {
   const router = useRouter()
   const stripe = useStripe()
@@ -74,7 +79,7 @@ function CheckoutForm(props: {
 
   const updateAmount = useMutation({
     async mutationFn(newAmount: number) {
-      await changeAmount({ data: { id: props.id, amount: newAmount } })
+      await changePaymentAmount({ data: { amount: newAmount, id: props.id } })
     },
     onMutate(newAmount) {
       setAmount(newAmount)
@@ -138,6 +143,18 @@ function CheckoutForm(props: {
               ))}
             </RadioGroup>
           )}
+          {props.savedPaymentMethodsUnavailable && (
+            <div className="text-yellow11 bg-yellow-a2 border-yellow-a4 flex items-start gap-2 border px-3 py-2 text-sm">
+              <IconOcticonAlert16 aria-hidden className="mt-0.5 size-4 shrink-0" />
+              <div>
+                <p className="font-medium">Saved payment methods unavailable</p>
+                <p>
+                  Saved payment methods are temporarily unavailable for this payment. You can still
+                  use a new payment method below.
+                </p>
+              </div>
+            </div>
+          )}
           <PaymentElement
             options={{
               layout: {
@@ -177,40 +194,3 @@ function PageWrapper(props: React.PropsWithChildren<{ description: string; title
     </div>
   )
 }
-
-const paymentInput = z.object({ id: z.string() })
-
-const getPayment = createServerFn({ method: 'GET' })
-  .inputValidator((data) => z.parse(paymentInput, data))
-  .handler(async (c) => {
-    const data = await env.KV.get(`payment:${c.data.id}`, 'json')
-    if (!data) return null
-    return { ...data, publishable_key: env.STRIPE_PUBLISHABLE_KEY }
-  })
-
-const allowedAmounts = new Set(amounts)
-
-const changeAmount = createServerFn({ method: 'POST' })
-  .inputValidator((data) => z.parse(z.object({ id: z.string(), amount: z.number() }), data))
-  .handler(async (c) => {
-    if (!allowedAmounts.has(c.data.amount)) throw new Error('invalid_amount')
-    const data = await env.KV.get(`payment:${c.data.id}`, 'json')
-    if (!data || data.locked) throw new Error('not_found')
-    const url = new URL(env.STRIPE_API_URL)
-    const stripe = new Stripe(env.STRIPE_SECRET_KEY, {
-      host: url.hostname,
-      port: Number(url.port) || (url.protocol === 'https:' ? 443 : 80),
-      protocol: url.protocol.replace(':', '') as 'http' | 'https',
-    })
-    const piId = data.pi_secret.slice(0, data.pi_secret.indexOf('_secret_'))
-    await stripe.paymentIntents.update(piId, { amount: c.data.amount })
-    await env.KV.put(`payment:${c.data.id}`, JSON.stringify({ ...data, amount: c.data.amount }), {
-      expirationTtl: 1800,
-    })
-  })
-
-const deletePayment = createServerFn({ method: 'POST' })
-  .inputValidator((data) => z.parse(paymentInput, data))
-  .handler(async (c) => {
-    await env.KV.delete(`payment:${c.data.id}`)
-  })

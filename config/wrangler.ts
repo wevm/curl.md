@@ -30,13 +30,13 @@ const wranglerJsoncCodec = z.codec(
   },
 )
 
-// Rewrites Host/Origin headers to localhost for /cdn-cgi/explorer requests
-// so they pass Miniflare's origin validation when accessed via a custom domain.
-export function explorerOriginRewrite(): Plugin {
+export function cloudflareDevWorkarounds(): Plugin {
   return {
-    name: 'explorer-origin-rewrite',
+    name: 'cloudflare-dev-workarounds',
     enforce: 'pre',
     configureServer(server) {
+      // Rewrite Host/Origin headers to localhost for /cdn-cgi/explorer requests
+      // so they pass Miniflare's origin validation when accessed via a custom domain.
       server.middlewares.use((req, _res, next) => {
         const url = req.originalUrl ?? ''
         if (url.startsWith('/cdn-cgi/explorer')) {
@@ -47,6 +47,16 @@ export function explorerOriginRewrite(): Plugin {
           }
         }
         next()
+      })
+
+      // Vite/Miniflare can throw uncaught socket errors during SSR fetches when a
+      // client disconnects mid-request or Miniflare restarts a worker during HMR.
+      // https://github.com/cloudflare/workers-sdk/issues/12047
+      const socketErrors = new Set(['ERR_STREAM_WRITE_AFTER_END', 'EPIPE', 'ECONNRESET'])
+      process.on('uncaughtException', (err) => {
+        if ('code' in err && socketErrors.has(err.code as string)) return
+        if (err.message?.includes('Workers runtime canceled this request')) return
+        throw err
       })
     },
   }
