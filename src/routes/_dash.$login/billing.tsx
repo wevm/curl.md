@@ -120,10 +120,11 @@ function Component() {
       {addCredits.isError && <p className="text-red9 mt-2 text-sm">{addCredits.error.message}</p>}
 
       <Dashboard.Section title="Payment Methods">
-        {data.payment_methods.length > 0
-          ? data.payment_methods.map((pm) => (
+        {data.payment_methods.length > 0 ? (
+          <div className="bg-gray-a1/50 border-gray3 border">
+            {data.payment_methods.map((pm) => (
               <div
-                className="bg-gray-a1/50 border-gray-a3 -mt-px flex items-center justify-between gap-3 border px-3 py-3"
+                className="border-gray3 flex items-center justify-between gap-3 border-b px-3 py-2 last:border-b-0"
                 key={pm.id}
               >
                 <div className="flex min-w-0 flex-col gap-0.5 md:flex-row md:items-center md:gap-3">
@@ -166,8 +167,9 @@ function Component() {
                   </Menu.Root>
                 </div>
               </div>
-            ))
-          : null}
+            ))}
+          </div>
+        ) : null}
         <button
           className="bg-gray10 text-bg1 self-start px-3 py-1.5 text-sm transition-opacity hover:opacity-90 data-[has-methods]:mt-3"
           data-has-methods={data.payment_methods.length > 0 ? '' : undefined}
@@ -346,7 +348,12 @@ function SetupFormInner(props: { onSuccess: () => void }) {
         confirm.mutate()
       }}
     >
-      <PaymentElement options={{ layout: 'tabs' }} />
+      <PaymentElement
+        options={{
+          layout: { defaultCollapsed: false, type: 'tabs' },
+          wallets: { link: 'never' },
+        }}
+      />
       {confirm.isError && <p className="text-red9 mt-2 text-sm">{confirm.error.message}</p>}
     </form>
   )
