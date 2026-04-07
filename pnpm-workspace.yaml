@@ -35,9 +35,6 @@ onlyBuiltDependencies:
   - workerd
 
 overrides:
-  # Use a packaged fork commit mirroring PR #47 until emulate releases it.
-  # PR: https://github.com/vercel-labs/emulate/pull/47
-  emulate: github:tmm/emulate#caedca8e0fdd0178c5088c77edf53bf0532f60bd&path:/packages/emulate
   # Pin vulnerable transitive ranges until upstream packages refresh their lockfiles.
   brace-expansion@>=2.0.0 <2.0.3: 2.0.3
   defu@<=6.1.4: 6.1.5

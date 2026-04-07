@@ -75,11 +75,20 @@ export async function listCardPaymentMethods(
   stripeCustomerId: string,
   limit?: number,
 ) {
-  const methods = await stripe.paymentMethods.list({
+  const methods = (await stripe.paymentMethods.list({
     customer: stripeCustomerId,
     ...(limit ? { limit } : {}),
     type: 'card',
-  })
+  })) as unknown
+
+  // TODO: Remove once emulate ships PR #47 and curl.md upgrades to that release.
+  // https://github.com/vercel-labs/emulate/pull/47
+  // Older emulate releases return a plain 404 JSON object here instead of Stripe's list shape.
+  if (!hasPaymentMethodList(methods)) {
+    if (isEmulateNotFound(methods)) return []
+    throw new Error('Unexpected Stripe payment methods response')
+  }
+
   return methods.data.filter((paymentMethod): paymentMethod is StripeCardPaymentMethod =>
     Boolean(paymentMethod.card),
   )
@@ -93,4 +102,18 @@ export function stripeOptions(apiUrl: string) {
     port: Number(url.port) || (url.protocol === 'https:' ? 443 : 80),
     protocol: url.protocol.replace(':', '') as 'http' | 'https',
   }
+}
+
+function hasPaymentMethodList(value: unknown): value is { data: Stripe.PaymentMethod[] } {
+  return Boolean(value && typeof value === 'object' && 'data' in value && Array.isArray(value.data))
+}
+
+function isEmulateNotFound(value: unknown): value is { message: string } {
+  return Boolean(
+    value &&
+    typeof value === 'object' &&
+    'message' in value &&
+    typeof value.message === 'string' &&
+    value.message === 'Not Found',
+  )
 }

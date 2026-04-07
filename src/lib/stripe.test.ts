@@ -2,7 +2,7 @@ import { createEmulator, type Emulator } from 'emulate'
 import { HttpResponse, http } from 'msw'
 import { setupServer } from 'msw/node'
 import Stripe from 'stripe'
-import { afterEach, beforeAll, expect, test } from 'vitest'
+import { afterEach, beforeAll, expect, test, vi } from 'vitest'
 import * as Constants from '#lib/constants.ts'
 import {
   createPaymentElementCustomerSession,
@@ -85,6 +85,19 @@ test('listCardPaymentMethods filters out non-card methods', async () => {
   const paymentMethods = await listCardPaymentMethods(stripeApiClient(), 'cus_test')
 
   expect(paymentMethods.map((paymentMethod) => paymentMethod.id)).toEqual(['pm_card'])
+})
+
+test('listCardPaymentMethods returns empty list for emulate not-found responses', async () => {
+  const stripe = {
+    paymentMethods: {
+      list: vi.fn().mockResolvedValue({
+        documentation_url: 'https://emulate.dev/stripe',
+        message: 'Not Found',
+      }),
+    },
+  } as unknown as Stripe
+
+  await expect(listCardPaymentMethods(stripe, 'cus_test')).resolves.toEqual([])
 })
 
 test('getSavedPaymentMethodCount requests at most one more than the cap', async () => {
