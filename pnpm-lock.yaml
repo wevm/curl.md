@@ -11,6 +11,7 @@ catalogs:
       version: 4.12.7
 
 overrides:
+  emulate: github:tmm/emulate#caedca8e0fdd0178c5088c77edf53bf0532f60bd&path:/packages/emulate
   brace-expansion@>=2.0.0 <2.0.3: 2.0.3
   defu@<=6.1.4: 6.1.5
   h3: 2.0.1-rc.18
@@ -170,8 +171,8 @@ importers:
         specifier: ^5.2.0
         version: 5.2.0(vite@8.0.5(@emnapi/core@1.8.1)(@emnapi/runtime@1.9.2)(@types/node@25.3.2)(esbuild@0.27.4)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.3))
       emulate:
-        specifier: 0.4.1
-        version: 0.4.1(hono@4.12.7)
+        specifier: github:tmm/emulate#caedca8e0fdd0178c5088c77edf53bf0532f60bd&path:/packages/emulate
+        version: https://codeload.github.com/tmm/emulate/tar.gz/caedca8e0fdd0178c5088c77edf53bf0532f60bd#path:/packages/emulate(hono@4.12.7)
       kysely-ctl:
         specifier: ~0.20.0
         version: 0.20.0(kysely-postgres-js@3.0.0(kysely@0.28.14)(postgres@3.4.8))(kysely@0.28.14)(typescript@5.9.3)
@@ -3058,8 +3059,9 @@ packages:
   emoji-regex@9.2.2:
     resolution: {integrity: sha512-L18DaJsXSUk2+42pv8mLs5jJT2hqFkFE4j21wOmgbUqsZ2hL72NsUU785g9RXgo3s0ZNgVl42TiHp3ZtOv/Vyg==}
 
-  emulate@0.4.1:
-    resolution: {integrity: sha512-96CEZB96M7fC5na1lFl9sL7AS5d2lRgJkZVb/e8ufbLMLLxEy2oHhN4E9d7+eJbtABne/CeumSRX2j7A9UDlEQ==}
+  emulate@https://codeload.github.com/tmm/emulate/tar.gz/caedca8e0fdd0178c5088c77edf53bf0532f60bd#path:/packages/emulate:
+    resolution: {path: /packages/emulate, tarball: https://codeload.github.com/tmm/emulate/tar.gz/caedca8e0fdd0178c5088c77edf53bf0532f60bd}
+    version: 0.4.1
     hasBin: true
 
   encodeurl@2.0.0:
@@ -7830,7 +7832,7 @@ snapshots:
 
   emoji-regex@9.2.2: {}
 
-  emulate@0.4.1(hono@4.12.7):
+  emulate@https://codeload.github.com/tmm/emulate/tar.gz/caedca8e0fdd0178c5088c77edf53bf0532f60bd#path:/packages/emulate(hono@4.12.7):
     dependencies:
       '@hono/node-server': 1.19.11(hono@4.12.7)
       commander: 14.0.3
