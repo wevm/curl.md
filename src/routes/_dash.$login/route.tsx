@@ -118,7 +118,7 @@ function Component() {
           data-open={open ? '' : undefined}
           onClick={() => setOpen(false)}
         >
-          <div className="flex flex-col gap-0.5 px-4 pb-4">
+          <div className="flex flex-col gap-0.5 ps-4 pe-1 pb-4">
             <SidebarLink
               activeOptions={{ exact: true }}
               icon={<IconOcticonMeter16 />}
@@ -150,14 +150,14 @@ function Component() {
             <div className="border-gray-a3 my-1.5 border-t" />
 
             <Link
-              className="text-gray8 hover:text-gray10 hover:bg-gray-a2 flex items-center gap-2 px-2 py-1.5 text-sm"
+              className="text-gray8 hover:text-gray10 hover:bg-gray-a2 flex w-full items-center gap-2 px-2 py-1.5 text-sm"
               to="/docs"
             >
               <IconOcticonBook16 />
               Docs
             </Link>
             <Link
-              className="text-gray8 hover:text-gray10 hover:bg-gray-a2 flex items-center gap-2 px-2 py-1.5 text-sm"
+              className="text-gray8 hover:text-gray10 hover:bg-gray-a2 flex w-full items-center gap-2 px-2 py-1.5 text-sm"
               to="/playground"
             >
               <IconOcticonTerminal16 />
@@ -366,7 +366,7 @@ function SidebarLink(
     <Link
       {...(props.activeOptions ? { activeOptions: props.activeOptions } : {})}
       activeProps={{ className: 'text-gray10 bg-gray-a2' }}
-      className="text-gray8 hover:text-gray10 hover:bg-gray-a2 flex items-center gap-2 px-2 py-1.5 text-sm"
+      className="text-gray8 hover:text-gray10 hover:bg-gray-a2 flex w-full items-center gap-2 px-2 py-1.5 text-sm"
       params={props.params}
       to={props.to}
     >
@@ -378,7 +378,7 @@ function SidebarLink(
 
 function SidebarDisabled(props: React.PropsWithChildren<{ icon: React.ReactNode }>) {
   return (
-    <span className="text-gray5 flex cursor-not-allowed items-center gap-2 px-2 py-1.5 text-sm select-none">
+    <span className="text-gray5 flex w-full cursor-not-allowed items-center gap-2 px-2 py-1.5 text-sm select-none">
       {props.icon}
       {props.children}
     </span>
