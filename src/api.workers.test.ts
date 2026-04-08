@@ -2310,6 +2310,7 @@ test('GET /api/:url with q= uses stricter query limit', async () => {
     'page:https://rl-query.example.com/',
     JSON.stringify({
       content: 'ok',
+      extras: {},
       meta: {
         site: 'rl-query.example.com',
         url: 'https://rl-query.example.com/',
@@ -2502,6 +2503,7 @@ test('GET /api/:url query request cost scales with input size', async () => {
     'page:https://cost-query.example.com/',
     JSON.stringify({
       content: 'ok',
+      extras: {},
       meta: {
         site: 'cost-query.example.com',
         url: 'https://cost-query.example.com/',
