@@ -22,11 +22,11 @@ declare namespace KV {
     | (key extends `page:${string}`
         ? {
             content: string
+            extras: {
+              source_tokens: number | undefined
+              source_tokens_basis: import('#db/types.gen.ts').DB['request']['source_tokens_basis']
+            }
             meta: Record<string, unknown>
-            source_tokens?: number
-            source_tokens_basis?: NonNullable<
-              import('#db/types.gen.ts').DB['request']['source_tokens_basis']
-            >
           }
         : never)
     | (key extends `query:${string}` ? string : never)

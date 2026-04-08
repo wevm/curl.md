@@ -143,7 +143,7 @@ test('stores total savings when stage counts are present', async () => {
   expect(row.source_tokens_basis).toBe('markdown')
 })
 
-test('upgrades shortcut_fallback rows with html source tokens when fetch succeeds', async () => {
+test('upgrades estimated rows with html source tokens when fetch succeeds', async () => {
   const html = '<html><body><main><h1>Example</h1><p>Hello world</p></main></body></html>'
   server.use(
     http.get(
@@ -176,7 +176,7 @@ test('upgrades shortcut_fallback rows with html source tokens when fetch succeed
         organization_id: null,
         path: '/',
         source_tokens: 25,
-        source_tokens_basis: 'shortcut_fallback',
+        source_tokens_basis: 'estimated',
         url: 'https://example.com',
         user_agent: 'test-agent',
       },
@@ -197,7 +197,7 @@ test('upgrades shortcut_fallback rows with html source tokens when fetch succeed
   expect(row.source_tokens_basis).toBe('html')
 })
 
-test('keeps shortcut_fallback rows when html source tokens are smaller', async () => {
+test('keeps estimated rows when html source tokens are smaller', async () => {
   const html = '<html><body><div id="app"></div></body></html>'
   server.use(
     http.get(
@@ -230,7 +230,7 @@ test('keeps shortcut_fallback rows when html source tokens are smaller', async (
         organization_id: null,
         path: '/',
         source_tokens: 120,
-        source_tokens_basis: 'shortcut_fallback',
+        source_tokens_basis: 'estimated',
         url: 'https://spa.example.com',
         user_agent: 'test-agent',
       },
@@ -249,7 +249,7 @@ test('keeps shortcut_fallback rows when html source tokens are smaller', async (
 
   expect(estimateTokenCount(html)).toBeLessThan(120)
   expect(row.source_tokens).toBe(120)
-  expect(row.source_tokens_basis).toBe('shortcut_fallback')
+  expect(row.source_tokens_basis).toBe('estimated')
 })
 
 test('deducts credits when billable', async () => {

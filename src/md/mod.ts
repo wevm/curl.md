@@ -67,8 +67,8 @@ export function create(options: create.Options = {}): create.ReturnType {
         Boolean(matched?.rule?.extract) ||
         Boolean(matched?.rule?.fetch)
       let sourceTokens: number | undefined
-      let sourceTokensBasis: NonNullable<DB['request']['source_tokens_basis']> = usesShortcut
-        ? 'shortcut_fallback'
+      let sourceTokensBasis: DB['request']['source_tokens_basis'] = usesShortcut
+        ? 'estimated'
         : 'markdown'
 
       const result = await (async () => {
@@ -104,8 +104,10 @@ export function create(options: create.Options = {}): create.ReturnType {
         status: response.status,
         content: normalizeMarkdown(result.content, inputURL.origin),
         meta: sortMeta(result.meta),
-        source_tokens: sourceTokens,
-        source_tokens_basis: sourceTokensBasis,
+        extras: {
+          source_tokens: sourceTokens,
+          source_tokens_basis: sourceTokensBasis,
+        },
       }
     },
   }
@@ -129,8 +131,10 @@ export namespace create {
           status: number
           content: string
           meta: Meta
-          source_tokens: number | undefined
-          source_tokens_basis: NonNullable<DB['request']['source_tokens_basis']>
+          extras: {
+            source_tokens: number | undefined
+            source_tokens_basis: DB['request']['source_tokens_basis']
+          }
         }
       | { ok: false; status: number; error?: string }
     >

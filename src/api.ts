@@ -1809,8 +1809,7 @@ export const api = new Hono<{
             JSON.stringify({
               content: result.content,
               meta: result.meta,
-              source_tokens: result.source_tokens,
-              source_tokens_basis: result.source_tokens_basis,
+              extras: result.extras,
             }),
             { expirationTtl: 900 }, // 15m
           ),
@@ -1901,24 +1900,24 @@ export const api = new Hono<{
       const markdownDocument = frontmatter
         ? `${frontmatter}\n\n${response.content}`
         : response.content
-      const filteredDocument = query.keywords?.length
-        ? frontmatter
-          ? `${frontmatter}\n\n${filteredContent}`
-          : filteredContent
-        : null
-      const extractedDocument = query.objective
-        ? frontmatter
-          ? `${frontmatter}\n\n${excerpt}`
-          : excerpt
-        : null
+      const filteredDocument = (() => {
+        if (!query.keywords?.length) return null
+        if (frontmatter) return `${frontmatter}\n\n${filteredContent}`
+        return filteredContent
+      })()
+      const extractedDocument = (() => {
+        if (!query.objective) return null
+        if (frontmatter) return `${frontmatter}\n\n${excerpt}`
+        return excerpt
+      })()
+      const finalDocument = extractedDocument ?? filteredDocument ?? markdownDocument
+
       const markdownTokens = estimateTokenCount(markdownDocument)
       const filteredTokens = filteredDocument ? estimateTokenCount(filteredDocument) : null
       const extractedTokens = extractedDocument ? estimateTokenCount(extractedDocument) : null
-      const finalDocument = extractedDocument ?? filteredDocument ?? markdownDocument
+      const sourceTokens = response.extras.source_tokens ?? markdownTokens
+      const sourceTokensBasis = response.extras.source_tokens_basis ?? 'estimated'
       const finalTokens = extractedTokens ?? filteredTokens ?? markdownTokens
-      const sourceTokens = response.source_tokens ?? markdownTokens
-      const sourceTokensBasis = response.source_tokens_basis ?? 'shortcut_fallback'
-      const tokensSaved = sourceTokens - finalTokens
 
       const costMills = (() => {
         const freshSurcharge = query.fresh ? Constants.pricing.freshSurchargeMills : 0
@@ -1971,7 +1970,7 @@ export const api = new Hono<{
         'x-cost-mills': String(costMills),
         'x-request-id': requestId,
         'x-tokens-count': String(finalTokens),
-        'x-tokens-saved': String(tokensSaved),
+        'x-tokens-saved': String(sourceTokens - finalTokens),
       }
       if (billable) {
         const billingEntityId = c.var.organization_id ?? c.var.session?.account_id

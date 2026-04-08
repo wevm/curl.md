@@ -125,7 +125,7 @@ type request = {
   organization_id: string | null
   path: string
   source_tokens: number
-  source_tokens_basis: 'browser_html' | 'estimated' | 'html' | 'markdown' | 'shortcut_fallback'
+  source_tokens_basis: 'estimated' | 'html' | 'markdown'
   url: string
   user_agent: string | null
 }

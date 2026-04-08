@@ -84,7 +84,7 @@ export async function processRequestMessage(
     await env.KV.put(`balance:${billingEntity}`, String(newBalance.balance_mills))
   }
 
-  if (body.source_tokens_basis === 'shortcut_fallback') await enrichSourceTokensFromHtml(body, db)
+  if (body.source_tokens_basis === 'estimated') await enrichSourceTokensFromHtml(body, db)
 }
 
 processRequestMessage.queueName = 'curl-request' as const
@@ -107,7 +107,7 @@ export namespace processRequestMessage {
     organization_id: string | null
     path: string
     source_tokens: number
-    source_tokens_basis: NonNullable<DB['request']['source_tokens_basis']>
+    source_tokens_basis: DB['request']['source_tokens_basis']
     url: string
     user_agent: string | undefined
   }
@@ -116,10 +116,7 @@ export namespace processRequestMessage {
 async function enrichSourceTokensFromHtml(body: processRequestMessage.Body, db: Database) {
   try {
     const response = await fetch(body.url, {
-      headers: {
-        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'User-Agent': `Mozilla/5.0 (compatible; ${env.HOST}/1.0; +https://${env.HOST})`,
-      },
+      headers: { 'User-Agent': `Mozilla/5.0 (compatible; ${env.HOST}/1.0; +https://${env.HOST})` },
       redirect: 'follow',
     })
     if (!response.ok) return
@@ -133,7 +130,7 @@ async function enrichSourceTokensFromHtml(body: processRequestMessage.Body, db: 
       .set({ source_tokens: sourceTokens, source_tokens_basis: 'html' })
       .where('id', '=', body.id)
       .where('source_tokens', '<', sourceTokens)
-      .where('source_tokens_basis', '=', 'shortcut_fallback')
+      .where('source_tokens_basis', '=', 'estimated')
       .executeTakeFirst()
 
     if (Number(updated.numUpdatedRows ?? 0) > 0) await invalidateTokensSavedCache(body.hostname)

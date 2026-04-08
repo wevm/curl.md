@@ -5,23 +5,26 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .alterTable('request')
     .addColumn('extracted_tokens', 'integer')
     .addColumn('filtered_tokens', 'integer')
-    .addColumn('markdown_tokens', 'integer')
-    .addColumn('source_tokens', 'integer')
-    .addColumn('source_tokens_basis', 'text')
+    .addColumn('markdown_tokens', 'integer', (col) => col.notNull().defaultTo(0))
+    .addColumn('source_tokens', 'integer', (col) => col.notNull().defaultTo(0))
+    .addColumn('source_tokens_basis', 'text', (col) => col.notNull().defaultTo('estimated'))
     .execute()
 
-  await sql`ALTER TABLE request ADD CONSTRAINT request_source_tokens_basis_chk CHECK (source_tokens_basis IN ('browser_html', 'estimated', 'html', 'markdown', 'shortcut_fallback'))`.execute(
+  await sql`ALTER TABLE request ADD CONSTRAINT request_source_tokens_basis_chk CHECK (source_tokens_basis IN ('estimated', 'html', 'markdown'))`.execute(
     db,
   )
 
   await sql`
     UPDATE request
     SET
+      cached = COALESCE(cached, false),
       markdown_tokens = 0,
-      source_tokens = tokens_saved,
+      source_tokens = COALESCE(tokens_saved, 0),
       source_tokens_basis = 'estimated'
     WHERE tokens_saved IS NOT NULL
   `.execute(db)
+
+  await sql`ALTER TABLE request ALTER COLUMN cached SET NOT NULL`.execute(db)
 
   await db.schema.alterTable('request').dropColumn('tokens_saved').execute()
 }
@@ -48,4 +51,6 @@ export async function down(db: Kysely<unknown>): Promise<void> {
     .dropColumn('filtered_tokens')
     .dropColumn('extracted_tokens')
     .execute()
+
+  await sql`ALTER TABLE request ALTER COLUMN cached DROP NOT NULL`.execute(db)
 }
