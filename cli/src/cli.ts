@@ -336,7 +336,7 @@ function authError(
     code: 'NOT_AUTHENTICATED',
     message: 'Not authenticated.',
     cta: {
-      description: 'Authenticate:',
+      description: c.var.commands.length ? 'Authenticate:' : undefined,
       commands: [
         {
           command: `${c.displayName} auth login`,

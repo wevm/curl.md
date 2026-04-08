@@ -1,5 +1,6 @@
 import { env } from 'cloudflare:workers'
 import type { Database } from '#db/client.ts'
+import type { DB } from '#db/types.gen.ts'
 
 export async function processRequestMessage(
   message: Message<processRequestMessage.Body>,
@@ -14,21 +15,25 @@ export async function processRequestMessage(
       account_id: body.account_id,
       api_key_id: body.api_key_id,
       cached: body.cached,
+      extracted_tokens: body.extracted_tokens,
+      filtered_tokens: body.filtered_tokens,
       hostname: body.hostname,
       id: body.id,
       keywords: body.keywords,
+      markdown_tokens: body.markdown_tokens,
       mode: body.mode,
       objective: body.objective,
       organization_id: body.organization_id,
       path: body.path,
-      tokens_saved: body.tokens_saved,
+      source_tokens: body.source_tokens,
+      source_tokens_basis: body.source_tokens_basis,
       url: body.url,
       user_agent: body.user_agent,
     })
     .onConflict((oc) => oc.column('id').doNothing())
     .execute()
 
-  if (body.tokens_saved) await env.KV.delete('stats:tokens_saved')
+  await env.KV.delete('stats:tokens_saved')
 
   // Deduct credits if billable
   const billingEntity = body.organization_id ?? body.account_id
@@ -91,12 +96,15 @@ export namespace processRequestMessage {
     hostname: string
     id: string
     keywords: string | null
-    markdownTokens: number
+    extracted_tokens: number | null
+    filtered_tokens: number | null
+    markdown_tokens: number
     mode: 'rush' | 'smart' | null
     objective: string | null
     organization_id: string | null
     path: string
-    tokens_saved: number | null
+    source_tokens: number
+    source_tokens_basis: NonNullable<DB['request']['source_tokens_basis']>
     url: string
     user_agent: string | undefined
   }

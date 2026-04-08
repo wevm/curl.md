@@ -72,8 +72,22 @@ test('shows tokens saved and dollar savings from requests', async ({
   await setSession(account.id)
 
   await factory.request.insert(
-    { account_id: account.id, tokens_saved: 5000 },
-    { account_id: account.id, tokens_saved: 3000 },
+    {
+      account_id: account.id,
+      extracted_tokens: 1000,
+      filtered_tokens: null,
+      markdown_tokens: 2000,
+      source_tokens: 6000,
+      source_tokens_basis: 'html',
+    },
+    {
+      account_id: account.id,
+      extracted_tokens: null,
+      filtered_tokens: 1000,
+      markdown_tokens: 1500,
+      source_tokens: 4000,
+      source_tokens_basis: 'html',
+    },
   )
 
   await page.goto(`/${account.login}`)

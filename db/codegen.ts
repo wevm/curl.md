@@ -44,7 +44,10 @@ const customTypes: Record<string, Record<string, string>> = {
   device_code: { status: "'approved' | 'pending'" },
   organization_invite: { role: "'admin' | 'member' | 'owner'" },
   organization_member: { role: "'admin' | 'member' | 'owner'" },
-  request: { mode: "'rush' | 'smart'" },
+  request: {
+    mode: "'rush' | 'smart'",
+    source_tokens_basis: "'browser_html' | 'estimated' | 'html' | 'markdown' | 'shortcut_fallback'",
+  },
 }
 
 const timestampTypes = new Set([

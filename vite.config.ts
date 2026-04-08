@@ -9,6 +9,7 @@ import icons from 'unplugin-icons/vite'
 import { defineConfig } from 'vite'
 import { cloudflareDevWorkarounds, getWranglerVar } from './config/wrangler.ts'
 import { createClient } from './db/client.ts'
+import { requestTokensSavedSumSql } from './db/utils.ts'
 import { Env } from './test/env.ts'
 
 export default defineConfig(async () => ({
@@ -77,7 +78,7 @@ export default defineConfig(async () => ({
         const db = createClient(dbUrl.toString(), { max: 1 })
         const result = await db
           .selectFrom('request')
-          .select((eb) => eb.fn.sum<number>('tokens_saved').as('total'))
+          .select(requestTokensSavedSumSql().as('total'))
           .executeTakeFirst()
         await db.destroy()
         return String(result?.total ?? 0)

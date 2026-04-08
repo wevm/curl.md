@@ -24,11 +24,14 @@ test('inserts request record', async () => {
         hostname: 'example.com',
         id: 'req_1',
         keywords: null,
-        markdownTokens: 25,
-        objective: null,
+        extracted_tokens: 15,
+        filtered_tokens: 20,
+        markdown_tokens: 25,
+        objective: 'Summarize the page',
         organization_id: null,
         path: '/',
-        tokens_saved: null,
+        source_tokens: 40,
+        source_tokens_basis: 'html',
         url: 'https://example.com',
         user_agent: 'test-agent',
       },
@@ -43,13 +46,18 @@ test('inserts request record', async () => {
     .where('id', '=', 'req_1')
     .selectAll()
     .executeTakeFirstOrThrow()
+  expect(row.extracted_tokens).toBe(15)
+  expect(row.filtered_tokens).toBe(20)
   expect(row.hostname).toBe('example.com')
+  expect(row.markdown_tokens).toBe(25)
   expect(row.url).toBe('https://example.com')
   expect(row.path).toBe('/')
+  expect(row.source_tokens).toBe(40)
+  expect(row.source_tokens_basis).toBe('html')
   expect(row.user_agent).toBe('test-agent')
 })
 
-test('clears KV cache when tokens_saved is set', async () => {
+test('clears KV cache when a request is recorded', async () => {
   await env.KV.put('stats:tokens_saved', '1000')
 
   const batch = createMessageBatch<processRequestMessage.Body>(processRequestMessage.queueName, [
@@ -64,11 +72,14 @@ test('clears KV cache when tokens_saved is set', async () => {
         hostname: 'example.com',
         id: 'req_3',
         keywords: null,
-        markdownTokens: 25,
+        extracted_tokens: null,
+        filtered_tokens: null,
+        markdown_tokens: 25,
         objective: null,
         organization_id: null,
         path: '/',
-        tokens_saved: 500,
+        source_tokens: 525,
+        source_tokens_basis: 'html',
         url: 'https://example.com',
         user_agent: 'test-agent',
       },
@@ -82,7 +93,7 @@ test('clears KV cache when tokens_saved is set', async () => {
   expect(cached).toBeNull()
 })
 
-test('skips tokens_saved update when fetch fails', async () => {
+test('stores total savings when stage counts are present', async () => {
   const batch = createMessageBatch<processRequestMessage.Body>(processRequestMessage.queueName, [
     {
       attempts: 1,
@@ -94,12 +105,15 @@ test('skips tokens_saved update when fetch fails', async () => {
 
         hostname: 'example.com',
         id: 'req_4',
-        keywords: null,
-        markdownTokens: 25,
+        keywords: 'docs,guide',
+        extracted_tokens: null,
+        filtered_tokens: 18,
+        markdown_tokens: 25,
         objective: null,
         organization_id: null,
         path: '/fail',
-        tokens_saved: 42,
+        source_tokens: 60,
+        source_tokens_basis: 'shortcut_fallback',
         url: 'https://example.com/fail',
         user_agent: 'test-agent',
       },
@@ -114,7 +128,10 @@ test('skips tokens_saved update when fetch fails', async () => {
     .where('id', '=', 'req_4')
     .selectAll()
     .executeTakeFirstOrThrow()
-  expect(row.tokens_saved).toBe(42)
+  expect(row.extracted_tokens).toBeNull()
+  expect(row.filtered_tokens).toBe(18)
+  expect(row.source_tokens).toBe(60)
+  expect(row.source_tokens_basis).toBe('shortcut_fallback')
 })
 
 test('deducts credits when billable', async () => {
@@ -138,11 +155,14 @@ test('deducts credits when billable', async () => {
         hostname: 'example.com',
         id: requestId,
         keywords: null,
-        markdownTokens: 25,
+        extracted_tokens: null,
+        filtered_tokens: null,
+        markdown_tokens: 25,
         objective: null,
         organization_id: null,
         path: '/',
-        tokens_saved: null,
+        source_tokens: 25,
+        source_tokens_basis: 'markdown',
         url: 'https://example.com',
         user_agent: 'test-agent',
       },
@@ -190,11 +210,14 @@ test('deducts credits for organization', async () => {
         hostname: 'example.com',
         id: requestId,
         keywords: null,
-        markdownTokens: 25,
+        extracted_tokens: null,
+        filtered_tokens: null,
+        markdown_tokens: 25,
         objective: null,
         organization_id: org.id,
         path: '/',
-        tokens_saved: null,
+        source_tokens: 25,
+        source_tokens_basis: 'markdown',
         url: 'https://example.com',
         user_agent: 'test-agent',
       },
@@ -229,11 +252,14 @@ test('does not create negative balance', async () => {
         hostname: 'example.com',
         id: requestId,
         keywords: null,
-        markdownTokens: 25,
+        extracted_tokens: null,
+        filtered_tokens: null,
+        markdown_tokens: 25,
         objective: null,
         organization_id: null,
         path: '/',
-        tokens_saved: null,
+        source_tokens: 25,
+        source_tokens_basis: 'markdown',
         url: 'https://example.com',
         user_agent: 'test-agent',
       },
@@ -279,11 +305,14 @@ test('skips deduction when not billable', async () => {
         hostname: 'example.com',
         id: requestId,
         keywords: null,
-        markdownTokens: 25,
+        extracted_tokens: null,
+        filtered_tokens: null,
+        markdown_tokens: 25,
         objective: null,
         organization_id: null,
         path: '/',
-        tokens_saved: null,
+        source_tokens: 25,
+        source_tokens_basis: 'markdown',
         url: 'https://example.com',
         user_agent: 'test-agent',
       },
@@ -323,11 +352,14 @@ test('deducts credits only once for same request', async () => {
           hostname: 'example.com',
           id: requestId,
           keywords: null,
-          markdownTokens: 25,
+          extracted_tokens: null,
+          filtered_tokens: null,
+          markdown_tokens: 25,
           objective: null,
           organization_id: null,
           path: '/',
-          tokens_saved: null,
+          source_tokens: 25,
+          source_tokens_basis: 'markdown',
           url: 'https://example.com',
           user_agent: 'test-agent',
         },

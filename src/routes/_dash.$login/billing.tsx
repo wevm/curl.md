@@ -360,6 +360,7 @@ function TransactionHistory(props: {
           <div className="flex items-center gap-2">
             {page > 0 && (
               <button
+                aria-label="Previous history page"
                 className="text-gray9 hover:bg-gray-a2 hover:text-gray12 p-0.5"
                 onClick={() => setPage(page - 1)}
                 type="button"
@@ -371,6 +372,7 @@ function TransactionHistory(props: {
               {page + 1} / {totalPages}
             </span>
             <button
+              aria-label="Next history page"
               className="text-gray9 hover:bg-gray-a2 hover:text-gray12 p-0.5 disabled:opacity-30"
               disabled={page >= totalPages - 1}
               onClick={() => setPage(page + 1)}

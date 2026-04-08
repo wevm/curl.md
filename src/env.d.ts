@@ -19,7 +19,16 @@ declare namespace KV {
     | (key extends `balance:${string}` ? number : never)
     | (key extends 'stats:tokens_saved' ? number : never)
     | (key extends `stats:tokens_saved:${string}` ? number : never)
-    | (key extends `page:${string}` ? { content: string; meta: Record<string, unknown> } : never)
+    | (key extends `page:${string}`
+        ? {
+            content: string
+            meta: Record<string, unknown>
+            source_tokens?: number
+            source_tokens_basis?: NonNullable<
+              import('#db/types.gen.ts').DB['request']['source_tokens_basis']
+            >
+          }
+        : never)
     | (key extends `query:${string}` ? string : never)
     | (key extends 'cli:latest' ? { published_at: string | null; version: string } : never)
     | (key extends `ratelimit:${string}` ? { count: number; reset: number } : never)

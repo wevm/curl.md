@@ -51,62 +51,60 @@ function Component() {
   })
 
   const user_code = search.user_code
-  if (!user_code)
-    return (
-      <div className="relative flex min-h-dvh flex-col">
-        <Nav.Root fixed />
-        <main className="flex flex-1 flex-col items-center px-6 pt-48 pb-32">
-          <div className="flex w-fit max-w-full flex-col items-center md:items-start">
-            <h1 className="text-lg font-bold">No device code provided</h1>
-            <p className="text-gray8 mt-2 max-w-md text-center text-sm leading-relaxed md:text-start">
-              Please use the link from your terminal to confirm a device.
-            </p>
-          </div>
-        </main>
-      </div>
-    )
-
   const state = (() => {
+    if (!user_code) return 'error'
     if (search.code_confirmed || confirm.isSuccess) return 'success'
     if (confirm.isPending) return 'confirming'
     if (confirm.isError) return 'error'
     return 'idle'
   })()
 
+  const errorMessage = !user_code
+    ? 'No device code provided. Use the link from your terminal to confirm a device.'
+    : confirm.error?.message || 'Something went wrong. Please try again.'
+
   return (
     <div className="relative flex min-h-dvh flex-col">
       <Nav.Root fixed />
       <main className="flex flex-1 flex-col items-center px-6 pt-48 pb-32">
         <div className="flex w-fit max-w-full flex-col items-center md:items-start">
-          <h1 className="text-lg font-bold">
-            {state === 'success' ? 'You\u2019re all set' : 'Device confirmation'}
-          </h1>
+          <h1 className="text-lg font-bold">Device confirmation</h1>
           <p className="text-gray8 mt-2 max-w-md text-center text-sm leading-relaxed md:text-start">
-            {state === 'success'
-              ? 'Your device is now connected. You can close this window and return to your terminal.'
-              : 'Confirm this is the code displayed in your terminal.'}
+            Confirm this is the code displayed in your terminal.
           </p>
 
-          <div className="mt-8 flex flex-wrap justify-center gap-2 md:justify-start">
-            {user_code.split('').map((char, index) => (
-              <div
-                className="bg-gray-a1 flex items-center justify-center px-4 py-3 text-xl font-bold md:px-5 md:py-4 md:text-2xl"
-                key={`${index}-${char}`}
-              >
-                {char}
-              </div>
-            ))}
-          </div>
-
           {state === 'error' && (
-            <p className="text-red9 mt-4 text-sm">
-              {confirm.error?.message || 'Something went wrong. Please try again.'}
+            <p
+              className="text-red9 border-red-a3 mt-8 flex min-h-11 max-w-md items-start gap-2 self-center border px-3 py-3 text-sm md:self-start"
+              role="alert"
+            >
+              <IconOcticonAlert16 className="mt-0.5 shrink-0" />
+              {errorMessage}
             </p>
           )}
 
-          {state === 'success' && <div className="mt-8 h-11" />}
+          {state !== 'error' && user_code && (
+            <div className="mt-8 flex flex-wrap justify-center gap-2 md:justify-start">
+              {user_code.split('').map((char, index) => (
+                <div
+                  className="bg-gray-a1 flex items-center justify-center px-4 py-3 text-xl font-bold md:px-5 md:py-4 md:text-2xl"
+                  key={`${index}-${char}`}
+                >
+                  {char}
+                </div>
+              ))}
+            </div>
+          )}
 
-          {state !== 'success' && (
+          {state === 'success' ? (
+            <p
+              className="text-green9 border-green-a3 mt-8 flex h-11 items-center gap-2 self-center border px-3 text-sm"
+              role="status"
+            >
+              <IconOcticonCheck16 />
+              Code confirmed. Return to your terminal.
+            </p>
+          ) : state !== 'error' && user_code ? (
             <div className="mt-8 flex gap-3 self-center">
               <button
                 className="bg-gray10 text-bg1 flex h-11 items-center px-4 transition-opacity hover:opacity-90 disabled:opacity-50"
@@ -124,7 +122,7 @@ function Component() {
                 Cancel
               </a>
             </div>
-          )}
+          ) : null}
         </div>
       </main>
     </div>

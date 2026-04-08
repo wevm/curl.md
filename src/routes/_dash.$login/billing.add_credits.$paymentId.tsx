@@ -8,6 +8,7 @@ import { Dialog } from '#components/Dialog.tsx'
 import { stripeAppearance } from '#components/stripe.ts'
 import { useTheme } from '#hooks/useTheme.ts'
 import { estimateRequests } from '#lib/format.ts'
+import { isPaymentIntentClientSecret } from '#lib/stripe.ts'
 import { deletePayment, getPayment } from '#server/billing.ts'
 
 export const Route = createFileRoute('/_dash/$login/billing/add_credits/$paymentId')({
@@ -71,7 +72,7 @@ function AddCreditsDialogLoader(props: {
 
   if (isPending) return <p className="text-gray8 text-sm">Loading payment form...</p>
 
-  if (!data?.pi_secret || !stripePromise)
+  if (!data?.pi_secret || !stripePromise || !isPaymentIntentClientSecret(data.pi_secret))
     return <p className="text-red9 text-sm">Payment session expired or not found.</p>
 
   return (

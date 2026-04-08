@@ -32,7 +32,7 @@ test('/playground fetches url and renders result', async ({ page }) => {
   const fetchButton = page.getByRole('button', { name: 'Fetch', exact: true })
   await expect(fetchButton).toBeEnabled()
   await fetchButton.click()
-  await expect(page.getByText('tokens')).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByText('tokens saved')).toBeVisible({ timeout: 30_000 })
   await expect(page.getByRole('button', { name: 'Reset' })).toBeVisible()
 })
 

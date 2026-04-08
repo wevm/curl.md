@@ -11,6 +11,7 @@ import { stripeAppearance } from '#components/stripe.ts'
 import { useTheme } from '#hooks/useTheme.ts'
 import { creditAmounts } from '#lib/constants.ts'
 import { estimateRequests } from '#lib/format.ts'
+import { isPaymentIntentClientSecret } from '#lib/stripe.ts'
 import { changePaymentAmount, deletePayment, getPayment } from '#server/billing.ts'
 
 export const Route = createFileRoute('/credits/add/$id')({
@@ -33,7 +34,7 @@ function Component() {
     [data?.publishable_key, data],
   )
 
-  if (!data?.pi_secret || !stripePromise)
+  if (!data?.pi_secret || !stripePromise || !isPaymentIntentClientSecret(data.pi_secret))
     return (
       <PageWrapper title="Add Credits" description="Add prepaid credits to your account.">
         <p className="text-red9 border-red-a3 flex h-11 items-center gap-2 border px-3 text-sm">

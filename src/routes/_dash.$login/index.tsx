@@ -10,6 +10,7 @@ import { sql } from 'kysely'
 import * as React from 'react'
 import { Dashboard } from '#components/Dashboard.tsx'
 import { createClient } from '#db/client.ts'
+import { requestTokensSavedSql, requestTokensSavedSumSql } from '#db/utils.ts'
 import { useCopyToClipboard } from '#hooks/useCopyToClipboard.ts'
 import * as Cookie from '#lib/cookie.ts'
 import { formatCost } from '#lib/format.ts'
@@ -85,7 +86,7 @@ const getUsageData = createServerFn({ method: 'GET' })
     const statsResult = await db
       .selectFrom('request')
       .where(requestColumn, '=', c.data.entityId)
-      .select((eb) => eb.fn.sum<number>('tokens_saved').as('total'))
+      .select(requestTokensSavedSumSql().as('total'))
       .executeTakeFirst()
 
     const startOfWindowSql = sql<Date>`((date_trunc('day', now() AT TIME ZONE ${timeZone}) - interval '6 days') AT TIME ZONE ${timeZone})`
@@ -98,14 +99,11 @@ const getUsageData = createServerFn({ method: 'GET' })
           .where('created_at', '>=', startOfWindowSql)
           .select([
             sql<string>`to_char(created_at AT TIME ZONE ${timeZone}, 'YYYY-MM-DD')`.as('date'),
-            'tokens_saved',
+            requestTokensSavedSql().as('tokens_saved_total'),
           ])
           .as('daily_request'),
       )
-      .select([
-        'date',
-        (eb) => eb.fn.coalesce(eb.fn.sum<number>('tokens_saved'), sql<number>`0`).as('tokens'),
-      ])
+      .select(['date', sql<number>`coalesce(sum(tokens_saved_total), 0)`.as('tokens')])
       .groupBy('date')
       .execute()
 

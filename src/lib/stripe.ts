@@ -84,6 +84,10 @@ export function getPaymentIntentSecret(
   return `${paymentIntent.id}_secret_emulate`
 }
 
+export function isPaymentIntentClientSecret(secret: string) {
+  return /^pi_[A-Za-z0-9]+_secret_[A-Za-z0-9]+$/.test(secret)
+}
+
 export async function listCardPaymentMethods(
   stripe: Stripe,
   stripeCustomerId: string,

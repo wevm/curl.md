@@ -1,6 +1,7 @@
 import { waitUntil } from 'cloudflare:workers'
 import { z } from 'zod'
 import type { Database } from '#db/client.ts'
+import { requestTokensSavedSumSql } from '#db/utils.ts'
 import { formatCost } from '#lib/format.ts'
 
 export const schema = z
@@ -115,9 +116,7 @@ async function getTokensSaved(env: Cloudflare.Env, db: Database, urlParam?: stri
   if (cached !== null) return cached
 
   const total = await (async () => {
-    const query = db
-      .selectFrom('request')
-      .select((eb) => eb.fn.sum<number>('tokens_saved').as('total'))
+    const query = db.selectFrom('request').select(requestTokensSavedSumSql().as('total'))
     const result = await (
       hostname ? query.where('hostname', '=', hostname) : query
     ).executeTakeFirstOrThrow()

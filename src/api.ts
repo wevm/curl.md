@@ -11,6 +11,7 @@ import { stringify as yamlStringify } from 'yaml'
 import { z } from 'zod'
 import { createClient, type Database } from '#db/client.ts'
 import type { DB } from '#db/types.gen.ts'
+import { requestTokensSavedSumSql } from '#db/utils.ts'
 import * as ApiKey from '#lib/apiKey.ts'
 import * as Constants from '#lib/constants.ts'
 import * as Cookie from '#lib/cookie.ts'
@@ -960,7 +961,7 @@ export const api = new Hono<{
 
       const result = await c.var.db
         .selectFrom('request')
-        .select((eb) => eb.fn.sum<number>('tokens_saved').as('total'))
+        .select(requestTokensSavedSumSql().as('total'))
         .executeTakeFirstOrThrow()
       const total = result.total ?? 0
       c.executionCtx.waitUntil(
@@ -1805,7 +1806,12 @@ export const api = new Hono<{
         c.executionCtx.waitUntil(
           c.env.KV.put(
             pageCacheKey,
-            JSON.stringify({ content: result.content, meta: result.meta }),
+            JSON.stringify({
+              content: result.content,
+              meta: result.meta,
+              source_tokens: result.source_tokens,
+              source_tokens_basis: result.source_tokens_basis,
+            }),
             { expirationTtl: 900 }, // 15m
           ),
         )
@@ -1829,7 +1835,7 @@ export const api = new Hono<{
 
       const mode = Constants.modes[query.mode]
       let inputTokens = 0
-      let outputTokens = 0
+      let completionTokens = 0
       let excerpt = filteredContent
       if (query.objective) {
         try {
@@ -1880,7 +1886,7 @@ export const api = new Hono<{
             return { completionTokens, excerpt: filtered, promptTokens }
           })()
           inputTokens = result.promptTokens
-          outputTokens = result.completionTokens
+          completionTokens = result.completionTokens
           excerpt = result.excerpt || filteredContent
         } catch (error) {
           const message = error instanceof Error ? error.message : 'Unknown error'
@@ -1888,21 +1894,39 @@ export const api = new Hono<{
         }
       }
 
-      const markdown = (() => {
+      const frontmatter = (() => {
         const yaml = yamlStringify(response.meta, { lineWidth: 0 }).trimEnd()
-        const frontmatter = yaml ? `---\n${yaml}\n---` : undefined
-        if (frontmatter) return `${frontmatter}\n\n${excerpt}`
-        return excerpt
+        return yaml ? `---\n${yaml}\n---` : undefined
       })()
-      const tokensCount = estimateTokenCount(markdown)
-      const tokensSaved = estimateTokenCount(response.content) - estimateTokenCount(excerpt)
+      const markdownDocument = frontmatter
+        ? `${frontmatter}\n\n${response.content}`
+        : response.content
+      const filteredDocument = query.keywords?.length
+        ? frontmatter
+          ? `${frontmatter}\n\n${filteredContent}`
+          : filteredContent
+        : null
+      const extractedDocument = query.objective
+        ? frontmatter
+          ? `${frontmatter}\n\n${excerpt}`
+          : excerpt
+        : null
+      const markdownTokens = estimateTokenCount(markdownDocument)
+      const filteredTokens = filteredDocument ? estimateTokenCount(filteredDocument) : null
+      const extractedTokens = extractedDocument ? estimateTokenCount(extractedDocument) : null
+      const finalDocument = extractedDocument ?? filteredDocument ?? markdownDocument
+      const finalTokens = extractedTokens ?? filteredTokens ?? markdownTokens
+      const sourceTokens = response.source_tokens ?? markdownTokens
+      const sourceTokensBasis = response.source_tokens_basis ?? 'shortcut_fallback'
+      const tokensSaved = sourceTokens - finalTokens
 
       const costMills = (() => {
         const freshSurcharge = query.fresh ? Constants.pricing.freshSurchargeMills : 0
         if (query.objective) {
           // CF cost in mills: tokens * pricePerMToken / 1000
           const cfCostMills =
-            (inputTokens * mode.inputPricePerMToken + outputTokens * mode.outputPricePerMToken) /
+            (inputTokens * mode.inputPricePerMToken +
+              completionTokens * mode.outputPricePerMToken) /
             1000
           return (
             Constants.pricing.queryBaseCostMills +
@@ -1923,19 +1947,22 @@ export const api = new Hono<{
         hostname: url.hostname,
         id: requestId,
         keywords: query.keywords?.join(',') || null,
-        markdownTokens: tokensCount,
+        extracted_tokens: extractedTokens,
+        filtered_tokens: filteredTokens,
+        markdown_tokens: markdownTokens,
         mode: query.objective ? query.mode : null,
         objective: query.objective || null,
         organization_id: c.var.organization_id,
         path: url.pathname,
-        tokens_saved: tokensSaved,
+        source_tokens: sourceTokens,
+        source_tokens_basis: sourceTokensBasis,
         url: url.href,
         user_agent: userAgent,
       })
 
       const content = c.var.session
-        ? markdown.trimEnd()
-        : `${markdown.trimEnd()}${Constants.attribution.suffix}`
+        ? finalDocument.trimEnd()
+        : `${finalDocument.trimEnd()}${Constants.attribution.suffix}`
       const commonHeaders: Record<string, string> = {
         ...rateLimitHeaders,
         'access-control-expose-headers':
@@ -1943,7 +1970,7 @@ export const api = new Hono<{
         'x-cache': cached ? 'HIT' : 'MISS',
         'x-cost-mills': String(costMills),
         'x-request-id': requestId,
-        'x-tokens-count': String(tokensCount),
+        'x-tokens-count': String(finalTokens),
         'x-tokens-saved': String(tokensSaved),
       }
       if (billable) {
