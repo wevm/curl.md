@@ -3,6 +3,7 @@ import { Cli, type MiddlewareContext, middleware, z } from 'incur'
 import pc from 'picocolors'
 import type { api } from '../../src/api.ts'
 import pkg from '../package.json' with { type: 'json' }
+import * as Plugins from './plugins/index.ts'
 import type { Client, Command } from './types.ts'
 import * as UI from './ui.ts'
 import {
@@ -819,6 +820,7 @@ const invite = Cli.create('invite', {
     },
   })
   .command('list', {
+    aliases: ['ls'],
     description: 'List organization invites',
     middleware: [requireAuth],
     output: z.string(),
@@ -1017,6 +1019,7 @@ const member = Cli.create('member', {
     },
   })
   .command('list', {
+    aliases: ['ls'],
     description: 'List members of the active organization',
     middleware: [requireAuth],
     output: z.string(),
@@ -1059,6 +1062,7 @@ const member = Cli.create('member', {
     },
   })
   .command('remove', {
+    aliases: ['rm'],
     description: 'Remove a member from the active organization',
     middleware: [requireAuth],
     args: z.object({
@@ -1368,6 +1372,7 @@ const org = Cli.create('org', {
     },
   })
   .command('list', {
+    aliases: ['ls'],
     description: 'List organizations',
     middleware: [requireAuth],
     output: z.string(),
@@ -1576,6 +1581,7 @@ const token = Cli.create('token', {
     },
   })
   .command('list', {
+    aliases: ['ls'],
     description: 'List API tokens',
     middleware: [requireAuth],
     output: z.string(),
@@ -1614,6 +1620,7 @@ const token = Cli.create('token', {
     },
   })
   .command('delete', {
+    aliases: ['rm'],
     description: 'Delete API token',
     middleware: [requireAuth],
     args: z.object({
@@ -1705,7 +1712,79 @@ const token = Cli.create('token', {
     },
   })
 
+const plugin = Cli.create('plugin', {
+  // NOTE: when updating description, make sure the config/patches file for incur is updated
+  description: 'Manage agent plugins (add, remove, list)',
+  vars,
+})
+  .command('add', {
+    aliases: ['install'],
+    description: 'Add plugin for an agent',
+    args: z.object({
+      agent: z.enum(Plugins.agentIds).describe('Agent'),
+    }),
+    output: z.string(),
+    format: 'md',
+    async run(c) {
+      const agent = Plugins.findAgent(c.args.agent)!
+      const dir = Plugins.pluginDir(agent.id)
+      const existed = agent.installed(dir)
+
+      try {
+        agent.install(dir)
+      } catch (error) {
+        return c.error({
+          code: 'ADD_FAILED',
+          message: error instanceof Error ? error.message : 'Failed to add plugin.',
+        })
+      }
+
+      const verb = existed ? 'Updated' : 'Installed'
+      return c.ok(UI.success(`${verb} ${pc.bold(agent.name)} plugin`) + `\n  ${pc.dim(dir)}`)
+    },
+  })
+  .command('remove', {
+    aliases: ['uninstall'],
+    description: 'Remove plugin for an agent',
+    args: z.object({
+      agent: z.enum(Plugins.agentIds).describe('Agent'),
+    }),
+    output: z.string(),
+    format: 'md',
+    async run(c) {
+      const agent = Plugins.findAgent(c.args.agent)!
+      const dir = Plugins.pluginDir(agent.id)
+      if (!agent.installed(dir)) return c.ok(UI.warn(`${agent.name} plugin not installed`))
+
+      try {
+        agent.uninstall(dir)
+      } catch (error) {
+        return c.error({
+          code: 'REMOVE_FAILED',
+          message: error instanceof Error ? error.message : 'Failed to remove plugin.',
+        })
+      }
+
+      return c.ok(UI.success(`Removed ${pc.bold(agent.name)} plugin`))
+    },
+  })
+  .command('list', {
+    aliases: ['ls'],
+    description: 'List available plugins and their status',
+    output: z.string(),
+    format: 'md',
+    async run(c) {
+      const rows = Plugins.agents.map((a) => {
+        const dir = Plugins.pluginDir(a.id)
+        const installed = a.installed(dir)
+        return [pc.bold(a.id), a.name, installed ? pc.green('installed') : pc.dim('not installed')]
+      })
+      return c.ok(UI.table(['agent', 'name', 'status'], rows))
+    },
+  })
+
 const update = Cli.create('update', {
+  aliases: ['upgrade'],
   description: 'Update curl.md CLI',
   vars,
   options: z.object({
@@ -1779,6 +1858,7 @@ const update = Cli.create('update', {
 cli.command(auth)
 cli.command(credits)
 cli.command(org.command(invite).command(member))
+cli.command(plugin)
 cli.command(token)
 cli.command(update)
 

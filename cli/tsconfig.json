@@ -15,5 +15,6 @@
     "strict": true,
     "target": "es2022"
   },
-  "include": ["src", "test"]
+  "include": ["src", "test"],
+  "exclude": ["src/plugins/amp.ts"]
 }

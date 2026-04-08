@@ -28,6 +28,9 @@ patchedDependencies:
   '@tanstack/router-core@1.168.6':
     hash: 92a279abc19080889aa49b3d9d18acfe7b7ba8f7d0c8780da693ad0e5f23b364
     path: config/patches/@tanstack__router-core@1.168.6.patch
+  incur@0.3.24:
+    hash: 14ebf2ee14afeb3800eb419f3d9f1be019224dfd2164a8c96631196e3f223b1a
+    path: config/patches/incur@0.3.24.patch
 
 importers:
 
@@ -236,12 +239,15 @@ importers:
         specifier: 'catalog:'
         version: 4.12.12
       incur:
-        specifier: 0.3.23
-        version: 0.3.23
+        specifier: 0.3.24
+        version: 0.3.24(patch_hash=14ebf2ee14afeb3800eb419f3d9f1be019224dfd2164a8c96631196e3f223b1a)
       picocolors:
         specifier: 1.1.1
         version: 1.1.1
     devDependencies:
+      '@ampcode/plugin':
+        specifier: 0.0.0-dev
+        version: 0.0.0-dev
       '@changesets/cli':
         specifier: ^2.29.8
         version: 2.29.8(@types/node@25.3.2)
@@ -256,6 +262,9 @@ importers:
         version: 6.0.6
 
 packages:
+
+  '@ampcode/plugin@0.0.0-dev':
+    resolution: {integrity: sha512-6Bd+X7RTRDRnDouF9c++Ds+/an5XCOak/iWyqcW353lAX5VNy3uOxLquRO3UHjIJsQ5SO1Ld/X89K2fz3eEnIw==}
 
   '@antfu/install-pkg@1.1.0':
     resolution: {integrity: sha512-MGQsmw10ZyI+EJo45CdSER4zEb+p31LpDAFp2Z3gkSd1yqVZGi0Ebx++YTEMonJy4oChEMLsxZ64j8FH6sSqtQ==}
@@ -3269,8 +3278,8 @@ packages:
     resolution: {integrity: sha512-TR3KfrTZTYLPB6jUjfx6MF9WcWrHL9su5TObK4ZkYgBdWKPOFoSoQIdEuTuR82pmtxH2spWG9h6etwfr1pLBqQ==}
     engines: {node: '>=6'}
 
-  incur@0.3.23:
-    resolution: {integrity: sha512-+h1b4uMND4U3FAQnMbnhPVIQJdGa9gmjI+M1Pa7wpKmvKtuBxd/vJPTmQUmOYr4MDqLpiQSGJhJD+v26OmSSRw==}
+  incur@0.3.24:
+    resolution: {integrity: sha512-7U7SSO0E9qFfmN1PuqfQ+zxz7lihw3U3C29g0nxEZ76xvQmUmvxrE/f6fdmf1deIX+PurchPvnT3A4A+rEcc7A==}
     engines: {node: '>=22'}
     hasBin: true
 
@@ -4936,6 +4945,8 @@ packages:
     resolution: {integrity: sha512-bXE4cR/kVZhKZX/RjPEflHaKVhUVl85noU3v6b8apfQEc1x4A+zBxjZ4lN8LqGd6WZ3dl98pY4o717VFmoPp+A==}
 
 snapshots:
+
+  '@ampcode/plugin@0.0.0-dev': {}
 
   '@antfu/install-pkg@1.1.0':
     dependencies:
@@ -7787,7 +7798,7 @@ snapshots:
       parent-module: 1.0.1
       resolve-from: 4.0.0
 
-  incur@0.3.23:
+  incur@0.3.24(patch_hash=14ebf2ee14afeb3800eb419f3d9f1be019224dfd2164a8c96631196e3f223b1a):
     dependencies:
       '@cfworker/json-schema': 4.1.1
       '@modelcontextprotocol/server': 2.0.0-alpha.2(@cfworker/json-schema@4.1.1)
