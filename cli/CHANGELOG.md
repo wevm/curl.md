@@ -1,5 +1,11 @@
 # curl.md
 
+## 0.0.14
+
+### Patch Changes
+
+- Bumped incur version
+
 ## 0.0.13
 
 ### Patch Changes
