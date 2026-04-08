@@ -5,10 +5,11 @@ export function useCopyToClipboard(props: { content?: string; timeout?: number }
   const [copied, setCopied] = React.useState(false)
 
   const copy = React.useCallback(
-    (text?: string) => {
+    async (text?: string) => {
       const value = text ?? content
       if (value === undefined) return
-      navigator.clipboard.writeText(value)
+      const didCopy = await writeToClipboard(value)
+      if (!didCopy) return
       setCopied(true)
       setTimeout(() => setCopied(false), timeout)
     },
@@ -16,4 +17,34 @@ export function useCopyToClipboard(props: { content?: string; timeout?: number }
   )
 
   return { copied, copy }
+}
+
+async function writeToClipboard(value: string) {
+  if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(value)
+      return true
+    } catch {}
+  }
+
+  if (typeof document === 'undefined' || !document.body) return false
+
+  const textarea = document.createElement('textarea')
+  textarea.value = value
+  textarea.setAttribute('readonly', '')
+  textarea.style.position = 'fixed'
+  textarea.style.top = '0'
+  textarea.style.left = '-9999px'
+  document.body.appendChild(textarea)
+  textarea.focus()
+  textarea.select()
+  textarea.setSelectionRange(0, textarea.value.length)
+
+  try {
+    return document.execCommand('copy')
+  } catch {
+    return false
+  } finally {
+    textarea.remove()
+  }
 }

@@ -112,26 +112,20 @@ type organization_member = {
 type request = {
   account_id: string | null
   api_key_id: string | null
-  cached: boolean | null
+  cached: boolean
   created_at: GeneratedTimestamp
   extracted_tokens: number | null
   filtered_tokens: number | null
   hostname: string
   id: k.Generated<string>
   keywords: string | null
-  markdown_tokens: number | null
+  markdown_tokens: number
   mode: 'rush' | 'smart' | null
   objective: string | null
   organization_id: string | null
   path: string
-  source_tokens: number | null
-  source_tokens_basis:
-    | 'browser_html'
-    | 'estimated'
-    | 'html'
-    | 'markdown'
-    | 'shortcut_fallback'
-    | null
+  source_tokens: number
+  source_tokens_basis: 'browser_html' | 'estimated' | 'html' | 'markdown' | 'shortcut_fallback'
   url: string
   user_agent: string | null
 }

@@ -75,8 +75,12 @@ const defaultConfig: Partial<{
   },
   request() {
     return {
+      cached: false,
       hostname: 'example.com',
+      markdown_tokens: 0,
       path: '/',
+      source_tokens: 0,
+      source_tokens_basis: 'estimated',
       url: 'https://example.com/',
     }
   },

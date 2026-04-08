@@ -22,6 +22,7 @@ test('inserts request record', async () => {
         account_id: null,
         api_key_id: null,
         billable: false,
+        cached: false,
         cost_mills: 0,
 
         hostname: 'example.com',
@@ -71,6 +72,7 @@ test('clears KV cache when a request is recorded', async () => {
         account_id: null,
         api_key_id: null,
         billable: false,
+        cached: false,
         cost_mills: 0,
 
         hostname: 'example.com',
@@ -107,6 +109,7 @@ test('stores total savings when stage counts are present', async () => {
         account_id: null,
         api_key_id: null,
         billable: false,
+        cached: false,
         cost_mills: 0,
 
         hostname: 'example.com',
@@ -265,6 +268,7 @@ test('deducts credits when billable', async () => {
         account_id: account.id,
         api_key_id: null,
         billable: true,
+        cached: false,
         cost_mills: 10,
 
         hostname: 'example.com',
@@ -320,6 +324,7 @@ test('deducts credits for organization', async () => {
         account_id: null,
         api_key_id: null,
         billable: true,
+        cached: false,
         cost_mills: 30,
 
         hostname: 'example.com',
@@ -362,6 +367,7 @@ test('does not create negative balance', async () => {
         account_id: account.id,
         api_key_id: null,
         billable: true,
+        cached: false,
         cost_mills: 30,
 
         hostname: 'example.com',
@@ -415,6 +421,7 @@ test('skips deduction when not billable', async () => {
         account_id: account.id,
         api_key_id: null,
         billable: false,
+        cached: false,
         cost_mills: 1,
 
         hostname: 'example.com',
@@ -462,6 +469,7 @@ test('deducts credits only once for same request', async () => {
           account_id: account.id,
           api_key_id: null,
           billable: true,
+          cached: false,
           cost_mills: 30,
 
           hostname: 'example.com',
