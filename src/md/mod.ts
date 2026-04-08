@@ -67,7 +67,7 @@ export function create(options: create.Options = {}): create.ReturnType {
         Boolean(matched?.rule?.extract) ||
         Boolean(matched?.rule?.fetch)
       let sourceTokens: number | undefined
-      let sourceTokensBasis: DB['request']['source_tokens_basis'] = usesShortcut
+      let sourceTokensMethod: DB.request['source_tokens_method'] = usesShortcut
         ? 'estimated'
         : 'markdown'
 
@@ -75,7 +75,7 @@ export function create(options: create.Options = {}): create.ReturnType {
         if (matched?.rule?.extract) {
           if (contentType.includes('text/html') || contentType.includes('application/xhtml+xml')) {
             sourceTokens = estimateTokenCount(await response.clone().text())
-            sourceTokensBasis = 'html'
+            sourceTokensMethod = 'html'
           }
           return matched.rule.extract(response)
         }
@@ -91,7 +91,7 @@ export function create(options: create.Options = {}): create.ReturnType {
         }
 
         sourceTokens = estimateTokenCount(text)
-        sourceTokensBasis = 'html'
+        sourceTokensMethod = 'html'
         return fromHtml(text, { baseUrl: inputURL.href })
       })()
 
@@ -106,7 +106,7 @@ export function create(options: create.Options = {}): create.ReturnType {
         meta: sortMeta(result.meta),
         extras: {
           source_tokens: sourceTokens,
-          source_tokens_basis: sourceTokensBasis,
+          source_tokens_method: sourceTokensMethod,
         },
       }
     },
@@ -133,7 +133,7 @@ export namespace create {
           meta: Meta
           extras: {
             source_tokens: number | undefined
-            source_tokens_basis: DB['request']['source_tokens_basis']
+            source_tokens_method: DB.request['source_tokens_method']
           }
         }
       | { ok: false; status: number; error?: string }

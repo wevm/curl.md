@@ -27,7 +27,7 @@ export async function processRequestMessage(
       organization_id: body.organization_id,
       path: body.path,
       source_tokens: body.source_tokens,
-      source_tokens_basis: body.source_tokens_basis,
+      source_tokens_method: body.source_tokens_method,
       url: body.url,
       user_agent: body.user_agent,
     })
@@ -84,7 +84,7 @@ export async function processRequestMessage(
     await env.KV.put(`balance:${billingEntity}`, String(newBalance.balance_mills))
   }
 
-  if (body.source_tokens_basis === 'estimated') await enrichSourceTokensFromHtml(body, db)
+  if (body.source_tokens_method === 'estimated') await enrichSourceTokensFromHtml(body, db)
 }
 
 processRequestMessage.queueName = 'curl-request' as const
@@ -107,7 +107,7 @@ export namespace processRequestMessage {
     organization_id: string | null
     path: string
     source_tokens: number
-    source_tokens_basis: DB['request']['source_tokens_basis']
+    source_tokens_method: DB.request['source_tokens_method']
     url: string
     user_agent: string | undefined
   }
@@ -127,10 +127,10 @@ async function enrichSourceTokensFromHtml(body: processRequestMessage.Body, db: 
     const sourceTokens = estimateTokenCount(await response.text())
     const updated = await db
       .updateTable('request')
-      .set({ source_tokens: sourceTokens, source_tokens_basis: 'html' })
+      .set({ source_tokens: sourceTokens, source_tokens_method: 'html' })
       .where('id', '=', body.id)
       .where('source_tokens', '<', sourceTokens)
-      .where('source_tokens_basis', '=', 'estimated')
+      .where('source_tokens_method', '=', 'estimated')
       .executeTakeFirst()
 
     if (Number(updated.numUpdatedRows ?? 0) > 0) await invalidateTokensSavedCache(body.hostname)

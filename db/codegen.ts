@@ -46,7 +46,7 @@ const customTypes: Record<string, Record<string, string>> = {
   organization_member: { role: "'admin' | 'member' | 'owner'" },
   request: {
     mode: "'rush' | 'smart'",
-    source_tokens_basis: "'estimated' | 'html' | 'markdown'",
+    source_tokens_method: "'estimated' | 'html' | 'markdown'",
   },
 }
 

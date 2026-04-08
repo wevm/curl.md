@@ -119,13 +119,13 @@ type request = {
   hostname: string
   id: k.Generated<string>
   keywords: string | null
-  markdown_tokens: number
+  markdown_tokens: k.Generated<number>
   mode: 'rush' | 'smart' | null
   objective: string | null
   organization_id: string | null
   path: string
-  source_tokens: number
-  source_tokens_basis: 'estimated' | 'html' | 'markdown'
+  source_tokens: k.Generated<number>
+  source_tokens_method: k.Generated<'estimated' | 'html' | 'markdown'>
   url: string
   user_agent: string | null
 }

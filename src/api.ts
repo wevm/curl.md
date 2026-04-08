@@ -1916,7 +1916,7 @@ export const api = new Hono<{
       const filteredTokens = filteredDocument ? estimateTokenCount(filteredDocument) : null
       const extractedTokens = extractedDocument ? estimateTokenCount(extractedDocument) : null
       const sourceTokens = response.extras.source_tokens ?? markdownTokens
-      const sourceTokensBasis = response.extras.source_tokens_basis ?? 'estimated'
+      const sourceTokensMethod = response.extras.source_tokens_method ?? 'estimated'
       const finalTokens = extractedTokens ?? filteredTokens ?? markdownTokens
 
       const costMills = (() => {
@@ -1954,7 +1954,7 @@ export const api = new Hono<{
         organization_id: c.var.organization_id,
         path: url.pathname,
         source_tokens: sourceTokens,
-        source_tokens_basis: sourceTokensBasis,
+        source_tokens_method: sourceTokensMethod,
         url: url.href,
         user_agent: userAgent,
       })

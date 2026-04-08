@@ -35,7 +35,7 @@ test('inserts request record', async () => {
         organization_id: null,
         path: '/',
         source_tokens: 40,
-        source_tokens_basis: 'html',
+        source_tokens_method: 'html',
         url: 'https://example.com',
         user_agent: 'test-agent',
       },
@@ -57,7 +57,7 @@ test('inserts request record', async () => {
   expect(row.url).toBe('https://example.com')
   expect(row.path).toBe('/')
   expect(row.source_tokens).toBe(40)
-  expect(row.source_tokens_basis).toBe('html')
+  expect(row.source_tokens_method).toBe('html')
   expect(row.user_agent).toBe('test-agent')
 })
 
@@ -85,7 +85,7 @@ test('clears KV cache when a request is recorded', async () => {
         organization_id: null,
         path: '/',
         source_tokens: 525,
-        source_tokens_basis: 'html',
+        source_tokens_method: 'html',
         url: 'https://example.com',
         user_agent: 'test-agent',
       },
@@ -122,7 +122,7 @@ test('stores total savings when stage counts are present', async () => {
         organization_id: null,
         path: '/fail',
         source_tokens: 60,
-        source_tokens_basis: 'markdown',
+        source_tokens_method: 'markdown',
         url: 'https://example.com/fail',
         user_agent: 'test-agent',
       },
@@ -140,7 +140,7 @@ test('stores total savings when stage counts are present', async () => {
   expect(row.extracted_tokens).toBeNull()
   expect(row.filtered_tokens).toBe(18)
   expect(row.source_tokens).toBe(60)
-  expect(row.source_tokens_basis).toBe('markdown')
+  expect(row.source_tokens_method).toBe('markdown')
 })
 
 test('upgrades estimated rows with html source tokens when fetch succeeds', async () => {
@@ -176,7 +176,7 @@ test('upgrades estimated rows with html source tokens when fetch succeeds', asyn
         organization_id: null,
         path: '/',
         source_tokens: 25,
-        source_tokens_basis: 'estimated',
+        source_tokens_method: 'estimated',
         url: 'https://example.com',
         user_agent: 'test-agent',
       },
@@ -190,11 +190,11 @@ test('upgrades estimated rows with html source tokens when fetch succeeds', asyn
   const row = await db
     .selectFrom('request')
     .where('id', '=', 'req_enrich_html')
-    .select(['source_tokens', 'source_tokens_basis'])
+    .select(['source_tokens', 'source_tokens_method'])
     .executeTakeFirstOrThrow()
 
   expect(row.source_tokens).toBe(estimateTokenCount(html))
-  expect(row.source_tokens_basis).toBe('html')
+  expect(row.source_tokens_method).toBe('html')
 })
 
 test('keeps estimated rows when html source tokens are smaller', async () => {
@@ -230,7 +230,7 @@ test('keeps estimated rows when html source tokens are smaller', async () => {
         organization_id: null,
         path: '/',
         source_tokens: 120,
-        source_tokens_basis: 'estimated',
+        source_tokens_method: 'estimated',
         url: 'https://spa.example.com',
         user_agent: 'test-agent',
       },
@@ -244,12 +244,12 @@ test('keeps estimated rows when html source tokens are smaller', async () => {
   const row = await db
     .selectFrom('request')
     .where('id', '=', 'req_keep_fallback')
-    .select(['source_tokens', 'source_tokens_basis'])
+    .select(['source_tokens', 'source_tokens_method'])
     .executeTakeFirstOrThrow()
 
   expect(estimateTokenCount(html)).toBeLessThan(120)
   expect(row.source_tokens).toBe(120)
-  expect(row.source_tokens_basis).toBe('estimated')
+  expect(row.source_tokens_method).toBe('estimated')
 })
 
 test('deducts credits when billable', async () => {
@@ -281,7 +281,7 @@ test('deducts credits when billable', async () => {
         organization_id: null,
         path: '/',
         source_tokens: 25,
-        source_tokens_basis: 'markdown',
+        source_tokens_method: 'markdown',
         url: 'https://example.com',
         user_agent: 'test-agent',
       },
@@ -337,7 +337,7 @@ test('deducts credits for organization', async () => {
         organization_id: org.id,
         path: '/',
         source_tokens: 25,
-        source_tokens_basis: 'markdown',
+        source_tokens_method: 'markdown',
         url: 'https://example.com',
         user_agent: 'test-agent',
       },
@@ -380,7 +380,7 @@ test('does not create negative balance', async () => {
         organization_id: null,
         path: '/',
         source_tokens: 25,
-        source_tokens_basis: 'markdown',
+        source_tokens_method: 'markdown',
         url: 'https://example.com',
         user_agent: 'test-agent',
       },
@@ -434,7 +434,7 @@ test('skips deduction when not billable', async () => {
         organization_id: null,
         path: '/',
         source_tokens: 25,
-        source_tokens_basis: 'markdown',
+        source_tokens_method: 'markdown',
         url: 'https://example.com',
         user_agent: 'test-agent',
       },
@@ -482,7 +482,7 @@ test('deducts credits only once for same request', async () => {
           organization_id: null,
           path: '/',
           source_tokens: 25,
-          source_tokens_basis: 'markdown',
+          source_tokens_method: 'markdown',
           url: 'https://example.com',
           user_agent: 'test-agent',
         },

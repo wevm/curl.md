@@ -24,7 +24,7 @@ declare namespace KV {
             content: string
             extras: {
               source_tokens: number | undefined
-              source_tokens_basis: import('#db/types.gen.ts').DB['request']['source_tokens_basis']
+              source_tokens_method: import('#db/types.gen.ts').DB.request['source_tokens_method']
             }
             meta: Record<string, unknown>
           }

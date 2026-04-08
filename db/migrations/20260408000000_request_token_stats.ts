@@ -7,10 +7,10 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('filtered_tokens', 'integer')
     .addColumn('markdown_tokens', 'integer', (col) => col.notNull().defaultTo(0))
     .addColumn('source_tokens', 'integer', (col) => col.notNull().defaultTo(0))
-    .addColumn('source_tokens_basis', 'text', (col) => col.notNull().defaultTo('estimated'))
+    .addColumn('source_tokens_method', 'text', (col) => col.notNull().defaultTo('estimated'))
     .execute()
 
-  await sql`ALTER TABLE request ADD CONSTRAINT request_source_tokens_basis_chk CHECK (source_tokens_basis IN ('estimated', 'html', 'markdown'))`.execute(
+  await sql`ALTER TABLE request ADD CONSTRAINT request_source_tokens_method_chk CHECK (source_tokens_method IN ('estimated', 'html', 'markdown'))`.execute(
     db,
   )
 
@@ -20,7 +20,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
       cached = COALESCE(cached, false),
       markdown_tokens = 0,
       source_tokens = COALESCE(tokens_saved, 0),
-      source_tokens_basis = 'estimated'
+      source_tokens_method = 'estimated'
     WHERE tokens_saved IS NOT NULL
   `.execute(db)
 
@@ -39,13 +39,13 @@ export async function down(db: Kysely<unknown>): Promise<void> {
       AND COALESCE(extracted_tokens, filtered_tokens, markdown_tokens) IS NOT NULL
   `.execute(db)
 
-  await sql`ALTER TABLE request DROP CONSTRAINT IF EXISTS request_source_tokens_basis_chk`.execute(
+  await sql`ALTER TABLE request DROP CONSTRAINT IF EXISTS request_source_tokens_method_chk`.execute(
     db,
   )
 
   await db.schema
     .alterTable('request')
-    .dropColumn('source_tokens_basis')
+    .dropColumn('source_tokens_method')
     .dropColumn('source_tokens')
     .dropColumn('markdown_tokens')
     .dropColumn('filtered_tokens')

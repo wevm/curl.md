@@ -78,7 +78,7 @@ test('shows tokens saved and dollar savings from requests', async ({
       filtered_tokens: null,
       markdown_tokens: 2000,
       source_tokens: 6000,
-      source_tokens_basis: 'html',
+      source_tokens_method: 'html',
     },
     {
       account_id: account.id,
@@ -86,7 +86,7 @@ test('shows tokens saved and dollar savings from requests', async ({
       filtered_tokens: 1000,
       markdown_tokens: 1500,
       source_tokens: 4000,
-      source_tokens_basis: 'html',
+      source_tokens_method: 'html',
     },
   )
 

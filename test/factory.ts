@@ -80,7 +80,7 @@ const defaultConfig: Partial<{
       markdown_tokens: 0,
       path: '/',
       source_tokens: 0,
-      source_tokens_basis: 'estimated',
+      source_tokens_method: 'estimated',
       url: 'https://example.com/',
     }
   },
