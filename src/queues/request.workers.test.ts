@@ -1,10 +1,13 @@
 import { createMessageBatch } from 'cloudflare:test'
 import { env } from 'cloudflare:workers'
+import { HttpResponse, http } from 'msw'
+import { estimateTokenCount } from 'tokenx'
 import { afterAll, expect, test } from 'vitest'
 import { createClient } from '#db/client.ts'
 import * as Nanoid from '#lib/nanoid.ts'
 import { processRequestMessage } from '#queues/request.ts'
 import { createFactory } from '#test/factory.ts'
+import { server } from '#test/workers.server.ts'
 
 const db = createClient(env.DB.connectionString, { max: 1 })
 const factory = createFactory(db)
@@ -59,6 +62,7 @@ test('inserts request record', async () => {
 
 test('clears KV cache when a request is recorded', async () => {
   await env.KV.put('stats:tokens_saved', '1000')
+  await env.KV.put('stats:tokens_saved:example.com', '500')
 
   const batch = createMessageBatch<processRequestMessage.Body>(processRequestMessage.queueName, [
     {
@@ -90,7 +94,9 @@ test('clears KV cache when a request is recorded', async () => {
   await processRequestMessage(batch.messages[0]!, db)
 
   const cached = await env.KV.get('stats:tokens_saved')
+  const hostCached = await env.KV.get('stats:tokens_saved:example.com')
   expect(cached).toBeNull()
+  expect(hostCached).toBeNull()
 })
 
 test('stores total savings when stage counts are present', async () => {
@@ -113,7 +119,7 @@ test('stores total savings when stage counts are present', async () => {
         organization_id: null,
         path: '/fail',
         source_tokens: 60,
-        source_tokens_basis: 'shortcut_fallback',
+        source_tokens_basis: 'markdown',
         url: 'https://example.com/fail',
         user_agent: 'test-agent',
       },
@@ -131,6 +137,115 @@ test('stores total savings when stage counts are present', async () => {
   expect(row.extracted_tokens).toBeNull()
   expect(row.filtered_tokens).toBe(18)
   expect(row.source_tokens).toBe(60)
+  expect(row.source_tokens_basis).toBe('markdown')
+})
+
+test('upgrades shortcut_fallback rows with html source tokens when fetch succeeds', async () => {
+  const html = '<html><body><main><h1>Example</h1><p>Hello world</p></main></body></html>'
+  server.use(
+    http.get(
+      'https://example.com/',
+      () =>
+        new HttpResponse(html, {
+          headers: { 'content-type': 'text/html; charset=utf-8' },
+          status: 200,
+        }),
+    ),
+  )
+
+  const batch = createMessageBatch<processRequestMessage.Body>(processRequestMessage.queueName, [
+    {
+      attempts: 1,
+      body: {
+        account_id: null,
+        api_key_id: null,
+        billable: false,
+        cached: false,
+        cost_mills: 0,
+        extracted_tokens: null,
+        filtered_tokens: null,
+        hostname: 'example.com',
+        id: 'req_enrich_html',
+        keywords: null,
+        markdown_tokens: 25,
+        mode: null,
+        objective: null,
+        organization_id: null,
+        path: '/',
+        source_tokens: 25,
+        source_tokens_basis: 'shortcut_fallback',
+        url: 'https://example.com',
+        user_agent: 'test-agent',
+      },
+      id: crypto.randomUUID(),
+      timestamp: new Date(),
+    },
+  ])
+
+  await processRequestMessage(batch.messages[0]!, db)
+
+  const row = await db
+    .selectFrom('request')
+    .where('id', '=', 'req_enrich_html')
+    .select(['source_tokens', 'source_tokens_basis'])
+    .executeTakeFirstOrThrow()
+
+  expect(row.source_tokens).toBe(estimateTokenCount(html))
+  expect(row.source_tokens_basis).toBe('html')
+})
+
+test('keeps shortcut_fallback rows when html source tokens are smaller', async () => {
+  const html = '<html><body><div id="app"></div></body></html>'
+  server.use(
+    http.get(
+      'https://spa.example.com/',
+      () =>
+        new HttpResponse(html, {
+          headers: { 'content-type': 'text/html; charset=utf-8' },
+          status: 200,
+        }),
+    ),
+  )
+
+  const batch = createMessageBatch<processRequestMessage.Body>(processRequestMessage.queueName, [
+    {
+      attempts: 1,
+      body: {
+        account_id: null,
+        api_key_id: null,
+        billable: false,
+        cached: false,
+        cost_mills: 0,
+        extracted_tokens: null,
+        filtered_tokens: null,
+        hostname: 'spa.example.com',
+        id: 'req_keep_fallback',
+        keywords: null,
+        markdown_tokens: 120,
+        mode: null,
+        objective: null,
+        organization_id: null,
+        path: '/',
+        source_tokens: 120,
+        source_tokens_basis: 'shortcut_fallback',
+        url: 'https://spa.example.com',
+        user_agent: 'test-agent',
+      },
+      id: crypto.randomUUID(),
+      timestamp: new Date(),
+    },
+  ])
+
+  await processRequestMessage(batch.messages[0]!, db)
+
+  const row = await db
+    .selectFrom('request')
+    .where('id', '=', 'req_keep_fallback')
+    .select(['source_tokens', 'source_tokens_basis'])
+    .executeTakeFirstOrThrow()
+
+  expect(estimateTokenCount(html)).toBeLessThan(120)
+  expect(row.source_tokens).toBe(120)
   expect(row.source_tokens_basis).toBe('shortcut_fallback')
 })
 
