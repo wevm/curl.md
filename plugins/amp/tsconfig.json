@@ -1,6 +1,5 @@
 {
   "compilerOptions": {
-    "allowImportingTsExtensions": true,
     "module": "esnext",
     "moduleResolution": "bundler",
     "noEmit": true,
@@ -8,5 +7,5 @@
     "strict": true,
     "target": "es2022"
   },
-  "include": ["src/plugins/amp.ts"]
+  "include": ["plugin.ts"]
 }

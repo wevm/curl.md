@@ -9,12 +9,5 @@
     "rootDir": "src"
   },
   "include": ["src"],
-  "exclude": [
-    "src/**/*.test.*",
-    "src/plugins/amp.ts",
-    "src/plugins/claude.ts",
-    "src/plugins/codex.ts",
-    "src/plugins/pi.ts",
-    "test"
-  ]
+  "exclude": ["src/**/*.test.*", "test"]
 }
