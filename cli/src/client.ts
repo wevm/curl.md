@@ -1,11 +1,26 @@
 // oxlint-disable-next-line typescript-eslint/triple-slash-reference -- ambient worker shims for published type output
 /// <reference path="./cf-env.d.ts" />
 
-import { hc } from 'hono/client'
+import { hc, type ClientRequestOptions } from 'hono/client'
 import type { api } from '../../src/api.ts'
 
-export const baseUrl = 'https://curl.md'
-export const defaultBaseUrl = baseUrl
+type RpcClient = ReturnType<typeof hc<typeof api>>
+type Fetch = RpcClient['api'][':url{.+}']['$get']
+type FetchQuery = Pick<
+  NonNullable<NonNullable<Parameters<Fetch>[0]>['query']>,
+  'fresh' | 'keywords' | 'mode' | 'objective'
+>
+type FetchOptions = Partial<Omit<FetchQuery, 'fresh' | 'keywords'>> & {
+  fresh?: boolean | undefined
+  keywords?: string[] | undefined
+  options?: NonNullable<Parameters<Fetch>[1]> | undefined
+}
+
+export type Client = RpcClient & {
+  fetch: (url: string, options?: FetchOptions) => ReturnType<Fetch>
+}
+
+export const defaultBaseUrl = 'https://curl.md'
 
 /**
  * Create a typed client for the `curl.md` API.
@@ -18,19 +33,8 @@ export const defaultBaseUrl = baseUrl
  * const res = await client.fetch('example.com')
  * ```
  */
-export function createClient(url: string = baseUrl, options?: Parameters<typeof hc>[1]) {
+export function createClient(url: string = defaultBaseUrl, options?: ClientRequestOptions): Client {
   const client = hc<typeof api>(url, options)
-
-  type Fetch = (typeof client.api)[':url{.+}']['$get']
-  type FetchQuery = Pick<
-    NonNullable<NonNullable<Parameters<Fetch>[0]>['query']>,
-    'fresh' | 'keywords' | 'mode' | 'objective'
-  >
-  type FetchOptions = Partial<Omit<FetchQuery, 'fresh' | 'keywords'>> & {
-    fresh?: boolean | undefined
-    keywords?: string[] | undefined
-    options?: NonNullable<Parameters<Fetch>[1]> | undefined
-  }
 
   return new Proxy(client, {
     get(target, prop, receiver) {
@@ -54,9 +58,5 @@ export function createClient(url: string = baseUrl, options?: Parameters<typeof 
       }
       return Reflect.get(target, prop, receiver)
     },
-  }) as typeof client & {
-    fetch: (url: string, options?: FetchOptions) => ReturnType<Fetch>
-  }
+  }) as Client
 }
-
-export type Client = ReturnType<typeof createClient>

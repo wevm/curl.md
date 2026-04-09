@@ -1,7 +1,7 @@
 import { Cli, type MiddlewareContext, middleware, z } from 'incur'
 import pc from 'picocolors'
 import pkg from '../package.json' with { type: 'json' }
-import { baseUrl, createClient, type Client } from './client.ts'
+import { defaultBaseUrl, createClient, type Client } from './client.ts'
 import * as UI from './ui.ts'
 import {
   compareVersions,
@@ -21,7 +21,7 @@ const aliases = ['md', 'curlmd']
 
 const env = z.object({
   CURLMD_API_KEY: z.string().optional().describe('API token for authentication'),
-  CURLMD_BASE_URL: z.string().default(baseUrl).describe('Base URL'),
+  CURLMD_BASE_URL: z.string().default(defaultBaseUrl).describe('Base URL'),
 })
 
 const vars = z.object({
