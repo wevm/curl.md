@@ -5,7 +5,7 @@ import * as Nanoid from '#lib/nanoid.ts'
 import { Env } from '#test/env.ts'
 import { createFactory } from '#test/factory.ts'
 import { serve, useTmp } from '../test/utils.ts'
-import { createClient as createRpcClient, defaultBaseUrl } from './index.ts'
+import { createClient as createRpcClient, defaultBaseUrl } from './client.ts'
 import * as UI from './ui.ts'
 import * as utils from './utils.ts'
 import { Session, UpdateCache } from './utils.ts'
@@ -32,6 +32,11 @@ afterAll(() => db.destroy())
 test('createClient defaults to curl.md', () => {
   const client = createRpcClient()
   expect(client.api.auth.me.$url().toString()).toBe(`${defaultBaseUrl}/api/auth/me`)
+})
+
+test('createClient exposes fetch alias', () => {
+  const client = createRpcClient()
+  expect(client.fetch).toBe(client.api[':url{.+}'])
 })
 
 test('version', async () => {
@@ -417,6 +422,64 @@ describe('auth', () => {
   test('check - not logged in', async () => {
     const { output } = await serve(['auth', 'status'])
     expect(output).toContain('Not authenticated')
+  })
+
+  test('headers - with session', async () => {
+    const account = await factory.account.insert({})
+    const org = await factory.organization.insert({})
+    await factory.organization_member.insert({
+      account_id: account.id,
+      organization_id: org.id,
+    })
+    const session = await factory.session.insert({ account_id: account.id })
+    Session.write({ session_id: session.id, organization_id: org.id })
+
+    const { output } = await serve(['auth', 'headers', '--json'])
+    const json = JSON.parse(output)
+    const data = json.data ?? json
+
+    expect(data).toEqual({
+      authorization: `Bearer ${session.id}`,
+      expires_at: null,
+      organization_id: org.id,
+    })
+  })
+
+  test('headers - with --token', async () => {
+    const account = await factory.account.insert({})
+    const suffix = Nanoid.generate()
+    const token = `curlmd_${suffix}`
+    await factory.api_key.insert({
+      account_id: account.id,
+      key_hash: await ApiKey.hash(token),
+      key_prefix: token.slice(0, 9),
+      name: `headers-test-${suffix}`,
+    })
+
+    const origArgv = process.argv
+    process.argv = [...origArgv, '--token', token]
+    onTestFinished(() => {
+      process.argv = origArgv
+    })
+
+    const { output } = await serve(['auth', 'headers', '--token', token, '--json'])
+    const json = JSON.parse(output)
+    const data = json.data ?? json
+
+    expect(data).toEqual({
+      authorization: `Bearer ${token}`,
+      expires_at: null,
+      organization_id: null,
+    })
+  })
+
+  test('headers - expired session', async () => {
+    Session.write({ session_id: 'expired-session-id' })
+
+    const { exitCode, output } = await serve(['auth', 'headers', '--json'])
+    expect(exitCode).toBe(1)
+    expect(output).toContain('NOT_AUTHENTICATED')
+    expect(Session.read()).toBeNull()
   })
 
   test('logout - not logged in', async () => {

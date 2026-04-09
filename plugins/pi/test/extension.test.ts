@@ -13,9 +13,7 @@ afterEach(() => {
 
 test('registers curl.md Pi tool and status command', async () => {
   const notify = vi.fn()
-  vi.spyOn(child_process, 'execFileSync').mockImplementation(() => {
-    throw new Error('not found')
-  })
+  mockExecFileError(new Error('not authenticated'))
   const { commands, tools } = loadExtension()
 
   expect(commands.map((command) => command.name)).toEqual(['curlmd_status'])
@@ -28,7 +26,7 @@ test('registers curl.md Pi tool and status command', async () => {
   })
 
   expect(notify).toHaveBeenCalledWith(
-    'curl.md Pi\nTool: curlmd_fetch\nCLI: not found\nAuth: anonymous\nNext: set CURLMD_API_KEY for authenticated requests.',
+    'curl.md Pi\nTool: curlmd_fetch\nCLI: installed\nAuth: anonymous\nNext: set CURLMD_API_KEY or run `curl.md auth login`.',
     'info',
   )
 })
@@ -44,7 +42,6 @@ test('status command verifies API key auth state', async () => {
 
   vi.stubEnv('CURLMD_API_KEY', 'curlmd_test_token')
   vi.stubGlobal('fetch', fetch)
-  vi.spyOn(child_process, 'execFileSync').mockReturnValue(Buffer.from('curl.md\n'))
 
   const { commands } = loadExtension()
   await commands[0]!.handler('', {
@@ -81,6 +78,7 @@ test('fetches markdown from curl.md anonymously', async () => {
       status: 200,
     }),
   )
+  mockExecFileError(new Error('not authenticated'))
   vi.stubEnv('XDG_DATA_HOME', tmpDir)
   vi.stubGlobal('fetch', fetch)
 
@@ -119,6 +117,60 @@ test('fetches markdown from curl.md anonymously', async () => {
   fs.rmSync(tmpDir, { force: true, recursive: true })
 })
 
+test('uses CLI auth headers when available', async () => {
+  const fetch = vi.fn().mockResolvedValue(
+    new Response(JSON.stringify({ content: '# Authenticated' }), {
+      headers: { 'content-type': 'application/json' },
+      status: 200,
+    }),
+  )
+  mockExecFileSuccess({
+    authorization: 'Bearer cli-session',
+    expires_at: null,
+    organization_id: 'org_123',
+  })
+  vi.stubGlobal('fetch', fetch)
+
+  const { tools } = loadExtension()
+  await tools[0]!.execute('call_1', { url: 'https://example.com' })
+
+  expect(child_process.execFile).toHaveBeenCalledTimes(1)
+  expect(child_process.execFile).toHaveBeenCalledWith(
+    process.execPath,
+    expect.arrayContaining(['auth', 'headers', '--json']),
+    expect.any(Object),
+    expect.any(Function),
+  )
+  expect(getHeaders(fetch.mock.calls[0]![1])).toEqual({
+    accept: 'application/json',
+    authorization: 'Bearer cli-session',
+    'x-organization-id': 'org_123',
+  })
+})
+
+test('caches CLI auth headers in memory', async () => {
+  const fetch = vi.fn().mockImplementation(
+    async () =>
+      new Response(JSON.stringify({ content: '# Authenticated' }), {
+        headers: { 'content-type': 'application/json' },
+        status: 200,
+      }),
+  )
+  mockExecFileSuccess({
+    authorization: 'Bearer cli-session',
+    expires_at: null,
+    organization_id: null,
+  })
+  vi.stubGlobal('fetch', fetch)
+
+  const { tools } = loadExtension()
+  await tools[0]!.execute('call_1', { url: 'https://example.com/a' })
+  await tools[0]!.execute('call_2', { url: 'https://example.com/b' })
+
+  expect(child_process.execFile).toHaveBeenCalledTimes(1)
+  expect(fetch).toHaveBeenCalledTimes(2)
+})
+
 test('prefers CURLMD_API_KEY for authentication', async () => {
   const fetch = vi.fn().mockResolvedValue(
     new Response(JSON.stringify({ content: '# Authenticated' }), {
@@ -153,6 +205,7 @@ test('throws validation issues for bad requests', async () => {
       },
     ),
   )
+  mockExecFileError(new Error('not authenticated'))
   vi.stubGlobal('fetch', fetch)
 
   const { tools } = loadExtension()
@@ -202,13 +255,14 @@ test('throws a helpful rate limit error for anonymous requests', async () => {
       },
     ),
   )
+  mockExecFileError(new Error('not authenticated'))
   vi.stubEnv('XDG_DATA_HOME', tmpDir)
   vi.stubGlobal('fetch', fetch)
 
   const { tools } = loadExtension()
 
   await expect(tools[0]!.execute('call_1', { url: 'https://example.com' })).rejects.toThrow(
-    'Rate limit exceeded. Try again in 12s. Set CURLMD_API_KEY for higher limits.',
+    'Rate limit exceeded. Try again in 12s. Set CURLMD_API_KEY or run `curl.md auth login` for higher limits.',
   )
 
   fs.rmSync(tmpDir, { force: true, recursive: true })
@@ -233,4 +287,24 @@ function loadExtension() {
 function getHeaders(init: unknown) {
   const headers = (init as { headers?: Headers }).headers
   return headers ? Object.fromEntries(headers.entries()) : {}
+}
+
+function mockExecFileError(error: Error) {
+  vi.spyOn(child_process, 'execFile').mockImplementation(((...args: any[]) => {
+    const callback = args.at(-1) as
+      | ((error: Error, stdout: string, stderr: string) => void)
+      | undefined
+    callback?.(error, '', '')
+    return {} as child_process.ChildProcess
+  }) as typeof child_process.execFile)
+}
+
+function mockExecFileSuccess(json: unknown) {
+  vi.spyOn(child_process, 'execFile').mockImplementation(((...args: any[]) => {
+    const callback = args.at(-1) as
+      | ((error: null, stdout: string, stderr: string) => void)
+      | undefined
+    callback?.(null, JSON.stringify(json), '')
+    return {} as child_process.ChildProcess
+  }) as typeof child_process.execFile)
 }

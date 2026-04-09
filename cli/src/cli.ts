@@ -1,7 +1,7 @@
 import { Cli, type MiddlewareContext, middleware, z } from 'incur'
 import pc from 'picocolors'
 import pkg from '../package.json' with { type: 'json' }
-import { createClient, type Client } from './client.ts'
+import { baseUrl, createClient, type Client } from './client.ts'
 import * as UI from './ui.ts'
 import {
   compareVersions,
@@ -21,7 +21,7 @@ const aliases = ['md', 'curlmd']
 
 const env = z.object({
   CURLMD_API_KEY: z.string().optional().describe('API token for authentication'),
-  CURLMD_BASE_URL: z.string().default('https://curl.md').describe('Base URL'),
+  CURLMD_BASE_URL: z.string().default(baseUrl).describe('Base URL'),
 })
 
 const vars = z.object({
@@ -135,7 +135,7 @@ const cli = Cli.create('curl.md', {
 
     const keywords = c.options.keywords?.flatMap((k: string) => k.split(','))
     const spinner = UI.createSpinner('')
-    const res = await c.var.client.api[':url{.+}'].$get({
+    const res = await c.var.client.fetch({
       param: { url: result.data },
       query: {
         fresh: c.options.fresh ? '' : undefined,
@@ -529,6 +529,40 @@ const auth = Cli.create('auth', {
         `- Organization: ${pc.bold(orgDisplay)}`,
       ]
       return c.ok(lines.join('\n'))
+    },
+  })
+  .command('headers', {
+    description: 'Print authentication headers for local integrations',
+    middleware: [requireAuth],
+    options: z.object({
+      token: z.string().optional().describe('API token to check'),
+    }),
+    output: z.object({
+      authorization: z.string(),
+      expires_at: z.string().nullable(),
+      organization_id: z.string().nullable(),
+    }),
+    format: 'json',
+    async run(c) {
+      const res = await c.var.client.api.auth.me.$get()
+      const json = await res.json()
+      if (!json.account) {
+        if (c.var.apiKey) return authError(c)
+        return expiredSession(c)
+      }
+
+      const authorization = (() => {
+        if (c.var.apiKey) return `Bearer ${c.var.apiKey}`
+        if (c.var.session) return `Bearer ${c.var.session.session_id}`
+        return undefined
+      })()
+      if (!authorization) return authError(c)
+
+      return c.ok({
+        authorization,
+        expires_at: null,
+        organization_id: c.var.apiKey ? null : (c.var.session?.organization_id ?? null),
+      })
     },
   })
 

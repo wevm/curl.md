@@ -4,9 +4,8 @@
 import { hc } from 'hono/client'
 import type { api } from '../../src/api.ts'
 
-export const defaultBaseUrl = 'https://curl.md'
-
-export type Client = ReturnType<typeof createClient>
+export const baseUrl = 'https://curl.md'
+export const defaultBaseUrl = baseUrl
 
 /**
  * Create a typed client for the `curl.md` API.
@@ -16,11 +15,16 @@ export type Client = ReturnType<typeof createClient>
  * import { createClient } from 'curl.md'
  *
  * const client = createClient()
- * const res = await client.api[':url{.+}'].$get({
+ * const res = await client.fetch.$get({
  *   param: { url: encodeURIComponent('https://example.com') },
  * })
  * ```
  */
-export function createClient(baseUrl: string = defaultBaseUrl, options?: Parameters<typeof hc>[1]) {
-  return hc<typeof api>(baseUrl, options)
+export function createClient(url: string = baseUrl, options?: Parameters<typeof hc>[1]) {
+  const client = hc<typeof api>(url, options)
+  return Object.assign(client, {
+    fetch: client.api[':url{.+}'].$get,
+  })
 }
+
+export type Client = ReturnType<typeof createClient>
