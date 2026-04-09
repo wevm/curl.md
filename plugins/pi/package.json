@@ -1,9 +1,29 @@
 {
-  "name": "@curlmd/pi",
-  "private": true,
+  "name": "@curl.md/pi",
+  "version": "0.0.0",
+  "description": "curl.md Pi extension",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wevm/curl.md.git",
+    "directory": "plugins/pi"
+  },
+  "keywords": [
+    "pi-package"
+  ],
+  "files": [
+    "extensions"
+  ],
   "type": "module",
-  "scripts": {
-    "check:types": "tsgo --noEmit"
+  "pi": {
+    "extensions": [
+      "./extensions"
+    ]
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-ai": "*",
+    "@mariozechner/pi-coding-agent": "*",
+    "@sinclair/typebox": "*"
   },
   "devDependencies": {
     "@mariozechner/pi-ai": "^0.65.2",

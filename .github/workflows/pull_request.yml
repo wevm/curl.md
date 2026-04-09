@@ -44,4 +44,4 @@ jobs:
         run: pnpm build:cli
 
       - name: Publish preview
-        run: pnpx pkg-pr-new publish --pnpm ./cli
+        run: pnpx pkg-pr-new publish --pnpm ./cli ./plugins/pi

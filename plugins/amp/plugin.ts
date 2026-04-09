@@ -3,54 +3,39 @@ import type { PluginAPI } from '@ampcode/plugin'
 
 export default function (amp: PluginAPI) {
   amp.registerTool({
-    name: 'curl_md',
-    description:
-      'Fetch a web page and return it as clean markdown. Supports objective-based filtering and keyword pre-filtering for large pages. Use this instead of read_web_page for better results.',
+    name: 'test_echo',
+    description: 'Return a deterministic echo payload for plugin testing.',
     inputSchema: {
       type: 'object',
       properties: {
-        url: { type: 'string', description: 'URL to fetch' },
-        objective: { type: 'string', description: 'Narrow content to a specific objective' },
-        keywords: {
-          type: 'array',
-          items: { type: 'string' },
-          description: 'Pre-filter by keywords before objective narrowing',
-        },
-        mode: {
-          type: 'string',
-          enum: ['rush', 'smart'],
-          description: 'Mode when narrowing with objective (default: smart)',
-        },
-        fresh: { type: 'boolean', description: 'Bypass cache and force fresh fetch' },
+        message: { type: 'string', description: 'Message to echo back' },
       },
-      required: ['url'],
+      required: ['message'],
     },
     async execute(input) {
-      const args = [input.url as string]
-      if (input.objective) args.push('--objective', input.objective as string)
-      if (input.keywords) args.push('--keywords', (input.keywords as string[]).join(','))
-      if (input.mode) args.push('--mode', input.mode as string)
-      if (input.fresh) args.push('--fresh')
+      amp.logger.log('test_echo execute', { message: input.message })
 
-      const result = await amp.$`curl.md ${args}`
-      return result.exitCode === 0 ? result.stdout : result.stderr
+      return {
+        message: input.message,
+        ok: true,
+        tool: 'test_echo',
+      }
     },
   })
 
-  amp.on('tool.call', async (event, ctx) => {
-    if (event.tool !== 'read_web_page') return { action: 'allow' }
-
-    const args = [event.input.url as string]
-    if (event.input.objective) args.push('--objective', event.input.objective as string)
-    if (event.input.forceRefetch) args.push('--fresh')
-
-    const result = await ctx.$`curl.md ${args}`
-    return {
-      action: 'synthesize',
-      result: {
-        output: result.exitCode === 0 ? result.stdout : result.stderr,
-        exitCode: result.exitCode,
+  amp.registerTool({
+    name: 'test_fail',
+    description: 'Fail deterministically for plugin testing.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        message: { type: 'string', description: 'Failure message to throw' },
       },
-    }
+      required: ['message'],
+    },
+    async execute(input) {
+      amp.logger.log('test_fail execute', { message: input.message })
+      throw new Error(input.message as string)
+    },
   })
 }

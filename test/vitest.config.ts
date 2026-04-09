@@ -88,6 +88,13 @@ export default defineConfig({
           testTimeout: 30_000,
         },
       },
+      {
+        test: {
+          name: 'plugins',
+          include: ['plugins/**/*.test.ts'],
+          root,
+        },
+      },
     ],
   },
 })

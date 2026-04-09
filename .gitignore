@@ -1,4 +1,4 @@
-/.changeset
+/.amp
 .env*
 .vite
 !.env.example

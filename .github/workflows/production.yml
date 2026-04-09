@@ -110,19 +110,14 @@ jobs:
       - name: Build CLI
         run: pnpm build:cli
 
-      # Workaround: changesets/action doesn't pass `cwd` to readChangesetState()
-      # https://github.com/changesets/action/issues/501
-      - name: Copy .changeset to root
-        run: cp -r cli/.changeset .changeset
-
       - name: Create release PR or publish
         id: changesets
         uses: changesets/action@6a0a831ff30acef54f2c6aa1cbbc1096b066edaf # v1.7.0
         with:
           commit: 'chore: version packages'
           title: 'chore: version packages'
-          version: pnpm --filter curl.md changeset:version
-          publish: pnpm --filter curl.md changeset:publish
+          version: pnpm changeset:version
+          publish: pnpm changeset:publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # TODO(public): uncomment when repo is public

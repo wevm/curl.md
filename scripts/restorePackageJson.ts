@@ -1,0 +1,22 @@
+import fs from 'node:fs/promises'
+import path from 'node:path'
+
+// Restores package.json files from backup.
+
+const packageDirs = ['cli', 'plugins/pi']
+
+for (const dir of packageDirs) {
+  const packagePath = path.join(dir, 'package.json')
+  const tmpPath = `${packagePath}.tmp`
+
+  const packageJson = JSON.parse(await fs.readFile(tmpPath, 'utf-8')) as {
+    name?: string | undefined
+  }
+
+  console.log(`${packageJson.name} — ${dir}`)
+
+  await fs.writeFile(packagePath, `${JSON.stringify(packageJson, undefined, 2)}\n`, 'utf-8')
+  await fs.rm(tmpPath)
+}
+
+console.log('Done.')
