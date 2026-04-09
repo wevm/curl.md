@@ -1,6 +1,6 @@
 {
   "name": "curl.md",
-  "version": "0.0.13",
+  "version": "0.0.14",
   "description": "URL to markdown for agents",
   "license": "MIT",
   "repository": {
@@ -38,7 +38,7 @@
   },
   "dependencies": {
     "hono": "catalog:",
-    "incur": "0.3.24",
+    "incur": "0.3.25",
     "picocolors": "1.1.1"
   },
   "devDependencies": {

@@ -330,6 +330,7 @@ function CreateOrgDialog(props: {
               <Field.Label className="text-gray9 text-sm">Name (optional)</Field.Label>
               <Field.Control
                 className="bg-gray-a1/50 border-gray-a3 w-full border px-3 py-2 text-sm"
+                data-1p-ignore
                 name="name"
                 placeholder="My Organization"
               />

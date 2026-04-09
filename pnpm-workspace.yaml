@@ -46,7 +46,7 @@ overrides:
 patchedDependencies:
   '@tanstack/react-router@1.168.7': config/patches/@tanstack__react-router@1.168.7.patch
   '@tanstack/router-core@1.168.6': config/patches/@tanstack__router-core@1.168.6.patch
-  incur@0.3.24: config/patches/incur@0.3.24.patch
+  incur@0.3.25: config/patches/incur@0.3.25.patch
 
 trustPolicy: no-downgrade
 
