@@ -16,7 +16,9 @@
   ],
   "type": "module",
   "scripts": {
-    "check:types": "tsgo --noEmit"
+    "check:types": "tsgo --noEmit",
+    "postpack": "rm -f LICENSE",
+    "prepack": "cp ../../LICENSE LICENSE"
   },
   "pi": {
     "extensions": [

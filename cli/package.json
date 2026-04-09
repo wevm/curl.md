@@ -44,7 +44,9 @@
     "build": "tsgo --noCheck -p tsconfig.build.json && tsgo --noCheck -p tsconfig.types.json && mkdir -p dist-types/cli/src && cp src/cf-env.d.ts dist-types/cli/src/cf-env.d.ts && find ../src ../db -name '*.js' -delete",
     "check:deps": "knip",
     "check:types": "tsgo --noEmit",
-    "gen:types": "incur gen"
+    "gen:types": "incur gen",
+    "postpack": "rm -f LICENSE",
+    "prepack": "cp ../LICENSE LICENSE"
   },
   "dependencies": {
     "hono": "catalog:",

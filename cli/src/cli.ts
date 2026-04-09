@@ -135,14 +135,11 @@ const cli = Cli.create('curl.md', {
 
     const keywords = c.options.keywords?.flatMap((k: string) => k.split(','))
     const spinner = UI.createSpinner('')
-    const res = await c.var.client.fetch({
-      param: { url: result.data },
-      query: {
-        fresh: c.options.fresh ? '' : undefined,
-        keywords: keywords?.join(','),
-        mode: c.options.mode,
-        objective: c.options.objective,
-      },
+    const res = await c.var.client.fetch(result.data, {
+      fresh: c.options.fresh,
+      keywords,
+      mode: c.options.mode,
+      objective: c.options.objective,
     })
 
     spinner.stop()
@@ -151,7 +148,7 @@ const cli = Cli.create('curl.md', {
       const json = await res.json()
       return c.error({
         code: json.code.toUpperCase(),
-        message: json.message,
+        message: formatValidationError(json),
       })
     }
 
@@ -643,7 +640,7 @@ const credits = Cli.create('credits', {
           if (chargeRes.status !== 200) {
             spinner.stop()
             const json = await chargeRes.json()
-            return c.error({ code: json.code, message: json.message })
+            return c.error({ code: json.code.toUpperCase(), message: json.message })
           }
 
           const chargeJson = await chargeRes.json()

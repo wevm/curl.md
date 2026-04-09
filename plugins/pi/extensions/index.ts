@@ -86,20 +86,17 @@ export default function (pi: ExtensionAPI) {
       const baseUrl = process.env.CURLMD_BASE_URL || defaultBaseUrl
       let auth = await resolveAuth(authState, signal)
       const url = normalizeUrl(params.url)
-      const request = {
-        param: { url: encodeURIComponent(url) },
-        query: {
-          fresh: params.fresh ? '' : undefined,
-          keywords: params.keywords?.join(','),
-          mode: params.mode,
-          objective: params.objective,
-        },
-      }
 
       const client = createClient(baseUrl, {
         headers: createHeaders(auth),
       })
-      let res = await client.fetch(request, { init: { signal } })
+      let res = await client.fetch(url, {
+        fresh: params.fresh,
+        keywords: params.keywords,
+        mode: params.mode,
+        objective: params.objective,
+        options: { init: { signal } },
+      })
 
       if (res.status === 401 && auth.type === 'cli') {
         clearCliAuthCache(authState)
@@ -108,7 +105,13 @@ export default function (pi: ExtensionAPI) {
           const client = createClient(baseUrl, {
             headers: createHeaders(auth),
           })
-          res = await client.fetch(request, { init: { signal } })
+          res = await client.fetch(url, {
+            fresh: params.fresh,
+            keywords: params.keywords,
+            mode: params.mode,
+            objective: params.objective,
+            options: { init: { signal } },
+          })
         }
       }
 

@@ -15,16 +15,48 @@ export const defaultBaseUrl = baseUrl
  * import { createClient } from 'curl.md'
  *
  * const client = createClient()
- * const res = await client.fetch.$get({
- *   param: { url: encodeURIComponent('https://example.com') },
- * })
+ * const res = await client.fetch('example.com')
  * ```
  */
 export function createClient(url: string = baseUrl, options?: Parameters<typeof hc>[1]) {
   const client = hc<typeof api>(url, options)
-  return Object.assign(client, {
-    fetch: client.api[':url{.+}'].$get,
-  })
+
+  type Fetch = (typeof client.api)[':url{.+}']['$get']
+  type FetchQuery = Pick<
+    NonNullable<NonNullable<Parameters<Fetch>[0]>['query']>,
+    'fresh' | 'keywords' | 'mode' | 'objective'
+  >
+  type FetchOptions = Partial<Omit<FetchQuery, 'fresh' | 'keywords'>> & {
+    fresh?: boolean | undefined
+    keywords?: string[] | undefined
+    options?: NonNullable<Parameters<Fetch>[1]> | undefined
+  }
+
+  return new Proxy(client, {
+    get(target, prop, receiver) {
+      if (prop === 'fetch') {
+        return (targetUrl: string, fetchOptions?: FetchOptions | undefined) => {
+          const { options, ...queryOptions } = fetchOptions ?? {}
+          const query = {
+            ...queryOptions,
+            fresh: queryOptions.fresh ? '' : undefined,
+            keywords: queryOptions.keywords?.join(','),
+          } satisfies FetchQuery
+
+          return target.api[':url{.+}'].$get(
+            {
+              param: { url: targetUrl },
+              query,
+            },
+            options,
+          )
+        }
+      }
+      return Reflect.get(target, prop, receiver)
+    },
+  }) as typeof client & {
+    fetch: (url: string, options?: FetchOptions) => ReturnType<Fetch>
+  }
 }
 
 export type Client = ReturnType<typeof createClient>

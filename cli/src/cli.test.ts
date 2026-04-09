@@ -34,11 +34,6 @@ test('createClient defaults to curl.md', () => {
   expect(client.api.auth.me.$url().toString()).toBe(`${defaultBaseUrl}/api/auth/me`)
 })
 
-test('createClient exposes fetch alias', () => {
-  const client = createRpcClient()
-  expect(client.fetch).toBe(client.api[':url{.+}'])
-})
-
 test('version', async () => {
   const { output } = await serve(['--version'])
   expect(output).toMatchInlineSnapshot(`

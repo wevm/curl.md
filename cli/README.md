@@ -34,4 +34,4 @@ md developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch --objective "s
 
 ## License
 
-[MIT](LICENSE)
+[MIT](https://github.com/wevm/curl.md/blob/main/LICENSE)
