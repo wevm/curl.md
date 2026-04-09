@@ -13,3 +13,10 @@ declare module '*.wasm?module' {
   const module: WebAssembly.Module
   export default module
 }
+
+declare module '*.mdx' {
+  import type { ComponentType } from 'react'
+  const Component: ComponentType<{ components?: Record<string, ComponentType> }>
+  export default Component
+  export const frontmatter: Record<string, unknown>
+}

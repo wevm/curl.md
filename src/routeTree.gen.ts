@@ -12,9 +12,11 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as PlaygroundRouteImport } from './routes/playground'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as HomeRouteImport } from './routes/home'
-import { Route as DocsRouteImport } from './routes/docs'
+import { Route as DocsRouteRouteImport } from './routes/docs/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as DocsIndexRouteImport } from './routes/docs/index'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
+import { Route as DocsSplatRouteImport } from './routes/docs/$'
 import { Route as AuthErrorRouteImport } from './routes/auth/error'
 import { Route as AuthDeviceRouteImport } from './routes/auth/device'
 import { Route as DashLoginRouteRouteImport } from './routes/_dash.$login/route'
@@ -41,7 +43,7 @@ const HomeRoute = HomeRouteImport.update({
   path: '/home',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DocsRoute = DocsRouteImport.update({
+const DocsRouteRoute = DocsRouteRouteImport.update({
   id: '/docs',
   path: '/docs',
   getParentRoute: () => rootRouteImport,
@@ -51,10 +53,20 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DocsIndexRoute = DocsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => DocsRouteRoute,
+} as any)
 const InviteTokenRoute = InviteTokenRouteImport.update({
   id: '/invite/$token',
   path: '/invite/$token',
   getParentRoute: () => rootRouteImport,
+} as any)
+const DocsSplatRoute = DocsSplatRouteImport.update({
+  id: '/$',
+  path: '/$',
+  getParentRoute: () => DocsRouteRoute,
 } as any)
 const AuthErrorRoute = AuthErrorRouteImport.update({
   id: '/auth/error',
@@ -112,14 +124,16 @@ const DashLoginBillingAdd_creditsPaymentIdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/docs': typeof DocsRoute
+  '/docs': typeof DocsRouteRouteWithChildren
   '/home': typeof HomeRoute
   '/login': typeof LoginRoute
   '/playground': typeof PlaygroundRoute
   '/$login': typeof DashLoginRouteRouteWithChildren
   '/auth/device': typeof AuthDeviceRoute
   '/auth/error': typeof AuthErrorRoute
+  '/docs/$': typeof DocsSplatRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/docs/': typeof DocsIndexRoute
   '/$login/billing': typeof DashLoginBillingRouteWithChildren
   '/$login/settings': typeof DashLoginSettingsRoute
   '/credits/add/$id': typeof CreditsAddIdRoute
@@ -130,13 +144,14 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/docs': typeof DocsRoute
   '/home': typeof HomeRoute
   '/login': typeof LoginRoute
   '/playground': typeof PlaygroundRoute
   '/auth/device': typeof AuthDeviceRoute
   '/auth/error': typeof AuthErrorRoute
+  '/docs/$': typeof DocsSplatRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/docs': typeof DocsIndexRoute
   '/$login/billing': typeof DashLoginBillingRouteWithChildren
   '/$login/settings': typeof DashLoginSettingsRoute
   '/credits/add/$id': typeof CreditsAddIdRoute
@@ -148,14 +163,16 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/docs': typeof DocsRoute
+  '/docs': typeof DocsRouteRouteWithChildren
   '/home': typeof HomeRoute
   '/login': typeof LoginRoute
   '/playground': typeof PlaygroundRoute
   '/_dash/$login': typeof DashLoginRouteRouteWithChildren
   '/auth/device': typeof AuthDeviceRoute
   '/auth/error': typeof AuthErrorRoute
+  '/docs/$': typeof DocsSplatRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/docs/': typeof DocsIndexRoute
   '/_dash/$login/billing': typeof DashLoginBillingRouteWithChildren
   '/_dash/$login/settings': typeof DashLoginSettingsRoute
   '/credits/add/$id': typeof CreditsAddIdRoute
@@ -175,7 +192,9 @@ export interface FileRouteTypes {
     | '/$login'
     | '/auth/device'
     | '/auth/error'
+    | '/docs/$'
     | '/invite/$token'
+    | '/docs/'
     | '/$login/billing'
     | '/$login/settings'
     | '/credits/add/$id'
@@ -186,13 +205,14 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/docs'
     | '/home'
     | '/login'
     | '/playground'
     | '/auth/device'
     | '/auth/error'
+    | '/docs/$'
     | '/invite/$token'
+    | '/docs'
     | '/$login/billing'
     | '/$login/settings'
     | '/credits/add/$id'
@@ -210,7 +230,9 @@ export interface FileRouteTypes {
     | '/_dash/$login'
     | '/auth/device'
     | '/auth/error'
+    | '/docs/$'
     | '/invite/$token'
+    | '/docs/'
     | '/_dash/$login/billing'
     | '/_dash/$login/settings'
     | '/credits/add/$id'
@@ -222,7 +244,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  DocsRoute: typeof DocsRoute
+  DocsRouteRoute: typeof DocsRouteRouteWithChildren
   HomeRoute: typeof HomeRoute
   LoginRoute: typeof LoginRoute
   PlaygroundRoute: typeof PlaygroundRoute
@@ -260,7 +282,7 @@ declare module '@tanstack/react-router' {
       id: '/docs'
       path: '/docs'
       fullPath: '/docs'
-      preLoaderRoute: typeof DocsRouteImport
+      preLoaderRoute: typeof DocsRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -270,12 +292,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/docs/': {
+      id: '/docs/'
+      path: '/'
+      fullPath: '/docs/'
+      preLoaderRoute: typeof DocsIndexRouteImport
+      parentRoute: typeof DocsRouteRoute
+    }
     '/invite/$token': {
       id: '/invite/$token'
       path: '/invite/$token'
       fullPath: '/invite/$token'
       preLoaderRoute: typeof InviteTokenRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/docs/$': {
+      id: '/docs/$'
+      path: '/$'
+      fullPath: '/docs/$'
+      preLoaderRoute: typeof DocsSplatRouteImport
+      parentRoute: typeof DocsRouteRoute
     }
     '/auth/error': {
       id: '/auth/error'
@@ -350,6 +386,20 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface DocsRouteRouteChildren {
+  DocsSplatRoute: typeof DocsSplatRoute
+  DocsIndexRoute: typeof DocsIndexRoute
+}
+
+const DocsRouteRouteChildren: DocsRouteRouteChildren = {
+  DocsSplatRoute: DocsSplatRoute,
+  DocsIndexRoute: DocsIndexRoute,
+}
+
+const DocsRouteRouteWithChildren = DocsRouteRoute._addFileChildren(
+  DocsRouteRouteChildren,
+)
+
 interface DashLoginBillingRouteChildren {
   DashLoginBillingAdd_payment_methodRoute: typeof DashLoginBillingAdd_payment_methodRoute
   DashLoginBillingAdd_creditsPaymentIdRoute: typeof DashLoginBillingAdd_creditsPaymentIdRoute
@@ -386,7 +436,7 @@ const DashLoginRouteRouteWithChildren = DashLoginRouteRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  DocsRoute: DocsRoute,
+  DocsRouteRoute: DocsRouteRouteWithChildren,
   HomeRoute: HomeRoute,
   LoginRoute: LoginRoute,
   PlaygroundRoute: PlaygroundRoute,
