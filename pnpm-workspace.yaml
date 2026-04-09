@@ -33,6 +33,7 @@ onlyBuiltDependencies:
 overrides:
   # Force emulate's transitive @hono/node-server to the patched release for GHSA-92pp-h63x-v22m.
   '@hono/node-server': 1.19.13
+  basic-ftp@5.2.0: 5.2.1
   brace-expansion@>=2.0.0 <2.0.3: 2.0.3
   defu@<=6.1.4: 6.1.5
   h3: 2.0.1-rc.18
