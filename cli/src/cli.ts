@@ -1,9 +1,7 @@
-import { hc } from 'hono/client'
 import { Cli, type MiddlewareContext, middleware, z } from 'incur'
 import pc from 'picocolors'
-import type { api } from '../../src/api.ts'
 import pkg from '../package.json' with { type: 'json' }
-import type { Client, Command } from './types.ts'
+import { createClient, type Client } from './client.ts'
 import * as UI from './ui.ts'
 import {
   compareVersions,
@@ -12,7 +10,6 @@ import {
   installGlobal,
   isStandalone,
   openUrl,
-  parseApiError,
   pollWithCancel,
   relativeTime,
   Session,
@@ -150,13 +147,19 @@ const cli = Cli.create('curl.md', {
 
     spinner.stop()
 
-    if (res.status === 401) {
-      const err = parseApiError(await res.json(), {
-        code: 'INVALID_API_KEY',
-        message: 'Invalid API key',
-      })
+    if (res.status === 400) {
+      const json = await res.json()
       return c.error({
-        ...err,
+        code: json.code.toUpperCase(),
+        message: json.message,
+      })
+    }
+
+    if (res.status === 401) {
+      const json = await res.json()
+      return c.error({
+        code: json.code.toUpperCase(),
+        message: json.message,
         cta: {
           description: 'Create API token:',
           commands: [
@@ -170,23 +173,12 @@ const cli = Cli.create('curl.md', {
       })
     }
 
-    if (res.status === 400) {
-      const json = await res.json()
-      const err = parseApiError(json, { code: 'VALIDATION_ERROR', message: 'Validation failed' })
-      return c.error({
-        code: err.code,
-        message: formatValidationError(json),
-      })
-    }
-
     if (res.status === 403) {
-      const err = parseApiError(await res.json(), {
-        code: 'ORGANIZATION_ACCESS_DENIED',
-        message: 'Organization access denied',
-      })
+      const json = await res.json()
       Session.write({ organization_id: undefined })
       return c.error({
-        ...err,
+        code: json.code.toUpperCase(),
+        message: json.message,
         cta: {
           description: 'Switch organization:',
           commands: [
@@ -201,14 +193,11 @@ const cli = Cli.create('curl.md', {
     }
 
     if (res.status === 429) {
-      const err = parseApiError(await res.json(), {
-        code: 'RATE_LIMIT_EXCEEDED',
-        message: 'Rate limit exceeded',
-      })
+      const json = await res.json()
       const retryAfter = res.headers.get('retry-after')
       return c.error({
-        code: err.code,
-        message: retryAfter ? `${err.message}. Try again in ${retryAfter}s` : err.message,
+        code: json.code.toUpperCase(),
+        message: retryAfter ? `${json.message}. Try again in ${retryAfter}s` : json.message,
         cta: {
           description: c.var.session
             ? 'Add credits to remove rate limits:'
@@ -233,13 +222,25 @@ const cli = Cli.create('curl.md', {
       })
     }
 
+    if (res.status === 502) {
+      const json = await res.json()
+      return c.error({ code: json.code.toUpperCase(), message: json.message })
+    }
+
     const text = await res.text()
     if (!res.ok) {
       let json: unknown
       try {
         json = JSON.parse(text)
       } catch {}
-      return c.error(parseApiError(json, { code: 'FETCH_FAILED', message: text }))
+      const error = (() => {
+        if (json && typeof json === 'object' && 'code' in json && 'message' in json) {
+          const obj = json as { code: string; message: string }
+          return { code: obj.code.toUpperCase(), message: obj.message }
+        }
+        return { code: 'FETCH_FAILED', message: text }
+      })()
+      return c.error(error)
     }
 
     if (!c.options.objective && text.length > 10_000)
@@ -286,7 +287,7 @@ cli.use(async (c, next) => {
     headers.Authorization = `Bearer ${session.session_id}`
     if (session.organization_id) headers['x-organization-id'] = session.organization_id
   }
-  c.set('client', hc<typeof api>(c.env.CURLMD_BASE_URL, { headers }))
+  c.set('client', createClient(c.env.CURLMD_BASE_URL, { headers }))
 
   return next()
 })
@@ -317,6 +318,8 @@ const requireAuth = middleware<typeof vars>((c, next) => {
   if (!c.var.session && !c.var.apiKey) return authError(c)
   return next()
 })
+
+type Command = { command: string; description?: string }
 
 function expiredSession(
   c: Pick<MiddlewareContext, 'displayName' | 'error'> & {
@@ -605,12 +608,8 @@ const credits = Cli.create('credits', {
           }
           if (chargeRes.status !== 200) {
             spinner.stop()
-            return c.error(
-              parseApiError(await chargeRes.json(), {
-                code: 'UNKNOWN',
-                message: 'Unexpected error.',
-              }),
-            )
+            const json = await chargeRes.json()
+            return c.error({ code: json.code, message: json.message })
           }
 
           const chargeJson = await chargeRes.json()

@@ -263,6 +263,13 @@ importers:
         version: 0.0.0-dev
 
   plugins/pi:
+    dependencies:
+      '@sinclair/typebox':
+        specifier: ^0.34.49
+        version: 0.34.49
+      curl.md:
+        specifier: workspace:*
+        version: link:../../cli
     devDependencies:
       '@mariozechner/pi-ai':
         specifier: ^0.65.2
@@ -270,9 +277,6 @@ importers:
       '@mariozechner/pi-coding-agent':
         specifier: ^0.65.2
         version: 0.65.2(ws@8.20.0)(zod@4.3.6)
-      '@sinclair/typebox':
-        specifier: ^0.34.49
-        version: 0.34.49
 
 packages:
 

@@ -15,19 +15,24 @@
     "extensions"
   ],
   "type": "module",
+  "scripts": {
+    "check:types": "tsgo --noEmit"
+  },
   "pi": {
     "extensions": [
       "./extensions"
     ]
   },
+  "dependencies": {
+    "curl.md": "workspace:*",
+    "@sinclair/typebox": "^0.34.49"
+  },
   "peerDependencies": {
     "@mariozechner/pi-ai": ">=0.65.0",
-    "@mariozechner/pi-coding-agent": ">=0.65.0",
-    "@sinclair/typebox": ">=0.34.0"
+    "@mariozechner/pi-coding-agent": ">=0.65.0"
   },
   "devDependencies": {
     "@mariozechner/pi-ai": "^0.65.2",
-    "@mariozechner/pi-coding-agent": "^0.65.2",
-    "@sinclair/typebox": "^0.34.49"
+    "@mariozechner/pi-coding-agent": "^0.65.2"
   }
 }

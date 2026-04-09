@@ -5,6 +5,7 @@ import path from 'node:path'
 import util from 'node:util'
 import pc from 'picocolors'
 import pkg from '../package.json' with { type: 'json' }
+import type { Client } from './client.ts'
 
 export function dataDir() {
   if (process.env.XDG_DATA_HOME) return path.join(process.env.XDG_DATA_HOME, 'curl-md')
@@ -67,8 +68,6 @@ export function installGlobal(name: string, version?: string) {
   if (type === 'bun') return execFileAsync('bun', ['add', '-g', spec])
   return execFileAsync('npm', ['install', '-g', spec])
 }
-
-import type { Client } from './types.ts'
 import { createSpinner, select } from './ui.ts'
 export { createSpinner, select }
 
@@ -205,15 +204,6 @@ export function formatValidationError(json: unknown, fallback = 'Invalid request
   return json.issues
     .map((i: { message: string; path: string }) => `${i.path}: ${i.message}`)
     .join('\n')
-}
-
-/** Extracts `code` and `message` from an untyped API error response (e.g. wildcard routes where Hono RPC can't infer types). Returns uppercased `code`. Falls back to provided defaults if the shape doesn't match. */
-export function parseApiError(json: unknown, fallback: { code: string; message: string }) {
-  if (json && typeof json === 'object' && 'code' in json && 'message' in json) {
-    const obj = json as { code: string; message: string }
-    return { code: obj.code.toUpperCase(), message: obj.message }
-  }
-  return fallback
 }
 
 export function isStandalone(): boolean {

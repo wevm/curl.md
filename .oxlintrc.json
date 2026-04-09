@@ -17,6 +17,7 @@
   ],
   "ignorePatterns": [
     "**/dist",
+    "**/dist-types",
     "db/types.gen.ts",
     "src/routeTree.gen.ts",
     "src/auto-imports.d.ts",

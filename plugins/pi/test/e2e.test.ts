@@ -199,7 +199,7 @@ async function expectStatusCommand(rpc: ReturnType<typeof startPiRpc>) {
   expect(getCommandsResponse.success).toBe(true)
   expect(getCommandsResponse.data.commands).toContainEqual(
     expect.objectContaining({
-      description: 'Show curlmd Pi extension status for debugging and smoke tests.',
+      description: 'Show curl.md Pi extension status and setup guidance.',
       name: 'curlmd_status',
       source: 'extension',
     }),
@@ -216,7 +216,9 @@ async function expectStatusCommand(rpc: ReturnType<typeof startPiRpc>) {
     (message) =>
       message.type === 'extension_ui_request' &&
       message.method === 'notify' &&
-      message.message === 'curlmd ready: test_echo, test_fail',
+      typeof message.message === 'string' &&
+      message.message.includes('curl.md Pi') &&
+      message.message.includes('Tool: curlmd_fetch'),
   )
   expect(notify.notifyType).toBe('info')
   expect(rpc.messages.filter((message) => message.type === 'extension_error')).toEqual([])

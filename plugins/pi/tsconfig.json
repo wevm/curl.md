@@ -1,9 +1,13 @@
 {
   "compilerOptions": {
     "allowImportingTsExtensions": true,
+    "jsx": "react-jsx",
     "module": "esnext",
     "moduleResolution": "bundler",
     "noEmit": true,
+    "paths": {
+      "curl.md": ["../../cli/src/index.ts"]
+    },
     "skipLibCheck": true,
     "strict": true,
     "target": "es2022"

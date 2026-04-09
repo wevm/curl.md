@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "noEmit": false,
+    "outDir": "dist-types",
+    "rootDir": "..",
+    "rewriteRelativeImportExtensions": true
+  },
+  "include": ["src/index.ts", "src/cf-env.d.ts"],
+  "exclude": ["src/**/*.test.*", "test"]
+}

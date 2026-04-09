@@ -16,18 +16,32 @@
     "md": "./dist/bin.js",
     "md.src": "./src/cli.ts"
   },
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
   "files": [
     "CHANGELOG.md",
-    "dist"
+    "dist",
+    "dist-types"
   ],
   "type": "module",
+  "types": "./src/index.ts",
   "imports": {
-    "#db/*": "../db/*",
-    "#*": "../src/*",
+    "#db/*": {
+      "types": "./dist-types/db/*",
+      "default": "../db/*"
+    },
+    "#*": {
+      "types": "./dist-types/src/*",
+      "default": "../src/*"
+    },
     "#test/*": "../test/*"
   },
   "scripts": {
-    "build": "tsgo --noCheck -p tsconfig.build.json && find ../src ../db -name '*.js' -delete",
+    "build": "tsgo --noCheck -p tsconfig.build.json && tsgo --noCheck -p tsconfig.types.json && mkdir -p dist-types/cli/src && cp src/cf-env.d.ts dist-types/cli/src/cf-env.d.ts && find ../src ../db -name '*.js' -delete",
     "check:deps": "knip",
     "check:types": "tsgo --noEmit",
     "gen:types": "incur gen"

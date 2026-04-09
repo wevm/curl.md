@@ -1,7 +1,7 @@
 import child_process from 'node:child_process'
 import fs from 'node:fs'
 import { expect, test, vi } from 'vitest'
-import { compareVersions, formatValidationError, parseApiError, updateStandalone } from './utils.ts'
+import { compareVersions, formatValidationError, updateStandalone } from './utils.ts'
 
 test('compareVersions: equal versions return 0', () => {
   expect(compareVersions('1.0.0', '1.0.0')).toBe(0)
@@ -60,46 +60,6 @@ test('formatValidationError: returns fallback for non-validation error', () => {
 test('formatValidationError: returns fallback for non-object', () => {
   expect(formatValidationError('string')).toBe('Invalid request')
   expect(formatValidationError(null)).toBe('Invalid request')
-})
-
-test('parseApiError: extracts code and message from valid response', () => {
-  const fallback = { code: 'FALLBACK', message: 'fallback' }
-  expect(parseApiError({ code: 'not_found', message: 'Not found' }, fallback)).toEqual({
-    code: 'NOT_FOUND',
-    message: 'Not found',
-  })
-})
-
-test('parseApiError: uppercases code', () => {
-  const fallback = { code: 'FALLBACK', message: 'fallback' }
-  expect(
-    parseApiError({ code: 'rate_limit_exceeded', message: 'Rate limit exceeded' }, fallback).code,
-  ).toBe('RATE_LIMIT_EXCEEDED')
-})
-
-test('parseApiError: returns fallback for null', () => {
-  const fallback = { code: 'FETCH_FAILED', message: 'error text' }
-  expect(parseApiError(null, fallback)).toEqual(fallback)
-})
-
-test('parseApiError: returns fallback for undefined', () => {
-  const fallback = { code: 'FETCH_FAILED', message: 'error text' }
-  expect(parseApiError(undefined, fallback)).toEqual(fallback)
-})
-
-test('parseApiError: returns fallback for missing code', () => {
-  const fallback = { code: 'FETCH_FAILED', message: 'error text' }
-  expect(parseApiError({ message: 'only message' }, fallback)).toEqual(fallback)
-})
-
-test('parseApiError: returns fallback for missing message', () => {
-  const fallback = { code: 'FETCH_FAILED', message: 'error text' }
-  expect(parseApiError({ code: 'not_found' }, fallback)).toEqual(fallback)
-})
-
-test('parseApiError: returns fallback for non-object', () => {
-  const fallback = { code: 'FETCH_FAILED', message: 'error text' }
-  expect(parseApiError('string', fallback)).toEqual(fallback)
 })
 
 test('updateStandalone: uses direct fetch when response is ok', async () => {

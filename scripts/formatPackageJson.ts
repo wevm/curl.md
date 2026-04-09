@@ -28,6 +28,15 @@ for (const dir of packageDirs) {
   const { devDependencies: _d, imports: _i, scripts: _s, ...rest } = packageJson
   if (rest.bin)
     for (const key of Object.keys(rest.bin)) if (key.endsWith('.src')) delete rest.bin[key]
+  if (dir === 'cli') {
+    rest.exports = {
+      '.': {
+        default: './dist/index.js',
+        types: './dist-types/cli/src/index.d.ts',
+      },
+    }
+    rest.types = './dist-types/cli/src/index.d.ts'
+  }
 
   await fs.writeFile(packagePath, `${JSON.stringify(rest, undefined, 2)}\n`, 'utf-8')
 }

@@ -1,12 +1,11 @@
-import { hc } from 'hono/client'
 import { afterAll, beforeEach, describe, expect, inject, onTestFinished, test, vi } from 'vitest'
-import type { api } from '#api.ts'
 import { createClient } from '#db/client.ts'
 import * as ApiKey from '#lib/apiKey.ts'
 import * as Nanoid from '#lib/nanoid.ts'
 import { Env } from '#test/env.ts'
 import { createFactory } from '#test/factory.ts'
 import { serve, useTmp } from '../test/utils.ts'
+import { createClient as createRpcClient, defaultBaseUrl } from './index.ts'
 import * as UI from './ui.ts'
 import * as utils from './utils.ts'
 import { Session, UpdateCache } from './utils.ts'
@@ -19,7 +18,7 @@ vi.mock('node:child_process', () => ({
 }))
 
 const env = Env.parse(inject('env'))
-const client = hc<typeof api>(env.CURLMD_BASE_URL)
+const client = createRpcClient(env.CURLMD_BASE_URL)
 const db = createClient(env.DB_URL)
 const factory = createFactory(db)
 
@@ -29,6 +28,11 @@ beforeEach(() => {
 })
 
 afterAll(() => db.destroy())
+
+test('createClient defaults to curl.md', () => {
+  const client = createRpcClient()
+  expect(client.api.auth.me.$url().toString()).toBe(`${defaultBaseUrl}/api/auth/me`)
+})
 
 test('version', async () => {
   const { output } = await serve(['--version'])
