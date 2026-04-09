@@ -4,6 +4,15 @@ import { createClient, type Client } from './client.ts'
 test('fetch types', () => {
   const client = createClient()
 
+  // @ts-expect-error internal-only endpoint is omitted from the public client
+  void client.api['og.png']
+  // @ts-expect-error internal-only endpoint is omitted from the public client
+  void client.api.stats
+  // @ts-expect-error internal-only endpoint is omitted from the public client
+  void client.api.sentry.tunnel
+  // @ts-expect-error internal-only endpoint is omitted from the public client
+  void client.api.stripe.webhook
+
   client.fetch('example.com', {
     // @ts-expect-error
     o: 'foo bar baz',

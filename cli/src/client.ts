@@ -4,22 +4,6 @@
 import { hc, type ClientRequestOptions } from 'hono/client'
 import type { api } from '../../src/api.ts'
 
-type RpcClient = ReturnType<typeof hc<typeof api>>
-type Fetch = RpcClient['api'][':url{.+}']['$get']
-type FetchQuery = Pick<
-  NonNullable<NonNullable<Parameters<Fetch>[0]>['query']>,
-  'fresh' | 'keywords' | 'mode' | 'objective'
->
-type FetchOptions = Partial<Omit<FetchQuery, 'fresh' | 'keywords'>> & {
-  fresh?: boolean | undefined
-  keywords?: string[] | undefined
-  options?: NonNullable<Parameters<Fetch>[1]> | undefined
-}
-
-export type Client = RpcClient & {
-  fetch: (url: string, options?: FetchOptions) => ReturnType<Fetch>
-}
-
 export const defaultBaseUrl = 'https://curl.md'
 
 /**
@@ -58,5 +42,27 @@ export function createClient(url: string = defaultBaseUrl, options?: ClientReque
       }
       return Reflect.get(target, prop, receiver)
     },
-  }) as Client
+  }) as unknown as Client
+}
+
+export type Client = Omit<RpcClient, 'api'> & {
+  api: PublicApi
+  fetch: (url: string, options?: FetchOptions) => ReturnType<Fetch>
+}
+
+type RpcClient = ReturnType<typeof hc<typeof api>>
+type Api = RpcClient['api']
+type PublicApi = Omit<Api, 'og.png' | 'sentry' | 'stats' | 'stripe'> & {
+  sentry: Omit<Api['sentry'], 'tunnel'>
+  stripe: Omit<Api['stripe'], 'webhook'>
+}
+type Fetch = RpcClient['api'][':url{.+}']['$get']
+type FetchQuery = Pick<
+  NonNullable<NonNullable<Parameters<Fetch>[0]>['query']>,
+  'fresh' | 'keywords' | 'mode' | 'objective'
+>
+type FetchOptions = Partial<Omit<FetchQuery, 'fresh' | 'keywords'>> & {
+  fresh?: boolean | undefined
+  keywords?: string[] | undefined
+  options?: NonNullable<Parameters<Fetch>[1]> | undefined
 }
