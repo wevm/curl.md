@@ -34,8 +34,6 @@ export async function processRequestMessage(
     .onConflict((oc) => oc.column('id').doNothing())
     .execute()
 
-  await invalidateTokensSavedCache(body.hostname)
-
   // Deduct credits if billable
   const billingEntity = body.organization_id ?? body.account_id
   if (body.billable && body.cost_mills > 0 && billingEntity) {
@@ -125,23 +123,14 @@ async function enrichSourceTokensFromHtml(body: processRequestMessage.Body, db: 
     if (!contentType.includes('text/html') && !contentType.includes('application/xhtml+xml')) return
 
     const sourceTokens = estimateTokenCount(await response.text())
-    const updated = await db
+    await db
       .updateTable('request')
       .set({ source_tokens: sourceTokens, source_tokens_method: 'html' })
       .where('id', '=', body.id)
       .where('source_tokens', '<', sourceTokens)
       .where('source_tokens_method', '=', 'estimated')
       .executeTakeFirst()
-
-    if (Number(updated.numUpdatedRows ?? 0) > 0) await invalidateTokensSavedCache(body.hostname)
   } catch {
     // Best-effort enrichment only; keep the markdown fallback when HTML fetch fails.
   }
-}
-
-async function invalidateTokensSavedCache(hostname: string) {
-  await Promise.all([
-    env.KV.delete('stats:tokens_saved'),
-    env.KV.delete(`stats:tokens_saved:${hostname}`),
-  ])
 }

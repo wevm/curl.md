@@ -18,7 +18,11 @@ export const getTokensSaved = createServerFn({ method: 'GET' }).handler(async ()
       .selectFrom('request')
       .select(requestTokensSavedSumSql().as('total'))
       .executeTakeFirstOrThrow()
-    return { tokens_saved: Number(result.total ?? 0) }
+    const total = Number(result.total ?? 0)
+    void env.KV.put('stats:tokens_saved', String(total), {
+      expirationTtl: 300,
+    }).catch(() => {})
+    return { tokens_saved: total }
   } catch {
     return { tokens_saved: __INITIAL_TOKENS_SAVED__ }
   }

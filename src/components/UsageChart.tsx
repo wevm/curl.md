@@ -50,7 +50,12 @@ export function UsageChart(props: {
           margin={{ top: 8, right: 0, bottom: 0, left: 0 }}
           width={size.width}
         >
-          <CartesianGrid horizontalValues={ticks} vertical={false} stroke="var(--color-gray3)" />
+          <CartesianGrid
+            horizontalValues={ticks}
+            stroke="var(--color-gray3)"
+            vertical={false}
+            zIndex={400}
+          />
           <XAxis
             axisLine={false}
             dataKey="label"
