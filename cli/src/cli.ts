@@ -1,7 +1,7 @@
 import { Cli, type MiddlewareContext, middleware, z } from 'incur'
 import pc from 'picocolors'
 import pkg from '../package.json' with { type: 'json' }
-import { defaultBaseUrl, createClient, type Client } from './client.ts'
+import { createClient, defaultBaseUrl, type Client } from './client.ts'
 import * as UI from './ui.ts'
 import {
   compareVersions,
@@ -28,6 +28,7 @@ const vars = z.object({
   apiKey: z.custom<string | undefined>(),
   client: z.custom<Client>(),
   commands: z.custom<Command[]>(),
+  resolveAuthHeaders: z.custom<() => Promise<AuthHeaders | null>>(),
   session: z.custom<Session.Data | null>(),
 })
 
@@ -278,13 +279,20 @@ cli.use(async (c, next) => {
   })()
   c.set('apiKey', apiKey)
 
-  const headers: Record<string, string> = {}
-  if (apiKey) headers.Authorization = `Bearer ${apiKey}`
-  else if (session) {
-    headers.Authorization = `Bearer ${session.session_id}`
-    if (session.organization_id) headers['x-organization-id'] = session.organization_id
-  }
-  c.set('client', createClient(c.env.CURLMD_BASE_URL, { headers }))
+  const resolveAuthHeaders = createAuthHeadersResolver(c.env.CURLMD_BASE_URL, apiKey, session)
+  c.set('resolveAuthHeaders', resolveAuthHeaders)
+  c.set(
+    'client',
+    createClient(c.env.CURLMD_BASE_URL, {
+      headers: async () => {
+        const authHeaders = await resolveAuthHeaders()
+        const headers: Record<string, string> = {}
+        if (authHeaders?.authorization) headers.Authorization = authHeaders.authorization
+        if (authHeaders?.organization_id) headers['x-organization-id'] = authHeaders.organization_id
+        return headers
+      },
+    }),
+  )
 
   return next()
 })
@@ -317,6 +325,11 @@ const requireAuth = middleware<typeof vars>((c, next) => {
 })
 
 type Command = { command: string; description?: string }
+type AuthHeaders = {
+  authorization: string
+  expires_at: string | null
+  organization_id: string | null
+}
 
 function expiredSession(
   c: Pick<MiddlewareContext, 'displayName' | 'error'> & {
@@ -464,11 +477,14 @@ const auth = Cli.create('auth', {
           }
           const json = await res.json()
           spinner.stop()
-          Session.write({ session_id: json.session_id })
+          Session.write({
+            refresh_token: json.refresh_token,
+            refresh_token_expires_at: json.refresh_token_expires_at,
+          })
           const meRes = await c.var.client.api.auth.me.$get(
             {},
             {
-              headers: { Authorization: `Bearer ${json.session_id}` },
+              headers: { Authorization: json.authorization },
             },
           )
           const me = await meRes.json()
@@ -548,18 +564,13 @@ const auth = Cli.create('auth', {
         return expiredSession(c)
       }
 
-      const authorization = (() => {
-        if (c.var.apiKey) return `Bearer ${c.var.apiKey}`
-        if (c.var.session) return `Bearer ${c.var.session.session_id}`
-        return undefined
-      })()
-      if (!authorization) return authError(c)
+      const authHeaders = await c.var.resolveAuthHeaders()
+      if (!authHeaders) {
+        if (c.var.apiKey) return authError(c)
+        return expiredSession(c)
+      }
 
-      return c.ok({
-        authorization,
-        expires_at: null,
-        organization_id: c.var.apiKey ? null : (c.var.session?.organization_id ?? null),
-      })
+      return c.ok(authHeaders)
     },
   })
 
@@ -1818,5 +1829,82 @@ cli.command(credits)
 cli.command(org.command(invite).command(member))
 cli.command(token)
 cli.command(update)
+
+function createAuthHeadersResolver(
+  baseUrl: string,
+  apiKey: string | undefined,
+  session: Session.Data | null,
+) {
+  let cachedAuth: Omit<AuthHeaders, 'organization_id'> | null = null
+  let pendingAuth: Promise<Omit<AuthHeaders, 'organization_id'> | null> | null = null
+
+  return async (): Promise<AuthHeaders | null> => {
+    if (apiKey)
+      return {
+        authorization: `Bearer ${apiKey}`,
+        expires_at: null,
+        organization_id: null,
+      }
+
+    const currentSession = Session.read() ?? session
+    if (!currentSession) return null
+
+    const organization_id = currentSession.organization_id ?? null
+    if (cachedAuth && !shouldRefreshHeaders(cachedAuth.expires_at))
+      return { ...cachedAuth, organization_id }
+
+    if (
+      currentSession.refresh_token_expires_at &&
+      Date.parse(currentSession.refresh_token_expires_at) <= Date.now()
+    )
+      return null
+
+    const sessionToken = currentSession.refresh_token
+    if (!sessionToken) return null
+
+    pendingAuth ??= (async () => {
+      const res = await fetch(new URL('/api/auth/headers', baseUrl), {
+        method: 'POST',
+        headers: {
+          accept: 'application/json',
+          authorization: `Bearer ${sessionToken}`,
+        },
+      })
+      if (res.status !== 200) return null
+
+      const json = (await res.json()) as Omit<AuthHeaders, 'organization_id'> & {
+        refresh_token?: string | null
+        refresh_token_expires_at?: string | null
+      }
+
+      if (json.refresh_token)
+        Session.write({
+          refresh_token: json.refresh_token,
+          refresh_token_expires_at: json.refresh_token_expires_at ?? undefined,
+        })
+
+      return {
+        authorization: json.authorization,
+        expires_at: json.expires_at,
+      }
+    })()
+    try {
+      cachedAuth = await pendingAuth
+    } finally {
+      pendingAuth = null
+    }
+    if (!cachedAuth) return null
+
+    return { ...cachedAuth, organization_id }
+  }
+}
+
+function shouldRefreshHeaders(expiresAt: string | null) {
+  if (!expiresAt) return false
+
+  const time = Date.parse(expiresAt)
+  if (!Number.isFinite(time)) return true
+  return time - 60_000 <= Date.now()
+}
 
 export default cli

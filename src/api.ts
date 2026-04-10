@@ -19,9 +19,33 @@ import * as Crypto from '#lib/crypto.ts'
 import * as GitHub from '#lib/github.ts'
 import * as hono from '#lib/hono.ts'
 import * as Nanoid from '#lib/nanoid.ts'
+import * as SessionToken from '#lib/sessionToken.ts'
 import * as StripeUtils from '#lib/stripe.ts'
 import * as Md from '#md/index.ts'
 import * as Og from '#og.tsx'
+
+function getBearerToken(c: Parameters<typeof Cookie.get>[0]) {
+  const authorizationHeader = c.req.header('authorization')
+  return authorizationHeader?.startsWith('Bearer ')
+    ? authorizationHeader.replace('Bearer ', '')
+    : undefined
+}
+
+function getRequestOrigin(c: Parameters<typeof Cookie.get>[0]) {
+  const url = new URL(c.req.url)
+  const proto = c.req.header('x-forwarded-proto')
+  if (proto) url.protocol = `${proto}:`
+  return url.origin
+}
+
+function getHeaderOrigin(value: string | undefined) {
+  if (!value) return null
+  try {
+    return new URL(value).origin
+  } catch {
+    return null
+  }
+}
 
 export const api = new Hono<{
   Bindings: Cloudflare.Env
@@ -45,20 +69,12 @@ export const api = new Hono<{
 
     // Try cookie → session lookup
     const cookie = (await Cookie.getSigned(c, c.env.COOKIE_SECRET, 'curl.session')) || undefined
-    const sessionId =
-      cookie ??
-      (() => {
-        const authorizationHeader = c.req.header('authorization')
-        return authorizationHeader?.startsWith('Bearer ')
-          ? authorizationHeader.replace('Bearer ', '')
-          : undefined
-      })() ??
-      c.req.query('token') ??
-      c.req.query('t')
+    const bearerToken = getBearerToken(c)
+    const token = bearerToken ?? c.req.query('token') ?? c.req.query('t')
 
     // Try API key (curlmd_ prefix)
-    if (!cookie && sessionId?.startsWith(ApiKey.prefix)) {
-      const keyHash = await ApiKey.hash(sessionId)
+    if (!cookie && token?.startsWith(ApiKey.prefix)) {
+      const keyHash = await ApiKey.hash(token)
       const apiKey = await c.var.db
         .selectFrom('api_key')
         .where('key_hash', '=', keyHash)
@@ -84,15 +100,20 @@ export const api = new Hono<{
       return
     }
 
-    // Try session lookup (cookie or bearer token)
-    if (sessionId) {
+    // Browser sessions are cookie-bound. Bearer auth is reserved for API keys and short-lived CLI access tokens.
+    if (cookie) {
       const session =
         (await c.var.db
           .selectFrom('session')
-          .where('id', '=', sessionId)
+          .where('id', '=', cookie)
           .where('expires_at', '>', new Date())
           .select('account_id')
           .executeTakeFirst()) ?? null
+      c.set('session', session)
+    }
+
+    if (!c.var.session && bearerToken) {
+      const session = (await SessionToken.findSessionByAccessToken(c.var.db, bearerToken)) ?? null
       c.set('session', session)
     }
 
@@ -450,6 +471,14 @@ export const api = new Hono<{
     hono.validator('json', z.object({ user_code: z.string() })),
     async (c) => {
       if (hono.narrowValidation) return hono.validationError(c)
+      const requestOrigin = getRequestOrigin(c)
+      const origin = c.req.header('origin')
+      const refererOrigin = getHeaderOrigin(c.req.header('referer'))
+      if (origin !== requestOrigin && refererOrigin !== requestOrigin)
+        return c.json(
+          { code: 'invalid_origin' as const, message: 'Request origin not allowed' },
+          403,
+        )
       if (!c.var.session)
         return c.json({ code: 'unauthorized' as const, message: 'Authentication required' }, 401)
       const json = c.req.valid('json')
@@ -498,35 +527,70 @@ export const api = new Hono<{
         )
 
       const json = c.req.valid('json')
-      const deviceCode = await c.var.db
-        .selectFrom('device_code')
-        .where('code', '=', json.code)
-        .select(['account_id', 'expires_at', 'id', 'status'])
-        .executeTakeFirst()
-      if (!deviceCode || deviceCode.expires_at <= new Date())
-        return c.json({ code: 'expired_token' as const, message: 'Token has expired' }, 400)
-      if (deviceCode.status === 'pending')
-        return c.json(
-          { code: 'authorization_pending' as const, message: 'Authorization pending' },
-          400,
-        )
-      if (!deviceCode.account_id)
-        return c.json({ code: 'expired_token' as const, message: 'Token has expired' }, 400)
-      const session = await c.var.db
-        .insertInto('session')
-        .values({
-          account_id: deviceCode.account_id,
-          expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
-        })
-        .returning('id')
-        .executeTakeFirstOrThrow()
-      await c.var.db.deleteFrom('device_code').where('id', '=', deviceCode.id).execute()
-      return c.json({ session_id: session.id }, 200)
+      const now = new Date()
+      const result = await c.var.db.transaction().execute(async (tx) => {
+        const deviceCode = await tx
+          .deleteFrom('device_code')
+          .where('code', '=', json.code)
+          .where('status', '=', 'approved')
+          .where('expires_at', '>', now)
+          .returning('account_id')
+          .executeTakeFirst()
+        if (deviceCode?.account_id)
+          return {
+            auth: await SessionToken.createCliSession(tx as Database, deviceCode.account_id),
+          }
+
+        const existing = await tx
+          .selectFrom('device_code')
+          .where('code', '=', json.code)
+          .select(['expires_at', 'status'])
+          .executeTakeFirst()
+        if (!existing || existing.expires_at <= now)
+          return {
+            error: { code: 'expired_token' as const, message: 'Token has expired' },
+          }
+        if (existing.status === 'pending')
+          return {
+            error: { code: 'authorization_pending' as const, message: 'Authorization pending' },
+          }
+        return {
+          error: { code: 'expired_token' as const, message: 'Token has expired' },
+        }
+      })
+      if ('error' in result) return c.json(result.error, 400)
+
+      const auth = result.auth
+      return c.json(auth, 200)
     },
   )
+  .post('/api/auth/headers', async (c) => {
+    if (c.var.api_key_id)
+      return c.json(
+        {
+          code: 'api_key_not_supported' as const,
+          message: 'API keys do not mint interactive auth headers',
+        },
+        403,
+      )
+
+    const bearerToken = getBearerToken(c)
+    if (bearerToken) {
+      const auth = await SessionToken.mintAuthHeaders(c.var.db, bearerToken)
+      if (auth) return c.json(auth, 200)
+    }
+
+    if (!c.var.session)
+      return c.json({ code: 'unauthorized' as const, message: 'Authentication required' }, 401)
+
+    const auth = await SessionToken.createCliSession(c.var.db, c.var.session.account_id)
+    return c.json(auth, 200)
+  })
   .post('/api/auth/logout', async (c) => {
+    const bearerToken = getBearerToken(c)
     const sessionId = await Cookie.getSigned(c, c.env.COOKIE_SECRET, 'curl.session')
     if (sessionId) await c.var.db.deleteFrom('session').where('id', '=', sessionId).execute()
+    if (bearerToken) await SessionToken.deleteCliSessionByToken(c.var.db, bearerToken)
     Cookie.destroy(c, 'curl.session', {
       httpOnly: true,
       maxAge: 0,

@@ -1,9 +1,12 @@
+import { HttpResponse, http, passthrough } from 'msw'
 import { afterAll, beforeEach, describe, expect, inject, onTestFinished, test, vi } from 'vitest'
 import { createClient } from '#db/client.ts'
 import * as ApiKey from '#lib/apiKey.ts'
 import * as Nanoid from '#lib/nanoid.ts'
+import * as SessionToken from '#lib/sessionToken.ts'
 import { Env } from '#test/env.ts'
 import { createFactory } from '#test/factory.ts'
+import { server } from '../test/server.ts'
 import { serve, useTmp } from '../test/utils.ts'
 import { createClient as createRpcClient, defaultBaseUrl } from './client.ts'
 import * as UI from './ui.ts'
@@ -18,11 +21,12 @@ vi.mock('node:child_process', () => ({
 }))
 
 const env = Env.parse(inject('env'))
-const client = createRpcClient(env.CURLMD_BASE_URL)
 const db = createClient(env.DB_URL)
 const factory = createFactory(db)
+const baseUrl = new URL(env.CURLMD_BASE_URL)
 
 beforeEach(() => {
+  server.resetHandlers()
   const tmp = useTmp()
   return () => tmp.cleanup()
 })
@@ -165,18 +169,24 @@ test('missing url', async () => {
 })
 
 test('rate limit 429', async () => {
-  const originalFetch = globalThis.fetch
-  globalThis.fetch = async () =>
-    new Response(JSON.stringify({ code: 'rate_limit_exceeded', message: 'Rate limit exceeded' }), {
-      status: 429,
-      headers: {
-        'content-type': 'application/json',
-        'retry-after': '3600',
-      },
-    })
-  onTestFinished(() => {
-    globalThis.fetch = originalFetch
-  })
+  server.use(
+    http.get('*', async ({ request }) => {
+      const url = new URL(request.url)
+      if (
+        !(url.origin === baseUrl.origin && url.href.startsWith(`${env.CURLMD_BASE_URL}/api/http`))
+      )
+        return passthrough()
+      return HttpResponse.json(
+        { code: 'rate_limit_exceeded', message: 'Rate limit exceeded' },
+        {
+          status: 429,
+          headers: {
+            'retry-after': '3600',
+          },
+        },
+      )
+    }),
+  )
 
   const { exitCode, output } = await serve(['example.com'])
   expect(exitCode).toBe(1)
@@ -185,15 +195,19 @@ test('rate limit 429', async () => {
 })
 
 test('rate limit 429 without retry-after', async () => {
-  const originalFetch = globalThis.fetch
-  globalThis.fetch = async () =>
-    new Response(JSON.stringify({ code: 'rate_limit_exceeded', message: 'Rate limit exceeded' }), {
-      status: 429,
-      headers: { 'content-type': 'application/json' },
-    })
-  onTestFinished(() => {
-    globalThis.fetch = originalFetch
-  })
+  server.use(
+    http.get('*', async ({ request }) => {
+      const url = new URL(request.url)
+      if (
+        !(url.origin === baseUrl.origin && url.href.startsWith(`${env.CURLMD_BASE_URL}/api/http`))
+      )
+        return passthrough()
+      return HttpResponse.json(
+        { code: 'rate_limit_exceeded', message: 'Rate limit exceeded' },
+        { status: 429 },
+      )
+    }),
+  )
 
   const { exitCode, output } = await serve(['example.com'])
   expect(exitCode).toBe(1)
@@ -202,31 +216,41 @@ test('rate limit 429 without retry-after', async () => {
 })
 
 test('rate limit 429 login cta when unauthenticated', async () => {
-  const originalFetch = globalThis.fetch
-  globalThis.fetch = async () =>
-    new Response(JSON.stringify({ code: 'rate_limit_exceeded', message: 'Rate limit exceeded' }), {
-      status: 429,
-      headers: { 'content-type': 'application/json' },
-    })
-  onTestFinished(() => {
-    globalThis.fetch = originalFetch
-  })
+  server.use(
+    http.get('*', async ({ request }) => {
+      const url = new URL(request.url)
+      if (
+        !(url.origin === baseUrl.origin && url.href.startsWith(`${env.CURLMD_BASE_URL}/api/http`))
+      )
+        return passthrough()
+      return HttpResponse.json(
+        { code: 'rate_limit_exceeded', message: 'Rate limit exceeded' },
+        { status: 429 },
+      )
+    }),
+  )
 
   const { output } = await serve(['example.com'])
   expect(output).toContain('auth login')
 })
 
 test('rate limit 429 credits add cta when authenticated', async () => {
-  Session.write({ session_id: 'test' })
-  const originalFetch = globalThis.fetch
-  globalThis.fetch = async () =>
-    new Response(JSON.stringify({ code: 'rate_limit_exceeded', message: 'Rate limit exceeded' }), {
-      status: 429,
-      headers: { 'content-type': 'application/json' },
-    })
-  onTestFinished(() => {
-    globalThis.fetch = originalFetch
-  })
+  const account = await factory.account.insert({})
+  const session = await factory.session.insert({ account_id: account.id })
+  await writeCliSession(session.id)
+  server.use(
+    http.get('*', async ({ request }) => {
+      const url = new URL(request.url)
+      if (
+        !(url.origin === baseUrl.origin && url.href.startsWith(`${env.CURLMD_BASE_URL}/api/http`))
+      )
+        return passthrough()
+      return HttpResponse.json(
+        { code: 'rate_limit_exceeded', message: 'Rate limit exceeded' },
+        { status: 429 },
+      )
+    }),
+  )
 
   const { output } = await serve(['example.com'])
   expect(output).toContain('credits add')
@@ -234,15 +258,19 @@ test('rate limit 429 credits add cta when authenticated', async () => {
 })
 
 test('invalid api key 401', async () => {
-  const originalFetch = globalThis.fetch
-  globalThis.fetch = async () =>
-    new Response(JSON.stringify({ code: 'invalid_api_key', message: 'Invalid API key' }), {
-      status: 401,
-      headers: { 'content-type': 'application/json' },
-    })
-  onTestFinished(() => {
-    globalThis.fetch = originalFetch
-  })
+  server.use(
+    http.get('*', async ({ request }) => {
+      const url = new URL(request.url)
+      if (
+        !(url.origin === baseUrl.origin && url.href.startsWith(`${env.CURLMD_BASE_URL}/api/http`))
+      )
+        return passthrough()
+      return HttpResponse.json(
+        { code: 'invalid_api_key', message: 'Invalid API key' },
+        { status: 401 },
+      )
+    }),
+  )
 
   const { exitCode, output } = await serve(['example.com'])
   expect(exitCode).toBe(1)
@@ -251,19 +279,23 @@ test('invalid api key 401', async () => {
 })
 
 test('validation error 400', async () => {
-  const originalFetch = globalThis.fetch
-  globalThis.fetch = async () =>
-    new Response(
-      JSON.stringify({
-        code: 'validation_error',
-        message: 'Validation failed',
-        issues: [{ path: 'url', message: 'Invalid url' }],
-      }),
-      { status: 400, headers: { 'content-type': 'application/json' } },
-    )
-  onTestFinished(() => {
-    globalThis.fetch = originalFetch
-  })
+  server.use(
+    http.get('*', async ({ request }) => {
+      const url = new URL(request.url)
+      if (
+        !(url.origin === baseUrl.origin && url.href.startsWith(`${env.CURLMD_BASE_URL}/api/http`))
+      )
+        return passthrough()
+      return HttpResponse.json(
+        {
+          code: 'validation_error',
+          message: 'Validation failed',
+          issues: [{ path: 'url', message: 'Invalid url' }],
+        },
+        { status: 400 },
+      )
+    }),
+  )
 
   const { exitCode, output } = await serve(['example.com'])
   expect(exitCode).toBe(1)
@@ -272,18 +304,22 @@ test('validation error 400', async () => {
 })
 
 test('fetch_failed 502', async () => {
-  const originalFetch = globalThis.fetch
-  globalThis.fetch = async () =>
-    new Response(
-      JSON.stringify({
-        code: 'fetch_failed',
-        message: 'Connection refused',
-      }),
-      { status: 502, headers: { 'content-type': 'application/json' } },
-    )
-  onTestFinished(() => {
-    globalThis.fetch = originalFetch
-  })
+  server.use(
+    http.get('*', async ({ request }) => {
+      const url = new URL(request.url)
+      if (
+        !(url.origin === baseUrl.origin && url.href.startsWith(`${env.CURLMD_BASE_URL}/api/http`))
+      )
+        return passthrough()
+      return HttpResponse.json(
+        {
+          code: 'fetch_failed',
+          message: 'Connection refused',
+        },
+        { status: 502 },
+      )
+    }),
+  )
 
   const { exitCode, output } = await serve(['example.com'])
   expect(exitCode).toBe(1)
@@ -292,11 +328,16 @@ test('fetch_failed 502', async () => {
 })
 
 test('unexpected 500', async () => {
-  const originalFetch = globalThis.fetch
-  globalThis.fetch = async () => new Response('Internal Server Error', { status: 500 })
-  onTestFinished(() => {
-    globalThis.fetch = originalFetch
-  })
+  server.use(
+    http.get('*', async ({ request }) => {
+      const url = new URL(request.url)
+      if (
+        !(url.origin === baseUrl.origin && url.href.startsWith(`${env.CURLMD_BASE_URL}/api/http`))
+      )
+        return passthrough()
+      return new HttpResponse('Internal Server Error', { status: 500 })
+    }),
+  )
 
   const { exitCode, output } = await serve(['example.com'])
   expect(exitCode).toBe(1)
@@ -304,22 +345,32 @@ test('unexpected 500', async () => {
 })
 
 test('objective cta shown for long responses', async () => {
-  const originalFetch = globalThis.fetch
-  globalThis.fetch = async () => new Response('x'.repeat(15_000), { status: 200 })
-  onTestFinished(() => {
-    globalThis.fetch = originalFetch
-  })
+  server.use(
+    http.get('*', async ({ request }) => {
+      const url = new URL(request.url)
+      if (
+        !(url.origin === baseUrl.origin && url.href.startsWith(`${env.CURLMD_BASE_URL}/api/http`))
+      )
+        return passthrough()
+      return new HttpResponse('x'.repeat(15_000), { status: 200 })
+    }),
+  )
 
   const { output } = await serve(['example.com', '--verbose'])
   expect(output).toContain('Narrow results with objective')
 })
 
 test('objective cta hidden for short responses', async () => {
-  const originalFetch = globalThis.fetch
-  globalThis.fetch = async () => new Response('short content', { status: 200 })
-  onTestFinished(() => {
-    globalThis.fetch = originalFetch
-  })
+  server.use(
+    http.get('*', async ({ request }) => {
+      const url = new URL(request.url)
+      if (
+        !(url.origin === baseUrl.origin && url.href.startsWith(`${env.CURLMD_BASE_URL}/api/http`))
+      )
+        return passthrough()
+      return new HttpResponse('short content', { status: 200 })
+    }),
+  )
 
   const { output } = await serve(['example.com', '--verbose'])
   expect(output).not.toContain('narrow results with an objective')
@@ -427,16 +478,19 @@ describe('auth', () => {
       organization_id: org.id,
     })
     const session = await factory.session.insert({ account_id: account.id })
-    Session.write({ session_id: session.id, organization_id: org.id })
+    await writeCliSession(session.id, org.id)
 
     const { output } = await serve(['auth', 'headers', '--json'])
     const json = JSON.parse(output)
     const data = json.data ?? json
 
-    expect(data).toEqual({
-      authorization: `Bearer ${session.id}`,
-      expires_at: null,
+    expect(data.authorization).toMatch(/^Bearer curlmdat_/)
+    expect(data.expires_at).toEqual(expect.any(String))
+    expect(data.organization_id).toBe(org.id)
+    expect(Session.read()).toMatchObject({
       organization_id: org.id,
+      refresh_token: expect.stringMatching(/^curlmdrt_/),
+      refresh_token_expires_at: expect.any(String),
     })
   })
 
@@ -469,7 +523,7 @@ describe('auth', () => {
   })
 
   test('headers - expired session', async () => {
-    Session.write({ session_id: 'expired-session-id' })
+    Session.write({ refresh_token: 'expired-refresh-token' })
 
     const { exitCode, output } = await serve(['auth', 'headers', '--json'])
     expect(exitCode).toBe(1)
@@ -483,7 +537,9 @@ describe('auth', () => {
   })
 
   test('logout - deletes session', async () => {
-    Session.write({ session_id: 'test' })
+    const account = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: account.id })
+    await writeCliSession(session.id)
 
     // Simulate pressing Enter
     setTimeout(() => process.stdin.emit('data', '\n'), 100)
@@ -535,7 +591,7 @@ describe('auth', () => {
   })
 
   test('check - expired session', async () => {
-    Session.write({ session_id: 'expired-session-id' })
+    Session.write({ refresh_token: 'expired-refresh-token' })
 
     const { output } = await serve(['auth', 'status'])
     expect(output).toContain('Not authenticated')
@@ -545,7 +601,7 @@ describe('auth', () => {
   test('login - already authenticated', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
-    Session.write({ session_id: session.id })
+    await writeCliSession(session.id)
 
     const { output } = await serve(['auth', 'login'])
     expect(output).toContain('Already logged in')
@@ -555,30 +611,22 @@ describe('auth', () => {
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
     onTestFinished(() => consoleSpy.mockRestore())
 
-    const originalFetch = globalThis.fetch
-    let callCount = 0
-    globalThis.fetch = async () => {
-      callCount++
-      // First call: POST /api/auth/device
-      if (callCount === 1)
-        return new Response(
-          JSON.stringify({
-            code: 'test-code',
-            interval: 0,
-            user_code: 'TESTCODE',
-            verification_uri: 'https://curl.local/auth/device',
-          }),
-          { status: 200, headers: { 'content-type': 'application/json' } },
+    server.use(
+      http.post(`${env.CURLMD_BASE_URL}/api/auth/device`, async () => {
+        return HttpResponse.json({
+          code: 'test-code',
+          interval: 0,
+          user_code: 'TESTCODE',
+          verification_uri: 'https://curl.local/auth/device',
+        })
+      }),
+      http.post(`${env.CURLMD_BASE_URL}/api/auth/device/token`, async () => {
+        return HttpResponse.json(
+          { code: 'expired_token', message: 'Token has expired' },
+          { status: 400 },
         )
-      // Second call: POST /api/auth/device/token
-      return new Response(JSON.stringify({ code: 'expired_token', message: 'Token has expired' }), {
-        status: 400,
-        headers: { 'content-type': 'application/json' },
-      })
-    }
-    onTestFinished(() => {
-      globalThis.fetch = originalFetch
-    })
+      }),
+    )
 
     const { exitCode, output } = await serve(['auth', 'login'])
     expect(exitCode).toBe(1)
@@ -589,32 +637,26 @@ describe('auth', () => {
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
     onTestFinished(() => consoleSpy.mockRestore())
 
-    const originalFetch = globalThis.fetch
-    let callCount = 0
-    globalThis.fetch = async () => {
-      callCount++
-      if (callCount === 1)
-        return new Response(
-          JSON.stringify({
-            code: 'test-code',
-            interval: 0,
-            user_code: 'TESTCODE',
-            verification_uri: 'https://curl.local/auth/device',
-          }),
-          { status: 200, headers: { 'content-type': 'application/json' } },
+    server.use(
+      http.post(`${env.CURLMD_BASE_URL}/api/auth/device`, async () => {
+        return HttpResponse.json({
+          code: 'test-code',
+          interval: 0,
+          user_code: 'TESTCODE',
+          verification_uri: 'https://curl.local/auth/device',
+        })
+      }),
+      http.post(`${env.CURLMD_BASE_URL}/api/auth/device/token`, async () => {
+        return HttpResponse.json(
+          {
+            code: 'validation_error',
+            message: 'Validation failed',
+            issues: [{ path: 'code', message: 'Required' }],
+          },
+          { status: 400 },
         )
-      return new Response(
-        JSON.stringify({
-          code: 'validation_error',
-          message: 'Validation failed',
-          issues: [{ path: 'code', message: 'Required' }],
-        }),
-        { status: 400, headers: { 'content-type': 'application/json' } },
-      )
-    }
-    onTestFinished(() => {
-      globalThis.fetch = originalFetch
-    })
+      }),
+    )
 
     const { exitCode, output } = await serve(['auth', 'login'])
     expect(exitCode).toBe(1)
@@ -623,21 +665,19 @@ describe('auth', () => {
   })
 
   test('login - rate limit on device request', async () => {
-    const originalFetch = globalThis.fetch
-    globalThis.fetch = async () =>
-      new Response(
-        JSON.stringify({ code: 'rate_limit_exceeded', message: 'Rate limit exceeded' }),
-        {
-          status: 429,
-          headers: {
-            'content-type': 'application/json',
-            'retry-after': '30',
+    server.use(
+      http.post(`${env.CURLMD_BASE_URL}/api/auth/device`, async () => {
+        return HttpResponse.json(
+          { code: 'rate_limit_exceeded', message: 'Rate limit exceeded' },
+          {
+            status: 429,
+            headers: {
+              'retry-after': '30',
+            },
           },
-        },
-      )
-    onTestFinished(() => {
-      globalThis.fetch = originalFetch
-    })
+        )
+      }),
+    )
 
     const { exitCode, output } = await serve(['auth', 'login'])
     expect(exitCode).toBe(1)
@@ -650,47 +690,42 @@ describe('auth', () => {
     onTestFinished(() => consoleSpy.mockRestore())
 
     const account = await factory.account.insert({})
-    const session = await factory.session.insert({ account_id: account.id })
+    const cliSession = await SessionToken.createCliSession(db, account.id)
 
     let tokenPollCount = 0
-    const originalFetch = globalThis.fetch
-    globalThis.fetch = async (input, init) => {
-      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-      if (url.includes('/api/auth/device/token')) {
+    server.use(
+      http.post(`${env.CURLMD_BASE_URL}/api/auth/device`, async () => {
+        return HttpResponse.json({
+          code: 'test-code',
+          interval: 0,
+          user_code: 'TESTCODE',
+          verification_uri: 'https://curl.local/auth/device',
+        })
+      }),
+      http.post(`${env.CURLMD_BASE_URL}/api/auth/device/token`, async () => {
         tokenPollCount++
         if (tokenPollCount === 1)
-          return new Response(
-            JSON.stringify({ code: 'rate_limit_exceeded', message: 'Rate limit exceeded' }),
+          return HttpResponse.json(
+            { code: 'rate_limit_exceeded', message: 'Rate limit exceeded' },
             {
               status: 429,
               headers: {
-                'content-type': 'application/json',
                 'retry-after': '0',
               },
             },
           )
-      }
-      return originalFetch(input, init)
-    }
-    onTestFinished(() => {
-      globalThis.fetch = originalFetch
-    })
+        return HttpResponse.json(cliSession)
+      }),
+      http.get(`${env.CURLMD_BASE_URL}/api/auth/me`, async () => {
+        return HttpResponse.json({
+          account: {
+            login: account.login,
+          },
+        })
+      }),
+    )
 
     const loginPromise = serve(['auth', 'login'])
-
-    const deviceCode = await vi.waitFor(() =>
-      db
-        .selectFrom('device_code')
-        .where('status', '=', 'pending')
-        .select(['user_code', 'id'])
-        .orderBy('created_at', 'desc')
-        .executeTakeFirstOrThrow(),
-    )
-
-    await client.api.auth.device.confirm.$post(
-      { json: { user_code: deviceCode.user_code } },
-      { headers: { Authorization: `Bearer ${session.id}` } },
-    )
 
     const { output } = await loginPromise
     expect(output).toContain('Logged in as')
@@ -701,27 +736,38 @@ describe('auth', () => {
     onTestFinished(() => consoleSpy.mockRestore())
 
     const account = await factory.account.insert({})
-    const session = await factory.session.insert({ account_id: account.id })
+    const cliSession = await SessionToken.createCliSession(db, account.id)
+
+    server.use(
+      http.post(`${env.CURLMD_BASE_URL}/api/auth/device`, async () => {
+        return HttpResponse.json({
+          code: 'test-code',
+          interval: 0,
+          user_code: 'TESTCODE',
+          verification_uri: 'https://curl.local/auth/device',
+        })
+      }),
+      http.post(`${env.CURLMD_BASE_URL}/api/auth/device/token`, async () => {
+        return HttpResponse.json(cliSession)
+      }),
+      http.get(`${env.CURLMD_BASE_URL}/api/auth/me`, async ({ request }) => {
+        expect(request.headers.get('authorization')).toMatch(/^Bearer curlmdat_/)
+        return HttpResponse.json({
+          account: {
+            login: account.login,
+          },
+        })
+      }),
+    )
 
     const loginPromise = serve(['auth', 'login'])
 
-    const deviceCode = await vi.waitFor(() =>
-      db
-        .selectFrom('device_code')
-        .where('status', '=', 'pending')
-        .select(['user_code', 'id'])
-        .orderBy('created_at', 'desc')
-        .executeTakeFirstOrThrow(),
-    )
-
-    await client.api.auth.device.confirm.$post(
-      { json: { user_code: deviceCode.user_code } },
-      { headers: { Authorization: `Bearer ${session.id}` } },
-    )
-
     const { output } = await loginPromise
     expect(output).toContain('Logged in as')
-    expect(Session.read()).not.toBeNull()
+    expect(Session.read()).toMatchObject({
+      refresh_token: expect.stringMatching(/^curlmdrt_/),
+      refresh_token_expires_at: expect.any(String),
+    })
 
     const { output: checkOutput } = await serve(['auth', 'status'])
     expect(checkOutput).toContain('Logged in as')
@@ -736,7 +782,7 @@ describe('credits', () => {
   })
 
   test('check - expired session deletes session', async () => {
-    Session.write({ session_id: 'expired-session-id' })
+    Session.write({ refresh_token: 'expired-refresh-token' })
     const { exitCode, output } = await serve(['credits', 'status'])
     expect(exitCode).toBe(1)
     expect(output).toContain('NOT_AUTHENTICATED')
@@ -751,7 +797,7 @@ describe('credits', () => {
       .set({ balance_mills: 12500 })
       .where('id', '=', account.id)
       .execute()
-    Session.write({ session_id: session.id })
+    await writeCliSession(session.id)
 
     const { output } = await serve(['credits', 'status'])
     expect(output).toContain('$12.500')
@@ -760,7 +806,7 @@ describe('credits', () => {
   test('check - zero balance', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
-    Session.write({ session_id: session.id })
+    await writeCliSession(session.id)
 
     const { output } = await serve(['credits', 'status'])
     expect(output).toContain('No credits')
@@ -775,7 +821,7 @@ describe('credits', () => {
       account_id: account.id,
       role: 'member',
     })
-    Session.write({ session_id: session.id, organization_id: org.id })
+    await writeCliSession(session.id, org.id)
 
     const { exitCode, output } = await serve(['credits', 'status'])
     expect(exitCode).toBe(1)
@@ -791,7 +837,7 @@ describe('credits', () => {
       account_id: account.id,
       role: 'member',
     })
-    Session.write({ session_id: session.id, organization_id: org.id })
+    await writeCliSession(session.id, org.id)
 
     const { exitCode, output } = await serve(['credits', 'add', '5'])
     expect(exitCode).toBe(1)
@@ -807,50 +853,37 @@ describe('credits', () => {
   test('add - browser flow (no saved card)', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
-    Session.write({ session_id: session.id })
+    await writeCliSession(session.id)
 
     const openUrlSpy = vi.spyOn(utils, 'openUrl').mockImplementation(() => {})
     const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
     let creditsCallCount = 0
-    const originalFetch = globalThis.fetch
-    globalThis.fetch = async (input, init) => {
-      const url = input.toString()
-
-      // GET /api/credits — first call: no saved card, subsequent: updated balance
-      if (
-        url.includes('/api/credits') &&
-        !url.includes('/add') &&
-        !url.includes('/charge') &&
-        !url.includes('/payment')
-      ) {
+    server.use(
+      http.get('*', async ({ request }) => {
+        const url = new URL(request.url)
+        if (!(url.origin === baseUrl.origin && url.pathname === '/api/credits'))
+          return passthrough()
         creditsCallCount++
-        return new Response(
-          JSON.stringify({
-            balance_mills: creditsCallCount <= 1 ? 0 : 10_000,
-            payment_method: null,
-          }),
-          { status: 200, headers: { 'content-type': 'application/json' } },
-        )
-      }
-
-      // POST /api/credits/add
-      if (url.includes('/api/credits/add') && init?.method === 'POST')
-        return new Response(
-          JSON.stringify({
-            url: 'https://curl.local/credits/add/pay_test',
-            payment_id: 'pay_test',
-          }),
-          { status: 200, headers: { 'content-type': 'application/json' } },
-        )
-
-      return originalFetch(input, init)
-    }
+        return HttpResponse.json({
+          balance_mills: creditsCallCount <= 1 ? 0 : 10_000,
+          payment_method: null,
+        })
+      }),
+      http.post('*', async ({ request }) => {
+        const url = new URL(request.url)
+        if (!(url.origin === baseUrl.origin && url.pathname === '/api/credits/add'))
+          return passthrough()
+        return HttpResponse.json({
+          url: 'https://curl.local/credits/add/pay_test',
+          payment_id: 'pay_test',
+        })
+      }),
+    )
 
     onTestFinished(() => {
       openUrlSpy.mockRestore()
       consoleLogSpy.mockRestore()
-      globalThis.fetch = originalFetch
     })
 
     const { output } = await serve(['credits', 'add', '10'])
@@ -862,47 +895,34 @@ describe('credits', () => {
   test('add - charges saved card', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
-    Session.write({ session_id: session.id })
+    await writeCliSession(session.id)
 
     const selectSpy = vi.spyOn(UI, 'select').mockResolvedValue(0)
     const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
     let creditsCallCount = 0
-    const originalFetch = globalThis.fetch
-    globalThis.fetch = async (input, init) => {
-      const url = input.toString()
-
-      // GET /api/credits
-      if (
-        url.includes('/api/credits') &&
-        !url.includes('/add') &&
-        !url.includes('/charge') &&
-        !url.includes('/payment')
-      ) {
+    server.use(
+      http.get('*', async ({ request }) => {
+        const url = new URL(request.url)
+        if (!(url.origin === baseUrl.origin && url.pathname === '/api/credits'))
+          return passthrough()
         creditsCallCount++
-        return new Response(
-          JSON.stringify({
-            balance_mills: creditsCallCount <= 1 ? 5_000 : 15_000,
-            payment_method: { brand: 'visa', last4: '4242' },
-          }),
-          { status: 200, headers: { 'content-type': 'application/json' } },
-        )
-      }
-
-      // POST /api/credits/charge
-      if (url.includes('/api/credits/charge') && init?.method === 'POST')
-        return new Response(JSON.stringify({ payment_id: 'pi_test', status: 'succeeded' }), {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
+        return HttpResponse.json({
+          balance_mills: creditsCallCount <= 1 ? 5_000 : 15_000,
+          payment_method: { brand: 'visa', last4: '4242' },
         })
-
-      return originalFetch(input, init)
-    }
+      }),
+      http.post('*', async ({ request }) => {
+        const url = new URL(request.url)
+        if (!(url.origin === baseUrl.origin && url.pathname === '/api/credits/charge'))
+          return passthrough()
+        return HttpResponse.json({ payment_id: 'pi_test', status: 'succeeded' })
+      }),
+    )
 
     onTestFinished(() => {
       selectSpy.mockRestore()
       consoleLogSpy.mockRestore()
-      globalThis.fetch = originalFetch
     })
 
     const { output } = await serve(['credits', 'add', '10'])
@@ -914,43 +934,36 @@ describe('credits', () => {
   test('add - surfaces declined saved card message', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
-    Session.write({ session_id: session.id })
+    await writeCliSession(session.id)
 
     const selectSpy = vi.spyOn(UI, 'select').mockResolvedValue(0)
 
-    const originalFetch = globalThis.fetch
-    globalThis.fetch = async (input, init) => {
-      const url = input.toString()
-
-      if (
-        url.includes('/api/credits') &&
-        !url.includes('/add') &&
-        !url.includes('/charge') &&
-        !url.includes('/payment')
-      )
-        return new Response(
-          JSON.stringify({
-            balance_mills: 5_000,
-            payment_method: { brand: 'visa', last4: '0019' },
-          }),
-          { status: 200, headers: { 'content-type': 'application/json' } },
-        )
-
-      if (url.includes('/api/credits/charge') && init?.method === 'POST')
-        return new Response(
-          JSON.stringify({
+    server.use(
+      http.get('*', async ({ request }) => {
+        const url = new URL(request.url)
+        if (!(url.origin === baseUrl.origin && url.pathname === '/api/credits'))
+          return passthrough()
+        return HttpResponse.json({
+          balance_mills: 5_000,
+          payment_method: { brand: 'visa', last4: '0019' },
+        })
+      }),
+      http.post('*', async ({ request }) => {
+        const url = new URL(request.url)
+        if (!(url.origin === baseUrl.origin && url.pathname === '/api/credits/charge'))
+          return passthrough()
+        return HttpResponse.json(
+          {
             code: 'payment_failed',
             message: 'Your card was declined as fraudulent. Try a different payment method.',
-          }),
-          { status: 400, headers: { 'content-type': 'application/json' } },
+          },
+          { status: 400 },
         )
-
-      return originalFetch(input, init)
-    }
+      }),
+    )
 
     onTestFinished(() => {
       selectSpy.mockRestore()
-      globalThis.fetch = originalFetch
     })
 
     const { exitCode, output } = await serve(['credits', 'add', '10'])
@@ -964,53 +977,40 @@ describe('credits', () => {
   test('add - falls back to browser on requires_action', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
-    Session.write({ session_id: session.id })
+    await writeCliSession(session.id)
 
     const selectSpy = vi.spyOn(UI, 'select').mockResolvedValue(0)
     const openUrlSpy = vi.spyOn(utils, 'openUrl').mockImplementation(() => {})
     const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
     let creditsCallCount = 0
-    const originalFetch = globalThis.fetch
-    globalThis.fetch = async (input, init) => {
-      const url = input.toString()
-
-      // GET /api/credits
-      if (
-        url.includes('/api/credits') &&
-        !url.includes('/add') &&
-        !url.includes('/charge') &&
-        !url.includes('/payment')
-      ) {
+    server.use(
+      http.get('*', async ({ request }) => {
+        const url = new URL(request.url)
+        if (!(url.origin === baseUrl.origin && url.pathname === '/api/credits'))
+          return passthrough()
         creditsCallCount++
-        return new Response(
-          JSON.stringify({
-            balance_mills: creditsCallCount <= 1 ? 5_000 : 15_000,
-            payment_method: { brand: 'visa', last4: '4242' },
-          }),
-          { status: 200, headers: { 'content-type': 'application/json' } },
-        )
-      }
-
-      // POST /api/credits/charge → requires_action
-      if (url.includes('/api/credits/charge') && init?.method === 'POST')
-        return new Response(
-          JSON.stringify({
-            payment_id: 'pay_3ds',
-            status: 'requires_action',
-            url: 'https://curl.local/credits/add/pay_3ds',
-          }),
-          { status: 200, headers: { 'content-type': 'application/json' } },
-        )
-
-      return originalFetch(input, init)
-    }
+        return HttpResponse.json({
+          balance_mills: creditsCallCount <= 1 ? 5_000 : 15_000,
+          payment_method: { brand: 'visa', last4: '4242' },
+        })
+      }),
+      http.post('*', async ({ request }) => {
+        const url = new URL(request.url)
+        if (!(url.origin === baseUrl.origin && url.pathname === '/api/credits/charge'))
+          return passthrough()
+        return HttpResponse.json({
+          payment_id: 'pay_3ds',
+          status: 'requires_action',
+          url: 'https://curl.local/credits/add/pay_3ds',
+        })
+      }),
+    )
 
     onTestFinished(() => {
       selectSpy.mockRestore()
       openUrlSpy.mockRestore()
       consoleLogSpy.mockRestore()
-      globalThis.fetch = originalFetch
     })
 
     const { output } = await serve(['credits', 'add', '10'])
@@ -1022,52 +1022,39 @@ describe('credits', () => {
   test('add - user selects new payment method', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
-    Session.write({ session_id: session.id })
+    await writeCliSession(session.id)
 
     const selectSpy = vi.spyOn(UI, 'select').mockResolvedValue(2)
     const openUrlSpy = vi.spyOn(utils, 'openUrl').mockImplementation(() => {})
     const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
     let creditsCallCount = 0
-    const originalFetch = globalThis.fetch
-    globalThis.fetch = async (input, init) => {
-      const url = input.toString()
-
-      // GET /api/credits
-      if (
-        url.includes('/api/credits') &&
-        !url.includes('/add') &&
-        !url.includes('/charge') &&
-        !url.includes('/payment')
-      ) {
+    server.use(
+      http.get('*', async ({ request }) => {
+        const url = new URL(request.url)
+        if (!(url.origin === baseUrl.origin && url.pathname === '/api/credits'))
+          return passthrough()
         creditsCallCount++
-        return new Response(
-          JSON.stringify({
-            balance_mills: creditsCallCount <= 1 ? 5_000 : 15_000,
-            payment_method: { brand: 'visa', last4: '4242' },
-          }),
-          { status: 200, headers: { 'content-type': 'application/json' } },
-        )
-      }
-
-      // POST /api/credits/add
-      if (url.includes('/api/credits/add') && init?.method === 'POST')
-        return new Response(
-          JSON.stringify({
-            url: 'https://curl.local/credits/add/pay_new',
-            payment_id: 'pay_new',
-          }),
-          { status: 200, headers: { 'content-type': 'application/json' } },
-        )
-
-      return originalFetch(input, init)
-    }
+        return HttpResponse.json({
+          balance_mills: creditsCallCount <= 1 ? 5_000 : 15_000,
+          payment_method: { brand: 'visa', last4: '4242' },
+        })
+      }),
+      http.post('*', async ({ request }) => {
+        const url = new URL(request.url)
+        if (!(url.origin === baseUrl.origin && url.pathname === '/api/credits/add'))
+          return passthrough()
+        return HttpResponse.json({
+          url: 'https://curl.local/credits/add/pay_new',
+          payment_id: 'pay_new',
+        })
+      }),
+    )
 
     onTestFinished(() => {
       selectSpy.mockRestore()
       openUrlSpy.mockRestore()
       consoleLogSpy.mockRestore()
-      globalThis.fetch = originalFetch
     })
 
     const { output } = await serve(['credits', 'add', '10'])
@@ -1077,7 +1064,7 @@ describe('credits', () => {
   })
 
   test('add - expired session deletes session', async () => {
-    Session.write({ session_id: 'expired-session-id' })
+    Session.write({ refresh_token: 'expired-refresh-token' })
     const { exitCode, output } = await serve(['credits', 'add', '5'])
     expect(exitCode).toBe(1)
     expect(output).toContain('NOT_AUTHENTICATED')
@@ -1095,7 +1082,7 @@ describe('org', () => {
   test('list - empty when no orgs', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
-    Session.write({ session_id: session.id })
+    await writeCliSession(session.id)
 
     const { output } = await serve(['org', 'list'])
     expect(output).toContain('No organizations.')
@@ -1104,7 +1091,7 @@ describe('org', () => {
   test('view - no active org, no orgs', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
-    Session.write({ session_id: session.id })
+    await writeCliSession(session.id)
 
     const { output } = await serve(['org', 'view'])
     expect(output).toContain('No active organization')
@@ -1119,7 +1106,7 @@ describe('org', () => {
       organization_id: org.id,
       account_id: account.id,
     })
-    Session.write({ session_id: session.id })
+    await writeCliSession(session.id)
 
     const { output } = await serve(['org', 'view'])
     expect(output).toContain('No active organization')
@@ -1129,7 +1116,7 @@ describe('org', () => {
   test('create, list, switch, show - full flow', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
-    Session.write({ session_id: session.id })
+    await writeCliSession(session.id)
 
     const login = `test-org${Nanoid.generate()}`
     const { output: createOutput } = await serve(['org', 'create', login, '--name', 'Test Org'])
@@ -1152,7 +1139,7 @@ describe('org', () => {
   test('list - non-TTY outputs tab-separated values without headers', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
-    Session.write({ session_id: session.id })
+    await writeCliSession(session.id)
 
     const login = `nontty-org${Nanoid.generate()}`
     await serve(['org', 'create', login, '--name', 'Test'])
@@ -1169,7 +1156,7 @@ describe('org', () => {
   test('create - invalid login', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
-    Session.write({ session_id: session.id })
+    await writeCliSession(session.id)
 
     const { exitCode, output } = await serve(['org', 'create', '!'])
     expect(exitCode).toBe(1)
@@ -1180,7 +1167,7 @@ describe('org', () => {
   test('create - duplicate login', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
-    Session.write({ session_id: session.id })
+    await writeCliSession(session.id)
 
     const login = `dup-org${Nanoid.generate()}`
     await serve(['org', 'create', login])
@@ -1190,7 +1177,7 @@ describe('org', () => {
   })
 
   test('create - expired session deletes session', async () => {
-    Session.write({ session_id: 'expired-session-id' })
+    Session.write({ refresh_token: 'expired-refresh-token' })
 
     const { exitCode, output } = await serve(['org', 'create', 'my-org'])
     expect(exitCode).toBe(1)
@@ -1199,7 +1186,7 @@ describe('org', () => {
   })
 
   test('list - expired session deletes session', async () => {
-    Session.write({ session_id: 'expired-session-id' })
+    Session.write({ refresh_token: 'expired-refresh-token' })
 
     const { exitCode, output } = await serve(['org', 'list'])
     expect(exitCode).toBe(1)
@@ -1208,10 +1195,7 @@ describe('org', () => {
   })
 
   test('show - expired session deletes session', async () => {
-    Session.write({
-      session_id: 'expired-session-id',
-      organization_id: 'stale',
-    })
+    Session.write({ refresh_token: 'expired-refresh-token', organization_id: 'stale' })
 
     const { exitCode, output } = await serve(['org', 'view'])
     expect(exitCode).toBe(1)
@@ -1220,7 +1204,7 @@ describe('org', () => {
   })
 
   test('switch - expired session deletes session', async () => {
-    Session.write({ session_id: 'expired-session-id' })
+    Session.write({ refresh_token: 'expired-refresh-token' })
 
     const { exitCode, output } = await serve(['org', 'switch', 'some-org'])
     expect(exitCode).toBe(1)
@@ -1231,7 +1215,7 @@ describe('org', () => {
   test('switch - nonexistent org', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
-    Session.write({ session_id: session.id })
+    await writeCliSession(session.id)
 
     const { exitCode, output } = await serve(['org', 'switch', 'nonexistent-org'])
     expect(exitCode).toBe(1)
@@ -1242,7 +1226,7 @@ describe('org', () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
     const org = await factory.organization.insert({})
-    Session.write({ session_id: session.id, organization_id: org.id })
+    await writeCliSession(session.id, org.id)
 
     const { output } = await serve(['org', 'list'])
     expect(output).toContain('No organizations.')
@@ -1253,7 +1237,7 @@ describe('org', () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
     const org = await factory.organization.insert({})
-    Session.write({ session_id: session.id, organization_id: org.id })
+    await writeCliSession(session.id, org.id)
 
     const { output } = await serve(['org', 'view'])
     expect(output).toContain('no longer accessible')
@@ -1264,7 +1248,7 @@ describe('org', () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
     const org = await factory.organization.insert({})
-    Session.write({ session_id: session.id, organization_id: org.id })
+    await writeCliSession(session.id, org.id)
 
     const { exitCode, output } = await serve(['example.com'])
     expect(exitCode).toBe(1)
@@ -1292,7 +1276,7 @@ describe('org invite', () => {
       const inviteeSession = await factory.session.insert({
         account_id: invitee.id,
       })
-      Session.write({ session_id: inviteeSession.id })
+      await writeCliSession(inviteeSession.id)
 
       const { output } = await serve(['org', 'invite', 'accept', invite.token])
       expect(output).toContain('Joined')
@@ -1317,7 +1301,7 @@ describe('org invite', () => {
       const inviteeSession = await factory.session.insert({
         account_id: invitee.id,
       })
-      Session.write({ session_id: inviteeSession.id })
+      await writeCliSession(inviteeSession.id)
 
       const { output } = await serve([
         'org',
@@ -1329,7 +1313,7 @@ describe('org invite', () => {
     })
 
     test('expired session deletes session', async () => {
-      Session.write({ session_id: 'expired-session-id' })
+      Session.write({ refresh_token: 'expired-refresh-token' })
 
       const { exitCode, output } = await serve(['org', 'invite', 'accept', 'some-token'])
       expect(exitCode).toBe(1)
@@ -1340,7 +1324,7 @@ describe('org invite', () => {
     test('not found', async () => {
       const account = await factory.account.insert({})
       const session = await factory.session.insert({ account_id: account.id })
-      Session.write({ session_id: session.id })
+      await writeCliSession(session.id)
 
       const { exitCode, output } = await serve(['org', 'invite', 'accept', 'fake-token'])
       expect(exitCode).toBe(1)
@@ -1364,7 +1348,7 @@ describe('org invite', () => {
       const inviteeSession = await factory.session.insert({
         account_id: invitee.id,
       })
-      Session.write({ session_id: inviteeSession.id })
+      await writeCliSession(inviteeSession.id)
 
       await serve(['org', 'invite', 'accept', invite.token])
 
@@ -1382,10 +1366,7 @@ describe('org invite', () => {
     })
 
     test('expired session deletes session', async () => {
-      Session.write({
-        session_id: 'expired-session-id',
-        organization_id: 'stale',
-      })
+      Session.write({ refresh_token: 'expired-refresh-token', organization_id: 'stale' })
 
       const { exitCode, output } = await serve(['org', 'invite', 'create'])
       expect(exitCode).toBe(1)
@@ -1396,7 +1377,7 @@ describe('org invite', () => {
     test('requires active org', async () => {
       const account = await factory.account.insert({})
       const session = await factory.session.insert({ account_id: account.id })
-      Session.write({ session_id: session.id })
+      await writeCliSession(session.id)
 
       const { exitCode, output } = await serve(['org', 'invite', 'create'])
       expect(exitCode).toBe(1)
@@ -1412,7 +1393,7 @@ describe('org invite', () => {
         account_id: account.id,
         role: 'owner',
       })
-      Session.write({ session_id: session.id, organization_id: org.id })
+      await writeCliSession(session.id, org.id)
 
       const { output } = await serve(['org', 'invite', 'create'])
       expect(output).toContain('/invite/')
@@ -1430,7 +1411,7 @@ describe('org invite', () => {
         account_id: account.id,
         role: 'owner',
       })
-      Session.write({ session_id: session.id, organization_id: org.id })
+      await writeCliSession(session.id, org.id)
 
       const { output } = await serve([
         'org',
@@ -1457,7 +1438,7 @@ describe('org invite', () => {
         account_id: account.id,
         role: 'owner',
       })
-      Session.write({ session_id: session.id, organization_id: org.id })
+      await writeCliSession(session.id, org.id)
 
       const { output } = await serve(['org', 'invite', 'create'])
       // Summary: tab-delimited key:value
@@ -1479,7 +1460,7 @@ describe('org invite', () => {
         account_id: account.id,
         role: 'member',
       })
-      Session.write({ session_id: session.id, organization_id: org.id })
+      await writeCliSession(session.id, org.id)
 
       const { exitCode, output } = await serve(['org', 'invite', 'create'])
       expect(exitCode).toBe(1)
@@ -1491,7 +1472,7 @@ describe('org invite', () => {
     test('requires active org', async () => {
       const account = await factory.account.insert({})
       const session = await factory.session.insert({ account_id: account.id })
-      Session.write({ session_id: session.id })
+      await writeCliSession(session.id)
 
       const { exitCode, output } = await serve(['org', 'invite', 'list'])
       expect(exitCode).toBe(1)
@@ -1499,10 +1480,7 @@ describe('org invite', () => {
     })
 
     test('expired session deletes session', async () => {
-      Session.write({
-        session_id: 'expired-session-id',
-        organization_id: 'stale',
-      })
+      Session.write({ refresh_token: 'expired-refresh-token', organization_id: 'stale' })
 
       const { exitCode, output } = await serve(['org', 'invite', 'list'])
       expect(exitCode).toBe(1)
@@ -1519,7 +1497,7 @@ describe('org invite', () => {
         account_id: account.id,
         role: 'member',
       })
-      Session.write({ session_id: session.id, organization_id: org.id })
+      await writeCliSession(session.id, org.id)
 
       const { exitCode, output } = await serve(['org', 'invite', 'list'])
       expect(exitCode).toBe(1)
@@ -1535,7 +1513,7 @@ describe('org invite', () => {
         account_id: account.id,
         role: 'owner',
       })
-      Session.write({ session_id: session.id, organization_id: org.id })
+      await writeCliSession(session.id, org.id)
 
       const { output } = await serve(['org', 'invite', 'list'])
       expect(output).toContain('No invites found')
@@ -1554,7 +1532,7 @@ describe('org invite', () => {
         organization_id: org.id,
         created_by: account.id,
       })
-      Session.write({ session_id: session.id, organization_id: org.id })
+      await writeCliSession(session.id, org.id)
 
       const { output } = await serve(['org', 'invite', 'list'])
       expect(output).toContain(invite.token.slice(0, 12))
@@ -1565,7 +1543,7 @@ describe('org invite', () => {
     test('requires active org', async () => {
       const account = await factory.account.insert({})
       const session = await factory.session.insert({ account_id: account.id })
-      Session.write({ session_id: session.id })
+      await writeCliSession(session.id)
 
       const { exitCode, output } = await serve(['org', 'invite', 'revoke', 'some-id'])
       expect(exitCode).toBe(1)
@@ -1573,10 +1551,7 @@ describe('org invite', () => {
     })
 
     test('expired session deletes session', async () => {
-      Session.write({
-        session_id: 'expired-session-id',
-        organization_id: 'stale',
-      })
+      Session.write({ refresh_token: 'expired-refresh-token', organization_id: 'stale' })
 
       const { exitCode, output } = await serve(['org', 'invite', 'revoke', 'some-id', '--force'])
       expect(exitCode).toBe(1)
@@ -1593,7 +1568,7 @@ describe('org invite', () => {
         account_id: account.id,
         role: 'owner',
       })
-      Session.write({ session_id: session.id, organization_id: org.id })
+      await writeCliSession(session.id, org.id)
 
       const { exitCode, output } = await serve(['org', 'invite', 'revoke'])
       expect(exitCode).toBe(1)
@@ -1613,7 +1588,7 @@ describe('org invite', () => {
         organization_id: org.id,
         created_by: account.id,
       })
-      Session.write({ session_id: session.id, organization_id: org.id })
+      await writeCliSession(session.id, org.id)
 
       const { output } = await serve(['org', 'invite', 'revoke', invite.id, '--force'])
       expect(output).toContain('revoked')
@@ -1628,7 +1603,7 @@ describe('org invite', () => {
         account_id: account.id,
         role: 'owner',
       })
-      Session.write({ session_id: session.id, organization_id: org.id })
+      await writeCliSession(session.id, org.id)
 
       const { exitCode, output } = await serve(['org', 'invite', 'revoke', 'fake-id', '--force'])
       expect(exitCode).toBe(1)
@@ -1642,7 +1617,7 @@ describe('org member', () => {
     test('requires active org', async () => {
       const account = await factory.account.insert({})
       const session = await factory.session.insert({ account_id: account.id })
-      Session.write({ session_id: session.id })
+      await writeCliSession(session.id)
 
       const { exitCode, output } = await serve(['org', 'member', 'add', 'someone'])
       expect(exitCode).toBe(1)
@@ -1650,10 +1625,7 @@ describe('org member', () => {
     })
 
     test('expired session deletes session', async () => {
-      Session.write({
-        session_id: 'expired-session-id',
-        organization_id: 'stale',
-      })
+      Session.write({ refresh_token: 'expired-refresh-token', organization_id: 'stale' })
 
       const { exitCode, output } = await serve(['org', 'member', 'add', 'someone'])
       expect(exitCode).toBe(1)
@@ -1671,7 +1643,7 @@ describe('org member', () => {
         role: 'owner',
       })
       const target = await factory.account.insert({})
-      Session.write({ session_id: session.id, organization_id: org.id })
+      await writeCliSession(session.id, org.id)
 
       const { output } = await serve(['org', 'member', 'add', target.login])
       expect(output).toContain('Added')
@@ -1692,7 +1664,7 @@ describe('org member', () => {
         role: 'owner',
       })
       const target = await factory.account.insert({})
-      Session.write({ session_id: session.id, organization_id: org.id })
+      await writeCliSession(session.id, org.id)
 
       const { output } = await serve(['org', 'member', 'add', target.login, '--role', 'admin'])
       expect(output).toContain('Added')
@@ -1709,7 +1681,7 @@ describe('org member', () => {
         role: 'member',
       })
       const target = await factory.account.insert({})
-      Session.write({ session_id: session.id, organization_id: org.id })
+      await writeCliSession(session.id, org.id)
 
       const { exitCode, output } = await serve(['org', 'member', 'add', target.login])
       expect(exitCode).toBe(1)
@@ -1726,7 +1698,7 @@ describe('org member', () => {
         role: 'admin',
       })
       const target = await factory.account.insert({})
-      Session.write({ session_id: session.id, organization_id: org.id })
+      await writeCliSession(session.id, org.id)
 
       const { exitCode, output } = await serve([
         'org',
@@ -1749,7 +1721,7 @@ describe('org member', () => {
         account_id: owner.id,
         role: 'owner',
       })
-      Session.write({ session_id: session.id, organization_id: org.id })
+      await writeCliSession(session.id, org.id)
 
       const { exitCode, output } = await serve(['org', 'member', 'add', 'nonexistent-login'])
       expect(exitCode).toBe(1)
@@ -1771,7 +1743,7 @@ describe('org member', () => {
         account_id: target.id,
         role: 'member',
       })
-      Session.write({ session_id: session.id, organization_id: org.id })
+      await writeCliSession(session.id, org.id)
 
       const { exitCode, output } = await serve(['org', 'member', 'add', target.login])
       expect(exitCode).toBe(1)
@@ -1783,7 +1755,7 @@ describe('org member', () => {
     test('requires active org', async () => {
       const account = await factory.account.insert({})
       const session = await factory.session.insert({ account_id: account.id })
-      Session.write({ session_id: session.id })
+      await writeCliSession(session.id)
 
       const { exitCode, output } = await serve(['org', 'member', 'list'])
       expect(exitCode).toBe(1)
@@ -1791,10 +1763,7 @@ describe('org member', () => {
     })
 
     test('expired session deletes session', async () => {
-      Session.write({
-        session_id: 'expired-session-id',
-        organization_id: 'stale',
-      })
+      Session.write({ refresh_token: 'expired-refresh-token', organization_id: 'stale' })
 
       const { exitCode, output } = await serve(['org', 'member', 'list'])
       expect(exitCode).toBe(1)
@@ -1811,7 +1780,7 @@ describe('org member', () => {
         account_id: account.id,
         role: 'member',
       })
-      Session.write({ session_id: session.id, organization_id: org.id })
+      await writeCliSession(session.id, org.id)
 
       const { exitCode, output } = await serve(['org', 'member', 'list'])
       expect(exitCode).toBe(1)
@@ -1827,7 +1796,7 @@ describe('org member', () => {
         account_id: owner.id,
         role: 'owner',
       })
-      Session.write({ session_id: session.id, organization_id: org.id })
+      await writeCliSession(session.id, org.id)
 
       const { output } = await serve(['org', 'member', 'list'])
       expect(output).toContain(owner.login)
@@ -1842,7 +1811,7 @@ describe('org member', () => {
         account_id: owner.id,
         role: 'owner',
       })
-      Session.write({ session_id: session.id, organization_id: org.id })
+      await writeCliSession(session.id, org.id)
 
       const { output } = await serve(['org', 'member', 'list'])
       expect(output).toContain(owner.login)
@@ -1853,7 +1822,7 @@ describe('org member', () => {
     test('requires active org', async () => {
       const account = await factory.account.insert({})
       const session = await factory.session.insert({ account_id: account.id })
-      Session.write({ session_id: session.id })
+      await writeCliSession(session.id)
 
       const { exitCode, output } = await serve(['org', 'member', 'remove', 'someone'])
       expect(exitCode).toBe(1)
@@ -1861,10 +1830,7 @@ describe('org member', () => {
     })
 
     test('expired session deletes session', async () => {
-      Session.write({
-        session_id: 'expired-session-id',
-        organization_id: 'stale',
-      })
+      Session.write({ refresh_token: 'expired-refresh-token', organization_id: 'stale' })
 
       const { exitCode, output } = await serve(['org', 'member', 'remove', 'someone'])
       expect(exitCode).toBe(1)
@@ -1887,7 +1853,7 @@ describe('org member', () => {
         account_id: target.id,
         role: 'member',
       })
-      Session.write({ session_id: session.id, organization_id: org.id })
+      await writeCliSession(session.id, org.id)
 
       const { output } = await serve(['org', 'member', 'remove', target.login, '--force'])
       expect(output).toContain('Removed')
@@ -1908,7 +1874,7 @@ describe('org member', () => {
         account_id: admin.id,
         role: 'admin',
       })
-      Session.write({ session_id: session.id, organization_id: org.id })
+      await writeCliSession(session.id, org.id)
 
       const { exitCode, output } = await serve(['org', 'member', 'remove', owner.login, '--force'])
       expect(exitCode).toBe(1)
@@ -1925,7 +1891,7 @@ describe('org member', () => {
         account_id: owner.id,
         role: 'owner',
       })
-      Session.write({ session_id: session.id, organization_id: org.id })
+      await writeCliSession(session.id, org.id)
 
       const { exitCode, output } = await serve(['org', 'member', 'remove', 'nonexistent-login'])
       expect(exitCode).toBe(1)
@@ -1938,7 +1904,7 @@ describe('org member', () => {
     test('requires active org', async () => {
       const account = await factory.account.insert({})
       const session = await factory.session.insert({ account_id: account.id })
-      Session.write({ session_id: session.id })
+      await writeCliSession(session.id)
 
       const { exitCode, output } = await serve([
         'org',
@@ -1953,10 +1919,7 @@ describe('org member', () => {
     })
 
     test('expired session deletes session', async () => {
-      Session.write({
-        session_id: 'expired-session-id',
-        organization_id: 'stale',
-      })
+      Session.write({ refresh_token: 'expired-refresh-token', organization_id: 'stale' })
 
       const { exitCode, output } = await serve([
         'org',
@@ -1986,7 +1949,7 @@ describe('org member', () => {
         account_id: target.id,
         role: 'member',
       })
-      Session.write({ session_id: session.id, organization_id: org.id })
+      await writeCliSession(session.id, org.id)
 
       const { output } = await serve([
         'org',
@@ -2022,7 +1985,7 @@ describe('org member', () => {
         account_id: target.id,
         role: 'member',
       })
-      Session.write({ session_id: session.id, organization_id: org.id })
+      await writeCliSession(session.id, org.id)
 
       const { output } = await serve([
         'org',
@@ -2058,7 +2021,7 @@ describe('org member', () => {
         account_id: otherAdmin.id,
         role: 'admin',
       })
-      Session.write({ session_id: session.id, organization_id: org.id })
+      await writeCliSession(session.id, org.id)
 
       const { output } = await serve([
         'org',
@@ -2088,7 +2051,7 @@ describe('org member', () => {
         account_id: member.id,
         role: 'member',
       })
-      Session.write({ session_id: session.id, organization_id: org.id })
+      await writeCliSession(session.id, org.id)
 
       const { exitCode, output } = await serve([
         'org',
@@ -2117,7 +2080,7 @@ describe('org member', () => {
         account_id: otherOwner.id,
         role: 'owner',
       })
-      Session.write({ session_id: session.id, organization_id: org.id })
+      await writeCliSession(session.id, org.id)
 
       const { exitCode, output } = await serve([
         'org',
@@ -2145,7 +2108,7 @@ describe('token', () => {
   test('list - empty shows create cta', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
-    Session.write({ session_id: session.id })
+    await writeCliSession(session.id)
 
     const { output } = await serve(['token', 'list'])
     expect(output).toContain('No tokens found')
@@ -2155,7 +2118,7 @@ describe('token', () => {
   test('create, list - full flow', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
-    Session.write({ session_id: session.id })
+    await writeCliSession(session.id)
 
     const { output: createOutput } = await serve(['token', 'create', 'my-token'])
     expect(createOutput).toContain('my-token')
@@ -2171,7 +2134,7 @@ describe('token', () => {
   test('list - non-TTY outputs tab-separated values without headers', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
-    Session.write({ session_id: session.id })
+    await writeCliSession(session.id)
 
     await serve(['token', 'create', 'pipe-test'])
 
@@ -2191,7 +2154,7 @@ describe('token', () => {
   test('create - non-TTY outputs tab-delimited summary without callout', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
-    Session.write({ session_id: session.id })
+    await writeCliSession(session.id)
 
     const { output } = await serve(['token', 'create', 'pipe-create'])
     // Summary: tab-delimited key:value
@@ -2214,21 +2177,21 @@ describe('token', () => {
     })
 
     // Create account-level token (no org)
-    Session.write({ session_id: session.id })
+    await writeCliSession(session.id)
     await serve(['token', 'create', 'account-token'])
 
     // Create org-scoped token
-    Session.write({ session_id: session.id, organization_id: org.id })
+    await writeCliSession(session.id, org.id)
     await serve(['token', 'create', 'org-token'])
 
     // List with org active — should only show org token
-    Session.write({ session_id: session.id, organization_id: org.id })
+    await writeCliSession(session.id, org.id)
     const { output: orgList } = await serve(['token', 'list'])
     expect(orgList).toContain('org-token')
     expect(orgList).not.toContain('account-token')
 
     // List without org — should only show account token
-    Session.write({ session_id: session.id, organization_id: undefined })
+    await writeCliSession(session.id)
     const { output: acctList } = await serve(['token', 'list'])
     expect(acctList).toContain('account-token')
     expect(acctList).not.toContain('org-token')
@@ -2237,7 +2200,7 @@ describe('token', () => {
   test('create - duplicate name', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
-    Session.write({ session_id: session.id })
+    await writeCliSession(session.id)
 
     await serve(['token', 'create', 'dupe'])
     const { exitCode, output } = await serve(['token', 'create', 'dupe'])
@@ -2249,14 +2212,14 @@ describe('token', () => {
   test('list - empty', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
-    Session.write({ session_id: session.id })
+    await writeCliSession(session.id)
 
     const { output } = await serve(['token', 'list'])
     expect(output).toContain('No tokens found')
   })
 
   test('list - expired session deletes session', async () => {
-    Session.write({ session_id: 'expired-session-id' })
+    Session.write({ refresh_token: 'expired-refresh-token' })
 
     const { exitCode, output } = await serve(['token', 'list'])
     expect(exitCode).toBe(1)
@@ -2265,7 +2228,7 @@ describe('token', () => {
   })
 
   test('create - expired session deletes session', async () => {
-    Session.write({ session_id: 'expired-session-id' })
+    Session.write({ refresh_token: 'expired-refresh-token' })
 
     const { exitCode, output } = await serve(['token', 'create', 'test'])
     expect(exitCode).toBe(1)
@@ -2274,7 +2237,7 @@ describe('token', () => {
   })
 
   test('delete - expired session deletes session', async () => {
-    Session.write({ session_id: 'expired-session-id' })
+    Session.write({ refresh_token: 'expired-refresh-token' })
 
     const { exitCode, output } = await serve(['token', 'delete', 'test'])
     expect(exitCode).toBe(1)
@@ -2285,7 +2248,7 @@ describe('token', () => {
   test('delete - nonexistent token', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
-    Session.write({ session_id: session.id })
+    await writeCliSession(session.id)
 
     await serve(['token', 'create', 'exists'])
     const { exitCode, output } = await serve(['token', 'delete', 'nope'])
@@ -2296,7 +2259,7 @@ describe('token', () => {
   test('delete - success', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
-    Session.write({ session_id: session.id })
+    await writeCliSession(session.id)
 
     await serve(['token', 'create', 'to-delete'])
 
@@ -2310,7 +2273,7 @@ describe('token', () => {
   test('delete - no tokens', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
-    Session.write({ session_id: session.id })
+    await writeCliSession(session.id)
 
     const { exitCode, output } = await serve(['token', 'delete', 'nope'])
     expect(exitCode).toBe(1)
@@ -2367,3 +2330,21 @@ describe('update', () => {
     expect(output).toContain('Could not determine latest version')
   })
 })
+
+async function writeCliSession(sessionId: string, organizationId?: string) {
+  const session = await db
+    .selectFrom('session')
+    .where('id', '=', sessionId)
+    .select('account_id')
+    .executeTakeFirst()
+  expect(session).toBeDefined()
+  if (!session) throw new Error('Browser session not found')
+
+  const json = await SessionToken.createCliSession(db, session.account_id)
+
+  Session.write({
+    organization_id: organizationId,
+    refresh_token: json.refresh_token,
+    refresh_token_expires_at: json.refresh_token_expires_at,
+  })
+}

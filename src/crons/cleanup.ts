@@ -5,6 +5,7 @@ export async function cleanupExpired(env: Env, _ctx: ExecutionContext) {
   try {
     await Promise.all([
       db.deleteFrom('device_code').where('expires_at', '<', new Date()).execute(),
+      db.deleteFrom('session_access_token').where('expires_at', '<', new Date()).execute(),
       db.deleteFrom('session').where('expires_at', '<', new Date()).execute(),
     ])
   } finally {

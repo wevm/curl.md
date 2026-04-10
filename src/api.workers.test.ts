@@ -22,6 +22,14 @@ const executionCtx = {
   props: {},
 }
 const client = testClient(api, env, executionCtx)
+const clientOrigin = client.api.auth.device.confirm.$url().origin
+
+async function sessionHeaders(sessionId: string, headers?: Record<string, string>) {
+  return {
+    Cookie: await Cookie.generateSigned('curl.session', sessionId, env.COOKIE_SECRET),
+    ...headers,
+  }
+}
 
 afterAll(() => db.destroy())
 
@@ -281,7 +289,7 @@ describe('POST /api/auth/device', () => {
     expect(json.interval).toBe(1)
   })
 
-  test('full flow: create, confirm, exchange for session', async () => {
+  test('full flow: create, confirm, exchange for refresh/access tokens', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
 
@@ -296,27 +304,34 @@ describe('POST /api/auth/device', () => {
       {
         headers: {
           Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
+          Origin: clientOrigin,
         },
       },
     )
     expect(confirmRes.status).toBe(200)
     await expect(confirmRes.json()).resolves.toEqual({ ok: true })
 
-    // 3. Exchange device code for session
+    // 3. Exchange device code for CLI refresh/access credentials
     const tokenRes = await client.api.auth.device.token.$post({
       json: { code: device.code },
     })
     expect(tokenRes.status).toBe(200)
     const tokenData = await tokenRes.json()
-    expect(tokenData).toHaveProperty('session_id')
-    assert('session_id' in tokenData, 'session_id not defined')
+    assert('authorization' in tokenData, 'authorization not defined')
+    assert('expires_at' in tokenData, 'expires_at not defined')
+    assert('refresh_token' in tokenData, 'refresh_token not defined')
+    assert('refresh_token_expires_at' in tokenData, 'refresh_token_expires_at not defined')
+    expect(tokenData.authorization).toMatch(/^Bearer curlmdat_/)
+    expect(tokenData.expires_at).toEqual(expect.any(String))
+    expect(tokenData.refresh_token).toMatch(/^curlmdrt_/)
+    expect(tokenData.refresh_token_expires_at).toEqual(expect.any(String))
 
-    // 4. Verify new session works
+    // 4. Verify the issued access token works
     const meRes = await client.api.auth.me.$get(
       {},
       {
         headers: {
-          Authorization: `Bearer ${tokenData.session_id}`,
+          Authorization: tokenData.authorization,
         },
       },
     )
@@ -325,7 +340,35 @@ describe('POST /api/auth/device', () => {
     expect(meData.account).not.toBeNull()
     expect(meData.account!.id).toBe(account.id)
 
-    // 5. Verify device code was consumed (deleted)
+    // 5. Verify refresh token mints a fresh access token
+    const headersRes = await client.api.auth.headers.$post(
+      {},
+      {
+        headers: {
+          Authorization: `Bearer ${tokenData.refresh_token}`,
+        },
+      },
+    )
+    expect(headersRes.status).toBe(200)
+    const headersData = await headersRes.json()
+    assert('authorization' in headersData, 'authorization not defined')
+    assert('expires_at' in headersData, 'expires_at not defined')
+    expect(headersData.authorization).toMatch(/^Bearer curlmdat_/)
+    expect(headersData.expires_at).toEqual(expect.any(String))
+
+    const refreshedMeRes = await client.api.auth.me.$get(
+      {},
+      {
+        headers: {
+          Authorization: headersData.authorization,
+        },
+      },
+    )
+    expect(refreshedMeRes.status).toBe(200)
+    const refreshedMeData = await refreshedMeRes.json()
+    expect(refreshedMeData.account?.id).toBe(account.id)
+
+    // 6. Verify device code was consumed (deleted)
     const remaining = await db
       .selectFrom('device_code')
       .where('code', '=', device.code)
@@ -350,10 +393,46 @@ describe('POST /api/auth/device/confirm', () => {
   })
 
   test('without session returns 401', async () => {
-    const res = await client.api.auth.device.confirm.$post({
-      json: { user_code: 'ABCD1234' },
-    })
+    const res = await client.api.auth.device.confirm.$post(
+      {
+        json: { user_code: 'ABCD1234' },
+      },
+      {
+        headers: { Origin: clientOrigin },
+      },
+    )
     expect(res.status).toBe(401)
+  })
+
+  test('with cross-origin request returns 403', async () => {
+    const account = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: account.id })
+    const deviceRes = await client.api.auth.device.$post()
+    assert(deviceRes.status === 200, 'expected 200')
+    const device = await deviceRes.json()
+
+    const res = await client.api.auth.device.confirm.$post(
+      { json: { user_code: device.user_code } },
+      {
+        headers: {
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
+          Origin: 'https://evil.example',
+        },
+      },
+    )
+    expect(res.status).toBe(403)
+    await expect(res.json()).resolves.toEqual({
+      code: 'invalid_origin',
+      message: 'Request origin not allowed',
+    })
+
+    await expect(
+      db
+        .selectFrom('device_code')
+        .where('code', '=', device.code)
+        .select('status')
+        .executeTakeFirst(),
+    ).resolves.toEqual({ status: 'pending' })
   })
 
   test('with invalid code returns 404', async () => {
@@ -365,6 +444,7 @@ describe('POST /api/auth/device/confirm', () => {
       {
         headers: {
           Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
+          Origin: clientOrigin,
         },
       },
     )
@@ -410,6 +490,48 @@ describe('POST /api/auth/device/token', () => {
       code: 'expired_token',
       message: expect.any(String),
     })
+  })
+
+  test('approved code can only be redeemed once under concurrency', async () => {
+    const account = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: account.id })
+    const deviceRes = await client.api.auth.device.$post()
+    assert(deviceRes.status === 200, 'expected 200')
+    const device = await deviceRes.json()
+
+    const confirmRes = await client.api.auth.device.confirm.$post(
+      { json: { user_code: device.user_code } },
+      {
+        headers: await sessionHeaders(session.id, { Origin: clientOrigin }),
+      },
+    )
+    expect(confirmRes.status).toBe(200)
+
+    const results = await Promise.all([
+      client.api.auth.device.token.$post({ json: { code: device.code } }),
+      client.api.auth.device.token.$post({ json: { code: device.code } }),
+    ])
+    const statuses = results.map((res) => res.status)
+
+    expect(statuses.filter((status) => status === 200)).toHaveLength(1)
+    expect(statuses.filter((status) => status === 400)).toHaveLength(1)
+
+    const bodies = await Promise.all(
+      results.map(async (res) => ({ json: await res.json(), status: res.status })),
+    )
+    const failure = bodies.find((result) => result.status === 400)
+    expect(failure?.json).toEqual({
+      code: 'expired_token',
+      message: expect.any(String),
+    })
+
+    const cliSessions = await db
+      .selectFrom('session')
+      .where('account_id', '=', account.id)
+      .where('session_type', '=', 'cli')
+      .select('id')
+      .execute()
+    expect(cliSessions).toHaveLength(1)
   })
 
   test('returns 429 when rate limit exceeded', async () => {
@@ -1488,7 +1610,7 @@ describe('POST /api/tokens', () => {
 
     const res = await client.api.tokens.$post(
       { json: { name: 'test token' } },
-      { headers: { Authorization: `Bearer ${session.id}` } },
+      { headers: await sessionHeaders(session.id) },
     )
     expect(res.status).toBe(201)
     const json = await res.json()
@@ -1549,10 +1671,7 @@ describe('POST /api/tokens', () => {
     const res = await client.api.tokens.$post(
       { json: { name: 'org token' } },
       {
-        headers: {
-          Authorization: `Bearer ${session.id}`,
-          'x-organization-id': org.id,
-        },
+        headers: await sessionHeaders(session.id, { 'x-organization-id': org.id }),
       },
     )
     expect(res.status).toBe(201)
@@ -1574,10 +1693,7 @@ describe('POST /api/tokens', () => {
     const res1 = await client.api.tokens.$post(
       { json: { name: 'foo' } },
       {
-        headers: {
-          Authorization: `Bearer ${session.id}`,
-          'x-organization-id': org.id,
-        },
+        headers: await sessionHeaders(session.id, { 'x-organization-id': org.id }),
       },
     )
     expect(res1.status).toBe(201)
@@ -1585,7 +1701,7 @@ describe('POST /api/tokens', () => {
     // Create token "foo" under personal account (no org)
     const res2 = await client.api.tokens.$post(
       { json: { name: 'foo' } },
-      { headers: { Authorization: `Bearer ${session.id}` } },
+      { headers: await sessionHeaders(session.id) },
     )
     expect(res2.status).toBe(201)
   })
@@ -1596,11 +1712,11 @@ describe('POST /api/tokens', () => {
 
     await client.api.tokens.$post(
       { json: { name: 'dupe' } },
-      { headers: { Authorization: `Bearer ${session.id}` } },
+      { headers: await sessionHeaders(session.id) },
     )
     const res = await client.api.tokens.$post(
       { json: { name: 'dupe' } },
-      { headers: { Authorization: `Bearer ${session.id}` } },
+      { headers: await sessionHeaders(session.id) },
     )
     expect(res.status).toBe(409)
     const json = await res.json()
@@ -1627,10 +1743,7 @@ describe('GET /api/tokens', () => {
       name: 'key 2',
     })
 
-    const res = await client.api.tokens.$get(
-      {},
-      { headers: { Authorization: `Bearer ${session.id}` } },
-    )
+    const res = await client.api.tokens.$get({}, { headers: await sessionHeaders(session.id) })
     expect(res.status).toBe(200)
     const json = (await res.json()) as Extract<
       Awaited<ReturnType<typeof res.json>>,
@@ -1666,10 +1779,7 @@ describe('GET /api/tokens', () => {
     const res = await client.api.tokens.$get(
       {},
       {
-        headers: {
-          Authorization: `Bearer ${session.id}`,
-          'x-organization-id': org.id,
-        },
+        headers: await sessionHeaders(session.id, { 'x-organization-id': org.id }),
       },
     )
     expect(res.status).toBe(200)
@@ -1705,10 +1815,7 @@ describe('GET /api/tokens', () => {
       name: 'account key',
     })
 
-    const res = await client.api.tokens.$get(
-      {},
-      { headers: { Authorization: `Bearer ${session.id}` } },
-    )
+    const res = await client.api.tokens.$get({}, { headers: await sessionHeaders(session.id) })
     expect(res.status).toBe(200)
     const json = (await res.json()) as Extract<
       Awaited<ReturnType<typeof res.json>>,
@@ -1737,10 +1844,7 @@ describe('GET /api/tokens', () => {
       deleted_at: new Date().toISOString(),
     })
 
-    const res = await client.api.tokens.$get(
-      {},
-      { headers: { Authorization: `Bearer ${session.id}` } },
-    )
+    const res = await client.api.tokens.$get({}, { headers: await sessionHeaders(session.id) })
     expect(res.status).toBe(200)
     const json = (await res.json()) as Extract<
       Awaited<ReturnType<typeof res.json>>,
@@ -1769,7 +1873,7 @@ describe('DELETE /api/tokens/:id', () => {
 
     const res = await client.api.tokens[':id'].$delete(
       { param: { id: apiKey.id } },
-      { headers: { Authorization: `Bearer ${session.id}` } },
+      { headers: await sessionHeaders(session.id) },
     )
     expect(res.status).toBe(200)
     await expect(res.json()).resolves.toEqual({ ok: true })
@@ -1788,7 +1892,7 @@ describe('DELETE /api/tokens/:id', () => {
 
     const res = await client.api.tokens[':id'].$delete(
       { param: { id: 'nonexistent-id' } },
-      { headers: { Authorization: `Bearer ${session.id}` } },
+      { headers: await sessionHeaders(session.id) },
     )
     expect(res.status).toBe(404)
   })
@@ -1807,7 +1911,7 @@ describe('DELETE /api/tokens/:id', () => {
 
     const res = await client.api.tokens[':id'].$delete(
       { param: { id: apiKey.id } },
-      { headers: { Authorization: `Bearer ${session2.id}` } },
+      { headers: await sessionHeaders(session2.id) },
     )
     expect(res.status).toBe(404)
   })

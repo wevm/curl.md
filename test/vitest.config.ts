@@ -93,6 +93,7 @@ export default defineConfig({
           name: 'plugins',
           include: ['plugins/**/*.test.ts'],
           root,
+          setupFiles: ['plugins/pi/test/setup.ts'],
         },
       },
     ],

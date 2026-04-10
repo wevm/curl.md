@@ -24,7 +24,9 @@ export const Session = {
   dir: () => path.join(dataDir(), 'session.json'),
   read(): Session.Data | null {
     try {
-      return JSON.parse(fs.readFileSync(Session.dir(), 'utf-8'))
+      const session = JSON.parse(fs.readFileSync(Session.dir(), 'utf-8')) as Session.Data
+      if (!session.refresh_token) return null
+      return session
     } catch {
       return null
     }
@@ -45,8 +47,9 @@ export const Session = {
 
 export declare namespace Session {
   export type Data = {
-    session_id: string
     organization_id?: string | undefined
+    refresh_token?: string | undefined
+    refresh_token_expires_at?: string | undefined
   }
 }
 

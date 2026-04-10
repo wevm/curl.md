@@ -2,8 +2,11 @@ import child_process from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { defaultBaseUrl } from 'curl.md'
+import { HttpResponse, http, passthrough } from 'msw'
 import { afterEach, expect, test, vi } from 'vitest'
 import extension from '../extensions/index.ts'
+import { server } from './server.ts'
 
 afterEach(() => {
   vi.restoreAllMocks()
@@ -33,15 +36,19 @@ test('registers curl.md Pi tool and status command', async () => {
 
 test('status command verifies API key auth state', async () => {
   const notify = vi.fn()
-  const fetch = vi.fn().mockResolvedValue(
-    new Response(JSON.stringify({ account: { login: 'tmm' } }), {
-      headers: { 'content-type': 'application/json' },
-      status: 200,
+  const requests: CapturedRequest[] = []
+
+  server.use(
+    http.get('*', async ({ request }) => {
+      const url = new URL(request.url)
+      if (url.origin !== new URL(defaultBaseUrl).origin || url.pathname !== '/api/auth/me')
+        return passthrough()
+      requests.push(captureRequest(request))
+      return HttpResponse.json({ account: { login: 'tmm' } })
     }),
   )
 
   vi.stubEnv('CURLMD_API_KEY', 'curlmd_test_token')
-  vi.stubGlobal('fetch', fetch)
 
   const { commands } = loadExtension()
   await commands[0]!.handler('', {
@@ -50,11 +57,9 @@ test('status command verifies API key auth state', async () => {
     },
   })
 
-  expect(fetch.mock.calls[0]![0]).toBe('https://curl.md/api/auth/me')
-  expect(fetch.mock.calls[0]![1]).toMatchObject({
-    method: 'GET',
-  })
-  expect(getHeaders(fetch.mock.calls[0]![1])).toEqual({
+  expect(requests[0]?.url).toBe(`${defaultBaseUrl}/api/auth/me`)
+  expect(requests[0]?.method).toBe('GET')
+  expect(requests[0]?.headers).toEqual({
     accept: 'application/json',
     authorization: 'Bearer curlmd_test_token',
   })
@@ -66,21 +71,32 @@ test('status command verifies API key auth state', async () => {
 
 test('fetches markdown from curl.md anonymously', async () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'curlmd-pi-anon-'))
-  const fetch = vi.fn().mockResolvedValue(
-    new Response(JSON.stringify({ content: '# Pricing' }), {
-      headers: {
-        'content-type': 'application/json',
-        'x-cache': 'MISS',
-        'x-request-id': 'req_123',
-        'x-tokens-count': '42',
-        'x-tokens-saved': '128',
-      },
-      status: 200,
+  const requests: CapturedRequest[] = []
+
+  server.use(
+    http.get('*', async ({ request }) => {
+      const url = new URL(request.url)
+      if (
+        url.origin !== new URL(defaultBaseUrl).origin ||
+        url.pathname !== '/api/https://example.com/docs'
+      )
+        return passthrough()
+      requests.push(captureRequest(request))
+      return HttpResponse.json(
+        { content: '# Pricing' },
+        {
+          headers: {
+            'x-cache': 'MISS',
+            'x-request-id': 'req_123',
+            'x-tokens-count': '42',
+            'x-tokens-saved': '128',
+          },
+        },
+      )
     }),
   )
   mockExecFileError(new Error('not authenticated'))
   vi.stubEnv('XDG_DATA_HOME', tmpDir)
-  vi.stubGlobal('fetch', fetch)
 
   const { tools } = loadExtension()
   const result = await tools[0]!.execute('call_1', {
@@ -91,14 +107,14 @@ test('fetches markdown from curl.md anonymously', async () => {
     url: 'example.com/docs?q=1',
   })
 
-  expect(fetch).toHaveBeenCalledTimes(1)
-  expect(fetch.mock.calls[0]![0]).toBe(
-    'https://curl.md/api/https%3A%2F%2Fexample.com%2Fdocs%3Fq%3D1?fresh=&keywords=pricing%2Cbilling&mode=rush&objective=compare+plans',
-  )
-  expect(fetch.mock.calls[0]![1]).toMatchObject({
-    method: 'GET',
-  })
-  expect(getHeaders(fetch.mock.calls[0]![1])).toEqual({
+  expect(requests).toHaveLength(1)
+  expect(requests[0]?.url).toContain(`${defaultBaseUrl}/api/https://example.com/docs?q=1`)
+  expect(requests[0]?.url).toContain('fresh=')
+  expect(requests[0]?.url).toContain('keywords=pricing%2Cbilling')
+  expect(requests[0]?.url).toContain('mode=rush')
+  expect(requests[0]?.url).toContain('objective=compare+plans')
+  expect(requests[0]?.method).toBe('GET')
+  expect(requests[0]?.headers).toEqual({
     accept: 'application/json',
   })
   expect(result).toEqual({
@@ -118,18 +134,21 @@ test('fetches markdown from curl.md anonymously', async () => {
 })
 
 test('uses CLI auth headers when available', async () => {
-  const fetch = vi.fn().mockResolvedValue(
-    new Response(JSON.stringify({ content: '# Authenticated' }), {
-      headers: { 'content-type': 'application/json' },
-      status: 200,
+  const requests: CapturedRequest[] = []
+
+  server.use(
+    http.get('*', async ({ request }) => {
+      const url = new URL(request.url)
+      if (url.origin !== new URL(defaultBaseUrl).origin) return passthrough()
+      requests.push(captureRequest(request))
+      return HttpResponse.json({ content: '# Authenticated' })
     }),
   )
   mockExecFileSuccess({
     authorization: 'Bearer cli-session',
-    expires_at: null,
+    expires_at: '2099-01-01T00:00:00.000Z',
     organization_id: 'org_123',
   })
-  vi.stubGlobal('fetch', fetch)
 
   const { tools } = loadExtension()
   await tools[0]!.execute('call_1', { url: 'https://example.com' })
@@ -141,7 +160,7 @@ test('uses CLI auth headers when available', async () => {
     expect.any(Object),
     expect.any(Function),
   )
-  expect(getHeaders(fetch.mock.calls[0]![1])).toEqual({
+  expect(requests[0]?.headers).toEqual({
     accept: 'application/json',
     authorization: 'Bearer cli-session',
     'x-organization-id': 'org_123',
@@ -149,64 +168,114 @@ test('uses CLI auth headers when available', async () => {
 })
 
 test('caches CLI auth headers in memory', async () => {
-  const fetch = vi.fn().mockImplementation(
-    async () =>
-      new Response(JSON.stringify({ content: '# Authenticated' }), {
-        headers: { 'content-type': 'application/json' },
-        status: 200,
-      }),
+  const requests: CapturedRequest[] = []
+
+  server.use(
+    http.get('*', async ({ request }) => {
+      const url = new URL(request.url)
+      if (url.origin !== new URL(defaultBaseUrl).origin) return passthrough()
+      requests.push(captureRequest(request))
+      return HttpResponse.json({ content: '# Authenticated' })
+    }),
   )
   mockExecFileSuccess({
     authorization: 'Bearer cli-session',
-    expires_at: null,
+    expires_at: '2099-01-01T00:00:00.000Z',
     organization_id: null,
   })
-  vi.stubGlobal('fetch', fetch)
 
   const { tools } = loadExtension()
   await tools[0]!.execute('call_1', { url: 'https://example.com/a' })
   await tools[0]!.execute('call_2', { url: 'https://example.com/b' })
 
   expect(child_process.execFile).toHaveBeenCalledTimes(1)
-  expect(fetch).toHaveBeenCalledTimes(2)
+  expect(requests).toHaveLength(2)
+})
+
+test('refreshes CLI auth headers when cached access token is near expiry', async () => {
+  const requests: CapturedRequest[] = []
+
+  server.use(
+    http.get('*', async ({ request }) => {
+      const url = new URL(request.url)
+      if (url.origin !== new URL(defaultBaseUrl).origin) return passthrough()
+      requests.push(captureRequest(request))
+      return HttpResponse.json({ content: '# Authenticated' })
+    }),
+  )
+  let execCalls = 0
+  vi.spyOn(child_process, 'execFile').mockImplementation(((...args: any[]) => {
+    const callback = args.at(-1) as
+      | ((error: null, stdout: string, stderr: string) => void)
+      | undefined
+    execCalls++
+    const callCount = execCalls
+    const expires_at =
+      callCount === 1 ? new Date(Date.now() + 30_000) : new Date(Date.now() + 3600_000)
+    callback?.(
+      null,
+      JSON.stringify({
+        authorization: `Bearer cli-session-${callCount}`,
+        expires_at: expires_at.toISOString(),
+        organization_id: null,
+      }),
+      '',
+    )
+    return {} as child_process.ChildProcess
+  }) as typeof child_process.execFile)
+
+  const { tools } = loadExtension()
+  await tools[0]!.execute('call_1', { url: 'https://example.com/a' })
+  await tools[0]!.execute('call_2', { url: 'https://example.com/b' })
+
+  expect(child_process.execFile).toHaveBeenCalledTimes(2)
+  expect(requests[0]?.headers).toMatchObject({
+    authorization: 'Bearer cli-session-1',
+  })
+  expect(requests[1]?.headers).toMatchObject({
+    authorization: 'Bearer cli-session-2',
+  })
 })
 
 test('prefers CURLMD_API_KEY for authentication', async () => {
-  const fetch = vi.fn().mockResolvedValue(
-    new Response(JSON.stringify({ content: '# Authenticated' }), {
-      headers: { 'content-type': 'application/json' },
-      status: 200,
+  const requests: CapturedRequest[] = []
+
+  server.use(
+    http.get('*', async ({ request }) => {
+      const url = new URL(request.url)
+      if (url.origin !== new URL(defaultBaseUrl).origin) return passthrough()
+      requests.push(captureRequest(request))
+      return HttpResponse.json({ content: '# Authenticated' })
     }),
   )
   vi.stubEnv('CURLMD_API_KEY', 'curlmd_test_token')
-  vi.stubGlobal('fetch', fetch)
 
   const { tools } = loadExtension()
   await tools[0]!.execute('call_1', { url: 'https://example.com' })
 
-  expect(fetch.mock.calls[0]![1]).toMatchObject({
-    method: 'GET',
-  })
-  expect(getHeaders(fetch.mock.calls[0]![1])).toEqual({
+  expect(requests[0]?.method).toBe('GET')
+  expect(requests[0]?.headers).toEqual({
     accept: 'application/json',
     authorization: 'Bearer curlmd_test_token',
   })
 })
 
 test('throws validation issues for bad requests', async () => {
-  const fetch = vi.fn().mockResolvedValue(
-    new Response(
-      JSON.stringify({
-        issues: [{ message: 'Invalid URL', path: 'url' }],
-      }),
-      {
-        headers: { 'content-type': 'application/json' },
-        status: 400,
-      },
-    ),
+  server.use(
+    http.get('*', async ({ request }) => {
+      const url = new URL(request.url)
+      if (url.origin !== new URL(defaultBaseUrl).origin) return passthrough()
+      return HttpResponse.json(
+        {
+          issues: [{ message: 'Invalid URL', path: 'url' }],
+        },
+        {
+          status: 400,
+        },
+      )
+    }),
   )
   mockExecFileError(new Error('not authenticated'))
-  vi.stubGlobal('fetch', fetch)
 
   const { tools } = loadExtension()
 
@@ -216,20 +285,22 @@ test('throws validation issues for bad requests', async () => {
 })
 
 test('throws a helpful authentication error for invalid API keys', async () => {
-  const fetch = vi.fn().mockResolvedValue(
-    new Response(
-      JSON.stringify({
-        code: 'invalid_api_key',
-        message: 'Invalid API key',
-      }),
-      {
-        headers: { 'content-type': 'application/json' },
-        status: 401,
-      },
-    ),
+  server.use(
+    http.get('*', async ({ request }) => {
+      const url = new URL(request.url)
+      if (url.origin !== new URL(defaultBaseUrl).origin) return passthrough()
+      return HttpResponse.json(
+        {
+          code: 'invalid_api_key',
+          message: 'Invalid API key',
+        },
+        {
+          status: 401,
+        },
+      )
+    }),
   )
   vi.stubEnv('CURLMD_API_KEY', 'curlmd_test_token')
-  vi.stubGlobal('fetch', fetch)
 
   const { tools } = loadExtension()
 
@@ -240,24 +311,26 @@ test('throws a helpful authentication error for invalid API keys', async () => {
 
 test('throws a helpful rate limit error for anonymous requests', async () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'curlmd-pi-rate-limit-'))
-  const fetch = vi.fn().mockResolvedValue(
-    new Response(
-      JSON.stringify({
-        code: 'rate_limit_exceeded',
-        message: 'Rate limit exceeded',
-      }),
-      {
-        headers: {
-          'content-type': 'application/json',
-          'retry-after': '12',
+  server.use(
+    http.get('*', async ({ request }) => {
+      const url = new URL(request.url)
+      if (url.origin !== new URL(defaultBaseUrl).origin) return passthrough()
+      return HttpResponse.json(
+        {
+          code: 'rate_limit_exceeded',
+          message: 'Rate limit exceeded',
         },
-        status: 429,
-      },
-    ),
+        {
+          headers: {
+            'retry-after': '12',
+          },
+          status: 429,
+        },
+      )
+    }),
   )
   mockExecFileError(new Error('not authenticated'))
   vi.stubEnv('XDG_DATA_HOME', tmpDir)
-  vi.stubGlobal('fetch', fetch)
 
   const { tools } = loadExtension()
 
@@ -284,9 +357,12 @@ function loadExtension() {
   return { commands, tools }
 }
 
-function getHeaders(init: unknown) {
-  const headers = (init as { headers?: Headers }).headers
-  return headers ? Object.fromEntries(headers.entries()) : {}
+function captureRequest(request: Request): CapturedRequest {
+  return {
+    headers: Object.fromEntries(request.headers.entries()),
+    method: request.method,
+    url: request.url,
+  }
 }
 
 function mockExecFileError(error: Error) {
@@ -307,4 +383,10 @@ function mockExecFileSuccess(json: unknown) {
     callback?.(null, JSON.stringify(json), '')
     return {} as child_process.ChildProcess
   }) as typeof child_process.execFile)
+}
+
+type CapturedRequest = {
+  headers: Record<string, string>
+  method: string
+  url: string
 }
