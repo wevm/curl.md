@@ -1,9 +1,15 @@
 import { customAlphabet } from 'nanoid'
+import * as Nanoid from '#lib/nanoid.ts'
 
 export const prefix = 'curlmd_'
+const tokenPattern = new RegExp(`^${prefix}[${Nanoid.alphabet}]{32}$`)
 
 export function generate(): string {
-  return `${prefix}${customAlphabet('0123456789abcdefghijklmnopqrstuvwxyz', 32)()}`
+  return `${prefix}${customAlphabet(Nanoid.alphabet, 32)()}`
+}
+
+export function isApiKey(value: string): boolean {
+  return tokenPattern.test(value)
 }
 
 export async function hash(token: string): Promise<string> {

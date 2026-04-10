@@ -1,13 +1,14 @@
 import { customAlphabet } from 'nanoid'
 import type { Database } from '#db/client.ts'
 import * as ApiKey from '#lib/apiKey.ts'
+import * as Nanoid from '#lib/nanoid.ts'
 
-const accessTokenPrefix = 'curlmdat_'
+export const accessTokenPrefix = 'curlmd_at_'
 const refreshTokenPrefix = 'curlmdrt_'
-const tokenBody = customAlphabet('0123456789abcdefghijklmnopqrstuvwxyz', 40)
+const tokenBody = customAlphabet(Nanoid.alphabet, 40)
 
-export const accessTokenTtlMs = 15 * 60 * 1000
-export const refreshTokenTtlMs = 30 * 24 * 60 * 60 * 1000
+const accessTokenTtlMs = 15 * 60 * 1000 // 15 minutes
+const refreshTokenTtlMs = 30 * 24 * 60 * 60 * 1000 // 30 days
 
 export async function createCliSession(db: Database, accountId: string) {
   const accessToken = `${accessTokenPrefix}${tokenBody()}`
@@ -60,20 +61,6 @@ export async function deleteCliSessionByToken(db: Database, token: string) {
     .where('session_type', '=', 'cli')
     .where('refresh_token_hash', '=', tokenHash)
     .execute()
-}
-
-export async function findSessionByAccessToken(db: Database, token: string) {
-  const tokenHash = await ApiKey.hash(token)
-
-  return await db
-    .selectFrom('session_access_token')
-    .innerJoin('session', 'session.id', 'session_access_token.session_id')
-    .where('session.session_type', '=', 'cli')
-    .where('session_access_token.expires_at', '>', new Date())
-    .where('session.expires_at', '>', new Date())
-    .where('session_access_token.token_hash', '=', tokenHash)
-    .select('session.account_id')
-    .executeTakeFirst()
 }
 
 export async function mintAuthHeaders(db: Database, token: string) {

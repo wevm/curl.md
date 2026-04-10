@@ -1,6 +1,7 @@
 import { HttpResponse, http, passthrough } from 'msw'
 import { afterAll, beforeEach, describe, expect, inject, onTestFinished, test, vi } from 'vitest'
 import { createClient } from '#db/client.ts'
+import type { DB } from '#db/types.gen.ts'
 import * as ApiKey from '#lib/apiKey.ts'
 import * as Nanoid from '#lib/nanoid.ts'
 import * as SessionToken from '#lib/sessionToken.ts'
@@ -237,7 +238,7 @@ test('rate limit 429 login cta when unauthenticated', async () => {
 test('rate limit 429 credits add cta when authenticated', async () => {
   const account = await factory.account.insert({})
   const session = await factory.session.insert({ account_id: account.id })
-  await writeCliSession(session.id)
+  await writeCliSession(session)
   server.use(
     http.get('*', async ({ request }) => {
       const url = new URL(request.url)
@@ -478,13 +479,13 @@ describe('auth', () => {
       organization_id: org.id,
     })
     const session = await factory.session.insert({ account_id: account.id })
-    await writeCliSession(session.id, org.id)
+    await writeCliSession(session, org.id)
 
     const { output } = await serve(['auth', 'headers', '--json'])
     const json = JSON.parse(output)
     const data = json.data ?? json
 
-    expect(data.authorization).toMatch(/^Bearer curlmdat_/)
+    expect(data.authorization).toMatch(/^Bearer curlmd_at_/)
     expect(data.expires_at).toEqual(expect.any(String))
     expect(data.organization_id).toBe(org.id)
     expect(Session.read()).toMatchObject({
@@ -539,7 +540,7 @@ describe('auth', () => {
   test('logout - deletes session', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
-    await writeCliSession(session.id)
+    await writeCliSession(session)
 
     // Simulate pressing Enter
     setTimeout(() => process.stdin.emit('data', '\n'), 100)
@@ -601,7 +602,7 @@ describe('auth', () => {
   test('login - already authenticated', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
-    await writeCliSession(session.id)
+    await writeCliSession(session)
 
     const { output } = await serve(['auth', 'login'])
     expect(output).toContain('Already logged in')
@@ -751,7 +752,7 @@ describe('auth', () => {
         return HttpResponse.json(cliSession)
       }),
       http.get(`${env.CURLMD_BASE_URL}/api/auth/me`, async ({ request }) => {
-        expect(request.headers.get('authorization')).toMatch(/^Bearer curlmdat_/)
+        expect(request.headers.get('authorization')).toMatch(/^Bearer curlmd_at_/)
         return HttpResponse.json({
           account: {
             login: account.login,
@@ -797,7 +798,7 @@ describe('credits', () => {
       .set({ balance_mills: 12500 })
       .where('id', '=', account.id)
       .execute()
-    await writeCliSession(session.id)
+    await writeCliSession(session)
 
     const { output } = await serve(['credits', 'status'])
     expect(output).toContain('$12.500')
@@ -806,7 +807,7 @@ describe('credits', () => {
   test('check - zero balance', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
-    await writeCliSession(session.id)
+    await writeCliSession(session)
 
     const { output } = await serve(['credits', 'status'])
     expect(output).toContain('No credits')
@@ -821,7 +822,7 @@ describe('credits', () => {
       account_id: account.id,
       role: 'member',
     })
-    await writeCliSession(session.id, org.id)
+    await writeCliSession(session, org.id)
 
     const { exitCode, output } = await serve(['credits', 'status'])
     expect(exitCode).toBe(1)
@@ -837,7 +838,7 @@ describe('credits', () => {
       account_id: account.id,
       role: 'member',
     })
-    await writeCliSession(session.id, org.id)
+    await writeCliSession(session, org.id)
 
     const { exitCode, output } = await serve(['credits', 'add', '5'])
     expect(exitCode).toBe(1)
@@ -853,7 +854,7 @@ describe('credits', () => {
   test('add - browser flow (no saved card)', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
-    await writeCliSession(session.id)
+    await writeCliSession(session)
 
     const openUrlSpy = vi.spyOn(utils, 'openUrl').mockImplementation(() => {})
     const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
@@ -895,7 +896,7 @@ describe('credits', () => {
   test('add - charges saved card', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
-    await writeCliSession(session.id)
+    await writeCliSession(session)
 
     const selectSpy = vi.spyOn(UI, 'select').mockResolvedValue(0)
     const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
@@ -934,7 +935,7 @@ describe('credits', () => {
   test('add - surfaces declined saved card message', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
-    await writeCliSession(session.id)
+    await writeCliSession(session)
 
     const selectSpy = vi.spyOn(UI, 'select').mockResolvedValue(0)
 
@@ -977,7 +978,7 @@ describe('credits', () => {
   test('add - falls back to browser on requires_action', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
-    await writeCliSession(session.id)
+    await writeCliSession(session)
 
     const selectSpy = vi.spyOn(UI, 'select').mockResolvedValue(0)
     const openUrlSpy = vi.spyOn(utils, 'openUrl').mockImplementation(() => {})
@@ -1022,7 +1023,7 @@ describe('credits', () => {
   test('add - user selects new payment method', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
-    await writeCliSession(session.id)
+    await writeCliSession(session)
 
     const selectSpy = vi.spyOn(UI, 'select').mockResolvedValue(2)
     const openUrlSpy = vi.spyOn(utils, 'openUrl').mockImplementation(() => {})
@@ -1082,7 +1083,7 @@ describe('org', () => {
   test('list - empty when no orgs', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
-    await writeCliSession(session.id)
+    await writeCliSession(session)
 
     const { output } = await serve(['org', 'list'])
     expect(output).toContain('No organizations.')
@@ -1091,7 +1092,7 @@ describe('org', () => {
   test('view - no active org, no orgs', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
-    await writeCliSession(session.id)
+    await writeCliSession(session)
 
     const { output } = await serve(['org', 'view'])
     expect(output).toContain('No active organization')
@@ -1106,7 +1107,7 @@ describe('org', () => {
       organization_id: org.id,
       account_id: account.id,
     })
-    await writeCliSession(session.id)
+    await writeCliSession(session)
 
     const { output } = await serve(['org', 'view'])
     expect(output).toContain('No active organization')
@@ -1116,7 +1117,7 @@ describe('org', () => {
   test('create, list, switch, show - full flow', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
-    await writeCliSession(session.id)
+    await writeCliSession(session)
 
     const login = `test-org${Nanoid.generate()}`
     const { output: createOutput } = await serve(['org', 'create', login, '--name', 'Test Org'])
@@ -1139,7 +1140,7 @@ describe('org', () => {
   test('list - non-TTY outputs tab-separated values without headers', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
-    await writeCliSession(session.id)
+    await writeCliSession(session)
 
     const login = `nontty-org${Nanoid.generate()}`
     await serve(['org', 'create', login, '--name', 'Test'])
@@ -1156,7 +1157,7 @@ describe('org', () => {
   test('create - invalid login', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
-    await writeCliSession(session.id)
+    await writeCliSession(session)
 
     const { exitCode, output } = await serve(['org', 'create', '!'])
     expect(exitCode).toBe(1)
@@ -1167,7 +1168,7 @@ describe('org', () => {
   test('create - duplicate login', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
-    await writeCliSession(session.id)
+    await writeCliSession(session)
 
     const login = `dup-org${Nanoid.generate()}`
     await serve(['org', 'create', login])
@@ -1215,7 +1216,7 @@ describe('org', () => {
   test('switch - nonexistent org', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
-    await writeCliSession(session.id)
+    await writeCliSession(session)
 
     const { exitCode, output } = await serve(['org', 'switch', 'nonexistent-org'])
     expect(exitCode).toBe(1)
@@ -1226,7 +1227,7 @@ describe('org', () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
     const org = await factory.organization.insert({})
-    await writeCliSession(session.id, org.id)
+    await writeCliSession(session, org.id)
 
     const { output } = await serve(['org', 'list'])
     expect(output).toContain('No organizations.')
@@ -1237,7 +1238,7 @@ describe('org', () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
     const org = await factory.organization.insert({})
-    await writeCliSession(session.id, org.id)
+    await writeCliSession(session, org.id)
 
     const { output } = await serve(['org', 'view'])
     expect(output).toContain('no longer accessible')
@@ -1248,7 +1249,7 @@ describe('org', () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
     const org = await factory.organization.insert({})
-    await writeCliSession(session.id, org.id)
+    await writeCliSession(session, org.id)
 
     const { exitCode, output } = await serve(['example.com'])
     expect(exitCode).toBe(1)
@@ -1276,7 +1277,7 @@ describe('org invite', () => {
       const inviteeSession = await factory.session.insert({
         account_id: invitee.id,
       })
-      await writeCliSession(inviteeSession.id)
+      await writeCliSession(inviteeSession)
 
       const { output } = await serve(['org', 'invite', 'accept', invite.token])
       expect(output).toContain('Joined')
@@ -1301,7 +1302,7 @@ describe('org invite', () => {
       const inviteeSession = await factory.session.insert({
         account_id: invitee.id,
       })
-      await writeCliSession(inviteeSession.id)
+      await writeCliSession(inviteeSession)
 
       const { output } = await serve([
         'org',
@@ -1324,7 +1325,7 @@ describe('org invite', () => {
     test('not found', async () => {
       const account = await factory.account.insert({})
       const session = await factory.session.insert({ account_id: account.id })
-      await writeCliSession(session.id)
+      await writeCliSession(session)
 
       const { exitCode, output } = await serve(['org', 'invite', 'accept', 'fake-token'])
       expect(exitCode).toBe(1)
@@ -1348,7 +1349,7 @@ describe('org invite', () => {
       const inviteeSession = await factory.session.insert({
         account_id: invitee.id,
       })
-      await writeCliSession(inviteeSession.id)
+      await writeCliSession(inviteeSession)
 
       await serve(['org', 'invite', 'accept', invite.token])
 
@@ -1377,7 +1378,7 @@ describe('org invite', () => {
     test('requires active org', async () => {
       const account = await factory.account.insert({})
       const session = await factory.session.insert({ account_id: account.id })
-      await writeCliSession(session.id)
+      await writeCliSession(session)
 
       const { exitCode, output } = await serve(['org', 'invite', 'create'])
       expect(exitCode).toBe(1)
@@ -1393,7 +1394,7 @@ describe('org invite', () => {
         account_id: account.id,
         role: 'owner',
       })
-      await writeCliSession(session.id, org.id)
+      await writeCliSession(session, org.id)
 
       const { output } = await serve(['org', 'invite', 'create'])
       expect(output).toContain('/invite/')
@@ -1411,7 +1412,7 @@ describe('org invite', () => {
         account_id: account.id,
         role: 'owner',
       })
-      await writeCliSession(session.id, org.id)
+      await writeCliSession(session, org.id)
 
       const { output } = await serve([
         'org',
@@ -1438,7 +1439,7 @@ describe('org invite', () => {
         account_id: account.id,
         role: 'owner',
       })
-      await writeCliSession(session.id, org.id)
+      await writeCliSession(session, org.id)
 
       const { output } = await serve(['org', 'invite', 'create'])
       // Summary: tab-delimited key:value
@@ -1460,7 +1461,7 @@ describe('org invite', () => {
         account_id: account.id,
         role: 'member',
       })
-      await writeCliSession(session.id, org.id)
+      await writeCliSession(session, org.id)
 
       const { exitCode, output } = await serve(['org', 'invite', 'create'])
       expect(exitCode).toBe(1)
@@ -1472,7 +1473,7 @@ describe('org invite', () => {
     test('requires active org', async () => {
       const account = await factory.account.insert({})
       const session = await factory.session.insert({ account_id: account.id })
-      await writeCliSession(session.id)
+      await writeCliSession(session)
 
       const { exitCode, output } = await serve(['org', 'invite', 'list'])
       expect(exitCode).toBe(1)
@@ -1497,7 +1498,7 @@ describe('org invite', () => {
         account_id: account.id,
         role: 'member',
       })
-      await writeCliSession(session.id, org.id)
+      await writeCliSession(session, org.id)
 
       const { exitCode, output } = await serve(['org', 'invite', 'list'])
       expect(exitCode).toBe(1)
@@ -1513,7 +1514,7 @@ describe('org invite', () => {
         account_id: account.id,
         role: 'owner',
       })
-      await writeCliSession(session.id, org.id)
+      await writeCliSession(session, org.id)
 
       const { output } = await serve(['org', 'invite', 'list'])
       expect(output).toContain('No invites found')
@@ -1532,7 +1533,7 @@ describe('org invite', () => {
         organization_id: org.id,
         created_by: account.id,
       })
-      await writeCliSession(session.id, org.id)
+      await writeCliSession(session, org.id)
 
       const { output } = await serve(['org', 'invite', 'list'])
       expect(output).toContain(invite.token.slice(0, 12))
@@ -1543,7 +1544,7 @@ describe('org invite', () => {
     test('requires active org', async () => {
       const account = await factory.account.insert({})
       const session = await factory.session.insert({ account_id: account.id })
-      await writeCliSession(session.id)
+      await writeCliSession(session)
 
       const { exitCode, output } = await serve(['org', 'invite', 'revoke', 'some-id'])
       expect(exitCode).toBe(1)
@@ -1568,7 +1569,7 @@ describe('org invite', () => {
         account_id: account.id,
         role: 'owner',
       })
-      await writeCliSession(session.id, org.id)
+      await writeCliSession(session, org.id)
 
       const { exitCode, output } = await serve(['org', 'invite', 'revoke'])
       expect(exitCode).toBe(1)
@@ -1588,7 +1589,7 @@ describe('org invite', () => {
         organization_id: org.id,
         created_by: account.id,
       })
-      await writeCliSession(session.id, org.id)
+      await writeCliSession(session, org.id)
 
       const { output } = await serve(['org', 'invite', 'revoke', invite.id, '--force'])
       expect(output).toContain('revoked')
@@ -1603,7 +1604,7 @@ describe('org invite', () => {
         account_id: account.id,
         role: 'owner',
       })
-      await writeCliSession(session.id, org.id)
+      await writeCliSession(session, org.id)
 
       const { exitCode, output } = await serve(['org', 'invite', 'revoke', 'fake-id', '--force'])
       expect(exitCode).toBe(1)
@@ -1617,7 +1618,7 @@ describe('org member', () => {
     test('requires active org', async () => {
       const account = await factory.account.insert({})
       const session = await factory.session.insert({ account_id: account.id })
-      await writeCliSession(session.id)
+      await writeCliSession(session)
 
       const { exitCode, output } = await serve(['org', 'member', 'add', 'someone'])
       expect(exitCode).toBe(1)
@@ -1643,7 +1644,7 @@ describe('org member', () => {
         role: 'owner',
       })
       const target = await factory.account.insert({})
-      await writeCliSession(session.id, org.id)
+      await writeCliSession(session, org.id)
 
       const { output } = await serve(['org', 'member', 'add', target.login])
       expect(output).toContain('Added')
@@ -1664,7 +1665,7 @@ describe('org member', () => {
         role: 'owner',
       })
       const target = await factory.account.insert({})
-      await writeCliSession(session.id, org.id)
+      await writeCliSession(session, org.id)
 
       const { output } = await serve(['org', 'member', 'add', target.login, '--role', 'admin'])
       expect(output).toContain('Added')
@@ -1681,7 +1682,7 @@ describe('org member', () => {
         role: 'member',
       })
       const target = await factory.account.insert({})
-      await writeCliSession(session.id, org.id)
+      await writeCliSession(session, org.id)
 
       const { exitCode, output } = await serve(['org', 'member', 'add', target.login])
       expect(exitCode).toBe(1)
@@ -1698,7 +1699,7 @@ describe('org member', () => {
         role: 'admin',
       })
       const target = await factory.account.insert({})
-      await writeCliSession(session.id, org.id)
+      await writeCliSession(session, org.id)
 
       const { exitCode, output } = await serve([
         'org',
@@ -1721,7 +1722,7 @@ describe('org member', () => {
         account_id: owner.id,
         role: 'owner',
       })
-      await writeCliSession(session.id, org.id)
+      await writeCliSession(session, org.id)
 
       const { exitCode, output } = await serve(['org', 'member', 'add', 'nonexistent-login'])
       expect(exitCode).toBe(1)
@@ -1743,7 +1744,7 @@ describe('org member', () => {
         account_id: target.id,
         role: 'member',
       })
-      await writeCliSession(session.id, org.id)
+      await writeCliSession(session, org.id)
 
       const { exitCode, output } = await serve(['org', 'member', 'add', target.login])
       expect(exitCode).toBe(1)
@@ -1755,7 +1756,7 @@ describe('org member', () => {
     test('requires active org', async () => {
       const account = await factory.account.insert({})
       const session = await factory.session.insert({ account_id: account.id })
-      await writeCliSession(session.id)
+      await writeCliSession(session)
 
       const { exitCode, output } = await serve(['org', 'member', 'list'])
       expect(exitCode).toBe(1)
@@ -1780,7 +1781,7 @@ describe('org member', () => {
         account_id: account.id,
         role: 'member',
       })
-      await writeCliSession(session.id, org.id)
+      await writeCliSession(session, org.id)
 
       const { exitCode, output } = await serve(['org', 'member', 'list'])
       expect(exitCode).toBe(1)
@@ -1796,7 +1797,7 @@ describe('org member', () => {
         account_id: owner.id,
         role: 'owner',
       })
-      await writeCliSession(session.id, org.id)
+      await writeCliSession(session, org.id)
 
       const { output } = await serve(['org', 'member', 'list'])
       expect(output).toContain(owner.login)
@@ -1811,7 +1812,7 @@ describe('org member', () => {
         account_id: owner.id,
         role: 'owner',
       })
-      await writeCliSession(session.id, org.id)
+      await writeCliSession(session, org.id)
 
       const { output } = await serve(['org', 'member', 'list'])
       expect(output).toContain(owner.login)
@@ -1822,7 +1823,7 @@ describe('org member', () => {
     test('requires active org', async () => {
       const account = await factory.account.insert({})
       const session = await factory.session.insert({ account_id: account.id })
-      await writeCliSession(session.id)
+      await writeCliSession(session)
 
       const { exitCode, output } = await serve(['org', 'member', 'remove', 'someone'])
       expect(exitCode).toBe(1)
@@ -1853,7 +1854,7 @@ describe('org member', () => {
         account_id: target.id,
         role: 'member',
       })
-      await writeCliSession(session.id, org.id)
+      await writeCliSession(session, org.id)
 
       const { output } = await serve(['org', 'member', 'remove', target.login, '--force'])
       expect(output).toContain('Removed')
@@ -1874,7 +1875,7 @@ describe('org member', () => {
         account_id: admin.id,
         role: 'admin',
       })
-      await writeCliSession(session.id, org.id)
+      await writeCliSession(session, org.id)
 
       const { exitCode, output } = await serve(['org', 'member', 'remove', owner.login, '--force'])
       expect(exitCode).toBe(1)
@@ -1891,7 +1892,7 @@ describe('org member', () => {
         account_id: owner.id,
         role: 'owner',
       })
-      await writeCliSession(session.id, org.id)
+      await writeCliSession(session, org.id)
 
       const { exitCode, output } = await serve(['org', 'member', 'remove', 'nonexistent-login'])
       expect(exitCode).toBe(1)
@@ -1904,7 +1905,7 @@ describe('org member', () => {
     test('requires active org', async () => {
       const account = await factory.account.insert({})
       const session = await factory.session.insert({ account_id: account.id })
-      await writeCliSession(session.id)
+      await writeCliSession(session)
 
       const { exitCode, output } = await serve([
         'org',
@@ -1949,7 +1950,7 @@ describe('org member', () => {
         account_id: target.id,
         role: 'member',
       })
-      await writeCliSession(session.id, org.id)
+      await writeCliSession(session, org.id)
 
       const { output } = await serve([
         'org',
@@ -1985,7 +1986,7 @@ describe('org member', () => {
         account_id: target.id,
         role: 'member',
       })
-      await writeCliSession(session.id, org.id)
+      await writeCliSession(session, org.id)
 
       const { output } = await serve([
         'org',
@@ -2021,7 +2022,7 @@ describe('org member', () => {
         account_id: otherAdmin.id,
         role: 'admin',
       })
-      await writeCliSession(session.id, org.id)
+      await writeCliSession(session, org.id)
 
       const { output } = await serve([
         'org',
@@ -2051,7 +2052,7 @@ describe('org member', () => {
         account_id: member.id,
         role: 'member',
       })
-      await writeCliSession(session.id, org.id)
+      await writeCliSession(session, org.id)
 
       const { exitCode, output } = await serve([
         'org',
@@ -2080,7 +2081,7 @@ describe('org member', () => {
         account_id: otherOwner.id,
         role: 'owner',
       })
-      await writeCliSession(session.id, org.id)
+      await writeCliSession(session, org.id)
 
       const { exitCode, output } = await serve([
         'org',
@@ -2108,7 +2109,7 @@ describe('token', () => {
   test('list - empty shows create cta', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
-    await writeCliSession(session.id)
+    await writeCliSession(session)
 
     const { output } = await serve(['token', 'list'])
     expect(output).toContain('No tokens found')
@@ -2118,7 +2119,7 @@ describe('token', () => {
   test('create, list - full flow', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
-    await writeCliSession(session.id)
+    await writeCliSession(session)
 
     const { output: createOutput } = await serve(['token', 'create', 'my-token'])
     expect(createOutput).toContain('my-token')
@@ -2134,7 +2135,7 @@ describe('token', () => {
   test('list - non-TTY outputs tab-separated values without headers', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
-    await writeCliSession(session.id)
+    await writeCliSession(session)
 
     await serve(['token', 'create', 'pipe-test'])
 
@@ -2154,7 +2155,7 @@ describe('token', () => {
   test('create - non-TTY outputs tab-delimited summary without callout', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
-    await writeCliSession(session.id)
+    await writeCliSession(session)
 
     const { output } = await serve(['token', 'create', 'pipe-create'])
     // Summary: tab-delimited key:value
@@ -2177,21 +2178,21 @@ describe('token', () => {
     })
 
     // Create account-level token (no org)
-    await writeCliSession(session.id)
+    await writeCliSession(session)
     await serve(['token', 'create', 'account-token'])
 
     // Create org-scoped token
-    await writeCliSession(session.id, org.id)
+    await writeCliSession(session, org.id)
     await serve(['token', 'create', 'org-token'])
 
     // List with org active — should only show org token
-    await writeCliSession(session.id, org.id)
+    await writeCliSession(session, org.id)
     const { output: orgList } = await serve(['token', 'list'])
     expect(orgList).toContain('org-token')
     expect(orgList).not.toContain('account-token')
 
     // List without org — should only show account token
-    await writeCliSession(session.id)
+    await writeCliSession(session)
     const { output: acctList } = await serve(['token', 'list'])
     expect(acctList).toContain('account-token')
     expect(acctList).not.toContain('org-token')
@@ -2200,7 +2201,7 @@ describe('token', () => {
   test('create - duplicate name', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
-    await writeCliSession(session.id)
+    await writeCliSession(session)
 
     await serve(['token', 'create', 'dupe'])
     const { exitCode, output } = await serve(['token', 'create', 'dupe'])
@@ -2212,7 +2213,7 @@ describe('token', () => {
   test('list - empty', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
-    await writeCliSession(session.id)
+    await writeCliSession(session)
 
     const { output } = await serve(['token', 'list'])
     expect(output).toContain('No tokens found')
@@ -2248,7 +2249,7 @@ describe('token', () => {
   test('delete - nonexistent token', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
-    await writeCliSession(session.id)
+    await writeCliSession(session)
 
     await serve(['token', 'create', 'exists'])
     const { exitCode, output } = await serve(['token', 'delete', 'nope'])
@@ -2259,7 +2260,7 @@ describe('token', () => {
   test('delete - success', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
-    await writeCliSession(session.id)
+    await writeCliSession(session)
 
     await serve(['token', 'create', 'to-delete'])
 
@@ -2273,7 +2274,7 @@ describe('token', () => {
   test('delete - no tokens', async () => {
     const account = await factory.account.insert({})
     const session = await factory.session.insert({ account_id: account.id })
-    await writeCliSession(session.id)
+    await writeCliSession(session)
 
     const { exitCode, output } = await serve(['token', 'delete', 'nope'])
     expect(exitCode).toBe(1)
@@ -2331,17 +2332,8 @@ describe('update', () => {
   })
 })
 
-async function writeCliSession(sessionId: string, organizationId?: string) {
-  const session = await db
-    .selectFrom('session')
-    .where('id', '=', sessionId)
-    .select('account_id')
-    .executeTakeFirst()
-  expect(session).toBeDefined()
-  if (!session) throw new Error('Browser session not found')
-
+async function writeCliSession(session: Pick<DB.session, 'account_id'>, organizationId?: string) {
   const json = await SessionToken.createCliSession(db, session.account_id)
-
   Session.write({
     organization_id: organizationId,
     refresh_token: json.refresh_token,

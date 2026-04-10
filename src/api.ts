@@ -24,33 +24,11 @@ import * as StripeUtils from '#lib/stripe.ts'
 import * as Md from '#md/index.ts'
 import * as Og from '#og.tsx'
 
-function getBearerToken(c: Parameters<typeof Cookie.get>[0]) {
-  const authorizationHeader = c.req.header('authorization')
-  return authorizationHeader?.startsWith('Bearer ')
-    ? authorizationHeader.replace('Bearer ', '')
-    : undefined
-}
-
-function getRequestOrigin(c: Parameters<typeof Cookie.get>[0]) {
-  const url = new URL(c.req.url)
-  const proto = c.req.header('x-forwarded-proto')
-  if (proto) url.protocol = `${proto}:`
-  return url.origin
-}
-
-function getHeaderOrigin(value: string | undefined) {
-  if (!value) return null
-  try {
-    return new URL(value).origin
-  } catch {
-    return null
-  }
-}
-
 export const api = new Hono<{
   Bindings: Cloudflare.Env
   Variables: {
     api_key_id: string | null
+    bearer_token: string | null
     db: Database
     organization_id: string | null
     session: Pick<DB.session, 'account_id'> | null
@@ -64,17 +42,25 @@ export const api = new Hono<{
     c.set('db', createClient(c.env.DB.connectionString))
 
     c.set('api_key_id', null)
+    c.set('bearer_token', null)
     c.set('organization_id', null)
     c.set('session', null)
 
-    // Try cookie → session lookup
+    // Extract auth inputs once for the request.
     const cookie = (await Cookie.getSigned(c, c.env.COOKIE_SECRET, 'curl.session')) || undefined
-    const bearerToken = getBearerToken(c)
-    const token = bearerToken ?? c.req.query('token') ?? c.req.query('t')
+    const bearerToken = (() => {
+      // CLI and API clients authenticate with Bearer tokens.
+      const authorizationHeader = c.req.header('authorization')
+      return authorizationHeader?.startsWith('Bearer ')
+        ? authorizationHeader.replace('Bearer ', '')
+        : undefined
+    })()
+    if (bearerToken) c.set('bearer_token', bearerToken)
+    const authToken = bearerToken ?? c.req.query('token') ?? c.req.query('t')
 
-    // Try API key (curlmd_ prefix)
-    if (!cookie && token?.startsWith(ApiKey.prefix)) {
-      const keyHash = await ApiKey.hash(token)
+    // 1. API keys never override a browser session cookie.
+    if (!cookie && authToken && ApiKey.isApiKey(authToken)) {
+      const keyHash = await ApiKey.hash(authToken)
       const apiKey = await c.var.db
         .selectFrom('api_key')
         .where('key_hash', '=', keyHash)
@@ -100,7 +86,7 @@ export const api = new Hono<{
       return
     }
 
-    // Browser sessions are cookie-bound. Bearer auth is reserved for API keys and short-lived CLI access tokens.
+    // 2. Resolve the browser session from the signed cookie.
     if (cookie) {
       const session =
         (await c.var.db
@@ -112,8 +98,20 @@ export const api = new Hono<{
       c.set('session', session)
     }
 
+    // 3. If the cookie was missing or stale, fall back to CLI bearer auth.
     if (!c.var.session && bearerToken) {
-      const session = (await SessionToken.findSessionByAccessToken(c.var.db, bearerToken)) ?? null
+      // CLI access tokens are short-lived session_access_token rows tied to cli sessions.
+      const tokenHash = await ApiKey.hash(bearerToken)
+      const session =
+        (await c.var.db
+          .selectFrom('session_access_token')
+          .innerJoin('session', 'session.id', 'session_access_token.session_id')
+          .where('session.session_type', '=', 'cli')
+          .where('session_access_token.expires_at', '>', new Date())
+          .where('session.expires_at', '>', new Date())
+          .where('session_access_token.token_hash', '=', tokenHash)
+          .select('session.account_id')
+          .executeTakeFirst()) ?? null
       c.set('session', session)
     }
 
@@ -151,6 +149,7 @@ export const api = new Hono<{
       })
 
       const origin = (() => {
+        // Respect the public protocol when the app is behind a proxy.
         const url = new URL(c.req.url)
         const proto = c.req.header('x-forwarded-proto')
         if (proto) url.protocol = `${proto}:`
@@ -210,6 +209,7 @@ export const api = new Hono<{
         Cookie.secureOpts(c.req.url, c.env.HOST, c.req.header('x-forwarded-proto')),
       )
       const origin = (() => {
+        // Respect the public protocol when the app is behind a proxy.
         const url = new URL(c.req.url)
         const proto = c.req.header('x-forwarded-proto')
         if (proto) url.protocol = `${proto}:`
@@ -471,9 +471,23 @@ export const api = new Hono<{
     hono.validator('json', z.object({ user_code: z.string() })),
     async (c) => {
       if (hono.narrowValidation) return hono.validationError(c)
-      const requestOrigin = getRequestOrigin(c)
+      const requestOrigin = (() => {
+        // Compare browser-provided origins against the externally visible origin.
+        const url = new URL(c.req.url)
+        const proto = c.req.header('x-forwarded-proto')
+        if (proto) url.protocol = `${proto}:`
+        return url.origin
+      })()
       const origin = c.req.header('origin')
-      const refererOrigin = getHeaderOrigin(c.req.header('referer'))
+      const refererOrigin = (() => {
+        const referer = c.req.header('referer')
+        if (!referer) return null
+        try {
+          return new URL(referer).origin
+        } catch {
+          return null
+        }
+      })()
       if (origin !== requestOrigin && refererOrigin !== requestOrigin)
         return c.json(
           { code: 'invalid_origin' as const, message: 'Request origin not allowed' },
@@ -574,9 +588,8 @@ export const api = new Hono<{
         403,
       )
 
-    const bearerToken = getBearerToken(c)
-    if (bearerToken) {
-      const auth = await SessionToken.mintAuthHeaders(c.var.db, bearerToken)
+    if (c.var.bearer_token) {
+      const auth = await SessionToken.mintAuthHeaders(c.var.db, c.var.bearer_token)
       if (auth) return c.json(auth, 200)
     }
 
@@ -587,10 +600,9 @@ export const api = new Hono<{
     return c.json(auth, 200)
   })
   .post('/api/auth/logout', async (c) => {
-    const bearerToken = getBearerToken(c)
     const sessionId = await Cookie.getSigned(c, c.env.COOKIE_SECRET, 'curl.session')
     if (sessionId) await c.var.db.deleteFrom('session').where('id', '=', sessionId).execute()
-    if (bearerToken) await SessionToken.deleteCliSessionByToken(c.var.db, bearerToken)
+    if (c.var.bearer_token) await SessionToken.deleteCliSessionByToken(c.var.db, c.var.bearer_token)
     Cookie.destroy(c, 'curl.session', {
       httpOnly: true,
       maxAge: 0,
@@ -1285,7 +1297,7 @@ export const api = new Hono<{
       const json = c.req.valid('json')
       if (member.role === 'admin' && json.role === 'admin')
         return c.json({ code: 'forbidden' as const, message: 'Insufficient permissions' }, 403)
-      const token = customAlphabet('0123456789abcdefghijklmnopqrstuvwxyz', 32)()
+      const token = customAlphabet(Nanoid.alphabet, 32)()
       const expires_at = new Date(Date.now() + (json.expires_in ?? 604800) * 1000)
 
       await c.var.db

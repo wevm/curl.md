@@ -321,7 +321,7 @@ describe('POST /api/auth/device', () => {
     assert('expires_at' in tokenData, 'expires_at not defined')
     assert('refresh_token' in tokenData, 'refresh_token not defined')
     assert('refresh_token_expires_at' in tokenData, 'refresh_token_expires_at not defined')
-    expect(tokenData.authorization).toMatch(/^Bearer curlmdat_/)
+    expect(tokenData.authorization).toMatch(/^Bearer curlmd_at_/)
     expect(tokenData.expires_at).toEqual(expect.any(String))
     expect(tokenData.refresh_token).toMatch(/^curlmdrt_/)
     expect(tokenData.refresh_token_expires_at).toEqual(expect.any(String))
@@ -353,7 +353,7 @@ describe('POST /api/auth/device', () => {
     const headersData = await headersRes.json()
     assert('authorization' in headersData, 'authorization not defined')
     assert('expires_at' in headersData, 'expires_at not defined')
-    expect(headersData.authorization).toMatch(/^Bearer curlmdat_/)
+    expect(headersData.authorization).toMatch(/^Bearer curlmd_at_/)
     expect(headersData.expires_at).toEqual(expect.any(String))
 
     const refreshedMeRes = await client.api.auth.me.$get(
@@ -675,12 +675,14 @@ describe('GET /api/auth/me', () => {
 
     await client.api.auth.me.$get({}, { headers: { Authorization: `Bearer ${token}` } })
 
-    const updated = await db
-      .selectFrom('api_key')
-      .where('id', '=', apiKey.id)
-      .select('last_used_at')
-      .executeTakeFirstOrThrow()
-    expect(updated.last_used_at).not.toBeNull()
+    await vi.waitFor(async () => {
+      const updated = await db
+        .selectFrom('api_key')
+        .where('id', '=', apiKey.id)
+        .select('last_used_at')
+        .executeTakeFirstOrThrow()
+      expect(updated.last_used_at).not.toBeNull()
+    })
   })
 })
 
