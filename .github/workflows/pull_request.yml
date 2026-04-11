@@ -44,4 +44,7 @@ jobs:
         run: pnpm build:cli
 
       - name: Publish preview
-        run: pnpx pkg-pr-new publish --pnpm ./cli ./plugins/pi
+        run: |
+          cp LICENSE cli/LICENSE
+          cp LICENSE plugins/pi/LICENSE
+          pnpx pkg-pr-new publish --pnpm ./cli ./plugins/pi

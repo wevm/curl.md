@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 
-// Restores package.json files from backup.
+// Restores packages after publishing.
 
 const packageDirs = ['cli', 'plugins/pi']
 
@@ -17,6 +17,7 @@ for (const dir of packageDirs) {
 
   await fs.writeFile(packagePath, `${JSON.stringify(packageJson, undefined, 2)}\n`, 'utf-8')
   await fs.rm(tmpPath)
+  await fs.rm(path.join(dir, 'LICENSE'), { force: true })
 }
 
 console.log('Done.')

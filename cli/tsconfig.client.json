@@ -4,10 +4,10 @@
     "declaration": true,
     "emitDeclarationOnly": true,
     "noEmit": false,
-    "outDir": "dist-types",
+    "outDir": "dist",
     "rootDir": "..",
     "rewriteRelativeImportExtensions": true
   },
-  "include": ["src/index.ts", "src/internal/index.ts", "src/cf-env.d.ts"],
+  "include": ["src/exports/index.ts", "src/exports/internal.ts", "src/cf-env.d.ts"],
   "exclude": ["src/**/*.test.*", "test"]
 }

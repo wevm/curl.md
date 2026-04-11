@@ -436,10 +436,10 @@ export default function (pi: ExtensionAPI) {
     },
     async execute(_toolCallId, params, signal) {
       let authHeaders = await resolver()
-      let authType: 'anonymous' | 'api_key' | 'session' = (() => {
+      let authType: 'anon' | 'api_key' | 'session' = (() => {
         if (apiKey) return 'api_key'
         if (authHeaders) return 'session'
-        return 'anonymous'
+        return 'anon'
       })()
 
       const client = createClient(baseUrl, { headers: createHeaders(authHeaders) })
@@ -453,7 +453,7 @@ export default function (pi: ExtensionAPI) {
 
       if (res.status === 401 && authType === 'session') {
         authHeaders = await resolver()
-        if (!authHeaders) authType = 'anonymous'
+        if (!authHeaders) authType = 'anon'
         const retryClient = createClient(baseUrl, { headers: createHeaders(authHeaders) })
         res = await retryClient.fetch(params.url, {
           fresh: params.fresh,
@@ -500,7 +500,7 @@ export default function (pi: ExtensionAPI) {
         const retryAfter = res.headers.get('retry-after')
         const message = retryAfter ? `${json.message}. Try again in ${retryAfter}s` : json.message
 
-        if (authType === 'anonymous')
+        if (authType === 'anon')
           throw new Error(`${message}. Set CURLMD_API_KEY or run md_login for higher limits.`)
 
         throw new Error(`${message}. Add credits with \`curl.md credits add\` if needed.`)

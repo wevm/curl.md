@@ -52,10 +52,7 @@ export type Client = Omit<RpcClient, 'api'> & {
 
 type RpcClient = ReturnType<typeof hc<typeof api>>
 type Api = RpcClient['api']
-type PublicApi = Omit<Api, 'og.png' | 'sentry' | 'stats' | 'stripe'> & {
-  sentry: Omit<Api['sentry'], 'tunnel'>
-  stripe: Omit<Api['stripe'], 'webhook'>
-}
+type PublicApi = Omit<Api, 'og.png' | 'sentry' | 'stats' | 'stripe'>
 type Fetch = RpcClient['api'][':url{.+}']['$get']
 type FetchQuery = Pick<
   NonNullable<NonNullable<Parameters<Fetch>[0]>['query']>,

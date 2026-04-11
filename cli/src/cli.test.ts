@@ -142,7 +142,7 @@ test('markdown with --token', async () => {
   expect(output).toContain('Example Domain')
 }, 30_000)
 
-test('markdown falls back to anonymous when saved session is stale', async () => {
+test('markdown falls back to anon when saved session is stale', async () => {
   Session.write({
     organization_id: 'stale-org',
     refresh_token: 'stale-refresh-token',
@@ -314,7 +314,7 @@ test('invalid api key 401', async () => {
   expect(output).toContain('token create')
 })
 
-test('expired session falls back to anonymous fetch and deletes session', async () => {
+test('expired session falls back to anon fetch and deletes session', async () => {
   Session.write({ refresh_token: 'expired-refresh-token' })
 
   server.use(

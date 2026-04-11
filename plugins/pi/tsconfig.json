@@ -6,8 +6,8 @@
     "moduleResolution": "bundler",
     "noEmit": true,
     "paths": {
-      "curl.md": ["../../cli/src/index.ts"],
-      "curl.md/internal": ["../../cli/src/internal/index.ts"]
+      "curl.md": ["../../cli/src/exports/index.ts"],
+      "curl.md/internal": ["../../cli/src/exports/internal.ts"]
     },
     "resolveJsonModule": true,
     "skipLibCheck": true,

@@ -685,7 +685,7 @@ test('fetches markdown from curl.md anonymously', async () => {
   expect(result).toEqual({
     content: [{ type: 'text', text: '# Pricing' }],
     details: {
-      auth: 'anonymous',
+      auth: 'anon',
       cache: 'MISS',
       credits_remaining: undefined,
       fresh: true,
@@ -1018,7 +1018,7 @@ test('throws a helpful authentication error for invalid API keys', async () => {
   )
 })
 
-test('throws a helpful rate limit error for anonymous requests', async () => {
+test('throws a helpful rate limit error for anon requests', async () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'curlmd-pi-rate-limit-'))
   vi.stubEnv('XDG_DATA_HOME', tmpDir)
 

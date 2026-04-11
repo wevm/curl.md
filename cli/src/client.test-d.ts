@@ -9,9 +9,9 @@ test('fetch types', () => {
   // @ts-expect-error internal-only endpoint is omitted from the public client
   void client.api.stats
   // @ts-expect-error internal-only endpoint is omitted from the public client
-  void client.api.sentry.tunnel
+  void client.api.sentry
   // @ts-expect-error internal-only endpoint is omitted from the public client
-  void client.api.stripe.webhook
+  void client.api.stripe
 
   client.fetch('example.com', {
     // @ts-expect-error
@@ -59,4 +59,43 @@ test('fetch types', () => {
   expectTypeOf(invalidHeaders).toEqualTypeOf<WrapperFetchOptions>()
   expectTypeOf(invalidAlias).toEqualTypeOf<WrapperFetchOptions>()
   expectTypeOf(invalidOptions).toEqualTypeOf<WrapperFetchOptions>()
+})
+
+test('error types', async () => {
+  const client = createClient()
+
+  {
+    const res = await client.fetch('example.com')
+    switch (res.status) {
+      case 400: {
+        const json = await res.json()
+        expectTypeOf(json.code).toEqualTypeOf<'validation_error'>()
+        void json
+        return
+      }
+      case 502: {
+        const json = await res.json()
+        expectTypeOf(json.code).toEqualTypeOf<'fetch_failed' | 'ai_failed'>()
+        void json
+        return
+      }
+    }
+  }
+  {
+    const res = await client.api[':url{.+}'].$get({ param: { url: 'example.com' }, query: {} })
+    switch (res.status) {
+      case 400: {
+        const json = await res.json()
+        expectTypeOf(json.code).toEqualTypeOf<'validation_error'>()
+        void json
+        return
+      }
+      case 502: {
+        const json = await res.json()
+        expectTypeOf(json.code).toEqualTypeOf<'fetch_failed' | 'ai_failed'>()
+        void json
+        return
+      }
+    }
+  }
 })

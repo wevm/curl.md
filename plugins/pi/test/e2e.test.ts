@@ -126,7 +126,7 @@ test('registers read_web_page and md_fetch through the real Pi extension loader'
     expect(execution).toEqual({
       content: [{ type: 'text', text: '# Loaded through Pi loader' }],
       details: {
-        auth: 'anonymous',
+        auth: 'anon',
         cache: undefined,
         credits_remaining: undefined,
         fresh: undefined,

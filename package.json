@@ -24,10 +24,11 @@
     "gen:types": "cp -n .env.example .env 2>/dev/null; wrangler types src/worker-configuration.d.ts && node --experimental-strip-types scripts/updateWranglerTypes.ts && pnpm --filter curl.md gen:types",
     "md": "CURLMD_BASE_URL=https://curl.local NODE_TLS_REJECT_UNAUTHORIZED=0 node --experimental-strip-types --no-warnings cli/src/bin.ts",
     "pi": "CURLMD_BASE_URL=https://curl.local NODE_TLS_REJECT_UNAUTHORIZED=0 pi -e plugins/pi/extensions/index.ts",
+    "preconstruct": "node --experimental-strip-types scripts/preconstruct.ts",
     "preinstall": "pnpx only-allow pnpm",
-    "prepare": "pnpm gen:types && simple-git-hooks",
+    "prepare": "pnpm gen:types && pnpm preconstruct && simple-git-hooks",
     "preview": "pnpm run build && vite preview",
-    "changeset:publish": "node --experimental-strip-types scripts/formatPackageJson.ts && pnpm changeset publish && node --experimental-strip-types scripts/restorePackageJson.ts",
+    "changeset:publish": "node --experimental-strip-types scripts/formatPackage.ts && pnpm changeset publish && node --experimental-strip-types scripts/restorePackage.ts",
     "changeset:version": "pnpm changeset version",
     "test": "vitest --config test/vitest.config.ts",
     "test:e2e": "playwright test --config test/e2e.config.ts"
