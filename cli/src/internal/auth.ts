@@ -253,11 +253,6 @@ export declare namespace Auth {
     message: string
   }
 
-  export type AlreadyAuthenticated = {
-    kind: 'already_authenticated'
-    login: string | null
-  }
-
   export type DeviceFlow = {
     kind: 'device_flow'
     code: string
@@ -267,7 +262,12 @@ export declare namespace Auth {
     verification_uri: string
   }
 
-  export type StartLoginData = AlreadyAuthenticated | DeviceFlow
+  export type StartLoginData =
+    | {
+        kind: 'already_authenticated'
+        login: string | null
+      }
+    | DeviceFlow
 
   export type WaitForLoginData = {
     expires_at: string | null
