@@ -7,8 +7,6 @@ test('fetch types', () => {
   // @ts-expect-error internal-only endpoint is omitted from the public client
   void client.api['og.png']
   // @ts-expect-error internal-only endpoint is omitted from the public client
-  void client.api.stats
-  // @ts-expect-error internal-only endpoint is omitted from the public client
   void client.api.sentry
   // @ts-expect-error internal-only endpoint is omitted from the public client
   void client.api.stripe

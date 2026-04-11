@@ -1979,21 +1979,6 @@ test('GET /api/health returns ok', async () => {
   await expect(res.json()).resolves.toEqual({ ok: true })
 })
 
-test('GET /api/stats returns cached value from KV', async () => {
-  await env.KV.put('stats:tokens_saved', '42000')
-  const res = await client.api.stats.$get()
-  expect(res.status).toBe(200)
-  await expect(res.json()).resolves.toEqual({ tokens_saved: 42000 })
-})
-
-test('GET /api/stats falls back to DB when KV is empty', async () => {
-  await env.KV.delete('stats:tokens_saved')
-  const res = await client.api.stats.$get()
-  expect(res.status).toBe(200)
-  const json = await res.json()
-  expect(json).toHaveProperty('tokens_saved')
-})
-
 describe('GET /api/orgs', () => {
   test('lists organizations for authenticated account', async () => {
     const account = await factory.account.insert({})

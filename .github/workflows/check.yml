@@ -67,6 +67,7 @@ jobs:
 
       - name: Generate code
         run: |
+          pnpm preconstruct
           pnpm gen:types
           pnpm db:codegen
 

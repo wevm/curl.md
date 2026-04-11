@@ -11,7 +11,6 @@ import { stringify as yamlStringify } from 'yaml'
 import { z } from 'zod'
 import { createClient, type Database } from '#db/client.ts'
 import type { DB } from '#db/types.gen.ts'
-import { requestTokensSavedSumSql } from '#db/utils.ts'
 import * as ApiKey from '#lib/apiKey.ts'
 import * as Constants from '#lib/constants.ts'
 import * as Cookie from '#lib/cookie.ts'
@@ -1047,26 +1046,6 @@ export const api = new Hono<{
     },
   )
   .get('/api/health', (c) => c.json({ ok: true }, 200))
-  .get('/api/stats', async (c) => {
-    try {
-      const cached = await c.env.KV.get('stats:tokens_saved', 'json')
-      if (cached !== null) return c.json({ tokens_saved: cached }, 200)
-
-      const result = await c.var.db
-        .selectFrom('request')
-        .select(requestTokensSavedSumSql().as('total'))
-        .executeTakeFirstOrThrow()
-      const total = result.total ?? 0
-      c.executionCtx.waitUntil(
-        c.env.KV.put('stats:tokens_saved', JSON.stringify(total), {
-          expirationTtl: 300,
-        }),
-      )
-      return c.json({ tokens_saved: total }, 200)
-    } catch {
-      return c.json({ tokens_saved: 0 }, 200)
-    }
-  })
   .get('/api/invites/:token', async (c) => {
     const invite = await c.var.db
       .selectFrom('organization_invite')
