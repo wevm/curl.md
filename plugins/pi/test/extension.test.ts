@@ -38,7 +38,6 @@ test('registers curl.md Pi tool and commands', async () => {
     'md_logout',
     'md_org',
     'md_status',
-    'md_fetch',
   ])
   expect(tools.map((tool) => tool.name)).toEqual(['read_web_page', 'md_fetch'])
 
@@ -393,93 +392,6 @@ test('status command shortens cli path under home directory', async () => {
   )
 
   fs.rmSync(tmpDir, { force: true, recursive: true })
-})
-
-test('md_fetch command shows usage when url is missing', async () => {
-  const notify = vi.fn()
-  const { commands } = loadExtension()
-
-  await commands[4]!.handler('', { ui: { notify } })
-
-  expect(notify).toHaveBeenCalledWith(
-    'Usage: /md_fetch <url> [--objective value] [--keyword value] [--mode rush|smart] [--fresh]',
-    'error',
-  )
-})
-
-test('md_fetch command shows local parse errors as plain sentences', async () => {
-  const notify = vi.fn()
-  const { commands } = loadExtension()
-
-  await commands[4]!.handler('example.com --foo', { ui: { notify } })
-
-  expect(notify).toHaveBeenCalledWith('Unknown flag --foo', 'error')
-})
-
-test('md_fetch command loads fetched markdown into editor', async () => {
-  const notify = vi.fn()
-  const setEditorText = vi.fn()
-  const setStatus = vi.fn()
-
-  server.use(
-    http.get('*', async ({ request }) => {
-      const url = new URL(request.url)
-      if (
-        url.origin !== new URL(defaultBaseUrl).origin ||
-        url.pathname !== '/api/https://example.com/docs'
-      )
-        return passthrough()
-      return HttpResponse.json({ content: '# Example Docs' })
-    }),
-  )
-
-  const { commands } = loadExtension()
-  await commands[4]!.handler('example.com/docs', {
-    ui: {
-      notify,
-      setEditorText,
-      setStatus,
-      theme: {
-        fg: (_color: string, text: string) => text,
-      },
-    },
-  })
-
-  expect(setEditorText).toHaveBeenCalledWith('# Example Docs')
-  expect(setStatus).toHaveBeenNthCalledWith(1, 'curlmd-fetch', '⠋')
-  expect(setStatus).toHaveBeenLastCalledWith('curlmd-fetch', undefined)
-  expect(notify).toHaveBeenCalledWith('Loaded https://example.com/docs', 'info')
-})
-
-test('md_fetch command forwards flags to fetch request', async () => {
-  const notify = vi.fn()
-  const requests: CapturedRequest[] = []
-  const setEditorText = vi.fn()
-
-  server.use(
-    http.get('*', async ({ request }) => {
-      const url = new URL(request.url)
-      if (
-        url.origin !== new URL(defaultBaseUrl).origin ||
-        url.pathname !== '/api/https://example.com/docs'
-      )
-        return passthrough()
-      requests.push(captureRequest(request))
-      return HttpResponse.json({ content: '# Filtered Docs' })
-    }),
-  )
-
-  const { commands } = loadExtension()
-  await commands[4]!.handler(
-    'example.com/docs --objective stream auth flow --keyword auth,token --keyword oauth --mode rush --fresh',
-    { ui: { notify, setEditorText } },
-  )
-
-  expect(setEditorText).toHaveBeenCalledWith('# Filtered Docs')
-  expect(notify).toHaveBeenCalledWith('Loaded https://example.com/docs', 'info')
-  expect(requests[0]?.url).toBe(
-    `${defaultBaseUrl}/api/https://example.com/docs?fresh=&keywords=auth%2Ctoken%2Coauth&mode=rush&objective=stream+auth+flow`,
-  )
 })
 
 test('org command uses searchable picker and stores selected org', async () => {

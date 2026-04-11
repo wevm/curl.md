@@ -11,7 +11,6 @@ import {
   formatApiError,
   formatPathForDisplay,
   parseApiError,
-  parseMdFetchArgs,
   parseNumberHeader,
 } from './utils.ts'
 
@@ -370,7 +369,18 @@ export default function (pi: ExtensionAPI) {
     renderCall(args, theme, context) {
       const text = (context.lastComponent as Text | undefined) ?? new Text('', 0, 0)
       let content = `${theme.fg('toolTitle', theme.bold('read_web_page'))} ${theme.fg('accent', args.url)}`
-      const options = formatReadWebPageCallOptions(args)
+      const options = (() => {
+        const options: string[] = []
+
+        // Mirror only the optional flags the model actually set so the call preview stays compact.
+        if (args.objective) options.push(`objective: ${args.objective}`)
+        if (args.keywords && args.keywords.length > 0)
+          options.push(`keywords: ${args.keywords.join(', ')}`)
+        if (args.mode) options.push(`mode: ${args.mode}`)
+        if (args.fresh) options.push('fresh')
+
+        return options
+      })()
       if (options.length > 0) content += `\n${theme.fg('dim', options.join('\n'))}`
       text.setText(content)
       return text
@@ -390,7 +400,24 @@ export default function (pi: ExtensionAPI) {
       }
 
       if (!expanded) {
-        const preview = formatReadWebPagePreview(content.text)
+        const preview = (() => {
+          // Strip curl.md wrappers before building the collapsed preview shown in the tool row.
+          const previewContent = (
+            content.text.startsWith('---\n')
+              ? content.text.replace(/^---\n[\s\S]*?\n---\n+/, '')
+              : content.text
+          ).replace(/\n\n---\n\nPowered by \[curl\.md\]\(https:\/\/curl\.md\)$/, '')
+
+          const lines = previewContent
+            .split('\n')
+            .map((line) => line.trimEnd())
+            .filter(Boolean)
+
+          return {
+            lines: lines.slice(0, 3),
+            remainingLines: Math.max(0, lines.length - 3),
+          }
+        })()
         const lines = [...preview.lines]
         if (preview.remainingLines > 0) {
           lines.push(
@@ -511,72 +538,6 @@ export default function (pi: ExtensionAPI) {
     },
   })
 
-  const mdFetchUsage =
-    'Usage: /md_fetch <url> [--objective value] [--keyword value] [--mode rush|smart] [--fresh]'
-  pi.registerCommand('md_fetch', {
-    description: 'Fetch a URL and load the markdown into the editor',
-    async handler(args, ctx) {
-      const parsedArgs = (() => {
-        try {
-          return parseMdFetchArgs(args)
-        } catch (error) {
-          ctx.ui.notify(error instanceof Error ? error.message : mdFetchUsage, 'error')
-          return null
-        }
-      })()
-      if (!parsedArgs) return
-
-      if (!parsedArgs.url) {
-        ctx.ui.notify(mdFetchUsage, 'error')
-        return
-      }
-
-      const stopSpinner = (() => {
-        if (typeof ctx.ui.setStatus !== 'function') return () => {}
-
-        const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
-        let index = 0
-        const render = (frame: string) => ctx.ui.theme.fg('accent', frame)
-
-        ctx.ui.setStatus('curlmd-fetch', render(frames[index]!))
-
-        const interval = setInterval(() => {
-          index = (index + 1) % frames.length
-          ctx.ui.setStatus('curlmd-fetch', render(frames[index]!))
-        }, 80)
-        interval.unref?.()
-
-        return () => {
-          clearInterval(interval)
-          ctx.ui.setStatus('curlmd-fetch', undefined)
-        }
-      })()
-
-      try {
-        const params = readWebPageTool.prepareArguments!(parsedArgs)
-        const result = await readWebPageTool.execute(
-          'md_fetch_command',
-          params,
-          new AbortController().signal,
-          undefined,
-          {} as never,
-        )
-        const text = result.content.find((content) => content.type === 'text')?.text
-        if (!text) {
-          ctx.ui.notify('curl.md returned no text content.', 'error')
-          return
-        }
-
-        ctx.ui.setEditorText(text)
-        ctx.ui.notify(`Loaded ${params.url}`, 'info')
-      } catch (error) {
-        ctx.ui.notify(error instanceof Error ? error.message : 'Failed to fetch URL.', 'error')
-      } finally {
-        stopSpinner()
-      }
-    },
-  })
-
   pi.registerTool(readWebPageTool)
   pi.registerTool(
     defineTool({
@@ -588,41 +549,4 @@ export default function (pi: ExtensionAPI) {
       promptSnippet: 'Alias for read_web_page.',
     }),
   )
-}
-
-function formatReadWebPageCallOptions(args: {
-  fresh?: boolean
-  keywords?: string[]
-  mode?: 'rush' | 'smart'
-  objective?: string
-}) {
-  const options: string[] = []
-
-  if (args.objective) options.push(`objective: ${args.objective}`)
-  if (args.keywords && args.keywords.length > 0)
-    options.push(`keywords: ${args.keywords.join(', ')}`)
-  if (args.mode) options.push(`mode: ${args.mode}`)
-  if (args.fresh) options.push('fresh')
-
-  return options
-}
-
-function formatReadWebPagePreview(content: string) {
-  const withoutFrontmatter = content.startsWith('---\n')
-    ? content.replace(/^---\n[\s\S]*?\n---\n+/, '')
-    : content
-  const previewContent = withoutFrontmatter.replace(
-    /\n\n---\n\nPowered by \[curl\.md\]\(https:\/\/curl\.md\)$/,
-    '',
-  )
-
-  const lines = previewContent
-    .split('\n')
-    .map((line) => line.trimEnd())
-    .filter(Boolean)
-
-  return {
-    lines: lines.slice(0, 3),
-    remainingLines: Math.max(0, lines.length - 3),
-  }
 }
