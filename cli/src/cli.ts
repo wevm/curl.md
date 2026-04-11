@@ -2,7 +2,8 @@ import { Cli, type MiddlewareContext, middleware, z } from 'incur'
 import pc from 'picocolors'
 import pkg from '../package.json' with { type: 'json' }
 import { createClient, defaultBaseUrl, type Client } from './client.ts'
-import { Auth, Session } from './internal/index.ts'
+import { Auth } from './internal/auth.ts'
+import { Session } from './internal/session.ts'
 import * as UI from './ui.ts'
 import {
   compareVersions,
@@ -137,29 +138,13 @@ const cli = Cli.create('curl.md', {
     const keywords = c.options.keywords?.flatMap((k: string) => k.split(','))
     const token = c.options.token ?? c.var.apiKey
     const spinner = UI.createSpinner('')
-    const res = await (token
-      ? createClient(c.var.baseUrl).api[':url{.+}'].$get({
-          param: { url: result.data },
-          query: {
-            fresh: c.options.fresh ? '' : undefined,
-            keywords: keywords?.join(','),
-            mode: c.options.mode,
-            objective: c.options.objective,
-            token,
-          } as {
-            fresh?: '' | undefined
-            keywords?: string | undefined
-            mode?: 'rush' | 'smart' | undefined
-            objective?: string | undefined
-            token: string
-          },
-        })
-      : c.var.client.fetch(result.data, {
-          fresh: c.options.fresh,
-          keywords,
-          mode: c.options.mode,
-          objective: c.options.objective,
-        }))
+    const res = await c.var.client.fetch(result.data, {
+      fresh: c.options.fresh,
+      keywords,
+      mode: c.options.mode,
+      objective: c.options.objective,
+      token,
+    })
 
     spinner.stop()
 
@@ -399,10 +384,6 @@ function noActiveOrg(
   })
 }
 
-function formatAuthError(error: Auth.Error) {
-  return error.message
-}
-
 const auth = Cli.create('auth', {
   description: 'Authenticate with curl.md (login, logout, status)',
   vars,
@@ -416,7 +397,7 @@ const auth = Cli.create('auth', {
       if (!start.ok)
         return c.error({
           code: start.error.code.toUpperCase(),
-          message: formatAuthError(start.error),
+          message: start.error.message,
         })
 
       if (start.data.kind === 'already_authenticated')
@@ -440,7 +421,7 @@ const auth = Cli.create('auth', {
         if (!result.ok)
           return c.error({
             code: result.error.code.toUpperCase(),
-            message: formatAuthError(result.error),
+            message: result.error.message,
           })
 
         return c.ok(

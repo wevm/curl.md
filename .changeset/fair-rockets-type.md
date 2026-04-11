@@ -1,5 +1,5 @@
 ---
-'@curl.md/pi': major
+'@curl.md/pi': patch
 ---
 
-Publish the initial release of `@curl.md/pi`.
+Initial release

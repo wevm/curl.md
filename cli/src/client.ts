@@ -24,7 +24,7 @@ export function createClient(url: string = defaultBaseUrl, options?: ClientReque
     get(target, prop, receiver) {
       if (prop === 'fetch') {
         return (targetUrl: string, fetchOptions?: FetchOptions | undefined) => {
-          const { options, ...queryOptions } = fetchOptions ?? {}
+          const { options, token, ...queryOptions } = fetchOptions ?? {}
           const query = {
             ...queryOptions,
             fresh: queryOptions.fresh ? '' : undefined,
@@ -36,7 +36,7 @@ export function createClient(url: string = defaultBaseUrl, options?: ClientReque
               param: { url: targetUrl },
               query,
             },
-            options,
+            token ? withAuthorizationHeader(options, token) : options,
           )
         }
       }
@@ -62,4 +62,29 @@ type FetchOptions = Partial<Omit<FetchQuery, 'fresh' | 'keywords'>> & {
   fresh?: boolean | undefined
   keywords?: string[] | undefined
   options?: NonNullable<Parameters<Fetch>[1]> | undefined
+  token?: string | undefined
+}
+
+function withAuthorizationHeader(
+  options: NonNullable<Parameters<Fetch>[1]> | undefined,
+  token: string,
+): NonNullable<Parameters<Fetch>[1]> {
+  const headers = options?.headers
+  return {
+    ...options,
+    headers:
+      typeof headers === 'function'
+        ? async () => withTokenHeader(await headers(), token)
+        : withTokenHeader(headers, token),
+  }
+}
+
+function withTokenHeader(headers: Record<string, string> | undefined, token: string) {
+  const nextHeaders = { ...headers }
+  for (const key of Object.keys(nextHeaders)) {
+    if (key.toLowerCase() !== 'authorization') continue
+    delete nextHeaders[key]
+  }
+  nextHeaders.Authorization = `Bearer ${token}`
+  return nextHeaders
 }

@@ -44,7 +44,7 @@
     "#test/*": "../test/*"
   },
   "scripts": {
-    "build": "rm -rf dist && tsgo --noCheck -p tsconfig.build.json && tsgo --noCheck -p tsconfig.client.json && mkdir -p dist/exports dist/cli/src && cp dist/cli/src/exports/index.d.ts dist/exports/index.d.ts && cp dist/cli/src/exports/internal.d.ts dist/exports/internal.d.ts && cp src/cf-env.d.ts dist/cli/src/cf-env.d.ts && find ../src ../db -name '*.js' -delete",
+    "build": "rm -rf dist && tsgo --noCheck -p tsconfig.build.json && tsgo --noCheck -p tsconfig.pkg.json && mkdir -p dist/exports dist/cli/src && cp dist/cli/src/exports/index.d.ts dist/exports/index.d.ts && cp dist/cli/src/exports/internal.d.ts dist/exports/internal.d.ts && cp src/cf-env.d.ts dist/cli/src/cf-env.d.ts && find ../src ../db -name '*.js' -delete",
     "check:deps": "knip",
     "check:types": "tsgo --noEmit",
     "gen:types": "incur gen"

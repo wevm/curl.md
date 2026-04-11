@@ -6,7 +6,7 @@ import util from 'node:util'
 import pc from 'picocolors'
 import pkg from '../package.json' with { type: 'json' }
 import type { Client } from './client.ts'
-import { createSpinner, select } from './ui.ts'
+import { createSpinner } from './ui.ts'
 
 export function dataDir() {
   if (process.env.XDG_DATA_HOME) return path.join(process.env.XDG_DATA_HOME, 'curl-md')
@@ -39,7 +39,6 @@ export function installGlobal(name: string, version?: string) {
   if (type === 'bun') return execFileAsync('bun', ['add', '-g', spec])
   return execFileAsync('npm', ['install', '-g', spec])
 }
-export { createSpinner, select }
 
 export function openUrl(url: string) {
   const cmd =

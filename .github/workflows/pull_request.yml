@@ -45,6 +45,5 @@ jobs:
 
       - name: Publish preview
         run: |
-          cp LICENSE cli/LICENSE
-          cp LICENSE plugins/pi/LICENSE
+          node --experimental-strip-types scripts/formatPackage.ts
           pnpx pkg-pr-new publish --pnpm ./cli ./plugins/pi

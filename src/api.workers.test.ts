@@ -24,13 +24,6 @@ const executionCtx = {
 const client = testClient(api, env, executionCtx)
 const clientOrigin = client.api.auth.device.confirm.$url().origin
 
-async function sessionHeaders(sessionId: string, headers?: Record<string, string>) {
-  return {
-    Cookie: await Cookie.generateSigned('curl.session', sessionId, env.COOKIE_SECRET),
-    ...headers,
-  }
-}
-
 afterAll(() => db.destroy())
 
 describe('GET /api/auth/github', () => {
@@ -502,7 +495,10 @@ describe('POST /api/auth/device/token', () => {
     const confirmRes = await client.api.auth.device.confirm.$post(
       { json: { user_code: device.user_code } },
       {
-        headers: await sessionHeaders(session.id, { Origin: clientOrigin }),
+        headers: {
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
+          Origin: clientOrigin,
+        },
       },
     )
     expect(confirmRes.status).toBe(200)
@@ -1612,7 +1608,11 @@ describe('POST /api/tokens', () => {
 
     const res = await client.api.tokens.$post(
       { json: { name: 'test token' } },
-      { headers: await sessionHeaders(session.id) },
+      {
+        headers: {
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
+        },
+      },
     )
     expect(res.status).toBe(201)
     const json = await res.json()
@@ -1673,7 +1673,10 @@ describe('POST /api/tokens', () => {
     const res = await client.api.tokens.$post(
       { json: { name: 'org token' } },
       {
-        headers: await sessionHeaders(session.id, { 'x-organization-id': org.id }),
+        headers: {
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
+          'x-organization-id': org.id,
+        },
       },
     )
     expect(res.status).toBe(201)
@@ -1695,7 +1698,10 @@ describe('POST /api/tokens', () => {
     const res1 = await client.api.tokens.$post(
       { json: { name: 'foo' } },
       {
-        headers: await sessionHeaders(session.id, { 'x-organization-id': org.id }),
+        headers: {
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
+          'x-organization-id': org.id,
+        },
       },
     )
     expect(res1.status).toBe(201)
@@ -1703,7 +1709,11 @@ describe('POST /api/tokens', () => {
     // Create token "foo" under personal account (no org)
     const res2 = await client.api.tokens.$post(
       { json: { name: 'foo' } },
-      { headers: await sessionHeaders(session.id) },
+      {
+        headers: {
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
+        },
+      },
     )
     expect(res2.status).toBe(201)
   })
@@ -1714,11 +1724,19 @@ describe('POST /api/tokens', () => {
 
     await client.api.tokens.$post(
       { json: { name: 'dupe' } },
-      { headers: await sessionHeaders(session.id) },
+      {
+        headers: {
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
+        },
+      },
     )
     const res = await client.api.tokens.$post(
       { json: { name: 'dupe' } },
-      { headers: await sessionHeaders(session.id) },
+      {
+        headers: {
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
+        },
+      },
     )
     expect(res.status).toBe(409)
     const json = await res.json()
@@ -1745,7 +1763,14 @@ describe('GET /api/tokens', () => {
       name: 'key 2',
     })
 
-    const res = await client.api.tokens.$get({}, { headers: await sessionHeaders(session.id) })
+    const res = await client.api.tokens.$get(
+      {},
+      {
+        headers: {
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
+        },
+      },
+    )
     expect(res.status).toBe(200)
     const json = (await res.json()) as Extract<
       Awaited<ReturnType<typeof res.json>>,
@@ -1781,7 +1806,10 @@ describe('GET /api/tokens', () => {
     const res = await client.api.tokens.$get(
       {},
       {
-        headers: await sessionHeaders(session.id, { 'x-organization-id': org.id }),
+        headers: {
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
+          'x-organization-id': org.id,
+        },
       },
     )
     expect(res.status).toBe(200)
@@ -1817,7 +1845,14 @@ describe('GET /api/tokens', () => {
       name: 'account key',
     })
 
-    const res = await client.api.tokens.$get({}, { headers: await sessionHeaders(session.id) })
+    const res = await client.api.tokens.$get(
+      {},
+      {
+        headers: {
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
+        },
+      },
+    )
     expect(res.status).toBe(200)
     const json = (await res.json()) as Extract<
       Awaited<ReturnType<typeof res.json>>,
@@ -1846,7 +1881,14 @@ describe('GET /api/tokens', () => {
       deleted_at: new Date().toISOString(),
     })
 
-    const res = await client.api.tokens.$get({}, { headers: await sessionHeaders(session.id) })
+    const res = await client.api.tokens.$get(
+      {},
+      {
+        headers: {
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
+        },
+      },
+    )
     expect(res.status).toBe(200)
     const json = (await res.json()) as Extract<
       Awaited<ReturnType<typeof res.json>>,
@@ -1875,7 +1917,11 @@ describe('DELETE /api/tokens/:id', () => {
 
     const res = await client.api.tokens[':id'].$delete(
       { param: { id: apiKey.id } },
-      { headers: await sessionHeaders(session.id) },
+      {
+        headers: {
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
+        },
+      },
     )
     expect(res.status).toBe(200)
     await expect(res.json()).resolves.toEqual({ ok: true })
@@ -1894,7 +1940,11 @@ describe('DELETE /api/tokens/:id', () => {
 
     const res = await client.api.tokens[':id'].$delete(
       { param: { id: 'nonexistent-id' } },
-      { headers: await sessionHeaders(session.id) },
+      {
+        headers: {
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
+        },
+      },
     )
     expect(res.status).toBe(404)
   })
@@ -1913,7 +1963,11 @@ describe('DELETE /api/tokens/:id', () => {
 
     const res = await client.api.tokens[':id'].$delete(
       { param: { id: apiKey.id } },
-      { headers: await sessionHeaders(session2.id) },
+      {
+        headers: {
+          Cookie: await Cookie.generateSigned('curl.session', session2.id, env.COOKIE_SECRET),
+        },
+      },
     )
     expect(res.status).toBe(404)
   })

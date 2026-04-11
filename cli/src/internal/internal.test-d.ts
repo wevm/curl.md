@@ -1,5 +1,5 @@
-import { Auth, Session } from 'curl.md/internal'
 import { expectTypeOf, test } from 'vitest'
+import { Auth, Session } from '../exports/internal.ts'
 
 test('internal subpath types', () => {
   const resolveAuthHeaders = Auth.createResolver('https://curl.md')

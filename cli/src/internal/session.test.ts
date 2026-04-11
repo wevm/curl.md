@@ -1,6 +1,6 @@
 import { beforeEach, expect, test } from 'vitest'
 import { useTmp } from '../../test/utils.ts'
-import { Session } from './index.ts'
+import { Session } from './session.ts'
 
 beforeEach(() => {
   const tmp = useTmp()

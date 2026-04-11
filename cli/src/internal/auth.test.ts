@@ -3,7 +3,8 @@ import { beforeEach, expect, inject, test } from 'vitest'
 import { Env } from '#test/env.ts'
 import { server } from '../../test/server.ts'
 import { useTmp } from '../../test/utils.ts'
-import { Auth, Session } from './index.ts'
+import { Auth } from './auth.ts'
+import { Session } from './session.ts'
 
 const env = Env.parse(inject('env'))
 

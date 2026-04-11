@@ -1,7 +1,9 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 
-// Stages packages for publishing.
+// Formats packages for publishing.
+
+console.log('Formatting packages.')
 
 const packageDirs = ['cli', 'plugins/pi']
 

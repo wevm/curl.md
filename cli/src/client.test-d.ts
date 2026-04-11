@@ -25,6 +25,7 @@ test('fetch types', () => {
         signal: new AbortController().signal,
       },
     },
+    token: 'curlmd_test',
   })
 
   type RouteFetch = ReturnType<typeof createClient>['api'][':url{.+}']['$get']
@@ -47,6 +48,7 @@ test('fetch types', () => {
   expectTypeOf<WrapperFetchOptions['objective']>().toEqualTypeOf<
     RouteFetchQuery['objective'] | undefined
   >()
+  expectTypeOf<WrapperFetchOptions['token']>().toEqualTypeOf<string | undefined>()
 
   // @ts-expect-error request options must be nested under options
   const invalidHeaders: WrapperFetchOptions = { headers: { authorization: 'Bearer token' } }

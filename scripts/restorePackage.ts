@@ -3,6 +3,8 @@ import path from 'node:path'
 
 // Restores packages after publishing.
 
+console.log('Restoring packages.')
+
 const packageDirs = ['cli', 'plugins/pi']
 
 for (const dir of packageDirs) {

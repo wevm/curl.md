@@ -442,25 +442,31 @@ export default function (pi: ExtensionAPI) {
         return 'anon'
       })()
 
-      const client = createClient(baseUrl, { headers: createHeaders(authHeaders) })
+      const client = createClient(baseUrl, {
+        headers: apiKey ? createHeaders(null) : createHeaders(authHeaders),
+      })
       let res = await client.fetch(params.url, {
         fresh: params.fresh,
         keywords: params.keywords,
         mode: params.mode,
         objective: params.objective,
         options: { init: { signal } },
+        token: apiKey,
       })
 
       if (res.status === 401 && authType === 'session') {
         authHeaders = await resolver()
         if (!authHeaders) authType = 'anon'
-        const retryClient = createClient(baseUrl, { headers: createHeaders(authHeaders) })
-        res = await retryClient.fetch(params.url, {
+        const client = createClient(baseUrl, {
+          headers: apiKey ? createHeaders(null) : createHeaders(authHeaders),
+        })
+        res = await client.fetch(params.url, {
           fresh: params.fresh,
           keywords: params.keywords,
           mode: params.mode,
           objective: params.objective,
           options: { init: { signal } },
+          token: apiKey,
         })
       }
 
