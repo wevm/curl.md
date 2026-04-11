@@ -29,7 +29,6 @@ const vars = z.object({
   baseUrl: z.custom<string>(),
   client: z.custom<Client>(),
   commands: z.custom<Command[]>(),
-  resolveAuthHeaders: z.custom<() => Promise<Auth.Headers | null>>(),
   session: z.custom<Session.Data | null>(),
 })
 
@@ -301,7 +300,6 @@ cli.use(async (c, next) => {
   c.set('apiKey', apiKey)
 
   const resolveAuthHeaders = Auth.createResolver(c.env.CURLMD_BASE_URL, apiKey)
-  c.set('resolveAuthHeaders', resolveAuthHeaders)
   c.set(
     'client',
     createClient(c.env.CURLMD_BASE_URL, {
@@ -517,45 +515,6 @@ const auth = Cli.create('auth', {
         `- Organization: ${pc.bold(orgDisplay)}`,
       ]
       return c.ok(lines.join('\n'))
-    },
-  })
-  .command('headers', {
-    description: 'Print authentication headers for local integrations',
-    middleware: [requireAuth],
-    options: z.object({
-      token: z.string().optional().describe('API token to check'),
-    }),
-    output: z.object({
-      authorization: z.string(),
-      expires_at: z.string().nullable(),
-      organization_id: z.string().nullable(),
-    }),
-    format: 'json',
-    async run(c) {
-      const token = c.options.token ?? c.var.apiKey
-      const res = await (token
-        ? createClient(c.var.baseUrl, {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }).api.auth.me.$get()
-        : c.var.client.api.auth.me.$get())
-      if (res.status !== 200) return token ? authError(c) : expiredSession(c)
-
-      const json = await res.json()
-      if (!json.account) return token ? authError(c) : expiredSession(c)
-
-      if (token)
-        return c.ok({
-          authorization: `Bearer ${token}`,
-          expires_at: null,
-          organization_id: null,
-        })
-
-      const authHeaders = await c.var.resolveAuthHeaders()
-      if (!authHeaders) return expiredSession(c)
-
-      return c.ok(authHeaders)
     },
   })
 

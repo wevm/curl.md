@@ -533,67 +533,6 @@ describe('auth', () => {
     expect(output).toContain('Not authenticated')
   })
 
-  test('headers - with session', async () => {
-    const account = await factory.account.insert({})
-    const org = await factory.organization.insert({})
-    await factory.organization_member.insert({
-      account_id: account.id,
-      organization_id: org.id,
-    })
-    const session = await factory.session.insert({ account_id: account.id })
-    await writeCliSession(session, org.id)
-
-    const { output } = await serve(['auth', 'headers', '--json'])
-    const json = JSON.parse(output)
-    const data = json.data ?? json
-
-    expect(data.authorization).toMatch(/^Bearer curlmd_at_/)
-    expect(data.expires_at).toEqual(expect.any(String))
-    expect(data.organization_id).toBe(org.id)
-    expect(Session.read()).toMatchObject({
-      organization_id: org.id,
-      refresh_token: expect.stringMatching(/^curlmdrt_/),
-      refresh_token_expires_at: expect.any(String),
-    })
-  })
-
-  test('headers - with --token', async () => {
-    const account = await factory.account.insert({})
-    const suffix = Nanoid.generate()
-    const token = ApiKey.generate()
-    await factory.api_key.insert({
-      account_id: account.id,
-      key_hash: await ApiKey.hash(token),
-      key_prefix: token.slice(0, 9),
-      name: `headers-test-${suffix}`,
-    })
-
-    const origArgv = process.argv
-    process.argv = [...origArgv, '--token', token]
-    onTestFinished(() => {
-      process.argv = origArgv
-    })
-
-    const { output } = await serve(['auth', 'headers', '--token', token, '--json'])
-    const json = JSON.parse(output)
-    const data = json.data ?? json
-
-    expect(data).toEqual({
-      authorization: `Bearer ${token}`,
-      expires_at: null,
-      organization_id: null,
-    })
-  })
-
-  test('headers - expired session', async () => {
-    Session.write({ refresh_token: 'expired-refresh-token' })
-
-    const { exitCode, output } = await serve(['auth', 'headers', '--json'])
-    expect(exitCode).toBe(1)
-    expect(output).toContain('NOT_AUTHENTICATED')
-    expect(Session.read()).toBeNull()
-  })
-
   test('logout - not logged in', async () => {
     const { output } = await serve(['auth', 'logout'])
     expect(output).toContain('Already logged out')

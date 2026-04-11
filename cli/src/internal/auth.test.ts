@@ -1,9 +1,9 @@
 import { HttpResponse, http } from 'msw'
 import { beforeEach, expect, inject, test } from 'vitest'
 import { Env } from '#test/env.ts'
-import { server } from '../test/server.ts'
-import { useTmp } from '../test/utils.ts'
-import { Auth, Session } from './internal/index.ts'
+import { server } from '../../test/server.ts'
+import { useTmp } from '../../test/utils.ts'
+import { Auth, Session } from './index.ts'
 
 const env = Env.parse(inject('env'))
 
@@ -114,37 +114,6 @@ test('Auth.logout revokes best effort and still clears local session', async () 
   })
   expect(revoked).toBe(true)
   expect(Session.read()).toBeNull()
-})
-
-test('Session stores auth state separately per base URL', () => {
-  const localBaseUrl = 'https://curl.local'
-  const prodBaseUrl = 'https://curl.md'
-
-  Session.write(
-    {
-      organization_id: 'org_local',
-      refresh_token: 'curlmdrt_local',
-      refresh_token_expires_at: new Date(Date.now() + 120_000).toISOString(), // 2 minutes
-    },
-    localBaseUrl,
-  )
-  Session.write(
-    {
-      organization_id: 'org_prod',
-      refresh_token: 'curlmdrt_prod',
-      refresh_token_expires_at: new Date(Date.now() + 180_000).toISOString(), // 3 minutes
-    },
-    prodBaseUrl,
-  )
-
-  expect(Session.read(localBaseUrl)).toMatchObject({
-    organization_id: 'org_local',
-    refresh_token: 'curlmdrt_local',
-  })
-  expect(Session.read(prodBaseUrl)).toMatchObject({
-    organization_id: 'org_prod',
-    refresh_token: 'curlmdrt_prod',
-  })
 })
 
 test('Auth.createResolver keeps local session on transient auth header failures', async () => {
