@@ -1,5 +1,11 @@
 # curl.md
 
+## 0.0.15
+
+### Patch Changes
+
+- Added command aliases ([`1042d7d`](https://github.com/wevm/curl.md/commit/1042d7d7e6bb8b8722431fe8f3de7946a93d9c14))
+
 ## 0.0.14
 
 ### Patch Changes
