@@ -449,6 +449,9 @@ async function parseGithubHtml(
   html: string,
   kind: 'issue' | 'pr',
 ): Promise<{ content: string; meta: Meta }> {
+  const embeddedIssue = kind === 'issue' ? extractEmbeddedIssue(html) : null
+  if (embeddedIssue) return embeddedIssue
+
   const tree = unified().use(rehypeParse).parse(html)
 
   const title = extractTitle(tree)
@@ -480,6 +483,63 @@ async function parseGithubHtml(
       ...(refs?.base && { base_ref: refs.base }),
       ...(refs?.head && { head_ref: refs.head }),
     },
+  }
+}
+
+function extractEmbeddedIssue(html: string): { content: string; meta: Meta } | null {
+  const payload = extractEmbeddedJson(html)
+  if (!payload) return null
+
+  const queries = getRecordArray(payload.payload, 'preloadedQueries')
+  for (const query of queries) {
+    const issue = getRecord(query.result, 'data', 'repository', 'issue')
+    if (!issue) continue
+
+    let content = getString(issue, 'body')?.trim() ?? ''
+    const timeline = getRecordArray(issue, 'frontTimelineItems', 'edges')
+    for (const edge of timeline) {
+      const node = getRecord(edge, 'node')
+      if (!node || getString(node, '__typename') !== 'IssueComment') continue
+      const commentBody = getString(node, 'body')?.trim() ?? ''
+      content += `\n\n${commentTag(commentBody, getString(node, 'author', 'login'), getString(node, 'createdAt'))}`
+    }
+
+    const number = getNumber(issue, 'number')
+    const title = getString(issue, 'title')
+    const author = getString(issue, 'author', 'login')
+    const state = getString(issue, 'state')?.toLowerCase()
+    const createdAt = getString(issue, 'createdAt')
+    const updatedAt = getString(issue, 'updatedAt')
+    const meta: Meta = {}
+    if (number !== undefined) meta.number = number
+    if (title) meta.title = title
+    if (author) meta.author = author
+    if (state) meta.state = state
+    if (createdAt) meta.created_at = createdAt
+    if (updatedAt) meta.updated_at = updatedAt
+
+    return {
+      content,
+      meta,
+    }
+  }
+
+  return null
+}
+
+function extractEmbeddedJson(html: string): Record<string, unknown> | null {
+  const match = html.match(
+    /<script type="application\/json" data-target="react-app\.embeddedData">([\s\S]*?)<\/script>/,
+  )
+  if (!match?.[1]) return null
+
+  try {
+    const parsed = JSON.parse(match[1])
+    return typeof parsed === 'object' && parsed !== null
+      ? (parsed as Record<string, unknown>)
+      : null
+  } catch {
+    return null
   }
 }
 
@@ -654,4 +714,36 @@ function splitRawFrontmatter(markdown: string): {
     if (key && value) meta[key] = value
   }
   return { body, meta }
+}
+
+function getNumber(value: unknown, ...path: string[]): number | undefined {
+  const nested = getValue(value, ...path)
+  return typeof nested === 'number' ? nested : undefined
+}
+
+function getRecord(value: unknown, ...path: string[]): Record<string, unknown> | null {
+  const nested = getValue(value, ...path)
+  return typeof nested === 'object' && nested !== null ? (nested as Record<string, unknown>) : null
+}
+
+function getRecordArray(value: unknown, ...path: string[]): Record<string, unknown>[] {
+  const nested = getValue(value, ...path)
+  if (!Array.isArray(nested)) return []
+  return nested.filter(
+    (item): item is Record<string, unknown> => typeof item === 'object' && item !== null,
+  )
+}
+
+function getString(value: unknown, ...path: string[]): string | undefined {
+  const nested = getValue(value, ...path)
+  return typeof nested === 'string' ? nested : undefined
+}
+
+function getValue(value: unknown, ...path: string[]): unknown {
+  let current = value
+  for (const segment of path) {
+    if (typeof current !== 'object' || current === null || !(segment in current)) return undefined
+    current = (current as Record<string, unknown>)[segment]
+  }
+  return current
 }

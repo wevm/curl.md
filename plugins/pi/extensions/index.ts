@@ -1,96 +1,422 @@
 import child_process from 'node:child_process'
-import fs from 'node:fs'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
-import type { ExtensionAPI } from '@mariozechner/pi-coding-agent'
-import { Type } from '@sinclair/typebox'
+import { Type } from '@mariozechner/pi-ai'
+import { defineTool, type ExtensionAPI } from '@mariozechner/pi-coding-agent'
+import { Container, Spacer, Text, getKeybindings } from '@mariozechner/pi-tui'
 import { createClient, defaultBaseUrl } from 'curl.md'
+import { Auth, Session } from 'curl.md/internal'
+import packageJson from '../package.json' with { type: 'json' }
+import { dynamicBorder, SelectFilterList } from './ui.ts'
+import {
+  createHeaders,
+  formatApiError,
+  formatPathForDisplay,
+  parseApiError,
+  parseMdFetchArgs,
+  parseNumberHeader,
+} from './utils.ts'
 
 export default function (pi: ExtensionAPI) {
-  const authState = createAuthState()
+  const baseUrl = process.env.CURLMD_BASE_URL || defaultBaseUrl
+  const apiKey = process.env.CURLMD_API_KEY
+  const resolver = Auth.createResolver(baseUrl, apiKey)
 
-  pi.registerCommand('curlmd_status', {
-    description: 'Show curl.md Pi extension status and setup guidance.',
+  pi.registerCommand('md_login', {
+    description: 'Log in to curl.md',
     async handler(_args, ctx) {
-      const auth = await resolveAuth(authState)
-      const baseUrl = process.env.CURLMD_BASE_URL || defaultBaseUrl
-      const cliInstalled = resolveCliRuntime(authState) !== null
-      const lines = [
-        'curl.md Pi',
-        `Tool: curlmd_fetch`,
-        `CLI: ${cliInstalled ? 'installed' : 'not found'}`,
+      const start = await Auth.startLogin(baseUrl)
+      if (!start.ok) {
+        ctx.ui.notify(`Failed to log in to curl.md: ${start.error.message}`, 'error')
+        return
+      }
+      if (start.data.kind === 'already_authenticated') {
+        ctx.ui.notify(
+          `Already logged in to curl.md${start.data.login ? ` as ${start.data.login}` : ''}`,
+          'info',
+        )
+        return
+      }
+      ;(() => {
+        const cmd = (() => {
+          if (process.platform === 'darwin') return 'open'
+          if (process.platform === 'win32') return 'start'
+          return 'xdg-open'
+        })()
+        child_process.exec(`${cmd} "${start.data.url}"`)
+      })()
+      const device = start.data
+      const result = await ctx.ui.custom<Auth.Result<Auth.WaitForLoginData> | null>(
+        (_tui, theme, _keybindings, done) => {
+          const dim = (s: string) => theme.fg('dim', s)
+          const accent = (s: string) => theme.fg('accent', s)
+          const borderFn = (s: string) => theme.fg('border', s)
+
+          const abortController = new AbortController()
+          const cancel = () => {
+            abortController.abort()
+            done(null)
+          }
+
+          const container = new Container()
+          container.addChild(dynamicBorder(borderFn))
+          container.addChild(new Text(theme.bold('Login to curl.md'), 1, 0))
+          container.addChild(new Spacer(1))
+          container.addChild(new Text(accent(device.url), 1, 0))
+          container.addChild(
+            new Text(dim(`\x1b]8;;${device.url}\x07Cmd+click to open\x1b]8;;\x07`), 1, 0),
+          )
+          container.addChild(new Spacer(1))
+          container.addChild(new Text(`Confirmation code: ${theme.bold(device.user_code)}`, 1, 0))
+          container.addChild(new Spacer(1))
+          container.addChild(new Text(dim('Waiting for browser authentication...'), 1, 0))
+          container.addChild(new Text(dim('(escape/ctrl+c to cancel)'), 1, 0))
+          container.addChild(dynamicBorder(borderFn))
+
+          const kb = getKeybindings()
+          ;(container as Container & { handleInput(data: string): void }).handleInput = (
+            data: string,
+          ) => {
+            if (kb.matches(data, 'tui.select.cancel') || data === '\x03') cancel()
+          }
+
+          Auth.waitForLogin(baseUrl, device, { signal: abortController.signal })
+            .then(done)
+            .catch(() => done(null))
+          return container
+        },
+      )
+      if (!result) return
+      if (!result.ok) {
+        ctx.ui.notify(`Failed to log in to curl.md: ${result.error.message}`, 'error')
+        return
+      }
+      ctx.ui.notify(
+        `Logged in${result.data.login ? ` as ${result.data.login}` : ''} to curl.md`,
+        'info',
+      )
+    },
+  })
+
+  pi.registerCommand('md_logout', {
+    description: 'Log out of curl.md',
+    async handler(_args, ctx) {
+      if (!Session.read(baseUrl)) {
+        ctx.ui.notify('Already logged out of curl.md', 'info')
+        return
+      }
+      const result = await Auth.logout(baseUrl)
+      if (!result.ok) {
+        ctx.ui.notify(`Failed to log out of curl.md: ${result.error.message}`, 'error')
+        return
+      }
+      ctx.ui.notify(
+        `Logged out${result.data.login ? ` of ${result.data.login}` : ''} from curl.md`,
+        'info',
+      )
+    },
+  })
+
+  pi.registerCommand('md_org', {
+    description: 'Switch active curl.md organization',
+    async handler(args, ctx) {
+      const authHeaders = await resolver()
+      if (!authHeaders) {
+        ctx.ui.notify('Not authenticated with curl.md. Run md_login first.', 'error')
+        return
+      }
+
+      const client = createClient(baseUrl, { headers: createHeaders(authHeaders) })
+      const [orgsRes, meRes] = await Promise.all([
+        client.api.orgs.$get(),
+        client.api.auth.me.$get(),
+      ])
+      if (!orgsRes.ok || !meRes.ok) {
+        ctx.ui.notify('Failed to fetch curl.md organizations.', 'error')
+        return
+      }
+
+      const orgsJson = await orgsRes.json()
+      const meJson = await meRes.json()
+      const accountLogin = meJson.account?.login ?? 'account'
+      const currentOrgId = Session.read(baseUrl)?.organization_id
+      const login = args.trim()
+
+      if (login) {
+        if (login === accountLogin || login === 'account') {
+          Session.write({ organization_id: undefined }, baseUrl)
+          ctx.ui.notify(`Switched curl.md account to ${accountLogin}`, 'info')
+          return
+        }
+
+        const match = orgsJson.organizations.find((organization) => organization.login === login)
+        if (!match) {
+          ctx.ui.notify(`curl.md organization "${login}" not found.`, 'error')
+          return
+        }
+
+        Session.write({ organization_id: match.id }, baseUrl)
+        ctx.ui.notify(`Switched curl.md organization to ${match.login}`, 'info')
+        return
+      }
+
+      const choices = [
+        ...orgsJson.organizations.map((o) => ({
+          id: o.id,
+          kind: 'organization' as const,
+          label: o.login,
+        })),
+        {
+          id: undefined,
+          kind: 'account' as const,
+          label: accountLogin,
+        },
       ]
 
-      if (baseUrl !== defaultBaseUrl) lines.push(`Base URL: ${baseUrl}`)
+      const choice = await (async () => {
+        if (typeof ctx.ui.custom === 'function') {
+          return ctx.ui.custom<
+            | {
+                id: string | undefined
+                kind: 'account' | 'organization'
+                label: string
+              }
+            | undefined
+          >((_tui, theme, _keybindings, done) => {
+            return new SelectFilterList(
+              theme,
+              choices,
+              {
+                emptyText: '  No matching organizations',
+                footerText: '(escape/ctrl+c to cancel)',
+                formatItem: (choice, props) => {
+                  const { isSelected, theme } = props
+                  const prefix = isSelected ? theme.fg('accent', '→ ') : '  '
+                  const label = isSelected ? theme.fg('accent', choice.label) : choice.label
+                  const badge = choice.kind === 'account' ? ` ${theme.fg('dim', '[account]')}` : ''
+                  const check = choice.id === currentOrgId ? ` ${theme.fg('success', '✓')}` : ''
+                  return `${prefix}${label}${badge}${check}`
+                },
+                placeholder: 'Type to filter. Use arrows to move, enter to select.',
+                searchText: (choice) => `${choice.label} ${choice.kind}`,
+                title: 'Switch curl.md organization',
+              },
+              done,
+              () => done(undefined),
+            )
+          })
+        }
 
-      if (auth.type === 'anonymous') {
-        lines.push('Auth: anonymous')
-        lines.push('Next: set CURLMD_API_KEY or run `curl.md auth login`.')
-        ctx.ui.notify(lines.join('\n'), 'info')
-        return
-      }
+        const options = choices.map((choice) => {
+          const badge = choice.kind === 'account' ? ' (account)' : ''
+          const check = choice.id === currentOrgId ? ' ✓' : ''
+          return `${choice.label}${badge}${check}`
+        })
+        const selected = await ctx.ui.select('Switch to:', options)
+        if (!selected) return undefined
 
-      const status = await fetchAuthStatus({
-        authorization: auth.authorization,
-        baseUrl,
-      })
-      if (status.type === 'authenticated') {
-        lines.push(`Auth: ${auth.type} (${status.login})`)
-        ctx.ui.notify(lines.join('\n'), 'info')
-        return
-      }
+        const index = options.indexOf(selected)
+        return choices[index]
+      })()
+      if (!choice) return
 
-      if (status.type === 'unauthenticated') {
-        if (auth.type === 'cli') clearCliAuthCache(authState)
-        lines.push(`Auth: ${auth.type} (not authenticated)`)
-        lines.push(
-          auth.type === 'api_key'
-            ? 'Next: refresh CURLMD_API_KEY.'
-            : 'Next: run `curl.md auth login` or set CURLMD_API_KEY.',
+      Session.write({ organization_id: choice.id }, baseUrl)
+      ctx.ui.notify(`Switched curl.md ${choice.kind} to ${choice.label}`, 'info')
+    },
+  })
+
+  pi.registerCommand('md_status', {
+    description: 'Show curl.md status',
+    async handler(_args, ctx) {
+      const lines = [`${packageJson.name} v${packageJson.version}`]
+      const cliPath = (() => {
+        const result = child_process.spawnSync(
+          process.platform === 'win32' ? 'where' : 'which',
+          ['curl.md'],
+          {
+            encoding: 'utf8',
+            stdio: ['ignore', 'pipe', 'ignore'],
+          },
         )
+        if (result.error || result.status !== 0) return null
+        return result.stdout.split(/\r?\n/).find(Boolean)?.trim() ?? null
+      })()
+      const cliDisplay = cliPath ? formatPathForDisplay(cliPath) : 'not installed'
+
+      const authHeaders = await resolver()
+      if (!authHeaders) {
+        lines.push('Auth: Not authenticated. Run md_login or set CURLMD_API_KEY.')
+        lines.push('Tool: read_web_page (alias: md_fetch)')
+        lines.push(`CLI: ${cliDisplay}`)
+        if (baseUrl !== defaultBaseUrl) lines.push(`Base URL: ${baseUrl}`)
         ctx.ui.notify(lines.join('\n'), 'info')
         return
       }
 
-      lines.push(`Auth: ${auth.type} (unable to verify: ${status.message})`)
+      const authType = apiKey ? 'api_key' : 'session'
+      const status = await (async () => {
+        try {
+          const client = createClient(baseUrl, {
+            headers: createHeaders({
+              authorization: authHeaders.authorization,
+              expires_at: null,
+              organization_id: null,
+            }),
+          })
+          const res = await client.api.auth.me.$get()
+          if (!res.ok) {
+            const json = await res.json().catch((_error) => undefined)
+            const error = parseApiError(json)
+            return {
+              message: error ? formatApiError(error) : `status ${res.status}`,
+              type: 'error' as const,
+            }
+          }
+
+          const json = await res.json()
+          if (!json.account) return { type: 'unauthenticated' as const }
+          const activeOrganization = authHeaders.organization_id
+            ? json.account.organizations?.find(
+                (organization) => organization.id === authHeaders.organization_id,
+              )
+            : null
+          return {
+            login: json.account.login,
+            organization: activeOrganization?.login ?? 'none',
+            type: 'authenticated' as const,
+          }
+        } catch (error) {
+          return {
+            message: error instanceof Error ? error.message : 'unknown error',
+            type: 'error' as const,
+          }
+        }
+      })()
+      if (status.type === 'authenticated') {
+        lines.push(`Auth: ${authType} (${status.login})`)
+        lines.push(`Organization: ${status.organization}`)
+      } else if (status.type === 'unauthenticated') {
+        lines.push(
+          authType === 'api_key'
+            ? 'Auth: api_key not authenticated. Refresh CURLMD_API_KEY.'
+            : 'Auth: session not authenticated. Run md_login or set CURLMD_API_KEY.',
+        )
+      } else {
+        lines.push(`Auth: ${authType} verification failed. ${status.message}`)
+      }
+      lines.push('Tool: read_web_page (alias: md_fetch)')
+      lines.push(`CLI: ${cliDisplay}`)
+      if (baseUrl !== defaultBaseUrl) lines.push(`Base URL: ${baseUrl}`)
       ctx.ui.notify(lines.join('\n'), 'info')
     },
   })
 
-  pi.registerTool({
+  const readWebPageTool = defineTool({
     description: 'Fetch a URL through curl.md and return markdown optimized for coding agents.',
     label: 'curl.md Fetch',
-    name: 'curlmd_fetch',
+    name: 'read_web_page',
     parameters: Type.Object({
-      fresh: Type.Optional(Type.Boolean({ description: 'Bypass curl.md cache' })),
+      fresh: Type.Optional(
+        Type.Boolean({
+          description:
+            'Bypass curl.md cache when freshness matters, such as changelogs, release notes, or recently updated docs.',
+        }),
+      ),
       keywords: Type.Optional(
-        Type.Array(Type.String({ description: 'Keyword to pre-filter sections by' })),
+        Type.Array(
+          Type.String({
+            description:
+              'Keyword to pre-filter sections by. Prefer 2-5 distinct terms when only part of a long page matters.',
+          }),
+        ),
       ),
       mode: Type.Optional(
         Type.Union([
-          Type.Literal('rush', { description: 'Lower-latency narrowing mode' }),
-          Type.Literal('smart', { description: 'Higher-quality narrowing mode' }),
+          Type.Literal('rush', {
+            description:
+              'Lower-latency mode. Best when you already know the section or answer you want.',
+          }),
+          Type.Literal('smart', {
+            description:
+              'Higher-quality narrowing mode. Best for long or noisy pages where better extraction matters more than speed.',
+          }),
         ]),
       ),
       objective: Type.Optional(
-        Type.String({ description: 'Specific question or objective to narrow the page to' }),
+        Type.String({
+          description:
+            'Specific question or goal to answer from the page. Prefer concrete objectives like "compare pricing tiers" or "find auth header requirements".',
+        }),
       ),
-      url: Type.String({ description: 'HTTP(S) URL or bare domain to fetch via curl.md' }),
+      url: Type.String({
+        description:
+          'HTTP(S) URL or bare domain to fetch via curl.md. Prefer the canonical docs or article URL you want summarized.',
+      }),
     }),
+    prepareArguments(args) {
+      const rawArgs = args as Record<string, unknown>
+      if (typeof rawArgs.url !== 'string') throw new Error('Invalid arguments')
+
+      const url = new URL(rawArgs.url.includes('://') ? rawArgs.url : `https://${rawArgs.url}`)
+      if (!/^https?:$/.test(url.protocol)) throw new Error('URL must use http or https')
+
+      return { ...rawArgs, url: url.toString() }
+    },
     promptGuidelines: [
-      'Use curlmd_fetch for documentation pages, articles, and other web URLs when you want markdown or objective-based narrowing.',
+      'Use read_web_page for documentation pages, changelogs, articles, and other web URLs when you want markdown back from curl.md.',
+      'Set objective to the exact question you need answered when only part of the page matters.',
+      'Add keywords for long pages when you know the relevant terms, and choose rush for speed or smart for higher-quality narrowing.',
     ],
     promptSnippet:
-      'Fetch a URL via curl.md, optionally filtered by keywords or narrowed to a specific objective.',
-    async execute(_toolCallId, params, signal) {
-      const baseUrl = process.env.CURLMD_BASE_URL || defaultBaseUrl
-      let auth = await resolveAuth(authState, signal)
-      const url = normalizeUrl(params.url)
+      'Fetch a web page via curl.md. Use objective for a concrete question, keywords for long pages, rush for speed, smart for better narrowing.',
+    renderCall(args, theme, context) {
+      const text = (context.lastComponent as Text | undefined) ?? new Text('', 0, 0)
+      let content = `${theme.fg('toolTitle', theme.bold('read_web_page'))} ${theme.fg('accent', args.url)}`
+      const options = formatReadWebPageCallOptions(args)
+      if (options.length > 0) content += `\n${theme.fg('dim', options.join('\n'))}`
+      text.setText(content)
+      return text
+    },
+    renderResult(result, { expanded, isPartial }, theme, context) {
+      const text = (context.lastComponent as Text | undefined) ?? new Text('', 0, 0)
 
-      const client = createClient(baseUrl, {
-        headers: createHeaders(auth),
-      })
-      let res = await client.fetch(url, {
+      if (isPartial) {
+        text.setText(theme.fg('warning', 'Fetching via curl.md...'))
+        return text
+      }
+
+      const content = result.content.find((item) => item.type === 'text')
+      if (!content || content.type !== 'text') {
+        text.setText(theme.fg('dim', 'No content'))
+        return text
+      }
+
+      if (!expanded) {
+        const preview = formatReadWebPagePreview(content.text)
+        const lines = [...preview.lines]
+        if (preview.remainingLines > 0) {
+          lines.push(
+            theme.fg(
+              'dim',
+              `... (${preview.remainingLines} more line${preview.remainingLines === 1 ? '' : 's'}, ctrl+o to expand)`,
+            ),
+          )
+        }
+        text.setText(lines.join('\n'))
+        return text
+      }
+
+      text.setText(content.text)
+      return text
+    },
+    async execute(_toolCallId, params, signal) {
+      let authHeaders = await resolver()
+      let authType: 'anonymous' | 'api_key' | 'session' = (() => {
+        if (apiKey) return 'api_key'
+        if (authHeaders) return 'session'
+        return 'anonymous'
+      })()
+
+      const client = createClient(baseUrl, { headers: createHeaders(authHeaders) })
+      let res = await client.fetch(params.url, {
         fresh: params.fresh,
         keywords: params.keywords,
         mode: params.mode,
@@ -98,47 +424,48 @@ export default function (pi: ExtensionAPI) {
         options: { init: { signal } },
       })
 
-      if (res.status === 401 && auth.type === 'cli') {
-        clearCliAuthCache(authState)
-        auth = await resolveAuth(authState, signal)
-        if (auth.type === 'anonymous') {
-          const client = createClient(baseUrl, {
-            headers: createHeaders(auth),
-          })
-          res = await client.fetch(url, {
-            fresh: params.fresh,
-            keywords: params.keywords,
-            mode: params.mode,
-            objective: params.objective,
-            options: { init: { signal } },
-          })
-        }
+      if (res.status === 401 && authType === 'session') {
+        authHeaders = await resolver()
+        if (!authHeaders) authType = 'anonymous'
+        const retryClient = createClient(baseUrl, { headers: createHeaders(authHeaders) })
+        res = await retryClient.fetch(params.url, {
+          fresh: params.fresh,
+          keywords: params.keywords,
+          mode: params.mode,
+          objective: params.objective,
+          options: { init: { signal } },
+        })
       }
 
       if (res.status === 400) {
         const json = await res.json()
-        throw new Error(formatValidationError(json, json.message))
+        const errorMessage = (() => {
+          if (
+            typeof json !== 'object' ||
+            json === null ||
+            !('issues' in json) ||
+            !Array.isArray(json.issues)
+          )
+            return json.message
+
+          return json.issues.map((issue) => `${issue.path}: ${issue.message}`).join('\n')
+        })()
+        throw new Error(errorMessage)
       }
 
       if (res.status === 401) {
-        if (auth.type === 'api_key')
+        if (authType === 'api_key')
           throw new Error('curl.md authentication failed. Fix CURLMD_API_KEY.')
-        if (auth.type === 'cli')
-          throw new Error('curl.md authentication failed. Run `curl.md auth login` again.')
-
-        throw new Error(
-          'curl.md authentication required. Set CURLMD_API_KEY or run `curl.md auth login`.',
-        )
+        if (authType === 'session')
+          throw new Error('curl.md authentication failed. Run md_login again.')
+        throw new Error('curl.md authentication required. Set CURLMD_API_KEY or run md_login.')
       }
 
       if (res.status === 403) {
         const json = await res.json()
-        if (auth.type === 'api_key')
-          throw new Error(`${json.message}. Check CURLMD_API_KEY access.`)
-
-        throw new Error(
-          `${json.message}. Set CURLMD_API_KEY or adjust your curl.md account access.`,
-        )
+        Session.write({ organization_id: undefined }, baseUrl)
+        if (authType === 'api_key') throw new Error(`${json.message}. Check CURLMD_API_KEY access.`)
+        throw new Error(`${json.message}. Run md_login or set CURLMD_API_KEY.`)
       }
 
       if (res.status === 429) {
@@ -146,276 +473,156 @@ export default function (pi: ExtensionAPI) {
         const retryAfter = res.headers.get('retry-after')
         const message = retryAfter ? `${json.message}. Try again in ${retryAfter}s` : json.message
 
-        if (auth.type === 'anonymous')
-          throw new Error(
-            `${message}. Set CURLMD_API_KEY or run \`curl.md auth login\` for higher limits.`,
-          )
+        if (authType === 'anonymous')
+          throw new Error(`${message}. Set CURLMD_API_KEY or run md_login for higher limits.`)
 
         throw new Error(`${message}. Add credits with \`curl.md credits add\` if needed.`)
       }
 
       if (!res.ok) {
-        const json = await readJson(res.clone())
+        const json = await res
+          .clone()
+          .json()
+          .catch((_error) => undefined)
         const error = parseApiError(json)
-        if (error) throw new Error(`curl.md request failed: ${error.message}`)
+        if (error) throw new Error(formatApiError(error))
 
         const text = await res.text()
         throw new Error(text || `curl.md request failed with status ${res.status}`)
       }
 
-      const json = (await res.json()) as { content: string }
-
+      const json = await res.json()
       return {
-        content: [{ type: 'text', text: json.content }],
+        content: [{ text: json.content, type: 'text' as const }],
         details: {
-          auth: auth.type,
-          cache: toTextHeader(res.headers.get('x-cache')),
-          credits_remaining: toNumberHeader(res.headers.get('x-credits-remaining')),
-          request_id: toTextHeader(res.headers.get('x-request-id')),
-          tokens_count: toNumberHeader(res.headers.get('x-tokens-count')),
-          tokens_saved: toNumberHeader(res.headers.get('x-tokens-saved')),
-          url,
+          auth: authType,
+          cache: res.headers.get('x-cache') || undefined,
+          credits_remaining: parseNumberHeader(res.headers.get('x-credits-remaining')),
+          fresh: params.fresh || undefined,
+          keywords: params.keywords,
+          mode: params.mode,
+          objective: params.objective,
+          request_id: res.headers.get('x-request-id') || undefined,
+          tokens_count: parseNumberHeader(res.headers.get('x-tokens-count')),
+          tokens_saved: parseNumberHeader(res.headers.get('x-tokens-saved')),
+          url: params.url,
         },
       }
     },
   })
-}
 
-async function fetchAuthStatus(options: { authorization?: string; baseUrl: string }) {
-  if (!options.authorization) return { type: 'unauthenticated' as const }
-
-  try {
-    const client = createClient(options.baseUrl, {
-      headers: createHeaders({ authorization: options.authorization }),
-    })
-    const res = await client.api.auth.me.$get()
-    if (!res.ok) {
-      const json = await readJson(res)
-      const error = parseApiError(json)
-      return {
-        message: error?.message || `status ${res.status}`,
-        type: 'error' as const,
-      }
-    }
-
-    const json = await res.json()
-    if (!json.account) return { type: 'unauthenticated' as const }
-    return { login: json.account.login, type: 'authenticated' as const }
-  } catch (error) {
-    return {
-      message: error instanceof Error ? error.message : 'unknown error',
-      type: 'error' as const,
-    }
-  }
-}
-
-function createAuthState() {
-  return {
-    cliAuthCache: null as null | { auth: CliAuth | null; stale_at: number },
-    cliRuntime: undefined as CliRuntime | null | undefined,
-  }
-}
-
-function createHeaders(
-  auth: ResolvedAuth | { authorization?: string; organization_id?: string | null | undefined },
-) {
-  const headers: Record<string, string> = {
-    accept: 'application/json',
-  }
-  const authorization = 'authorization' in auth ? auth.authorization : undefined
-  const organizationId = 'organization_id' in auth ? auth.organization_id : undefined
-  if (authorization) headers.authorization = authorization
-  if (organizationId) headers['x-organization-id'] = organizationId
-  return headers
-}
-
-function parseApiError(json: unknown) {
-  if (typeof json !== 'object' || json === null) return undefined
-  if (!('message' in json) || typeof json.message !== 'string') return undefined
-  return {
-    code: 'code' in json && typeof json.code === 'string' ? json.code : 'request_failed',
-    message: json.message,
-  }
-}
-
-async function resolveAuth(
-  state: ReturnType<typeof createAuthState>,
-  signal?: AbortSignal,
-): Promise<ResolvedAuth> {
-  if (process.env.CURLMD_API_KEY)
-    return {
-      authorization: `Bearer ${process.env.CURLMD_API_KEY}`,
-      type: 'api_key' as const,
-    }
-
-  const cliAuth = await readCliAuth(state, signal)
-  if (cliAuth)
-    return {
-      ...cliAuth,
-      type: 'cli' as const,
-    }
-
-  return {
-    type: 'anonymous' as const,
-  }
-}
-
-async function readCliAuth(state: ReturnType<typeof createAuthState>, signal?: AbortSignal) {
-  const now = Date.now()
-  if (state.cliAuthCache && state.cliAuthCache.stale_at > now) return state.cliAuthCache.auth
-
-  const cliRuntime = resolveCliRuntime(state)
-  if (!cliRuntime) {
-    state.cliAuthCache = { auth: null, stale_at: now + 60_000 }
-    return null
-  }
-
-  try {
-    const { stdout } = await execFile(
-      cliRuntime.command,
-      [...cliRuntime.args, 'auth', 'headers', '--json'],
-      { signal },
-    )
-    const json = JSON.parse(stdout.trim()) as { data?: unknown }
-    const data = json.data ?? json
-    if (!isCliAuth(data)) throw new Error('Invalid auth response')
-    state.cliAuthCache = {
-      auth: data,
-      stale_at: getCliAuthCacheExpiry(data),
-    }
-    return data
-  } catch {
-    state.cliAuthCache = { auth: null, stale_at: now + 60_000 }
-    return null
-  }
-}
-
-function resolveCliRuntime(state: ReturnType<typeof createAuthState>) {
-  if (state.cliRuntime !== undefined) return state.cliRuntime
-
-  try {
-    const entryPath = fileURLToPath(import.meta.resolve('curl.md'))
-    for (let dir = path.dirname(entryPath); ; dir = path.dirname(dir)) {
-      const distBin = path.join(dir, 'dist', 'bin.js')
-      if (fs.existsSync(distBin)) {
-        state.cliRuntime = { command: process.execPath, args: [distBin] }
-        return state.cliRuntime
-      }
-
-      const srcBin = path.join(dir, 'src', 'bin.ts')
-      if (fs.existsSync(srcBin)) {
-        state.cliRuntime = {
-          command: process.execPath,
-          args: ['--experimental-strip-types', srcBin],
+  const mdFetchUsage =
+    'Usage: /md_fetch <url> [--objective value] [--keyword value] [--mode rush|smart] [--fresh]'
+  pi.registerCommand('md_fetch', {
+    description: 'Fetch a URL and load the markdown into the editor',
+    async handler(args, ctx) {
+      const parsedArgs = (() => {
+        try {
+          return parseMdFetchArgs(args)
+        } catch (error) {
+          ctx.ui.notify(error instanceof Error ? error.message : mdFetchUsage, 'error')
+          return null
         }
-        return state.cliRuntime
+      })()
+      if (!parsedArgs) return
+
+      if (!parsedArgs.url) {
+        ctx.ui.notify(mdFetchUsage, 'error')
+        return
       }
 
-      const parent = path.dirname(dir)
-      if (parent === dir) break
-    }
-  } catch {}
+      const stopSpinner = (() => {
+        if (typeof ctx.ui.setStatus !== 'function') return () => {}
 
-  state.cliRuntime = null
-  return state.cliRuntime
-}
+        const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
+        let index = 0
+        const render = (frame: string) => ctx.ui.theme.fg('accent', frame)
 
-function clearCliAuthCache(state: ReturnType<typeof createAuthState>) {
-  state.cliAuthCache = null
-}
+        ctx.ui.setStatus('curlmd-fetch', render(frames[index]!))
 
-function getCliAuthCacheExpiry(auth: CliAuth) {
-  if (!auth.expires_at) return Date.now() + 60_000
+        const interval = setInterval(() => {
+          index = (index + 1) % frames.length
+          ctx.ui.setStatus('curlmd-fetch', render(frames[index]!))
+        }, 80)
+        interval.unref?.()
 
-  const expiresAt = Date.parse(auth.expires_at)
-  if (!Number.isFinite(expiresAt)) return Date.now() + 60_000
-  return Math.max(Date.now(), expiresAt - 60_000)
-}
+        return () => {
+          clearInterval(interval)
+          ctx.ui.setStatus('curlmd-fetch', undefined)
+        }
+      })()
 
-function isCliAuth(value: unknown): value is CliAuth {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    'authorization' in value &&
-    typeof value.authorization === 'string' &&
-    'expires_at' in value &&
-    (value.expires_at === null || typeof value.expires_at === 'string') &&
-    'organization_id' in value &&
-    (value.organization_id === null || typeof value.organization_id === 'string')
-  )
-}
-
-async function readJson(response: Response) {
-  try {
-    return await response.json()
-  } catch {
-    return undefined
-  }
-}
-
-function toNumberHeader(value: string | null) {
-  if (!value) return undefined
-  const number = Number(value)
-  return Number.isFinite(number) ? number : undefined
-}
-
-function toTextHeader(value: string | null) {
-  return value || undefined
-}
-
-function formatValidationError(json: unknown, fallback = 'Invalid request') {
-  if (
-    typeof json !== 'object' ||
-    json === null ||
-    !('issues' in json) ||
-    !Array.isArray(json.issues)
-  )
-    return fallback
-
-  return json.issues
-    .map((issue: { message: string; path: string }) => `${issue.path}: ${issue.message}`)
-    .join('\n')
-}
-
-function normalizeUrl(url: string) {
-  return url.includes('://') ? url : `https://${url}`
-}
-
-async function execFile(command: string, args: string[], options: { signal?: AbortSignal } = {}) {
-  return await new Promise<{ stderr: string; stdout: string }>((resolve, reject) => {
-    child_process.execFile(
-      command,
-      args,
-      {
-        encoding: 'utf8',
-        env: { ...process.env, FORCE_COLOR: '0', NO_COLOR: '1' },
-        signal: options.signal,
-      },
-      (error, stdout, stderr) => {
-        if (error) {
-          Object.assign(error, { stderr, stdout })
-          reject(error)
+      try {
+        const params = readWebPageTool.prepareArguments!(parsedArgs)
+        const result = await readWebPageTool.execute(
+          'md_fetch_command',
+          params,
+          new AbortController().signal,
+          undefined,
+          {} as never,
+        )
+        const text = result.content.find((content) => content.type === 'text')?.text
+        if (!text) {
+          ctx.ui.notify('curl.md returned no text content.', 'error')
           return
         }
 
-        resolve({ stderr, stdout })
-      },
-    )
+        ctx.ui.setEditorText(text)
+        ctx.ui.notify(`Loaded ${params.url}`, 'info')
+      } catch (error) {
+        ctx.ui.notify(error instanceof Error ? error.message : 'Failed to fetch URL.', 'error')
+      } finally {
+        stopSpinner()
+      }
+    },
   })
+
+  pi.registerTool(readWebPageTool)
+  pi.registerTool(
+    defineTool({
+      ...readWebPageTool,
+      description: 'Alias for read_web_page.',
+      label: 'curl.md Fetch (alias)',
+      name: 'md_fetch',
+      promptGuidelines: ['Prefer read_web_page. md_fetch is a compatibility alias.'],
+      promptSnippet: 'Alias for read_web_page.',
+    }),
+  )
 }
 
-type CliAuth = {
-  authorization: string
-  expires_at: string | null
-  organization_id: string | null
+function formatReadWebPageCallOptions(args: {
+  fresh?: boolean
+  keywords?: string[]
+  mode?: 'rush' | 'smart'
+  objective?: string
+}) {
+  const options: string[] = []
+
+  if (args.objective) options.push(`objective: ${args.objective}`)
+  if (args.keywords && args.keywords.length > 0)
+    options.push(`keywords: ${args.keywords.join(', ')}`)
+  if (args.mode) options.push(`mode: ${args.mode}`)
+  if (args.fresh) options.push('fresh')
+
+  return options
 }
 
-type CliRuntime = {
-  args: string[]
-  command: string
-}
+function formatReadWebPagePreview(content: string) {
+  const withoutFrontmatter = content.startsWith('---\n')
+    ? content.replace(/^---\n[\s\S]*?\n---\n+/, '')
+    : content
+  const previewContent = withoutFrontmatter.replace(
+    /\n\n---\n\nPowered by \[curl\.md\]\(https:\/\/curl\.md\)$/,
+    '',
+  )
 
-type ResolvedAuth =
-  | { type: 'anonymous' }
-  | { authorization: string; type: 'api_key' }
-  | ({ type: 'cli' } & CliAuth)
+  const lines = previewContent
+    .split('\n')
+    .map((line) => line.trimEnd())
+    .filter(Boolean)
+
+  return {
+    lines: lines.slice(0, 3),
+    remainingLines: Math.max(0, lines.length - 3),
+  }
+}

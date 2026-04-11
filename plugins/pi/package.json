@@ -26,15 +26,16 @@
     ]
   },
   "dependencies": {
-    "curl.md": "workspace:*",
-    "@sinclair/typebox": "^0.34.49"
+    "curl.md": "workspace:*"
   },
   "peerDependencies": {
     "@mariozechner/pi-ai": ">=0.65.0",
-    "@mariozechner/pi-coding-agent": ">=0.65.0"
+    "@mariozechner/pi-coding-agent": ">=0.65.0",
+    "@mariozechner/pi-tui": ">=0.65.0"
   },
   "devDependencies": {
     "@mariozechner/pi-ai": "^0.65.2",
-    "@mariozechner/pi-coding-agent": "^0.65.2"
+    "@mariozechner/pi-coding-agent": "^0.65.2",
+    "@mariozechner/pi-tui": "^0.65.2"
   }
 }

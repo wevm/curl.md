@@ -8,6 +8,6 @@
     "rootDir": "..",
     "rewriteRelativeImportExtensions": true
   },
-  "include": ["src/index.ts", "src/cf-env.d.ts"],
+  "include": ["src/index.ts", "src/internal/index.ts", "src/cf-env.d.ts"],
   "exclude": ["src/**/*.test.*", "test"]
 }

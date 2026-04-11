@@ -6,8 +6,10 @@
     "moduleResolution": "bundler",
     "noEmit": true,
     "paths": {
-      "curl.md": ["../../cli/src/index.ts"]
+      "curl.md": ["../../cli/src/index.ts"],
+      "curl.md/internal": ["../../cli/src/internal/index.ts"]
     },
+    "resolveJsonModule": true,
     "skipLibCheck": true,
     "strict": true,
     "target": "es2022"

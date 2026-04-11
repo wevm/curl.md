@@ -2,9 +2,13 @@ import { spawn } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { discoverAndLoadExtensions } from '@mariozechner/pi-coding-agent'
+import { defaultBaseUrl } from 'curl.md'
+import { HttpResponse, http, passthrough } from 'msw'
 import { expect, test } from 'vitest'
+import { server } from './server.ts'
 
-test('loads the curlmd Pi extension package in RPC mode', async () => {
+test('loads the md Pi extension package in RPC mode', async () => {
   const rpc = startPiRpc({
     args: ['--no-extensions', '-e', packageDir()],
     cwd: repoRoot(),
@@ -17,7 +21,7 @@ test('loads the curlmd Pi extension package in RPC mode', async () => {
   }
 })
 
-test('installs and removes curlmd Pi package through pi install', async () => {
+test('installs and removes md Pi package through pi install', async () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'curlmd-pi-package-'))
   const homeDir = path.join(tmpDir, 'home')
   const workspaceDir = path.join(tmpDir, 'workspace')
@@ -66,11 +70,75 @@ test('installs and removes curlmd Pi package through pi install', async () => {
       )
       expect(getCommandsResponse.success).toBe(true)
       expect(getCommandsResponse.data.commands).not.toContainEqual(
-        expect.objectContaining({ name: 'curlmd_status', source: 'extension' }),
+        expect.objectContaining({ name: 'md_status', source: 'extension' }),
       )
     } finally {
       await removedRpc.stop()
     }
+  } finally {
+    fs.rmSync(tmpDir, { force: true, recursive: true })
+  }
+})
+
+test('registers read_web_page and md_fetch through the real Pi extension loader', async () => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'curlmd-pi-loader-'))
+
+  server.use(
+    http.get('*', async ({ request }) => {
+      const url = new URL(request.url)
+      if (
+        url.origin !== new URL(defaultBaseUrl).origin ||
+        url.pathname !== '/api/https://example.com/docs'
+      )
+        return passthrough()
+      return HttpResponse.json({ content: '# Loaded through Pi loader' })
+    }),
+  )
+
+  try {
+    const result = await discoverAndLoadExtensions([packageDir()], tmpDir, tmpDir)
+
+    expect(result.errors).toEqual([])
+
+    const tools = result.extensions.flatMap((extension) => Array.from(extension.tools.values()))
+    const readWebPageTool = tools.find((tool) => tool.definition.name === 'read_web_page')
+    const aliasTool = tools.find((tool) => tool.definition.name === 'md_fetch')
+
+    expect(readWebPageTool).toBeDefined()
+    expect(aliasTool).toBeDefined()
+    expect(readWebPageTool?.definition.label).toBe('curl.md Fetch')
+    expect(readWebPageTool?.definition.promptSnippet).toBe(
+      'Fetch a web page via curl.md. Use objective for a concrete question, keywords for long pages, rush for speed, smart for better narrowing.',
+    )
+    expect(readWebPageTool?.definition.promptGuidelines).toContain(
+      'Set objective to the exact question you need answered when only part of the page matters.',
+    )
+    expect(aliasTool?.definition.promptSnippet).toBe('Alias for read_web_page.')
+
+    const execution = await readWebPageTool!.definition.execute(
+      'call_1',
+      { url: 'https://example.com/docs' },
+      new AbortController().signal,
+      undefined,
+      {} as any,
+    )
+
+    expect(execution).toEqual({
+      content: [{ type: 'text', text: '# Loaded through Pi loader' }],
+      details: {
+        auth: 'anonymous',
+        cache: undefined,
+        credits_remaining: undefined,
+        fresh: undefined,
+        keywords: undefined,
+        mode: undefined,
+        objective: undefined,
+        request_id: undefined,
+        tokens_count: undefined,
+        tokens_saved: undefined,
+        url: 'https://example.com/docs',
+      },
+    })
   } finally {
     fs.rmSync(tmpDir, { force: true, recursive: true })
   }
@@ -199,13 +267,13 @@ async function expectStatusCommand(rpc: ReturnType<typeof startPiRpc>) {
   expect(getCommandsResponse.success).toBe(true)
   expect(getCommandsResponse.data.commands).toContainEqual(
     expect.objectContaining({
-      description: 'Show curl.md Pi extension status and setup guidance.',
-      name: 'curlmd_status',
+      description: 'Show curl.md status',
+      name: 'md_status',
       source: 'extension',
     }),
   )
 
-  rpc.send({ id: 'prompt_status', message: '/curlmd_status', type: 'prompt' })
+  rpc.send({ id: 'prompt_status', message: '/md_status', type: 'prompt' })
 
   const promptResponse = await rpc.waitFor(
     (message) => message.type === 'response' && message.id === 'prompt_status',
@@ -217,8 +285,8 @@ async function expectStatusCommand(rpc: ReturnType<typeof startPiRpc>) {
       message.type === 'extension_ui_request' &&
       message.method === 'notify' &&
       typeof message.message === 'string' &&
-      message.message.includes('curl.md Pi') &&
-      message.message.includes('Tool: curlmd_fetch'),
+      message.message.includes('@curl.md/pi') &&
+      message.message.includes('Tool: read_web_page'),
   )
   expect(notify.notifyType).toBe('info')
   expect(rpc.messages.filter((message) => message.type === 'extension_error')).toEqual([])

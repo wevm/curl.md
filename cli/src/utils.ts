@@ -6,6 +6,7 @@ import util from 'node:util'
 import pc from 'picocolors'
 import pkg from '../package.json' with { type: 'json' }
 import type { Client } from './client.ts'
+import { createSpinner, select } from './ui.ts'
 
 export function dataDir() {
   if (process.env.XDG_DATA_HOME) return path.join(process.env.XDG_DATA_HOME, 'curl-md')
@@ -18,39 +19,6 @@ export function configDir() {
   if (process.env.XDG_CONFIG_HOME) return path.join(process.env.XDG_CONFIG_HOME, 'curl-md')
   if (process.platform === 'win32') return path.join(process.env.APPDATA || os.homedir(), 'curl-md')
   return path.join(os.homedir(), '.config', 'curl-md')
-}
-
-export const Session = {
-  dir: () => path.join(dataDir(), 'session.json'),
-  read(): Session.Data | null {
-    try {
-      const session = JSON.parse(fs.readFileSync(Session.dir(), 'utf-8')) as Session.Data
-      if (!session.refresh_token) return null
-      return session
-    } catch {
-      return null
-    }
-  },
-  write(session: Partial<Session.Data>) {
-    const p = Session.dir()
-    fs.mkdirSync(path.dirname(p), { recursive: true })
-    const existing = Session.read()
-    const merged = { ...existing, ...session }
-    fs.writeFileSync(p, JSON.stringify(merged), { mode: 0o600 })
-  },
-  delete() {
-    try {
-      fs.unlinkSync(Session.dir())
-    } catch {}
-  },
-}
-
-export declare namespace Session {
-  export type Data = {
-    organization_id?: string | undefined
-    refresh_token?: string | undefined
-    refresh_token_expires_at?: string | undefined
-  }
 }
 
 export function compareVersions(a: string, b: string): number {
@@ -71,7 +39,6 @@ export function installGlobal(name: string, version?: string) {
   if (type === 'bun') return execFileAsync('bun', ['add', '-g', spec])
   return execFileAsync('npm', ['install', '-g', spec])
 }
-import { createSpinner, select } from './ui.ts'
 export { createSpinner, select }
 
 export function openUrl(url: string) {

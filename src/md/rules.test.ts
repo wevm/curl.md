@@ -7,8 +7,8 @@ function rewrite(factory: defineRule.ReturnType, url: string) {
   return factory().rewrite?.(new URL(url), {} as URLPatternResult)
 }
 
-function patternsMatchHostname(rule: { patterns: URLPattern[] }, hostname: string) {
-  return rule.patterns.some((p) => p.test({ hostname }))
+function patternsMatch(rule: { patterns: URLPattern[] }, url: string) {
+  return rule.patterns.some((pattern) => pattern.test(url))
 }
 
 function checkUrl(factory: defineRule.ReturnType) {
@@ -32,7 +32,7 @@ test.each([
   rules.vue,
 ])('appendMd: $key rewrites to .md', (factory) => {
   const url = checkUrl(factory)
-  expect(patternsMatchHostname(factory(), new URL(url).hostname)).toBe(true)
+  expect(patternsMatch(factory(), url)).toBe(true)
   expect(rewrite(factory, url)?.href).toBe(`${url}.md`)
 })
 
@@ -40,7 +40,7 @@ test.each([rules.astral, rules.openclaw, rules.rspack, rules.tempo, rules.viem, 
   'appendMdWithIndex: $key rewrites path to .md',
   (factory) => {
     const url = checkUrl(factory)
-    expect(patternsMatchHostname(factory(), new URL(url).hostname)).toBe(true)
+    expect(patternsMatch(factory(), url)).toBe(true)
     expect(rewrite(factory, url)?.href).toBe(url.endsWith('/') ? `${url}index.md` : `${url}.md`)
   },
 )
@@ -57,7 +57,7 @@ test.each([
 })
 
 test('cloudflare rewrites docs path to raw mdx', () => {
-  expect(patternsMatchHostname(rules.cloudflare(), 'developers.cloudflare.com')).toBe(true)
+  expect(patternsMatch(rules.cloudflare(), 'https://developers.cloudflare.com/workers')).toBe(true)
   expect(rewrite(rules.cloudflare, 'https://developers.cloudflare.com/workers')?.href).toBe(
     'https://raw.githubusercontent.com/cloudflare/cloudflare-docs/production/src/content/docs/workers.mdx',
   )
@@ -79,7 +79,7 @@ test.each([
   rules.vercel,
 ])('prefixedWithIndex: $key rewrites docs path to .md', (factory) => {
   const url = checkUrl(factory)
-  expect(patternsMatchHostname(factory(), new URL(url).hostname)).toBe(true)
+  expect(patternsMatch(factory(), url)).toBe(true)
   expect(rewrite(factory, url)?.href).toBe(`${url}.md`)
 })
 
@@ -101,7 +101,7 @@ test.each([
 })
 
 test('repo: deno rewrites to raw.githubusercontent.com', () => {
-  expect(patternsMatchHostname(rules.deno(), 'docs.deno.com')).toBe(true)
+  expect(patternsMatch(rules.deno(), 'https://docs.deno.com/runtime/fundamentals')).toBe(true)
   expect(rewrite(rules.deno, 'https://docs.deno.com/runtime/fundamentals')?.href).toBe(
     'https://raw.githubusercontent.com/denoland/docs/main/runtime/fundamentals.md',
   )
@@ -112,21 +112,23 @@ test('repo: deno returns undefined for root', () => {
 })
 
 test('repo: rolldown rewrites to raw.githubusercontent.com with prefix', () => {
-  expect(patternsMatchHostname(rules.rolldown(), 'rolldown.rs')).toBe(true)
+  expect(patternsMatch(rules.rolldown(), 'https://rolldown.rs/guide/introduction')).toBe(true)
   expect(rewrite(rules.rolldown, 'https://rolldown.rs/guide/introduction')?.href).toBe(
     'https://raw.githubusercontent.com/rolldown/rolldown/main/docs/guide/introduction.md',
   )
 })
 
 test('repo: vitePlus rewrites to raw.githubusercontent.com with prefix', () => {
-  expect(patternsMatchHostname(rules.vitePlus(), 'viteplus.dev')).toBe(true)
+  expect(patternsMatch(rules.vitePlus(), 'https://viteplus.dev/guide/install')).toBe(true)
   expect(rewrite(rules.vitePlus, 'https://viteplus.dev/guide/install')?.href).toBe(
     'https://raw.githubusercontent.com/voidzero-dev/vite-plus/main/docs/guide/install.md',
   )
 })
 
 test('oxc rewrites .html path to raw.githubusercontent.com', () => {
-  expect(patternsMatchHostname(rules.oxc(), 'oxc.rs')).toBe(true)
+  expect(patternsMatch(rules.oxc(), 'https://oxc.rs/docs/guide/usage/linter/config.html')).toBe(
+    true,
+  )
   expect(rewrite(rules.oxc, 'https://oxc.rs/docs/guide/usage/linter/config.html')?.href).toBe(
     'https://raw.githubusercontent.com/oxc-project/website/main/src/docs/guide/usage/linter/config.md',
   )
@@ -137,7 +139,7 @@ test('oxc returns undefined for root', () => {
 })
 
 test('reactDev rewrites path to .md', () => {
-  expect(patternsMatchHostname(rules.reactDev(), 'react.dev')).toBe(true)
+  expect(patternsMatch(rules.reactDev(), 'https://react.dev/reference/react')).toBe(true)
   expect(rewrite(rules.reactDev, 'https://react.dev/reference/react')?.href).toBe(
     'https://react.dev/reference/react.md',
   )

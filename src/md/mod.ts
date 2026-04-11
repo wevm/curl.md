@@ -231,11 +231,12 @@ type YamlValue = string | number | boolean | null | YamlValue[] | { [key: string
 
 const metaKeyPriority: Record<string, number> = {
   title: 0,
-  description: 1,
-  url: 2,
-  site: 3,
-  author: 4,
-  publish_date: 5,
+  subtitle: 1,
+  description: 2,
+  url: 3,
+  site: 4,
+  author: 5,
+  publish_date: 6,
 }
 
 function sortMeta(meta: Meta): Meta {

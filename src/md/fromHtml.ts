@@ -51,6 +51,7 @@ export function filterFrontmatterKeys(meta: Record<string, unknown>): Record<str
     'description',
     'publish_date',
     'site',
+    'subtitle',
     'title',
     'url',
   ])

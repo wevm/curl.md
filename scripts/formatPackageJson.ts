@@ -34,6 +34,10 @@ for (const dir of packageDirs) {
         default: './dist/index.js',
         types: './dist-types/cli/src/index.d.ts',
       },
+      './internal': {
+        default: './dist/internal/index.js',
+        types: './dist-types/cli/src/internal/index.d.ts',
+      },
     }
     rest.types = './dist-types/cli/src/index.d.ts'
   }

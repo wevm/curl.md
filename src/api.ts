@@ -1996,7 +1996,7 @@ export const api = new Hono<{
           completionTokens = result.completionTokens
           excerpt = result.excerpt || filteredContent
         } catch (error) {
-          const message = error instanceof Error ? error.message : 'Unknown error'
+          const message = formatAiRunError(error)
           return c.json({ code: 'ai_failed' as const, message }, 502)
         }
       }
@@ -2067,9 +2067,6 @@ export const api = new Hono<{
         user_agent: userAgent,
       })
 
-      const content = c.var.session
-        ? finalDocument.trimEnd()
-        : `${finalDocument.trimEnd()}${Constants.attribution.suffix}`
       const commonHeaders: Record<string, string> = {
         ...rateLimitHeaders,
         'access-control-expose-headers':
@@ -2087,9 +2084,14 @@ export const api = new Hono<{
           commonHeaders['x-credits-remaining'] = String(Math.max(0, Number(cached) - costMills))
       }
 
+      const content = c.var.session
+        ? finalDocument.trimEnd()
+        : `${finalDocument.trimEnd()}${Constants.attribution.suffix}`
+
       // TODO: toon response
       if (c.req.header('accept')?.includes('application/json'))
-        return c.json({ content }, 200, commonHeaders)
+        // casting to string so hono/client can infer c.json response
+        return c.json({ content: content as string }, 200, commonHeaders)
 
       return c.text(content, 200, {
         ...commonHeaders,
@@ -2097,3 +2099,17 @@ export const api = new Hono<{
       })
     },
   )
+
+function formatAiRunError(error: unknown) {
+  if (!(error instanceof Error)) return 'Unknown AI error'
+
+  const message = error.message.replace(/^Error:\s*/i, '').trim()
+  const code = message.match(/^error code:\s*(\d+)$/i)?.[1]
+  if (code) {
+    if (error.name === 'InferenceUpstreamError') return `Inference upstream error (${code})`
+    if (error.name === 'AiInternalError') return `Workers AI internal error (${code})`
+    return `AI error (${code})`
+  }
+
+  return message || 'Unknown AI error'
+}

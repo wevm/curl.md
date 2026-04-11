@@ -1,4 +1,6 @@
+import { Auth, Session } from 'curl.md/internal'
 import { HttpResponse, http, passthrough } from 'msw'
+import pc from 'picocolors'
 import { afterAll, beforeEach, describe, expect, inject, onTestFinished, test, vi } from 'vitest'
 import { createClient } from '#db/client.ts'
 import type { DB } from '#db/types.gen.ts'
@@ -12,7 +14,7 @@ import { serve, useTmp } from '../test/utils.ts'
 import { createClient as createRpcClient, defaultBaseUrl } from './client.ts'
 import * as UI from './ui.ts'
 import * as utils from './utils.ts'
-import { Session, UpdateCache } from './utils.ts'
+import { UpdateCache } from './utils.ts'
 
 // Prevent CLI from opening a browser during login tests
 vi.mock('node:child_process', () => ({
@@ -117,6 +119,39 @@ test('markdown', async () => {
   })
   const { output } = await serve(['example.com'], { CURLMD_API_KEY: token })
   expect(output).toContain('Example Domain')
+}, 30_000)
+
+test('markdown with --token', async () => {
+  const account = await factory.account.insert({})
+  const suffix = Nanoid.generate()
+  const token = `curlmd_${suffix}`
+  await factory.api_key.insert({
+    account_id: account.id,
+    key_hash: await ApiKey.hash(token),
+    key_prefix: token.slice(0, 9),
+    name: `cli-token-test-${suffix}`,
+  })
+
+  const origArgv = process.argv
+  process.argv = [...origArgv, '--token', token]
+  onTestFinished(() => {
+    process.argv = origArgv
+  })
+
+  const { output } = await serve(['example.com', '--token', token])
+  expect(output).toContain('Example Domain')
+}, 30_000)
+
+test('markdown falls back to anonymous when saved session is stale', async () => {
+  Session.write({
+    organization_id: 'stale-org',
+    refresh_token: 'stale-refresh-token',
+    refresh_token_expires_at: new Date(Date.now() + 60_000).toISOString(),
+  })
+
+  const { output } = await serve(['example.com'])
+  expect(output).toContain('Example Domain')
+  expect(Session.read()).toBeNull()
 }, 30_000)
 
 test('json', async () => {
@@ -277,6 +312,33 @@ test('invalid api key 401', async () => {
   expect(exitCode).toBe(1)
   expect(output).toContain('INVALID_API_KEY')
   expect(output).toContain('token create')
+})
+
+test('expired session falls back to anonymous fetch and deletes session', async () => {
+  Session.write({ refresh_token: 'expired-refresh-token' })
+
+  server.use(
+    http.post(`${env.CURLMD_BASE_URL}/api/auth/headers`, async () => {
+      return HttpResponse.json(
+        { code: 'unauthorized', message: 'Authentication required' },
+        { status: 401 },
+      )
+    }),
+    http.get('*', async ({ request }) => {
+      const url = new URL(request.url)
+      if (
+        !(url.origin === baseUrl.origin && url.href.startsWith(`${env.CURLMD_BASE_URL}/api/http`))
+      )
+        return passthrough()
+      expect(request.headers.get('authorization')).toBeNull()
+      expect(request.headers.get('x-organization-id')).toBeNull()
+      return new HttpResponse('Anonymous content', { status: 200 })
+    }),
+  )
+
+  const { output } = await serve(['example.com'])
+  expect(output).toContain('Anonymous content')
+  expect(Session.read()).toBeNull()
 })
 
 test('validation error 400', async () => {
@@ -498,7 +560,7 @@ describe('auth', () => {
   test('headers - with --token', async () => {
     const account = await factory.account.insert({})
     const suffix = Nanoid.generate()
-    const token = `curlmd_${suffix}`
+    const token = ApiKey.generate()
     await factory.api_key.insert({
       account_id: account.id,
       key_hash: await ApiKey.hash(token),
@@ -542,8 +604,42 @@ describe('auth', () => {
     const session = await factory.session.insert({ account_id: account.id })
     await writeCliSession(session)
 
-    // Simulate pressing Enter
-    setTimeout(() => process.stdin.emit('data', '\n'), 100)
+    const { output } = await serve(['auth', 'logout'])
+    expect(output).toContain('Logged out')
+    expect(Session.read()).toBeNull()
+  })
+
+  test('logout - still succeeds when revoke fails', async () => {
+    const account = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: account.id })
+    await writeCliSession(session)
+
+    server.use(
+      http.post(`${env.CURLMD_BASE_URL}/api/auth/logout`, async () => {
+        return new HttpResponse(null, { status: 500 })
+      }),
+    )
+
+    const { output } = await serve(['auth', 'logout'])
+    expect(output).toContain('Logged out')
+    expect(Session.read()).toBeNull()
+  })
+
+  test('logout - succeeds when revocation fails', async () => {
+    const account = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: account.id })
+    await writeCliSession(session)
+
+    server.use(
+      http.post(`${env.CURLMD_BASE_URL}/api/auth/logout`, async ({ request }) => {
+        expect(request.headers.get('authorization')).toMatch(/^Bearer curlmdrt_/)
+        return HttpResponse.json(
+          { code: 'upstream_error', message: 'Upstream request failed' },
+          { status: 500 },
+        )
+      }),
+    )
+
     const { output } = await serve(['auth', 'logout'])
     expect(output).toContain('Logged out')
     expect(Session.read()).toBeNull()
@@ -557,7 +653,7 @@ describe('auth', () => {
       account_id: account.id,
     })
     const suffix = Nanoid.generate()
-    const token = `curlmd_${suffix}`
+    const token = ApiKey.generate()
     await factory.api_key.insert({
       organization_id: org.id,
       account_id: account.id,
@@ -579,6 +675,64 @@ describe('auth', () => {
     expect(output).toContain(token.slice(0, 12))
   })
 
+  test('check - with --token wins over saved session account', async () => {
+    const sessionAccount = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: sessionAccount.id })
+    await writeCliSession(session)
+
+    const tokenAccount = await factory.account.insert({})
+    const suffix = Nanoid.generate()
+    const token = ApiKey.generate()
+    await factory.api_key.insert({
+      account_id: tokenAccount.id,
+      key_hash: await ApiKey.hash(token),
+      key_prefix: token.slice(0, 9),
+      name: `check-wins-test-${suffix}`,
+    })
+
+    const origArgv = process.argv
+    process.argv = [...origArgv, '--token', token]
+    onTestFinished(() => {
+      process.argv = origArgv
+    })
+
+    const { output } = await serve(['auth', 'status', '--token', token])
+    expect(output).toContain(tokenAccount.login)
+    expect(output).not.toContain(sessionAccount.login)
+    expect(output).toContain('Auth: token')
+  })
+
+  test('check - with --token ignores stored session organization', async () => {
+    const account = await factory.account.insert({})
+    const org = await factory.organization.insert({})
+    await factory.organization_member.insert({
+      organization_id: org.id,
+      account_id: account.id,
+    })
+    const session = await factory.session.insert({ account_id: account.id })
+    await writeCliSession(session, org.id)
+
+    const suffix = Nanoid.generate()
+    const token = ApiKey.generate()
+    await factory.api_key.insert({
+      organization_id: org.id,
+      account_id: account.id,
+      key_hash: await ApiKey.hash(token),
+      key_prefix: token.slice(0, 9),
+      name: `check-org-test-${suffix}`,
+    })
+
+    const origArgv = process.argv
+    process.argv = [...origArgv, '--token', token]
+    onTestFinished(() => {
+      process.argv = origArgv
+    })
+
+    const { output } = await serve(['auth', 'status', '--token', token])
+    expect(output).toContain('Auth: token')
+    expect(output).toContain('Organization: none')
+  })
+
   test('check - with invalid --token', async () => {
     const invalidToken = 'curlmd_invalidtoken'
     const origArgv = process.argv
@@ -589,6 +743,27 @@ describe('auth', () => {
 
     const { output } = await serve(['auth', 'status', '--token', invalidToken])
     expect(output).toContain('Not authenticated')
+  })
+
+  test('check - invalid --token does not delete shared session', async () => {
+    const account = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: account.id })
+    await writeCliSession(session)
+
+    const invalidToken = 'curlmd_invalidtoken'
+    const origArgv = process.argv
+    process.argv = [...origArgv, '--token', invalidToken]
+    onTestFinished(() => {
+      process.argv = origArgv
+    })
+
+    const { exitCode, output } = await serve(['auth', 'status', '--token', invalidToken])
+    expect(exitCode).toBe(1)
+    expect(output).toContain('NOT_AUTHENTICATED')
+    expect(Session.read()).toMatchObject({
+      refresh_token: expect.stringMatching(/^curlmdrt_/),
+      refresh_token_expires_at: expect.any(String),
+    })
   })
 
   test('check - expired session', async () => {
@@ -686,6 +861,23 @@ describe('auth', () => {
     expect(output).toContain('30s')
   })
 
+  test('login - ignores api key for already-authenticated check', async () => {
+    const account = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: account.id })
+    await writeCliSession(session)
+    const token = 'curlmd_invalidtoken'
+
+    const origArgv = process.argv
+    process.argv = [...origArgv, '--token', token]
+    onTestFinished(() => {
+      process.argv = origArgv
+    })
+
+    const { output } = await serve(['auth', 'login'])
+    expect(output).toContain('Already logged in')
+    expect(output).toContain(account.login)
+  })
+
   test('login - rate limit on token polling retries', async () => {
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
     onTestFinished(() => consoleSpy.mockRestore())
@@ -772,6 +964,88 @@ describe('auth', () => {
 
     const { output: checkOutput } = await serve(['auth', 'status'])
     expect(checkOutput).toContain('Logged in as')
+  })
+
+  test('internal waitForLogin writes session before account lookup and clears org', async () => {
+    const account = await factory.account.insert({})
+    const cliSession = await SessionToken.createCliSession(db, account.id)
+    Session.write({
+      organization_id: 'stale-org',
+      refresh_token: 'stale-refresh-token',
+      refresh_token_expires_at: new Date(Date.now() + 60_000).toISOString(),
+    })
+
+    server.use(
+      http.post(`${env.CURLMD_BASE_URL}/api/auth/device/token`, async () => {
+        return HttpResponse.json(cliSession)
+      }),
+      http.get(`${env.CURLMD_BASE_URL}/api/auth/me`, async () => {
+        expect(Session.read()).toMatchObject({
+          refresh_token: cliSession.refresh_token,
+          refresh_token_expires_at: cliSession.refresh_token_expires_at,
+        })
+        expect(Session.read()?.organization_id).toBeUndefined()
+        return HttpResponse.json(
+          { code: 'upstream_error', message: 'Upstream request failed' },
+          { status: 500 },
+        )
+      }),
+    )
+
+    const result = await Auth.waitForLogin(env.CURLMD_BASE_URL, {
+      code: 'test-code',
+      interval: 0,
+    })
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.data.login).toBeNull()
+      expect(result.data.expires_at).toEqual(expect.any(String))
+    }
+    expect(Session.read()).toMatchObject({
+      refresh_token: cliSession.refresh_token,
+      refresh_token_expires_at: cliSession.refresh_token_expires_at,
+    })
+    expect(Session.read()?.organization_id).toBeUndefined()
+  })
+
+  test('internal resolver reads organization fresh and drops cached auth when session disappears', async () => {
+    const account = await factory.account.insert({})
+    const orgA = await factory.organization.insert({})
+    const orgB = await factory.organization.insert({})
+    await factory.organization_member.insert({
+      account_id: account.id,
+      organization_id: orgA.id,
+    })
+    await factory.organization_member.insert({
+      account_id: account.id,
+      organization_id: orgB.id,
+    })
+    const session = await factory.session.insert({ account_id: account.id })
+    await writeCliSession(session, orgA.id)
+
+    let authHeadersCalls = 0
+    server.use(
+      http.post(`${env.CURLMD_BASE_URL}/api/auth/headers`, async () => {
+        authHeadersCalls++
+        return passthrough()
+      }),
+    )
+
+    const resolveAuthHeaders = Auth.createResolver(env.CURLMD_BASE_URL)
+
+    const first = await resolveAuthHeaders()
+    expect(first).toEqual(expect.objectContaining({ organization_id: orgA.id }))
+    expect(authHeadersCalls).toBe(1)
+
+    Session.write({ organization_id: orgB.id })
+    const second = await resolveAuthHeaders()
+    expect(second).toEqual(expect.objectContaining({ organization_id: orgB.id }))
+    expect(second?.authorization).toBe(first?.authorization)
+    expect(authHeadersCalls).toBe(1)
+
+    Session.delete()
+    const third = await resolveAuthHeaders()
+    expect(third).toBeNull()
   })
 })
 
@@ -1221,6 +1495,35 @@ describe('org', () => {
     const { exitCode, output } = await serve(['org', 'switch', 'nonexistent-org'])
     expect(exitCode).toBe(1)
     expect(output).toContain('ORG_NOT_FOUND')
+  })
+
+  test('switch - selector marks active org with checkmark', async () => {
+    const account = await factory.account.insert({})
+    const session = await factory.session.insert({ account_id: account.id })
+    const orgA = await factory.organization.insert({ login: `wevm${Nanoid.generate()}` })
+    const orgB = await factory.organization.insert({ login: `tempo${Nanoid.generate()}` })
+    await factory.organization_member.insert({ account_id: account.id, organization_id: orgA.id })
+    await factory.organization_member.insert({ account_id: account.id, organization_id: orgB.id })
+    await writeCliSession(session, orgB.id)
+
+    const selectSpy = vi.spyOn(UI, 'select').mockResolvedValue(0)
+    onTestFinished(() => {
+      selectSpy.mockRestore()
+    })
+
+    await serve(['org', 'switch'])
+
+    const maxLabel = Math.max(orgA.login.length, orgB.login.length, account.login.length)
+
+    expect(selectSpy).toHaveBeenCalledWith(
+      'Switch organization',
+      [
+        orgA.login,
+        `${orgB.login.padEnd(maxLabel)}  ${pc.green('✓')}`,
+        `${account.login.padEnd(maxLabel)}  ${pc.dim('account')}`,
+      ],
+      { doneLabels: [orgA.login, orgB.login, account.login] },
+    )
   })
 
   test('list - stale org resets to account', async () => {

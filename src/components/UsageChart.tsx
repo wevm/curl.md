@@ -51,10 +51,13 @@ export function UsageChart(props: {
           width={size.width}
         >
           <CartesianGrid
-            horizontalValues={ticks}
+            horizontalCoordinatesGenerator={({ yAxis }) =>
+              ticks
+                .map((tick) => yAxis?.scale?.map(tick))
+                .filter((coordinate): coordinate is number => typeof coordinate === 'number')
+            }
             stroke="var(--color-gray3)"
             vertical={false}
-            zIndex={400}
           />
           <XAxis
             axisLine={false}

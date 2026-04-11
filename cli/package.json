@@ -17,6 +17,10 @@
     "md.src": "./src/cli.ts"
   },
   "exports": {
+    "./internal": {
+      "types": "./src/internal/index.ts",
+      "default": "./src/internal/index.ts"
+    },
     ".": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"

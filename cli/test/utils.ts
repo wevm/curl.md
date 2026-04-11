@@ -16,15 +16,26 @@ const env = Env.parse(inject('env'))
 export function useTmp() {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'curl-md-test-'))
   const spy = vi.spyOn(os, 'homedir').mockReturnValue(tmpDir)
+  const origBaseUrl = process.env.CURLMD_BASE_URL
   const origXdgData = process.env.XDG_DATA_HOME
   const origXdgConfig = process.env.XDG_CONFIG_HOME
+  process.env.CURLMD_BASE_URL = env.CURLMD_BASE_URL
   delete process.env.XDG_DATA_HOME
   delete process.env.XDG_CONFIG_HOME
   return {
     dir: tmpDir,
-    sessionPath: path.join(tmpDir, '.local', 'share', 'curl-md', 'session.json'),
+    sessionPath: path.join(
+      tmpDir,
+      '.local',
+      'share',
+      'curl-md',
+      'sessions',
+      `${encodeURIComponent(new URL(env.CURLMD_BASE_URL).origin)}.json`,
+    ),
     cleanup() {
       spy.mockRestore()
+      if (origBaseUrl === undefined) delete process.env.CURLMD_BASE_URL
+      else process.env.CURLMD_BASE_URL = origBaseUrl
       if (origXdgData === undefined) delete process.env.XDG_DATA_HOME
       else process.env.XDG_DATA_HOME = origXdgData
       if (origXdgConfig === undefined) delete process.env.XDG_CONFIG_HOME
@@ -41,18 +52,27 @@ function stripUndefined(obj: Record<string, string | undefined>) {
 export async function serve(argv: string[], overrides?: Record<string, string | undefined>) {
   let output = ''
   let exitCode: number | undefined
-  await cli.serve(argv, {
-    env: stripUndefined({
-      CURLMD_BASE_URL: env.CURLMD_BASE_URL,
-      ...overrides,
-    }),
-    stdout(s: string) {
-      output += s
-    },
-    exit(code: number) {
-      exitCode = code
-    },
-  })
+  const originalArgv = process.argv
+  process.argv = [...originalArgv.slice(0, 2), ...argv]
+  const tokenIndex = argv.lastIndexOf('--token')
+  const argvToken = tokenIndex !== -1 ? argv[tokenIndex + 1] : undefined
+  try {
+    await cli.serve(argv, {
+      env: stripUndefined({
+        CURLMD_BASE_URL: env.CURLMD_BASE_URL,
+        CURLMD_API_KEY: argvToken ?? overrides?.CURLMD_API_KEY,
+        ...overrides,
+      }),
+      stdout(s: string) {
+        output += s
+      },
+      exit(code: number) {
+        exitCode = code
+      },
+    })
+  } finally {
+    process.argv = originalArgv
+  }
   // oxlint-disable-next-line no-control-regex -- strip ANSI escape codes for assertions
   return { output: output.replace(/\x1b\[[0-9;]*m/g, ''), exitCode }
 }

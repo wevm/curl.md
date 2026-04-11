@@ -6,6 +6,8 @@
     "moduleResolution": "nodenext",
     "noEmit": true,
     "paths": {
+      "curl.md": ["./src/index.ts"],
+      "curl.md/internal": ["./src/internal/index.ts"],
       "#*": ["./../src/*"],
       "#db/*": ["./../db/*"],
       "#test/*": ["./../test/*"]

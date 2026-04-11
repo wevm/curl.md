@@ -2433,6 +2433,44 @@ test('GET /api/:url with q= uses stricter query limit', async () => {
   expect(res.headers.get('x-ratelimit-limit')).toBe('3')
 })
 
+test('GET /api/:url returns a readable ai_failed message for numeric AI errors', async () => {
+  server.use(
+    http.get(
+      'https://ai-failed.example.com/',
+      () =>
+        new HttpResponse('<html><body><p>ok</p></body></html>', {
+          headers: { 'content-type': 'text/html' },
+        }),
+    ),
+  )
+
+  const localClient = testClient(
+    api,
+    {
+      ...env,
+      AI: {
+        run: vi
+          .fn()
+          .mockRejectedValue(
+            Object.assign(new Error('error code: 1031'), { name: 'InferenceUpstreamError' }),
+          ),
+      } as unknown as typeof env.AI,
+    } as unknown as typeof env,
+    executionCtx,
+  )
+
+  const res = await localClient.api[':url{.+}'].$get({
+    param: { url: 'ai-failed.example.com' },
+    query: { objective: 'find the important part' },
+  })
+
+  expect(res.status).toBe(502)
+  await expect(res.json()).resolves.toEqual({
+    code: 'ai_failed',
+    message: 'Inference upstream error (1031)',
+  })
+})
+
 test('GET /api/:url returns 429 when fetch limit exceeded', async () => {
   await env.KV.put(
     'ratelimit:fetch:192.0.2.1',
