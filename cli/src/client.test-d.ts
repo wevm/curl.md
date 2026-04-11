@@ -100,4 +100,24 @@ test('error types', async () => {
       }
     }
   }
+  {
+    const res = await client.api.cli.latest.$get({ query: {} })
+    switch (res.status) {
+      case 200: {
+        const json = await res.json()
+        expectTypeOf(json).toEqualTypeOf<{
+          readonly published_at: string | null
+          readonly version: string
+        }>()
+        void json
+        return
+      }
+      case 502: {
+        const json = await res.json()
+        expectTypeOf(json.code).toEqualTypeOf<'upstream_error' | 'version_not_found'>()
+        void json
+        return
+      }
+    }
+  }
 })

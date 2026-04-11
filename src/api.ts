@@ -661,12 +661,11 @@ export const api = new Hono<{
       // Try KV cache first
       const cached = await c.env.KV.get('cli:latest', 'json')
       if (cached)
-        // TODO: cli not able to narrow these types since it returns cf env result directly
         return c.json(
           {
             published_at: cached.published_at,
             version: cached.version,
-          } as const,
+          },
           200,
         )
 
@@ -1996,7 +1995,18 @@ export const api = new Hono<{
           completionTokens = result.completionTokens
           excerpt = result.excerpt || filteredContent
         } catch (error) {
-          const message = formatAiRunError(error)
+          const message = (() => {
+            if (!(error instanceof Error)) return 'Unknown AI error'
+            const message = error.message.replace(/^Error:\s*/i, '').trim()
+            const code = message.match(/^error code:\s*(\d+)$/i)?.[1]
+            if (code) {
+              if (error.name === 'InferenceUpstreamError')
+                return `Inference upstream error (${code})`
+              if (error.name === 'AiInternalError') return `Workers AI internal error (${code})`
+              return `AI error (${code})`
+            }
+            return message || 'Unknown AI error'
+          })()
           return c.json({ code: 'ai_failed' as const, message }, 502)
         }
       }
@@ -2099,17 +2109,3 @@ export const api = new Hono<{
       })
     },
   )
-
-function formatAiRunError(error: unknown) {
-  if (!(error instanceof Error)) return 'Unknown AI error'
-
-  const message = error.message.replace(/^Error:\s*/i, '').trim()
-  const code = message.match(/^error code:\s*(\d+)$/i)?.[1]
-  if (code) {
-    if (error.name === 'InferenceUpstreamError') return `Inference upstream error (${code})`
-    if (error.name === 'AiInternalError') return `Workers AI internal error (${code})`
-    return `AI error (${code})`
-  }
-
-  return message || 'Unknown AI error'
-}
