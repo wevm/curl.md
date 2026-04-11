@@ -40,10 +40,10 @@ jobs:
       - name: Setup pnpm
         uses: ./.github/actions/setup-pnpm
 
-      - name: Build CLI
-        run: pnpm build:cli
+      - name: Build packages
+        run: pnpm --filter curl.md build && pnpm --filter @curl.md/amp build
 
       - name: Publish preview
         run: |
           node --experimental-strip-types scripts/formatPackage.ts
-          pnpx pkg-pr-new publish --pnpm ./cli ./plugins/pi
+          pnpx pkg-pr-new publish --pnpm ./cli ./plugins/amp ./plugins/pi

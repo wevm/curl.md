@@ -1,9 +1,44 @@
 {
   "name": "@curl.md/amp",
-  "private": true,
+  "version": "0.0.1",
+  "description": "curl.md plugin for Amp",
+  "bin": {
+    "curlmd-amp": "./dist/install.js"
+  },
+  "contributors": [
+    "awkweb.eth <t@wevm.dev>",
+    "jxom.eth <j@wevm.dev>"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wevm/curl.md.git",
+    "directory": "plugins/amp"
+  },
+  "funding": "https://github.com/sponsors/wevm",
+  "keywords": [
+    "curl.md",
+    "amp",
+    "markdown"
+  ],
+  "exports": {
+    ".": {
+      "types": "./plugin.ts",
+      "default": "./plugin.ts"
+    }
+  },
+  "files": [
+    "README.md",
+    "dist",
+    "plugin.ts"
+  ],
   "type": "module",
   "scripts": {
+    "build": "rm -rf dist && tsgo --noCheck -p tsconfig.build.json",
     "check:types": "tsgo --noEmit"
+  },
+  "dependencies": {
+    "curl.md": "workspace:*"
   },
   "devDependencies": {
     "@ampcode/plugin": "0.0.0-dev"

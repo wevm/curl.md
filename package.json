@@ -8,6 +8,7 @@
     "#test/*": "./test/*"
   },
   "scripts": {
+    "amp": "node --experimental-strip-types --no-warnings scripts/amp.ts",
     "build": "vite build",
     "build:cli": "pnpm --filter curl.md build",
     "check": "oxlint ${CI:+--deny-warnings} && oxfmt",

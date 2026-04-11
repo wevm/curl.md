@@ -87,11 +87,55 @@ function Component() {
     [navigate],
   )
 
+  const sidebarLinks = React.useMemo(
+    () => [
+      {
+        icon: <IconOcticonMeter16 />,
+        label: 'Overview',
+        to: '/$login',
+        activeOptions: { exact: true },
+        enabled: true,
+      },
+      {
+        icon: <IconOcticonGlobe16 />,
+        label: 'Requests',
+        enabled: false,
+      },
+      ...(entity.type === 'organization'
+        ? [
+            {
+              icon: <IconOcticonPeople16 />,
+              label: 'Members',
+              enabled: false,
+            },
+          ]
+        : []),
+      {
+        icon: <IconOcticonKey16 />,
+        label: 'API Tokens',
+        enabled: false,
+      },
+      {
+        icon: <IconOcticonCreditCard16 />,
+        label: 'Billing',
+        to: '/$login/billing',
+        enabled: true,
+      },
+      {
+        icon: <IconOcticonGear16 />,
+        label: 'Settings',
+        to: '/$login/settings',
+        enabled: true,
+      },
+    ],
+    [entity.type],
+  )
+
   return (
     <div className="relative flex min-h-dvh flex-col md:flex-row" data-dashboard>
       <Nav.Skip />
       <aside className="bg-bg1 border-gray-a3 sticky top-0 z-10 flex flex-row flex-wrap items-center justify-between border-b md:fixed md:top-0 md:h-dvh md:w-52 md:flex-col md:flex-nowrap md:items-stretch md:justify-start md:overflow-hidden md:border-e md:border-b-0">
-        <div className="flex w-full items-center justify-between px-4 py-4 md:block">
+        <div className="flex w-full items-center justify-between px-4 pt-4 pb-3 md:block">
           <AccountSwitcher
             account={account}
             entity={entity}
@@ -114,38 +158,28 @@ function Component() {
         </div>
 
         <nav
-          className="minimal-scrollbar mt-4 hidden w-full flex-col data-[open]:flex md:mt-0 md:flex md:min-h-0 md:flex-1 md:overflow-y-auto md:[scrollbar-gutter:stable]"
+          className="minimal-scrollbar mt-4 hidden w-full flex-col [scrollbar-gutter:auto] data-[open]:flex md:mt-0 md:flex md:min-h-0 md:flex-1 md:overflow-y-auto"
           data-open={open ? '' : undefined}
           onClick={() => setOpen(false)}
         >
-          <div className="flex flex-col gap-0.5 ps-4 pe-4 pb-4">
-            <SidebarLink
-              activeOptions={{ exact: true }}
-              icon={<IconOcticonMeter16 />}
-              params={{ login: entity.login }}
-              to="/$login"
-            >
-              Overview
-            </SidebarLink>
-            <SidebarDisabled icon={<IconOcticonGlobe16 />}>Requests</SidebarDisabled>
-            {entity.type === 'organization' && (
-              <SidebarDisabled icon={<IconOcticonPeople16 />}>Members</SidebarDisabled>
+          <div className="flex flex-col gap-0.5 ps-4 pe-4 pt-1 pb-4">
+            {sidebarLinks.map((link) =>
+              link.enabled ? (
+                <SidebarLink
+                  {...(link.activeOptions ? { activeOptions: link.activeOptions } : {})}
+                  icon={link.icon}
+                  key={link.label}
+                  params={{ login: entity.login }}
+                  to={link.to!}
+                >
+                  {link.label}
+                </SidebarLink>
+              ) : (
+                <SidebarDisabled icon={link.icon} key={link.label}>
+                  {link.label}
+                </SidebarDisabled>
+              ),
             )}
-            <SidebarDisabled icon={<IconOcticonKey16 />}>API Tokens</SidebarDisabled>
-            <SidebarLink
-              icon={<IconOcticonCreditCard16 />}
-              params={{ login: entity.login }}
-              to="/$login/billing"
-            >
-              Billing
-            </SidebarLink>
-            <SidebarLink
-              icon={<IconOcticonGear16 />}
-              params={{ login: entity.login }}
-              to="/$login/settings"
-            >
-              Settings
-            </SidebarLink>
 
             <div className="border-gray-a3 my-1.5 border-t" />
 
@@ -199,7 +233,7 @@ function AccountSwitcher(props: {
         <IconLucideChevronsUpDown className="text-gray8 ms-auto size-3.5 shrink-0" />
       </Menu.Trigger>
       <Menu.Portal>
-        <Menu.Positioner align="start" className="z-20 max-md:!w-[calc(100vw-2rem)]" sideOffset={8}>
+        <Menu.Positioner align="start" className="z-20 max-md:!w-[calc(100vw-2rem)]" sideOffset={4}>
           <Menu.Popup className="bg-bg1 border-gray-a3 before:bg-gray-a1/50 relative min-w-56 border px-1 py-1 select-none before:absolute before:inset-0 before:-z-1 md:max-w-64">
             {props.others.map((e) => (
               <Menu.Item

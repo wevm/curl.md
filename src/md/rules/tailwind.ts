@@ -6,6 +6,12 @@ export const tailwind = defineRule({
   patterns: [new URLPattern({ hostname: 'tailwindcss.com' })],
   checks: [
     {
+      url: 'https://tailwindcss.com/docs/installation/using-vite',
+      title: 'Installing Tailwind CSS with Vite',
+      contains: ['Create your project'],
+      minLength: 500,
+    },
+    {
       url: 'https://tailwindcss.com/docs/padding',
       title: 'padding',
       contains: ['padding'],

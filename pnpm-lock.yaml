@@ -257,6 +257,10 @@ importers:
         version: 6.0.6
 
   plugins/amp:
+    dependencies:
+      curl.md:
+        specifier: workspace:*
+        version: link:../../cli
     devDependencies:
       '@ampcode/plugin':
         specifier: 0.0.0-dev
