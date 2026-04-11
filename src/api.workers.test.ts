@@ -316,7 +316,7 @@ describe('POST /api/auth/device', () => {
     assert('refresh_token_expires_at' in tokenData, 'refresh_token_expires_at not defined')
     expect(tokenData.authorization).toMatch(/^Bearer curlmd_at_/)
     expect(tokenData.expires_at).toEqual(expect.any(String))
-    expect(tokenData.refresh_token).toMatch(/^curlmdrt_/)
+    expect(tokenData.refresh_token).toMatch(/^curlmd_rt_/)
     expect(tokenData.refresh_token_expires_at).toEqual(expect.any(String))
 
     // 4. Verify the issued access token works

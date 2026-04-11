@@ -29,7 +29,7 @@ test('Auth.createResolver reads organization fresh and clears cached auth when s
 
   Session.write({
     organization_id: 'org_1',
-    refresh_token: 'curlmdrt_cached',
+    refresh_token: 'curlmd_rt_cached',
     refresh_token_expires_at: new Date(Date.now() + 120_000).toISOString(), // 2 minutes
   })
   const resolveAuthHeaders = Auth.createResolver(env.CURLMD_BASE_URL)
@@ -60,7 +60,7 @@ test('Auth.waitForLogin clears stale organization and succeeds when auth.me fail
       return HttpResponse.json({
         authorization: 'Bearer curlmd_at_new',
         expires_at: null,
-        refresh_token: 'curlmdrt_new',
+        refresh_token: 'curlmd_rt_new',
         refresh_token_expires_at: refreshTokenExpiresAt,
       })
     }),
@@ -71,7 +71,7 @@ test('Auth.waitForLogin clears stale organization and succeeds when auth.me fail
 
   Session.write({
     organization_id: 'stale_org',
-    refresh_token: 'curlmdrt_old',
+    refresh_token: 'curlmd_rt_old',
     refresh_token_expires_at: new Date(Date.now() + 180_000).toISOString(), // 3 minutes
   })
 
@@ -87,7 +87,7 @@ test('Auth.waitForLogin clears stale organization and succeeds when auth.me fail
     },
   })
   expect(Session.read()).toMatchObject({
-    refresh_token: 'curlmdrt_new',
+    refresh_token: 'curlmd_rt_new',
     refresh_token_expires_at: refreshTokenExpiresAt,
   })
   expect(Session.read()?.organization_id).toBeUndefined()
@@ -104,7 +104,7 @@ test('Auth.logout revokes best effort and still clears local session', async () 
 
   Session.write({
     organization_id: 'org_1',
-    refresh_token: 'curlmdrt_active',
+    refresh_token: 'curlmd_rt_active',
     refresh_token_expires_at: new Date(Date.now() + 120_000).toISOString(), // 2 minutes
   })
 
@@ -126,7 +126,7 @@ test('Auth.createResolver keeps local session on transient auth header failures'
 
   Session.write(
     {
-      refresh_token: 'curlmdrt_cached',
+      refresh_token: 'curlmd_rt_cached',
       refresh_token_expires_at: new Date(Date.now() + 120_000).toISOString(), // 2 minutes
     },
     env.CURLMD_BASE_URL,
@@ -136,6 +136,6 @@ test('Auth.createResolver keeps local session on transient auth header failures'
 
   expect(await resolveAuthHeaders()).toBeNull()
   expect(Session.read(env.CURLMD_BASE_URL)).toMatchObject({
-    refresh_token: 'curlmdrt_cached',
+    refresh_token: 'curlmd_rt_cached',
   })
 })

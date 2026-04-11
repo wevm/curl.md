@@ -14,7 +14,7 @@ test('Session stores auth state separately per base URL', () => {
   Session.write(
     {
       organization_id: 'org_local',
-      refresh_token: 'curlmdrt_local',
+      refresh_token: 'curlmd_rt_local',
       refresh_token_expires_at: new Date(Date.now() + 120_000).toISOString(), // 2 minutes
     },
     localBaseUrl,
@@ -22,7 +22,7 @@ test('Session stores auth state separately per base URL', () => {
   Session.write(
     {
       organization_id: 'org_prod',
-      refresh_token: 'curlmdrt_prod',
+      refresh_token: 'curlmd_rt_prod',
       refresh_token_expires_at: new Date(Date.now() + 180_000).toISOString(), // 3 minutes
     },
     prodBaseUrl,
@@ -30,10 +30,10 @@ test('Session stores auth state separately per base URL', () => {
 
   expect(Session.read(localBaseUrl)).toMatchObject({
     organization_id: 'org_local',
-    refresh_token: 'curlmdrt_local',
+    refresh_token: 'curlmd_rt_local',
   })
   expect(Session.read(prodBaseUrl)).toMatchObject({
     organization_id: 'org_prod',
-    refresh_token: 'curlmdrt_prod',
+    refresh_token: 'curlmd_rt_prod',
   })
 })

@@ -572,7 +572,7 @@ describe('auth', () => {
 
     server.use(
       http.post(`${env.CURLMD_BASE_URL}/api/auth/logout`, async ({ request }) => {
-        expect(request.headers.get('authorization')).toMatch(/^Bearer curlmdrt_/)
+        expect(request.headers.get('authorization')).toMatch(/^Bearer curlmd_rt_/)
         return HttpResponse.json(
           { code: 'upstream_error', message: 'Upstream request failed' },
           { status: 500 },
@@ -701,7 +701,7 @@ describe('auth', () => {
     expect(exitCode).toBe(1)
     expect(output).toContain('NOT_AUTHENTICATED')
     expect(Session.read()).toMatchObject({
-      refresh_token: expect.stringMatching(/^curlmdrt_/),
+      refresh_token: expect.stringMatching(/^curlmd_rt_/),
       refresh_token_expires_at: expect.any(String),
     })
   })
@@ -898,7 +898,7 @@ describe('auth', () => {
     const { output } = await loginPromise
     expect(output).toContain('Logged in as')
     expect(Session.read()).toMatchObject({
-      refresh_token: expect.stringMatching(/^curlmdrt_/),
+      refresh_token: expect.stringMatching(/^curlmd_rt_/),
       refresh_token_expires_at: expect.any(String),
     })
 

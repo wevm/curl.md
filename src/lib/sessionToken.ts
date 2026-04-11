@@ -4,7 +4,7 @@ import * as ApiKey from '#lib/apiKey.ts'
 import * as Nanoid from '#lib/nanoid.ts'
 
 export const accessTokenPrefix = 'curlmd_at_'
-const refreshTokenPrefix = 'curlmdrt_'
+const refreshTokenPrefix = 'curlmd_rt_'
 const tokenBody = customAlphabet(Nanoid.alphabet, 40)
 
 const accessTokenTtlMs = 15 * 60 * 1000 // 15 minutes

@@ -17,7 +17,7 @@ test('createCliSession stores cli session and access token', async () => {
   const accessToken = cliSession.authorization.slice('Bearer '.length)
 
   expect(cliSession.authorization).toMatch(/^Bearer curlmd_at_[0-9a-z]{40}$/)
-  expect(cliSession.refresh_token).toMatch(/^curlmdrt_[0-9a-z]{40}$/)
+  expect(cliSession.refresh_token).toMatch(/^curlmd_rt_[0-9a-z]{40}$/)
   expect(new Date(cliSession.expires_at).getTime()).toBeGreaterThan(Date.now())
   expect(new Date(cliSession.refresh_token_expires_at).getTime()).toBeGreaterThan(Date.now())
 
