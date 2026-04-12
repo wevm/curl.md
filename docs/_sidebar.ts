@@ -10,8 +10,11 @@ export const sidebar = [
   },
   {
     type: 'group',
-    label: 'Reference',
-    items: [{ type: 'link', label: 'Kitchen Sink', path: '/reference/kitchen_sink' }],
+    label: 'Development',
+    items: [
+      { type: 'link', label: 'Contributing', path: '/development/contributing' },
+      { type: 'link', label: 'Kitchen Sink', path: '/reference/kitchen_sink' },
+    ],
   },
 ] satisfies Array<SidebarItem>
 

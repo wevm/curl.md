@@ -1,7 +1,8 @@
+import { Menu } from '@base-ui/react/menu'
 import { Link, Outlet, createFileRoute } from '@tanstack/react-router'
 import * as React from 'react'
 import { Nav } from '#components/Nav.tsx'
-import { useTheme } from '#hooks/useTheme.ts'
+import { type Theme, useTheme } from '#hooks/useTheme.ts'
 import { getSessionLogin } from '#server/session.ts'
 import { sidebar, type SidebarItem } from '../../../docs/_sidebar.ts'
 
@@ -18,14 +19,13 @@ export const Route = createFileRoute('/docs')({
 function Component() {
   const { login, next } = Route.useLoaderData()
   const [open, setOpen] = React.useState(false)
-  const currentYear = new Date().getFullYear()
 
   return (
     <div className="relative flex min-h-dvh flex-col">
       <Nav.Skip />
 
       <nav className="bg-bg1 border-gray-a3 fixed inset-x-0 top-0 z-50 h-17 border-b">
-        <div className="mx-auto flex h-full w-full max-w-[90rem] items-center px-6">
+        <div className="mx-auto flex h-full w-full max-w-[90rem] items-center ps-8 pe-6">
           <Nav.Logo />
           <Nav.Group>
             <a
@@ -85,7 +85,12 @@ function Component() {
             data-open={open ? '' : undefined}
           >
             <div className="h-full overflow-y-auto py-6 ps-6 pe-6 md:sticky md:top-17 md:h-[calc(100dvh-4.25rem)]">
-              <SidebarNav items={sidebar} onNavigate={() => setOpen(false)} />
+              <div className="flex min-h-full flex-col">
+                <SidebarNav items={sidebar} onNavigate={() => setOpen(false)} />
+                <div className="mt-auto pt-4">
+                  <ThemeToggle />
+                </div>
+              </div>
             </div>
           </aside>
 
@@ -94,80 +99,74 @@ function Component() {
           </main>
         </div>
       </div>
-
-      <footer className="border-gray-a3 border-t px-6">
-        <div className="mx-auto w-full max-w-[90rem] py-4">
-          <div className="text-gray8 flex flex-col gap-3 text-sm md:flex-row md:items-center md:justify-between">
-            <p>Copyright curl.md {currentYear}. MIT licensed.</p>
-
-            <div className="flex items-center gap-3">
-              <Link className="hover:text-gray10" to="/">
-                Home
-              </Link>
-              <a
-                aria-label="GitHub"
-                className="hover:text-gray10 p-1"
-                href="https://github.com/wevm/curl.md"
-                rel="noopener noreferrer"
-                target="_blank"
-              >
-                <IconOcticonMarkGithub16 className="size-4" />
-              </a>
-              <a
-                aria-label="X"
-                className="hover:text-gray10 p-1"
-                href="https://x.com/wevm_dev"
-                rel="noopener noreferrer"
-                target="_blank"
-              >
-                <IconSimpleIconsX className="size-4" />
-              </a>
-              <ThemeToggle />
-            </div>
-          </div>
-        </div>
-      </footer>
     </div>
   )
 }
 
 function ThemeToggle() {
-  const { setTheme, theme } = useTheme()
+  const { mounted, resolvedTheme, setTheme, theme } = useTheme()
+  const activeTheme = themeOptions.find((option) => option.value === theme) ?? themeOptions[0]!
 
   return (
-    <div className="border-gray-a3 flex items-center border p-1">
-      <button
-        aria-label="Use light theme"
-        aria-pressed={theme === 'light'}
-        className="text-gray8 hover:text-gray10 data-[active]:bg-gray-a2 data-[active]:text-gray10 p-2"
-        data-active={theme === 'light' ? '' : undefined}
-        onClick={() => setTheme('light')}
-        type="button"
-      >
-        <IconLucideSun className="size-4" />
-      </button>
-      <button
-        aria-label="Use system theme"
-        aria-pressed={theme === 'system'}
-        className="text-gray8 hover:text-gray10 data-[active]:bg-gray-a2 data-[active]:text-gray10 p-2"
-        data-active={theme === 'system' ? '' : undefined}
-        onClick={() => setTheme('system')}
-        type="button"
-      >
-        <IconLucideMonitor className="size-4" />
-      </button>
-      <button
-        aria-label="Use dark theme"
-        aria-pressed={theme === 'dark'}
-        className="text-gray8 hover:text-gray10 data-[active]:bg-gray-a2 data-[active]:text-gray10 p-2"
-        data-active={theme === 'dark' ? '' : undefined}
-        onClick={() => setTheme('dark')}
-        type="button"
-      >
-        <IconLucideMoon className="size-4" />
-      </button>
-    </div>
+    <Menu.Root modal={false}>
+      <Menu.Trigger className="text-gray8 hover:text-gray10 hover:bg-gray-a2 data-[popup-open]:bg-gray-a2 data-[popup-open]:text-gray10 flex w-full items-center gap-2 px-3 py-2 text-xs outline-none">
+        {getThemeIcon(activeTheme.value, resolvedTheme, mounted)}
+        <span className="flex-1 text-left">{activeTheme.label}</span>
+      </Menu.Trigger>
+
+      <Menu.Portal>
+        <Menu.Positioner align="start" className="z-60 min-w-[var(--anchor-width)]" sideOffset={8}>
+          <Menu.Popup className="bg-bg1 border-gray-a3 w-full border p-1 shadow-2xl outline-none">
+            <Menu.RadioGroup onValueChange={(value) => setTheme(value as Theme)} value={theme}>
+              {themeOptions.map((option) => (
+                <Menu.RadioItem
+                  className="text-gray8 data-[checked]:text-gray10 data-[highlighted]:bg-gray-a2 data-[highlighted]:text-gray10 flex items-center gap-2 px-3 py-2 text-xs outline-none"
+                  closeOnClick
+                  key={option.value}
+                  value={option.value}
+                >
+                  <span className="flex-1">{option.label}</span>
+                  <Menu.RadioItemIndicator className="text-blue9">
+                    <IconOcticonCheck16 className="size-3.5" />
+                  </Menu.RadioItemIndicator>
+                </Menu.RadioItem>
+              ))}
+            </Menu.RadioGroup>
+          </Menu.Popup>
+        </Menu.Positioner>
+      </Menu.Portal>
+    </Menu.Root>
   )
+}
+
+const themeOptions = [
+  { label: 'Light', value: 'light' },
+  { label: 'Dark', value: 'dark' },
+  { label: 'System', value: 'system' },
+] satisfies Array<{ label: string; value: Theme }>
+
+function getThemeIcon(theme: Theme, resolvedTheme: Exclude<Theme, 'system'>, mounted: boolean) {
+  const iconTheme = getThemeIconTheme(theme, resolvedTheme, mounted)
+
+  if (iconTheme === 'system') return <IconLucideMonitor className="size-3.5" />
+
+  if (iconTheme === 'light') return <IconMaterialSymbolsWbSunny className="size-3.5" />
+  return <IconMaterialSymbolsBedtime className="size-3.5" />
+}
+
+function getThemeIconTheme(
+  theme: Theme,
+  resolvedTheme: Exclude<Theme, 'system'>,
+  mounted: boolean,
+) {
+  if (theme !== 'system') return theme
+  if (mounted) return resolvedTheme
+  if (typeof document === 'undefined') return 'system'
+
+  const htmlTheme = document.documentElement.dataset.theme
+  if (htmlTheme === 'dark' || htmlTheme === 'light') return htmlTheme
+
+  return 'system'
 }
 
 function SidebarNav(props: { items: Array<SidebarItem>; onNavigate: () => void }) {
@@ -185,8 +184,10 @@ function SidebarNavItem(props: { item: SidebarItem; onNavigate: () => void }) {
 
   if (item.type === 'group')
     return (
-      <li className="mt-4 first:mt-0">
-        <span className="text-gray8 text-xs font-medium tracking-wide uppercase">{item.label}</span>
+      <li className="mt-6 first:mt-0">
+        <span className="text-gray8 block px-2 text-xs font-medium tracking-wide uppercase">
+          {item.label}
+        </span>
         <ul className="mt-1.5 flex flex-col gap-0.5">
           {item.items.map((child) => (
             <SidebarNavItem item={child} key={child.label} onNavigate={onNavigate} />

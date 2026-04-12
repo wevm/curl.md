@@ -1,0 +1,63 @@
+---
+title: Contributing
+description: Set up curl.md locally and run the main contributor workflows.
+---
+
+# Contributing
+
+Use this page to get a local `curl.md` development environment running and to find the commands used most often while contributing.
+
+## Prerequisites
+
+- [OrbStack](https://orbstack.dev) for local Docker support on macOS.
+- Node.js and `pnpm`.
+- A local `.env` file copied from `.env.example`.
+
+## Local Setup
+
+1. Install and start OrbStack.
+2. Copy the environment file.
+3. Start the app with Docker Compose.
+
+```sh
+cp .env.example .env
+docker compose up -d
+```
+
+Once the app is running, open [https://curl.local](https://curl.local) or request a page directly:
+
+```sh
+curl curl.local/example.com
+```
+
+## Daily Workflow
+
+The app runs inside Docker during local development.
+
+```sh
+docker compose up
+docker logs curl -f
+docker compose exec app sh
+```
+
+## Checks
+
+Run these before opening a PR:
+
+```sh
+pnpm check
+pnpm check:types
+pnpm test --project app --project md --project workers
+```
+
+When working on browser behavior, run E2E tests:
+
+```sh
+pnpm test:e2e
+```
+
+## Docs
+
+Docs live in `docs/` and are rendered through the docs route in [Installation](/docs/getting_started/installation) and the other pages in this section.
+
+If you add or update docs, make sure the sidebar in `docs/_sidebar.ts` stays in sync.

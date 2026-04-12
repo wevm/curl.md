@@ -14,6 +14,9 @@ import { requestTokensSavedSumSql } from './db/utils.ts'
 import { Env } from './test/env.ts'
 
 export default defineConfig(async () => ({
+  optimizeDeps: {
+    include: ['@base-ui/react/tabs'],
+  },
   server: {
     allowedHosts: ['curl.local'],
   },
@@ -54,7 +57,7 @@ export default defineConfig(async () => ({
         }),
       ],
     }),
-    docsMdx(),
+    await docsMdx(),
     viteReact(),
   ],
   define: {

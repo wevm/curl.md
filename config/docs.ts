@@ -1,25 +1,54 @@
 import { execFileSync } from 'node:child_process'
+import { statSync } from 'node:fs'
 import path from 'node:path'
 import mdx from '@mdx-js/rollup'
+import shellscript from '@shikijs/langs/shellscript'
+import typescript from '@shikijs/langs/typescript'
+import rehypeShikiFromHighlighter from '@shikijs/rehype/core'
+import githubDark from '@shikijs/themes/github-dark'
+import githubLight from '@shikijs/themes/github-light'
 import type { Root } from 'hast'
 import rehypeSlug from 'rehype-slug'
 import remarkFrontmatter from 'remark-frontmatter'
 import remarkMdxFrontmatter from 'remark-mdx-frontmatter'
+import { createHighlighterCore } from 'shiki/core'
+import { createOnigurumaEngine } from 'shiki/engine/oniguruma'
 import type { Plugin as UnifiedPlugin } from 'unified'
+import type { Plugin as VitePlugin, ResolvedConfig } from 'vite'
 
-export function docsMdx() {
+export async function docsMdx() {
+  let isServe = false
+  const highlighter = await docsCodeHighlighterPromise
+  type ConfigResolvedHook = (this: unknown, config: ResolvedConfig) => void | Promise<void>
+  type TransformHook = (this: unknown, code: string, id: string) => unknown
   const mdxPlugin = mdx({
-    rehypePlugins: [rehypeSlug, rehypeHeadings],
+    rehypePlugins: [
+      rehypeSlug,
+      rehypeHeadings(() => isServe),
+      [rehypeShikiFromHighlighter, highlighter, docsCodeHighlightOptions],
+    ],
     remarkPlugins: [remarkFrontmatter, remarkNoticeBlocks, remarkMdxFrontmatter],
-  })
+  }) as VitePlugin
+  const configResolvedHook = (
+    typeof mdxPlugin.configResolved === 'function'
+      ? mdxPlugin.configResolved
+      : mdxPlugin.configResolved?.handler
+  ) as ConfigResolvedHook | undefined
+  const transformHook = (
+    typeof mdxPlugin.transform === 'function' ? mdxPlugin.transform : mdxPlugin.transform?.handler
+  ) as TransformHook | undefined
 
   return {
     ...mdxPlugin,
+    configResolved(config: ResolvedConfig) {
+      isServe = config.command === 'serve'
+      return configResolvedHook?.call(this, config)
+    },
     enforce: 'pre' as const,
     async transform(code: string, id: string) {
-      return mdxPlugin.transform?.call(
+      return transformHook?.call(
         this,
-        id.endsWith('.mdx') ? rewriteNoticeDirectiveSource(code) : code,
+        id.endsWith('.mdx') ? rewriteDocsDirectiveSource(code) : code,
         id,
       )
     },
@@ -29,6 +58,26 @@ export function docsMdx() {
 // --- Internal ---
 
 type Heading = { id: string; level: number; text: string }
+
+const docsCodeThemeDarkName = 'github-dark'
+const docsCodeThemeLightName = 'github-light'
+
+const docsCodeHighlightOptions = {
+  addLanguageClass: true,
+  defaultColor: false,
+  defaultLanguage: 'text',
+  fallbackLanguage: 'text',
+  langAlias: {
+    bash: 'sh',
+    shell: 'sh',
+    zsh: 'sh',
+  },
+  themes: {
+    dark: docsCodeThemeDarkName,
+    light: docsCodeThemeLightName,
+  },
+} as const
+const docsCodeHighlighterPromise = createDocsCodeHighlighter()
 
 const noticeTypeMap = new Map([
   ['caution', 'caution'],
@@ -51,73 +100,75 @@ const remarkNoticeBlocks: UnifiedPlugin<[], any> = () => (tree) => {
   normalizeNoticeBlocks(tree)
 }
 
-const rehypeHeadings: UnifiedPlugin<[], Root> = () => (tree, file: any) => {
-  const headings: Array<Heading> = []
-  const lastUpdated = getLastUpdated(file.path)
+function rehypeHeadings(shouldUseFileModifiedFallback: () => boolean): UnifiedPlugin<[], Root> {
+  return () => (tree, file: any) => {
+    const headings: Array<Heading> = []
+    const lastUpdated = getLastUpdated(file.path, shouldUseFileModifiedFallback())
 
-  visit(tree, (node: any) => {
-    if (node.type === 'element' && /^h[2-4]$/.test(node.tagName) && node.properties?.id) {
-      headings.push({
-        id: node.properties.id,
-        level: Number.parseInt(node.tagName[1]),
-        text: nodeToText(node),
-      })
-    }
-  })
+    visit(tree, (node: any) => {
+      if (node.type === 'element' && /^h[2-4]$/.test(node.tagName) && node.properties?.id) {
+        headings.push({
+          id: node.properties.id,
+          level: Number.parseInt(node.tagName[1]),
+          text: nodeToText(node),
+        })
+      }
+    })
 
-  tree.children.push({
-    type: 'mdxjsEsm' as any,
-    value: '',
-    data: {
-      estree: {
-        type: 'Program',
-        sourceType: 'module',
-        body: [
-          createExportDeclaration('headings', {
-            type: 'ArrayExpression',
-            elements: headings.map((h) => ({
-              type: 'ObjectExpression',
-              properties: [
-                {
-                  type: 'Property',
-                  kind: 'init',
-                  key: { type: 'Identifier', name: 'id' },
-                  value: { type: 'Literal', value: h.id },
-                  computed: false,
-                  method: false,
-                  shorthand: false,
-                },
-                {
-                  type: 'Property',
-                  kind: 'init',
-                  key: { type: 'Identifier', name: 'level' },
-                  value: { type: 'Literal', value: h.level },
-                  computed: false,
-                  method: false,
-                  shorthand: false,
-                },
-                {
-                  type: 'Property',
-                  kind: 'init',
-                  key: { type: 'Identifier', name: 'text' },
-                  value: { type: 'Literal', value: h.text },
-                  computed: false,
-                  method: false,
-                  shorthand: false,
-                },
-              ],
-            })),
-          }),
-          createExportDeclaration('lastUpdated', toEstreeValue(lastUpdated)),
-        ],
+    tree.children.push({
+      type: 'mdxjsEsm' as any,
+      value: '',
+      data: {
+        estree: {
+          type: 'Program',
+          sourceType: 'module',
+          body: [
+            createExportDeclaration('headings', {
+              type: 'ArrayExpression',
+              elements: headings.map((h) => ({
+                type: 'ObjectExpression',
+                properties: [
+                  {
+                    type: 'Property',
+                    kind: 'init',
+                    key: { type: 'Identifier', name: 'id' },
+                    value: { type: 'Literal', value: h.id },
+                    computed: false,
+                    method: false,
+                    shorthand: false,
+                  },
+                  {
+                    type: 'Property',
+                    kind: 'init',
+                    key: { type: 'Identifier', name: 'level' },
+                    value: { type: 'Literal', value: h.level },
+                    computed: false,
+                    method: false,
+                    shorthand: false,
+                  },
+                  {
+                    type: 'Property',
+                    kind: 'init',
+                    key: { type: 'Identifier', name: 'text' },
+                    value: { type: 'Literal', value: h.text },
+                    computed: false,
+                    method: false,
+                    shorthand: false,
+                  },
+                ],
+              })),
+            }),
+            createExportDeclaration('lastUpdated', toEstreeValue(lastUpdated)),
+          ],
+        },
       },
-    },
-  })
+    })
+  }
 }
 
 const lastUpdatedCache = new Map<string, string | undefined>()
 
-function rewriteNoticeDirectiveSource(source: string) {
+function rewriteDocsDirectiveSource(source: string) {
   const lines = source.split('\n')
   const output: Array<string> = []
   let codeFenceMarker: string | undefined
@@ -137,37 +188,132 @@ function rewriteNoticeDirectiveSource(source: string) {
       continue
     }
 
-    const directive = /^:::\s*([a-z]+)(?:\s+(.*?))?\s*$/.exec(line)
-    const type = normalizeNoticeType(directive?.[1])
-    if (!type) {
-      output.push(line)
+    const codeGroup = rewriteCodeGroupDirective(lines, index)
+    if (codeGroup) {
+      output.push(...codeGroup.lines)
+      index = codeGroup.endIndex
       continue
     }
 
-    const body: Array<string> = []
-    let endIndex = index + 1
-    while (endIndex < lines.length && !/^:::\s*$/.test(lines[endIndex]!)) {
-      body.push(lines[endIndex]!)
-      endIndex++
+    const notice = rewriteNoticeDirective(lines, index)
+    if (notice) {
+      output.push(...notice.lines)
+      index = notice.endIndex
+      continue
     }
 
-    if (endIndex >= lines.length) {
-      output.push(line)
-      output.push(...body)
-      break
-    }
-
-    output.push(`<Notice type=${JSON.stringify(type)}${getTitleAttribute(directive?.[2])}>`)
-    if (body.length > 0) {
-      output.push('')
-      output.push(...body)
-      output.push('')
-    }
-    output.push('</Notice>')
-    index = endIndex
+    output.push(line)
   }
 
   return output.join('\n')
+}
+
+function rewriteNoticeDirective(lines: Array<string>, index: number) {
+  const directive = /^:::\s*([a-z]+)(?:\s+(.*?))?\s*$/.exec(lines[index]!)
+  const type = normalizeNoticeType(directive?.[1])
+  if (!type) return
+
+  const body = collectDirectiveBody(lines, index)
+  if (!body) return
+
+  return {
+    endIndex: body.endIndex,
+    lines: [
+      `<Notice type=${JSON.stringify(type)}${getTitleAttribute(directive?.[2])}>`,
+      ...(body.body.length > 0 ? ['', ...body.body, ''] : []),
+      '</Notice>',
+    ],
+  }
+}
+
+function rewriteCodeGroupDirective(lines: Array<string>, index: number) {
+  if (!/^:::\s*codegroup\s*$/i.test(lines[index]!)) return
+
+  const body = collectDirectiveBody(lines, index)
+  if (!body) return
+
+  const rewrittenBody = rewriteCodeGroupItems(body.body)
+  if (!rewrittenBody) return
+
+  return {
+    endIndex: body.endIndex,
+    lines: ['<CodeGroup>', '', ...rewrittenBody, '', '</CodeGroup>'],
+  }
+}
+
+function collectDirectiveBody(lines: Array<string>, index: number) {
+  const body: Array<string> = []
+  let codeFenceMarker: string | undefined
+
+  for (let endIndex = index + 1; endIndex < lines.length; endIndex++) {
+    const line = lines[endIndex]!
+    const fenceMarker = getCodeFenceMarker(line)
+    if (fenceMarker) {
+      if (!codeFenceMarker) codeFenceMarker = fenceMarker
+      else if (isMatchingFenceMarker(fenceMarker, codeFenceMarker)) codeFenceMarker = undefined
+      body.push(line)
+      continue
+    }
+
+    if (!codeFenceMarker && /^:::\s*$/.test(line)) return { body, endIndex }
+    body.push(line)
+  }
+}
+
+function rewriteCodeGroupItems(lines: Array<string>) {
+  const rewritten: Array<string> = []
+  let itemCount = 0
+
+  for (let index = 0; index < lines.length; ) {
+    const line = lines[index]!
+    if (!line.trim()) {
+      index++
+      continue
+    }
+
+    const item = rewriteCodeGroupItem(lines, index)
+    if (!item) return
+
+    rewritten.push(...item.lines)
+    index = item.endIndex + 1
+    itemCount++
+  }
+
+  return itemCount > 0 ? rewritten : undefined
+}
+
+function rewriteCodeGroupItem(lines: Array<string>, index: number) {
+  const fence = /^(?: {0,3})(`{3,}|~{3,})(.*)$/.exec(lines[index]!)
+  if (!fence) return
+
+  const marker = fence[1]!
+  const { info, label } = splitCodeGroupFenceInfo(fence[2] ?? '')
+  const rewritten = [`<CodeGroupItem${getLabelAttribute(label)}>`]
+
+  rewritten.push('')
+  rewritten.push(getCodeFenceLine(marker, info))
+
+  for (let endIndex = index + 1; endIndex < lines.length; endIndex++) {
+    const line = lines[endIndex]!
+    rewritten.push(line)
+    if (!isClosingCodeFence(line, marker)) continue
+
+    rewritten.push('')
+    rewritten.push('</CodeGroupItem>')
+
+    return { endIndex, lines: rewritten }
+  }
+}
+
+function splitCodeGroupFenceInfo(info: string) {
+  const trimmed = info.trim()
+  if (!trimmed) return { info: '', label: undefined }
+
+  const match = /^(.*?)(?:\s+\[([^\]]+)\])?$/.exec(trimmed)
+  return {
+    info: match?.[1]?.trim() ?? trimmed,
+    label: match?.[2]?.trim() || undefined,
+  }
 }
 
 function normalizeNoticeBlocks(node: any) {
@@ -303,8 +449,27 @@ function getCodeFenceMarker(line: string) {
   return /^(?: {0,3})(`{3,}|~{3,})/.exec(line)?.[1]
 }
 
+function isClosingCodeFence(line: string, marker: string) {
+  const fenceMarker = /^(?: {0,3})(`{3,}|~{3,})\s*$/.exec(line)?.[1]
+  return fenceMarker
+    ? isMatchingFenceMarker(fenceMarker, marker) && fenceMarker.length >= marker.length
+    : false
+}
+
+function isMatchingFenceMarker(marker: string, other: string) {
+  return marker[0] === other[0]
+}
+
+function getCodeFenceLine(marker: string, info: string) {
+  return info ? `${marker} ${info}` : marker
+}
+
 function getTitleAttribute(title: string | undefined) {
   return title?.trim() ? ` title=${JSON.stringify(title.trim())}` : ''
+}
+
+function getLabelAttribute(label: string | undefined) {
+  return label?.trim() ? ` label=${JSON.stringify(label.trim())}` : ''
 }
 
 function normalizeNoticeType(type: string | undefined) {
@@ -329,12 +494,22 @@ function createExportDeclaration(name: string, init: any) {
   }
 }
 
-function getLastUpdated(filePath: string | undefined) {
+function createDocsCodeHighlighter() {
+  return createHighlighterCore({
+    engine: createOnigurumaEngine(() => import('shiki/wasm')),
+    langs: [shellscript, typescript],
+    themes: [githubDark, githubLight],
+  })
+}
+
+function getLastUpdated(filePath: string | undefined, useFileModifiedFallback: boolean) {
   if (!filePath) return undefined
 
   const relativePath = path.relative(process.cwd(), filePath)
-  const cached = lastUpdatedCache.get(relativePath)
-  if (cached !== undefined || lastUpdatedCache.has(relativePath)) return cached
+  if (!useFileModifiedFallback) {
+    const cached = lastUpdatedCache.get(relativePath)
+    if (cached !== undefined || lastUpdatedCache.has(relativePath)) return cached
+  }
 
   try {
     const value = execFileSync('git', ['log', '-1', '--format=%cI', '--', relativePath], {
@@ -342,10 +517,20 @@ function getLastUpdated(filePath: string | undefined) {
       encoding: 'utf8',
     }).trim()
     const lastUpdated = value || undefined
-    lastUpdatedCache.set(relativePath, lastUpdated)
+    if (lastUpdated === undefined && useFileModifiedFallback) return getFileModifiedAt(filePath)
+    if (!useFileModifiedFallback) lastUpdatedCache.set(relativePath, lastUpdated)
     return lastUpdated
   } catch {
+    if (useFileModifiedFallback) return getFileModifiedAt(filePath)
     lastUpdatedCache.set(relativePath, undefined)
+    return undefined
+  }
+}
+
+function getFileModifiedAt(filePath: string) {
+  try {
+    return statSync(filePath).mtime.toISOString()
+  } catch {
     return undefined
   }
 }

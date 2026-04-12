@@ -76,6 +76,22 @@ test('outline clears stale last-heading state after a quick upward scroll', asyn
     .not.toHaveAttribute('data-active')
 })
 
+test('code groups switch the visible panel when tabs are clicked', async () => {
+  const rendered = renderDocContent(createCodeGroupDoc())
+
+  await expect
+    .element(rendered.content.getByRole('tab', { name: 'config.js' }))
+    .toHaveAttribute('aria-selected', 'true')
+  await expect.element(rendered.content.getByText("console.log('js')")).toBeVisible()
+
+  await rendered.content.getByRole('tab', { name: 'config.ts' }).click()
+
+  await expect
+    .element(rendered.content.getByRole('tab', { name: 'config.ts' }))
+    .toHaveAttribute('aria-selected', 'true')
+  await expect.element(rendered.content.getByText("console.log('ts')")).toBeVisible()
+})
+
 function createDoc(): Doc {
   const sections = [
     { id: 'cli', level: 2, spacerBlockSizePx: 480, tag: 'h2', text: 'CLI' },
@@ -125,7 +141,41 @@ function createDoc(): Doc {
       text: section.text,
     })),
     path: 'test',
+    source: '# Test',
     sourcePath: 'docs/getting_started/installation.mdx',
+    title: 'Test',
+  }
+}
+
+function createCodeGroupDoc(): Doc {
+  return {
+    Component: function Component(props) {
+      const components = props.components ?? {}
+      const CodeGroup = components.CodeGroup as React.ComponentType<React.PropsWithChildren>
+      const CodeGroupItem = components.CodeGroupItem as React.ComponentType<
+        React.PropsWithChildren<{ label?: string }>
+      >
+
+      return (
+        <CodeGroup>
+          <CodeGroupItem label="config.js">
+            <pre>
+              <code className="language-js">console.log('js')</code>
+            </pre>
+          </CodeGroupItem>
+          <CodeGroupItem label="config.ts">
+            <pre>
+              <code className="language-ts">console.log('ts')</code>
+            </pre>
+          </CodeGroupItem>
+        </CodeGroup>
+      )
+    },
+    description: undefined,
+    headings: [],
+    path: 'test',
+    source: '# Test\n',
+    sourcePath: 'docs/reference/kitchen_sink.mdx',
     title: 'Test',
   }
 }
@@ -153,7 +203,7 @@ function renderDocContent(doc: Doc, pagination?: DocPagination) {
     container.remove()
   }
 
-  return { outline: page.elementLocator(outline) }
+  return { content: page.elementLocator(container), outline: page.elementLocator(outline) }
 }
 
 function unmountRoot(root: Root) {

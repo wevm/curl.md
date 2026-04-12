@@ -9,6 +9,11 @@ type DocModule = {
 }
 
 const modules = import.meta.glob<DocModule>('../../../docs/**/*.mdx', { eager: true })
+const sources = import.meta.glob<string>('../../../docs/**/*.mdx', {
+  eager: true,
+  import: 'default',
+  query: '?raw',
+})
 
 export const allDocs: Array<Doc> = Object.entries(modules).map(([filePath, mod]) => {
   const path = filePath
@@ -21,6 +26,7 @@ export const allDocs: Array<Doc> = Object.entries(modules).map(([filePath, mod])
     headings: mod.headings ?? [],
     ...(mod.lastUpdated ? { lastUpdated: mod.lastUpdated } : {}),
     path: path === 'index' ? '' : path,
+    source: sources[filePath] ?? '',
     sourcePath: filePath.replace('../../../', ''),
     title: mod.frontmatter?.title ?? path,
   }

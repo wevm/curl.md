@@ -1,19 +1,34 @@
+import { Tabs } from '@base-ui/react/tabs'
 import { Link } from '@tanstack/react-router'
 import * as React from 'react'
 import IconOcticonAlert16 from '~icons/octicon/alert16.jsx'
 import IconOcticonInfo16 from '~icons/octicon/info16.jsx'
 import IconOcticonLightBulb16 from '~icons/octicon/light-bulb16.jsx'
+import IconOcticonPencil16 from '~icons/octicon/pencil-16.jsx'
 import IconOcticonReport16 from '~icons/octicon/report16.jsx'
 import IconOcticonStop16 from '~icons/octicon/stop16.jsx'
+import IconVscodeIconsFileTypeBun from '~icons/vscode-icons/file-type-bun.jsx'
+import IconVscodeIconsFileTypeDeno from '~icons/vscode-icons/file-type-deno.jsx'
+import IconVscodeIconsFileTypeJs from '~icons/vscode-icons/file-type-js.jsx'
+import IconVscodeIconsFileTypeJson from '~icons/vscode-icons/file-type-json.jsx'
+import IconVscodeIconsFileTypeMarkdown from '~icons/vscode-icons/file-type-markdown.jsx'
+import IconVscodeIconsFileTypeNpm from '~icons/vscode-icons/file-type-npm.jsx'
+import IconVscodeIconsFileTypePnpm from '~icons/vscode-icons/file-type-pnpm.jsx'
+import IconVscodeIconsFileTypePowershell from '~icons/vscode-icons/file-type-powershell.jsx'
+import IconVscodeIconsFileTypeShell from '~icons/vscode-icons/file-type-shell.jsx'
+import IconVscodeIconsFileTypeTypescript from '~icons/vscode-icons/file-type-typescript.jsx'
+import IconVscodeIconsFileTypeYaml from '~icons/vscode-icons/file-type-yaml.jsx'
+import IconVscodeIconsFileTypeYarn from '~icons/vscode-icons/file-type-yarn.jsx'
 import { useCopyToClipboard } from '#hooks/useCopyToClipboard.ts'
 import type { Doc, DocPagination } from './-doc.types.ts'
 
 export function DocContent(props: { doc: Doc; pagination?: DocPagination }) {
   const { doc, pagination = { next: undefined, previous: undefined } } = props
-  const { copied, copy } = useCopyToClipboard()
+  const { copied, copy } = useCopyToClipboard({ content: doc.source })
   const [activeHeadingId, setActiveHeadingId] = React.useState<string | undefined>(undefined)
   const hasHeadings = doc.headings.length > 0
   const editHref = `https://github.com/wevm/curl.md/edit/main/${doc.sourcePath}`
+  const reportIssueHref = 'https://github.com/wevm/curl.md/issues/new/choose'
 
   React.useEffect(() => {
     if (!hasHeadings) {
@@ -143,13 +158,23 @@ export function DocContent(props: { doc: Doc; pagination?: DocPagination }) {
                 rel="noopener noreferrer"
                 target="_blank"
               >
+                <IconOcticonPencil16 className="size-4 shrink-0" />
+                <span>Edit page</span>
+              </a>
+
+              <a
+                className="text-gray8 hover:text-gray10 -ms-2 flex items-center gap-2 py-1 ps-2 text-sm"
+                href={reportIssueHref}
+                rel="noopener noreferrer"
+                target="_blank"
+              >
                 <IconOcticonMarkGithub16 className="size-4 shrink-0" />
-                <span>Edit page on GitHub</span>
+                <span>Report issue</span>
               </a>
 
               <button
                 className="text-gray8 hover:text-gray10 -ms-2 flex items-center gap-2 py-1 ps-2 text-left text-sm"
-                onClick={() => copy(window.location.href.replace(window.location.hash, ''))}
+                onClick={() => copy()}
                 type="button"
               >
                 {copied ? (
@@ -176,6 +201,9 @@ export function DocContent(props: { doc: Doc; pagination?: DocPagination }) {
 // --- Internal ---
 
 const mdxComponents = {
+  CodeGroup,
+  CodeGroupItem,
+  pre: DocsCodeBlock,
   Notice,
   a: (props: React.ComponentProps<'a'>) => {
     const { href, children, ...rest } = props
@@ -198,7 +226,12 @@ const mdxComponents = {
     />
   ),
   code: (props: React.ComponentProps<'code'>) => (
-    <code className="bg-gray-a2 px-1 py-0.5 text-[0.875em]" {...props} />
+    <code
+      {...props}
+      className={['bg-gray-a2 px-1 py-0.5 text-[0.9375em]', props.className]
+        .filter(Boolean)
+        .join(' ')}
+    />
   ),
   h1: (props: React.ComponentProps<'h1'>) =>
     renderHeading('h1', 'text-xl font-bold md:text-2xl', props),
@@ -217,12 +250,6 @@ const mdxComponents = {
   ),
   p: (props: React.ComponentProps<'p'>) => (
     <p className="text-gray9 mt-4 leading-relaxed" {...props} />
-  ),
-  pre: (props: React.ComponentProps<'pre'>) => (
-    <pre
-      className="bg-gray-a1/50 border-gray-a3 minimal-scrollbar mt-4 overflow-x-auto border p-4 leading-relaxed [&_code]:bg-transparent [&_code]:p-0"
-      {...props}
-    />
   ),
   ul: (props: React.ComponentProps<'ul'>) => (
     <ul
@@ -286,6 +313,128 @@ function Notice(props: React.PropsWithChildren<{ title?: string; type?: string }
   )
 }
 
+function CodeGroup(props: React.PropsWithChildren) {
+  const { children } = props
+  const items = React.Children.toArray(children)
+    .filter(
+      (child): child is React.ReactElement<React.PropsWithChildren<{ label?: string }>> =>
+        React.isValidElement(child) && child.type === CodeGroupItem,
+    )
+    .map((child, index) => ({
+      content: child.props.children,
+      label:
+        child.props.label?.trim() ||
+        getCodeGroupLanguage(child.props.children) ||
+        `Code ${index + 1}`,
+      value: String(index),
+    }))
+  const [value, setValue] = React.useState(items[0]?.value ?? '0')
+
+  React.useEffect(() => {
+    if (items.some((item) => item.value === value)) return
+    setValue(items[0]?.value ?? '0')
+  }, [items, value])
+
+  if (!items[0]) return <>{children}</>
+
+  return (
+    <Tabs.Root onValueChange={(nextValue) => setValue(String(nextValue))} value={value}>
+      <div
+        className="bg-gray-a1/50 border-gray-a3 mt-6 overflow-hidden border"
+        data-docs-code-group=""
+      >
+        <Tabs.List
+          aria-label="Code group"
+          className="bg-gray-a1/50 minimal-scrollbar relative flex gap-1 overflow-x-auto overflow-y-hidden px-2"
+        >
+          <span
+            aria-hidden
+            className="bg-gray-a3 pointer-events-none absolute inset-x-0 bottom-0 h-px"
+          />
+          {items.map((item) => (
+            <Tabs.Tab
+              className="text-gray8 hover:text-gray10 focus-visible:ring-blue8 data-[active]:text-gray10 relative z-10 px-3 py-3 text-sm font-medium whitespace-nowrap focus:outline-none focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset"
+              key={item.value}
+              value={item.value}
+            >
+              <span
+                aria-hidden
+                className="bg-gray10 pointer-events-none absolute right-[8px] bottom-0 left-[8px] z-20 h-px opacity-0 data-[active]:opacity-100"
+                data-active={value === item.value ? '' : undefined}
+              />
+              <span className="flex items-center gap-2">
+                <CodeGroupTabIcon label={item.label} />
+                <span>{item.label}</span>
+              </span>
+            </Tabs.Tab>
+          ))}
+        </Tabs.List>
+
+        {items.map((item) => (
+          <Tabs.Panel
+            className="focus-visible:ring-blue8 focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset [&_[data-docs-code-block]]:mt-0 [&_[data-docs-code-block]_pre]:px-5 [&_pre]:border-0"
+            key={item.value}
+            value={item.value}
+          >
+            {item.content}
+          </Tabs.Panel>
+        ))}
+      </div>
+    </Tabs.Root>
+  )
+}
+
+function CodeGroupItem(props: React.PropsWithChildren<{ label?: string }>) {
+  const { children } = props
+  return <>{children}</>
+}
+
+function CodeGroupTabIcon(props: { label: string }) {
+  const icon = getCodeGroupTabIcon(props.label)
+  if (!icon) return null
+
+  return <icon.Component aria-hidden className="size-4 shrink-0" />
+}
+
+function DocsCodeBlock(props: React.ComponentProps<'pre'>) {
+  const { children, className, ...rest } = props
+  const copyText = getNodeText(children)
+  const { copied, copy } = useCopyToClipboard(copyText ? { content: copyText } : {})
+
+  return (
+    <div className="group/code relative mt-4" data-docs-code-block="">
+      {copyText && (
+        <button
+          aria-label={copied ? 'Code copied' : 'Copy code'}
+          className="bg-bg1/90 border-gray-a3 text-gray8 hover:text-gray10 focus-visible:text-gray10 focus-visible:ring-blue8 absolute end-3 top-3 z-10 border p-1.5 opacity-0 backdrop-blur-sm transition-opacity group-focus-within/code:opacity-100 group-hover/code:opacity-100 focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset data-[copied]:opacity-100"
+          data-copied={copied ? '' : undefined}
+          onClick={() => copy()}
+          type="button"
+        >
+          {copied ? (
+            <IconOcticonCheck16 className="text-teal9 size-4" />
+          ) : (
+            <IconOcticonCopy16 className="size-4" />
+          )}
+        </button>
+      )}
+
+      <pre
+        {...rest}
+        className={[
+          'bg-gray-a1/50 border-gray-a3 minimal-scrollbar focus-visible:ring-blue8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset mt-0 overflow-x-auto border p-4 leading-relaxed',
+          '[&_code]:bg-transparent [&_code]:p-0 [&_code]:!text-[1em]',
+          className,
+        ]
+          .filter(Boolean)
+          .join(' ')}
+      >
+        {children}
+      </pre>
+    </div>
+  )
+}
+
 function NoticeIcon(props: { type: string }) {
   const { type } = props
 
@@ -319,7 +468,7 @@ function DocPaginationLink(props: {
     >
       <span className="text-gray8 text-sm">{direction === 'previous' ? 'Previous' : 'Next'}</span>
       <div
-        className="flex items-center gap-2 text-base font-bold data-[direction=next]:justify-end md:text-lg"
+        className="flex items-center gap-2 text-sm font-bold data-[direction=next]:justify-end md:text-base"
         data-direction={direction}
       >
         {direction === 'previous' && <IconOcticonChevronLeft16 className="size-5 shrink-0" />}
@@ -351,10 +500,63 @@ function formatLastUpdated(value: string) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value
 
+  const isCurrentYear = date.getUTCFullYear() === new Date().getUTCFullYear()
+
   return new Intl.DateTimeFormat('en-US', {
-    dateStyle: 'long',
+    ...(isCurrentYear
+      ? { day: 'numeric', month: 'long' }
+      : { day: 'numeric', month: 'long', year: 'numeric' }),
     timeZone: 'UTC',
   }).format(date)
+}
+
+function getNodeText(node: React.ReactNode): string | undefined {
+  const text = nodeToString(node)
+  return text || undefined
+}
+
+function nodeToString(node: React.ReactNode): string {
+  if (typeof node === 'string' || typeof node === 'number') return String(node)
+  if (node === null || node === undefined || typeof node === 'boolean') return ''
+  if (Array.isArray(node)) return node.map((child) => nodeToString(child)).join('')
+  if (React.isValidElement(node)) {
+    const element = node as React.ReactElement<{ children?: React.ReactNode }>
+    return nodeToString(element.props.children)
+  }
+  return ''
+}
+
+function getCodeGroupLanguage(node: React.ReactNode): string | undefined {
+  if (Array.isArray(node)) {
+    for (const child of node) {
+      const language = getCodeGroupLanguage(child)
+      if (language) return language
+    }
+
+    return undefined
+  }
+
+  if (!React.isValidElement(node)) return undefined
+  const element = node as React.ReactElement<{ children?: React.ReactNode; className?: string }>
+  if (element.type === 'code') {
+    const className = typeof element.props.className === 'string' ? element.props.className : ''
+    const language = /\blanguage-([\w-]+)/.exec(className)?.[1]
+    if (language) return language
+  }
+
+  return getCodeGroupLanguage(element.props.children)
+}
+
+function getCodeGroupTabIcon(label: string) {
+  const normalized = label.trim().toLowerCase()
+  if (normalized in codeGroupTabIcons)
+    return codeGroupTabIcons[normalized as keyof typeof codeGroupTabIcons]
+
+  const extension = /\.([a-z0-9]+)$/.exec(normalized)?.[1]
+  if (extension && extension in codeGroupExtensionIcons)
+    return codeGroupExtensionIcons[extension as keyof typeof codeGroupExtensionIcons]
+
+  return undefined
 }
 
 const noticeTitles: Record<string, string> = {
@@ -365,3 +567,39 @@ const noticeTitles: Record<string, string> = {
   tip: 'Tip',
   warning: 'Warning',
 }
+
+const codeGroupTabIcons = {
+  bash: { Component: IconVscodeIconsFileTypeShell },
+  bun: { Component: IconVscodeIconsFileTypeBun },
+  deno: { Component: IconVscodeIconsFileTypeDeno },
+  javascript: { Component: IconVscodeIconsFileTypeJs },
+  json: { Component: IconVscodeIconsFileTypeJson },
+  markdown: { Component: IconVscodeIconsFileTypeMarkdown },
+  npm: { Component: IconVscodeIconsFileTypeNpm },
+  pnpm: { Component: IconVscodeIconsFileTypePnpm },
+  powershell: { Component: IconVscodeIconsFileTypePowershell },
+  shell: { Component: IconVscodeIconsFileTypeShell },
+  sh: { Component: IconVscodeIconsFileTypeShell },
+  ts: { Component: IconVscodeIconsFileTypeTypescript },
+  typescript: { Component: IconVscodeIconsFileTypeTypescript },
+  yaml: { Component: IconVscodeIconsFileTypeYaml },
+  yarn: { Component: IconVscodeIconsFileTypeYarn },
+} as const
+
+const codeGroupExtensionIcons = {
+  bash: codeGroupTabIcons.bash,
+  cjs: codeGroupTabIcons.javascript,
+  js: codeGroupTabIcons.javascript,
+  json: codeGroupTabIcons.json,
+  jsonc: codeGroupTabIcons.json,
+  md: codeGroupTabIcons.markdown,
+  mdx: codeGroupTabIcons.markdown,
+  mjs: codeGroupTabIcons.javascript,
+  ps1: codeGroupTabIcons.powershell,
+  sh: codeGroupTabIcons.sh,
+  ts: codeGroupTabIcons.typescript,
+  tsx: codeGroupTabIcons.typescript,
+  yaml: codeGroupTabIcons.yaml,
+  yml: codeGroupTabIcons.yaml,
+  zsh: codeGroupTabIcons.sh,
+} as const

@@ -78,6 +78,9 @@ export default defineConfig({
         },
       },
       {
+        optimizeDeps: {
+          include: ['@base-ui/react/tabs'],
+        },
         plugins: [
           icons({ compiler: 'jsx', jsx: 'react' }),
           autoImport({

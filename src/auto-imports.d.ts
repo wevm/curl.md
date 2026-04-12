@@ -32,6 +32,10 @@ declare global {
   const IconLucideTriangleAlert: typeof import('~icons/lucide/triangle-alert.jsx').default
   const IconLucideUsers: typeof import('~icons/lucide/users.jsx').default
   const IconLucideX: typeof import('~icons/lucide/x.jsx').default
+  const IconMaterialSymbolsBedtime: typeof import('~icons/material-symbols/bedtime.jsx').default
+  const IconMaterialSymbolsDarkMode: typeof import('~icons/material-symbols/dark-mode.jsx').default
+  const IconMaterialSymbolsLightMode: typeof import('~icons/material-symbols-light/mode.jsx').default
+  const IconMaterialSymbolsWbSunny: typeof import('~icons/material-symbols/wb-sunny.jsx').default
   const IconOcticonAlert16: typeof import('~icons/octicon/alert16.jsx').default
   const IconOcticonBook16: typeof import('~icons/octicon/book16.jsx').default
   const IconOcticonCheck16: typeof import('~icons/octicon/check16.jsx').default

@@ -6,6 +6,7 @@ export type Doc = {
   headings: Array<Heading>
   lastUpdated?: string
   path: string
+  source: string
   sourcePath: string
   title: string
 }

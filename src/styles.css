@@ -4,6 +4,40 @@
 
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
+.shiki {
+  background-color: color-mix(in oklab, var(--color-gray-a1) 50%, transparent) !important;
+  border-color: var(--color-gray-a3);
+  color: var(--shiki-light) !important;
+  font-style: var(--shiki-light-font-style, inherit) !important;
+  font-weight: var(--shiki-light-font-weight, inherit) !important;
+  text-decoration: var(--shiki-light-text-decoration, inherit) !important;
+}
+
+.shiki span {
+  background-color: transparent !important;
+  color: var(--shiki-light) !important;
+  font-style: var(--shiki-light-font-style, inherit) !important;
+  font-weight: var(--shiki-light-font-weight, inherit) !important;
+  text-decoration: var(--shiki-light-text-decoration, inherit) !important;
+}
+
+html[data-theme='dark'] .shiki {
+  background-color: color-mix(in oklab, var(--color-gray-a1) 50%, transparent) !important;
+  border-color: var(--color-gray-a3);
+  color: var(--shiki-dark) !important;
+  font-style: var(--shiki-dark-font-style, inherit) !important;
+  font-weight: var(--shiki-dark-font-weight, inherit) !important;
+  text-decoration: var(--shiki-dark-text-decoration, inherit) !important;
+}
+
+html[data-theme='dark'] .shiki span {
+  background-color: transparent !important;
+  color: var(--shiki-dark) !important;
+  font-style: var(--shiki-dark-font-style, inherit) !important;
+  font-weight: var(--shiki-dark-font-weight, inherit) !important;
+  text-decoration: var(--shiki-dark-text-decoration, inherit) !important;
+}
+
 html {
   scroll-padding-top: 5rem;
 }
@@ -132,6 +166,11 @@ html {
   outline-offset: 0.15rem;
   outline-style: solid;
   outline-width: 2px;
+}
+
+[data-docs-code-group] :is([role='tab'], [role='tabpanel']):focus-visible,
+[data-docs-code-block] :is(button, pre):focus-visible {
+  outline: none;
 }
 
 form button:focus-visible {
