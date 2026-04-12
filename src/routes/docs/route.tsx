@@ -26,8 +26,9 @@ function Component() {
       <Nav.Skip />
 
       <nav className="bg-bg1 border-gray-a3 fixed inset-x-0 top-0 z-50 h-17 border-b">
-        <div className="mx-auto flex h-full w-full max-w-[90rem] items-center ps-8 pe-6">
+        <div className="mx-auto flex h-full w-full max-w-[90rem] items-center ps-5 pe-3 md:ps-8 md:pe-6">
           <Nav.Logo />
+          <Nav.Links />
           <Nav.Group>
             <a
               aria-label="GitHub"
@@ -49,7 +50,7 @@ function Component() {
             </a>
             {login ? (
               <Link
-                className="bg-gray10 text-bg1 px-3 py-1.5 text-sm"
+                className="bg-gray10 text-bg1 px-3 py-1.5 text-sm transition-opacity hover:opacity-90"
                 params={{ login }}
                 to="/$login"
               >
@@ -57,7 +58,7 @@ function Component() {
               </Link>
             ) : (
               <Link
-                className="bg-gray10 text-bg1 px-3 py-1.5 text-sm"
+                className="bg-gray10 text-bg1 px-3 py-1.5 text-sm transition-opacity hover:opacity-90"
                 search={{ next }}
                 to="/login"
               >

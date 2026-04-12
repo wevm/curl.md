@@ -1,7 +1,9 @@
 import { execFileSync } from 'node:child_process'
 import { statSync } from 'node:fs'
+import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import mdx from '@mdx-js/rollup'
+import json from '@shikijs/langs/json'
 import shellscript from '@shikijs/langs/shellscript'
 import typescript from '@shikijs/langs/typescript'
 import rehypeShikiFromHighlighter from '@shikijs/rehype/core'
@@ -10,16 +12,26 @@ import githubLight from '@shikijs/themes/github-light'
 import type { Root } from 'hast'
 import rehypeSlug from 'rehype-slug'
 import remarkFrontmatter from 'remark-frontmatter'
+import remarkGfm from 'remark-gfm'
 import remarkMdxFrontmatter from 'remark-mdx-frontmatter'
 import { createHighlighterCore } from 'shiki/core'
 import { createOnigurumaEngine } from 'shiki/engine/oniguruma'
 import type { Plugin as UnifiedPlugin } from 'unified'
 import type { Plugin as VitePlugin, ResolvedConfig } from 'vite'
+import { parse as parseYaml } from 'yaml'
+import { sidebar, type SidebarItem } from '../docs/_sidebar.ts'
+import {
+  generateDocsLlmsFullTxt,
+  generateDocsLlmsTxt,
+  type DocsLlmsSection,
+} from '../src/routes/docs/-llms.ts'
+import { createDocCopySource } from '../src/routes/docs/-source.ts'
 
 export async function docsMdx() {
   let isServe = false
   const highlighter = await docsCodeHighlighterPromise
   type ConfigResolvedHook = (this: unknown, config: ResolvedConfig) => void | Promise<void>
+  type HandleHotUpdateHook = (this: unknown, ctx: { file: string }) => unknown
   type TransformHook = (this: unknown, code: string, id: string) => unknown
   const mdxPlugin = mdx({
     rehypePlugins: [
@@ -27,7 +39,7 @@ export async function docsMdx() {
       rehypeHeadings(() => isServe),
       [rehypeShikiFromHighlighter, highlighter, docsCodeHighlightOptions],
     ],
-    remarkPlugins: [remarkFrontmatter, remarkNoticeBlocks, remarkMdxFrontmatter],
+    remarkPlugins: [remarkFrontmatter, remarkGfm, remarkNoticeBlocks, remarkMdxFrontmatter],
   }) as VitePlugin
   const configResolvedHook = (
     typeof mdxPlugin.configResolved === 'function'
@@ -37,15 +49,26 @@ export async function docsMdx() {
   const transformHook = (
     typeof mdxPlugin.transform === 'function' ? mdxPlugin.transform : mdxPlugin.transform?.handler
   ) as TransformHook | undefined
+  const handleHotUpdateHook = (
+    typeof mdxPlugin.handleHotUpdate === 'function'
+      ? mdxPlugin.handleHotUpdate
+      : mdxPlugin.handleHotUpdate?.handler
+  ) as HandleHotUpdateHook | undefined
 
   return {
     ...mdxPlugin,
-    configResolved(config: ResolvedConfig) {
+    async configResolved(config: ResolvedConfig) {
       isServe = config.command === 'serve'
+      await syncDocsStaticAssets()
       return configResolvedHook?.call(this, config)
     },
     enforce: 'pre' as const,
+    async handleHotUpdate(ctx: { file: string }) {
+      if (isDocsAssetDependency(ctx.file)) await syncDocsStaticAssets()
+      return handleHotUpdateHook?.call(this, ctx)
+    },
     async transform(code: string, id: string) {
+      if (id.includes('?raw')) return code
       return transformHook?.call(
         this,
         id.endsWith('.mdx') ? rewriteDocsDirectiveSource(code) : code,
@@ -72,6 +95,7 @@ const docsCodeHighlightOptions = {
     shell: 'sh',
     zsh: 'sh',
   },
+  parseMetaString: parseCodeBlockMetaString,
   themes: {
     dark: docsCodeThemeDarkName,
     light: docsCodeThemeLightName,
@@ -167,6 +191,9 @@ function rehypeHeadings(shouldUseFileModifiedFallback: () => boolean): UnifiedPl
 }
 
 const lastUpdatedCache = new Map<string, string | undefined>()
+const docsDirectoryPath = path.join(process.cwd(), 'docs')
+const docsGeneratedManifestPath = path.join(process.cwd(), 'public/docs/.generated-docs.json')
+const docsPublicDirectoryPath = path.dirname(docsGeneratedManifestPath)
 
 function rewriteDocsDirectiveSource(source: string) {
   const lines = source.split('\n')
@@ -555,6 +582,12 @@ function getLabelAttribute(label: string | undefined) {
   return label?.trim() ? ` label=${JSON.stringify(label.trim())}` : ''
 }
 
+function parseCodeBlockMetaString(metaString: string) {
+  const match = /(?:^|\s)title=(?:"([^"]*)"|'([^']*)'|([^\s]+))/u.exec(metaString)
+  const title = match?.[1] ?? match?.[2] ?? match?.[3]
+  return title?.trim() ? { title: title.trim() } : undefined
+}
+
 function createStepItemRewrite(title: string, body: Array<string>, endIndex: number) {
   return {
     endIndex,
@@ -599,7 +632,7 @@ function createExportDeclaration(name: string, init: any) {
 function createDocsCodeHighlighter() {
   return createHighlighterCore({
     engine: createOnigurumaEngine(() => import('shiki/wasm')),
-    langs: [shellscript, typescript],
+    langs: [json, shellscript, typescript],
     themes: [githubDark, githubLight],
   })
 }
@@ -627,6 +660,182 @@ function getLastUpdated(filePath: string | undefined, useFileModifiedFallback: b
     lastUpdatedCache.set(relativePath, undefined)
     return undefined
   }
+}
+
+async function syncDocsStaticAssets() {
+  const docs = await readDocsStaticFiles()
+  const docsWithRewrittenLinks = docs.map((doc) => ({
+    ...doc,
+    source: rewriteGeneratedDocLinks(doc.source),
+  }))
+  const docsByPath = new Map(docs.map((doc) => [doc.path, doc]))
+  const files = [
+    {
+      filePath: path.join(docsPublicDirectoryPath, 'llms-full.txt'),
+      content: generateDocsLlmsFullTxt({ docs: docsWithRewrittenLinks }),
+    },
+    {
+      filePath: path.join(docsPublicDirectoryPath, 'llms.txt'),
+      content: generateDocsLlmsTxt({ sections: getDocsLlmsSections(docsByPath) }),
+    },
+    ...docsWithRewrittenLinks.map((doc) => ({
+      filePath: path.join(docsPublicDirectoryPath, getDocMarkdownOutputPath(doc.path)),
+      content: `${doc.source}\n`,
+    })),
+  ]
+
+  await removeGeneratedDocsStaticAssets()
+
+  for (const file of files) {
+    await mkdir(path.dirname(file.filePath), { recursive: true })
+    await writeFile(file.filePath, file.content)
+  }
+
+  await writeFile(
+    docsGeneratedManifestPath,
+    JSON.stringify(
+      files.map((file) => path.relative(process.cwd(), file.filePath)).sort(),
+      null,
+      2,
+    ),
+  )
+}
+
+async function removeGeneratedDocsStaticAssets() {
+  try {
+    const rawManifest = await readFile(docsGeneratedManifestPath, 'utf8')
+    const filePaths = JSON.parse(rawManifest) as Array<string>
+
+    for (const filePath of filePaths) await rm(path.join(process.cwd(), filePath), { force: true })
+  } catch {}
+
+  await rm(docsGeneratedManifestPath, { force: true })
+}
+
+async function readDocsStaticFiles() {
+  const filePaths = await findDocsMdxFiles(docsDirectoryPath)
+  const docs = await Promise.all(
+    filePaths.map(async (filePath) => {
+      const source = await readFile(filePath, 'utf8')
+      const relativePath = path.relative(docsDirectoryPath, filePath)
+      const docPath = getDocPathFromFilePath(relativePath)
+      const frontmatter = parseDocsFrontmatter(source)
+
+      return {
+        description: getFrontmatterString(frontmatter, 'description'),
+        path: docPath,
+        source: createDocCopySource(source),
+        title: getFrontmatterString(frontmatter, 'title') ?? (docPath || 'index'),
+      }
+    }),
+  )
+
+  return docs.sort((a, b) => a.path.localeCompare(b.path))
+}
+
+async function findDocsMdxFiles(directoryPath: string): Promise<Array<string>> {
+  const entries = await readdir(directoryPath, { withFileTypes: true })
+  const filePaths = await Promise.all(
+    entries.map(async (entry) => {
+      const entryPath = path.join(directoryPath, entry.name)
+      if (entry.isDirectory()) return findDocsMdxFiles(entryPath)
+      if (entry.isFile() && entry.name.endsWith('.mdx')) return [entryPath]
+      return []
+    }),
+  )
+
+  return filePaths.flat()
+}
+
+function getDocPathFromFilePath(filePath: string) {
+  const normalizedPath = filePath.replace(/\\/g, '/').replace(/\.mdx$/, '')
+  if (normalizedPath === 'index') return ''
+  return normalizedPath.replace(/\/index$/, '')
+}
+
+function getDocMarkdownOutputPath(docPath: string) {
+  if (!docPath) return 'index.md'
+  return `${docPath}.md`
+}
+
+function parseDocsFrontmatter(source: string) {
+  if (!source.startsWith('---\n')) return {}
+
+  const endIndex = source.indexOf('\n---\n', 4)
+  if (endIndex === -1) return {}
+
+  try {
+    return parseYaml(source.slice(4, endIndex)) as Record<string, unknown>
+  } catch {
+    return {}
+  }
+}
+
+function getFrontmatterString(frontmatter: Record<string, unknown>, key: string) {
+  const value = frontmatter[key]
+  return typeof value === 'string' ? value : undefined
+}
+
+function getDocsLlmsSections(
+  docsByPath: Map<string, { description: string | undefined; path: string; title: string }>,
+) {
+  const overviewDocs: Array<DocsLlmsSection['docs'][number]> = []
+  const sections: Array<DocsLlmsSection> = []
+
+  for (const item of sidebar) {
+    if (item.type === 'link') {
+      const doc = docsByPath.get(normalizeSidebarPath(item.path))
+      if (doc) overviewDocs.push(doc)
+      continue
+    }
+
+    const docs = collectSidebarDocs(item.items, docsByPath)
+    if (docs.length === 0) continue
+    sections.push({ docs, title: item.label })
+  }
+
+  if (overviewDocs.length > 0) sections.unshift({ docs: overviewDocs, title: 'Overview' })
+  return sections
+}
+
+function collectSidebarDocs(
+  items: Array<SidebarItem>,
+  docsByPath: Map<string, { description: string | undefined; path: string; title: string }>,
+) {
+  const docs: Array<DocsLlmsSection['docs'][number]> = []
+
+  for (const item of items) {
+    if (item.type === 'link') {
+      const doc = docsByPath.get(normalizeSidebarPath(item.path))
+      if (doc) docs.push(doc)
+      continue
+    }
+
+    docs.push(...collectSidebarDocs(item.items, docsByPath))
+  }
+
+  return docs
+}
+
+function normalizeSidebarPath(pathname: string) {
+  if (pathname === '/') return ''
+  return pathname.replace(/^\//, '')
+}
+
+function rewriteGeneratedDocLinks(source: string) {
+  return source.replace(
+    /\]\((\/docs(?:\/[^)#?]*)?)(\?[^)#]*)?(#[^)]+)?\)/g,
+    (_match, pathname, search, hash) => {
+      if (pathname === '/docs') return `](/docs/index.md${search ?? ''}${hash ?? ''})`
+      if (pathname.endsWith('.md')) return `](${pathname}${search ?? ''}${hash ?? ''})`
+      return `](${pathname}.md${search ?? ''}${hash ?? ''})`
+    },
+  )
+}
+
+function isDocsAssetDependency(filePath: string) {
+  const normalizedPath = path.resolve(filePath)
+  return normalizedPath.startsWith(`${docsDirectoryPath}${path.sep}`)
 }
 
 function getFileModifiedAt(filePath: string) {

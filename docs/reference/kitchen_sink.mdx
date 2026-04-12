@@ -72,7 +72,14 @@ Danger notices are useful when a step can be destructive or hard to undo.
 $ curl.md https://example.com
 ```
 
-```ts
+```json
+{
+  "runtime": "node",
+  "watch": true
+}
+```
+
+```ts title="example.ts"
 import { create } from 'curl.md'
 import { rules } from 'curl.md'
 
@@ -96,6 +103,15 @@ $ bun run dev
 ```
 
 :::
+
+## Tables
+
+| Runtime | Install Command                                 | Config File                  | Best For                    |
+| ------- | ----------------------------------------------- | ---------------------------- | --------------------------- |
+| Node.js | `pnpm add curl.md`                              | `curl.config.ts`             | Existing TypeScript apps    |
+| Bun     | `bun add curl.md`                               | `bunfig.toml`                | Fast local tooling          |
+| Deno    | `deno add jsr:@wevm/curl-md`                    | `deno.json`                  | URL-first workflows         |
+| CI      | `pnpm dlx curl.md https://example.com/rules.md` | `.github/workflows/docs.yml` | One-off checks in pipelines |
 
 ## Steps
 

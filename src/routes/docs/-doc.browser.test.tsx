@@ -7,17 +7,22 @@ import { DocContent } from './-doc.tsx'
 import type { Doc, DocPagination } from './-doc.types.ts'
 
 let cleanup: (() => void) | undefined
+const originalClipboard = navigator.clipboard
 
 afterEach(() => {
   cleanup?.()
   cleanup = undefined
+  Object.defineProperty(navigator, 'clipboard', {
+    configurable: true,
+    value: originalClipboard,
+  })
 })
 
 test('outline has no active heading on initial load without a hash', async () => {
   const rendered = renderDocContent(createDoc())
 
   await expect
-    .element(rendered.outline.getByText('CLI', { exact: true }))
+    .element(rendered.outline.getByRole('link', { exact: true, name: 'CLI' }))
     .not.toHaveAttribute('data-active')
 })
 
@@ -29,10 +34,10 @@ test('outline does not jump to the last heading when scrolling quickly to the mi
   window.scrollTo({ top: bunHeading.offsetTop - 80 })
 
   await expect
-    .element(rendered.outline.getByText('Bun', { exact: true }))
+    .element(rendered.outline.getByRole('link', { exact: true, name: 'Bun' }))
     .toHaveAttribute('data-active')
   await expect
-    .element(rendered.outline.getByText('Authentication', { exact: true }))
+    .element(rendered.outline.getByRole('link', { exact: true, name: 'Authentication' }))
     .not.toHaveAttribute('data-active')
 })
 
@@ -44,10 +49,10 @@ test('outline does not force the last heading active near the bottom when more c
   window.scrollTo({ top: piExtensionHeading.offsetTop - 80 })
 
   await expect
-    .element(rendered.outline.getByText('Pi Extension', { exact: true }))
+    .element(rendered.outline.getByRole('link', { exact: true, name: 'Pi Extension' }))
     .toHaveAttribute('data-active')
   await expect
-    .element(rendered.outline.getByText('Authentication', { exact: true }))
+    .element(rendered.outline.getByRole('link', { exact: true, name: 'Authentication' }))
     .not.toHaveAttribute('data-active')
 })
 
@@ -62,17 +67,17 @@ test('outline clears stale last-heading state after a quick upward scroll', asyn
   await waitForAnimationFrame()
 
   await expect
-    .element(rendered.outline.getByText('Authentication', { exact: true }))
+    .element(rendered.outline.getByRole('link', { exact: true, name: 'Authentication' }))
     .toHaveAttribute('data-active')
 
   window.scrollTo({ top: piExtensionHeading.offsetTop - 80 })
   await waitForAnimationFrame()
 
   await expect
-    .element(rendered.outline.getByText('Pi Extension', { exact: true }))
+    .element(rendered.outline.getByRole('link', { exact: true, name: 'Pi Extension' }))
     .toHaveAttribute('data-active')
   await expect
-    .element(rendered.outline.getByText('Authentication', { exact: true }))
+    .element(rendered.outline.getByRole('link', { exact: true, name: 'Authentication' }))
     .not.toHaveAttribute('data-active')
 })
 
@@ -87,10 +92,10 @@ test('outline keeps the hash target active when the heading is still visible', a
   await waitForAnimationFrame()
 
   await expect
-    .element(rendered.outline.getByText('Blockquotes', { exact: true }))
+    .element(rendered.outline.getByRole('link', { exact: true, name: 'Blockquotes' }))
     .toHaveAttribute('data-active')
   await expect
-    .element(rendered.outline.getByText('Lists', { exact: true }))
+    .element(rendered.outline.getByRole('link', { exact: true, name: 'Lists' }))
     .not.toHaveAttribute('data-active')
 })
 
@@ -105,14 +110,14 @@ test('outline clears the hash target after scrolling back to the top', async () 
   await waitForAnimationFrame()
 
   await expect
-    .element(rendered.outline.getByText('Blockquotes', { exact: true }))
+    .element(rendered.outline.getByRole('link', { exact: true, name: 'Blockquotes' }))
     .toHaveAttribute('data-active')
 
   window.scrollTo({ top: 0 })
   await waitForAnimationFrame()
 
   await expect
-    .element(rendered.outline.getByText('Blockquotes', { exact: true }))
+    .element(rendered.outline.getByRole('link', { exact: true, name: 'Blockquotes' }))
     .not.toHaveAttribute('data-active')
 })
 
@@ -127,7 +132,7 @@ test('outline stops honoring the hash once scrolling resumes', async () => {
   await waitForAnimationFrame()
 
   await expect
-    .element(rendered.outline.getByText('Blockquotes', { exact: true }))
+    .element(rendered.outline.getByRole('link', { exact: true, name: 'Blockquotes' }))
     .toHaveAttribute('data-active')
 
   await waitForTimeout(300)
@@ -135,11 +140,53 @@ test('outline stops honoring the hash once scrolling resumes', async () => {
   await waitForAnimationFrame()
 
   await expect
-    .element(rendered.outline.getByText('Lists', { exact: true }))
+    .element(rendered.outline.getByRole('link', { exact: true, name: 'Lists' }))
     .toHaveAttribute('data-active')
   await expect
-    .element(rendered.outline.getByText('Blockquotes', { exact: true }))
+    .element(rendered.outline.getByRole('link', { exact: true, name: 'Blockquotes' }))
     .not.toHaveAttribute('data-active')
+})
+
+test('mobile outline shows the current active heading', async () => {
+  const rendered = renderDocContent(createDoc())
+  const bunHeading = document.getElementById('bun')
+  if (!bunHeading) throw new Error('Expected bun heading to exist')
+
+  window.scrollTo({ top: bunHeading.offsetTop - 80 })
+  await expect
+    .element(rendered.outline.getByRole('link', { exact: true, name: 'Bun' }))
+    .toHaveAttribute('data-active')
+
+  expect(
+    rendered.container.querySelector('[data-mobile-doc-outline-current-heading]')?.textContent,
+  ).toBe('Bun')
+})
+
+test('mobile outline shows Overview when no heading is active', () => {
+  const rendered = renderDocContent(createDoc())
+
+  expect(
+    rendered.container.querySelector('[data-mobile-doc-outline-current-heading]')?.textContent,
+  ).toBe('Overview')
+})
+
+test('mobile outline opens and closes after selecting a heading', async () => {
+  const rendered = renderDocContent(createDoc())
+
+  await rendered.content.getByRole('button', { exact: true, name: 'On this page' }).click()
+  expect(document.querySelector('[data-doc-mobile-outline-panel]')).not.toBeNull()
+
+  const mobileOutline = document.querySelector('[data-doc-mobile-outline-panel]')
+  if (!mobileOutline) throw new Error('Expected mobile outline panel to render')
+
+  await page
+    .elementLocator(mobileOutline)
+    .getByRole('menuitem', { exact: true, name: 'Bun' })
+    .click()
+  await waitForAnimationFrame()
+
+  expect(document.querySelector('[data-doc-mobile-outline-panel]')).toBeNull()
+  expect(window.location.hash).toBe('#bun')
 })
 
 test('shell prompt blocks render a copy button for each command line', async () => {
@@ -158,6 +205,86 @@ test('shell prompt blocks render a copy button for each command line', async () 
   expect(
     rendered.container.querySelector('[aria-label="Copy command: pnpm check:types"]'),
   ).not.toBeNull()
+})
+
+test('shell prompt line copy strips the leading dollar prompt', async () => {
+  const rendered = renderDocContent(createPromptShellDoc())
+  let copied = ''
+
+  Object.defineProperty(navigator, 'clipboard', {
+    configurable: true,
+    value: {
+      writeText: async (value: string) => {
+        copied = value
+      },
+    },
+  })
+
+  await rendered.content
+    .getByRole('button', { exact: true, name: 'Copy command: pnpm check' })
+    .click()
+
+  expect(copied).toBe('pnpm check')
+})
+
+test('copy page writes the doc markdown source to the clipboard', async () => {
+  const rendered = renderDocContent(createCopyPageDoc())
+  let copied = ''
+
+  Object.defineProperty(navigator, 'clipboard', {
+    configurable: true,
+    value: {
+      writeText: async (value: string) => {
+        copied = value
+      },
+    },
+  })
+
+  const mobileCopyButton = rendered.container.querySelector('[data-doc-mobile-copy-page]')
+  if (!(mobileCopyButton instanceof HTMLButtonElement))
+    throw new Error('Expected mobile copy page button to render')
+
+  await page.elementLocator(mobileCopyButton).click()
+
+  expect(copied).toBe(`# Installation
+
+Install curl.md in the environment you use most.`)
+})
+
+test('copy page button moves into the page heading when the outline uses the sticky bar', () => {
+  const rendered = renderDocContent(createCopyPageDoc())
+  const pageHeading = rendered.container.querySelector('h1')
+  const mobileCopyButton = rendered.container.querySelector('[data-doc-mobile-copy-page]')
+
+  expect(pageHeading?.querySelector('[data-doc-mobile-copy-page]')).toBe(mobileCopyButton)
+  expect(mobileCopyButton?.className).toContain('lg:hidden')
+})
+
+test('code blocks override inline syntax highlighter backgrounds', async () => {
+  const rendered = renderDocContent(createStyledCodeBlockDoc())
+  const pre = rendered.container.querySelector('[data-docs-code-block] pre')
+
+  expect(pre?.getAttribute('style')).toContain('background-color: var(--color-docs-surface);')
+})
+
+test('titled code blocks render a codegroup-style title bar with an icon', async () => {
+  const rendered = renderDocContent(createTitledCodeBlockDoc())
+  const title = rendered.container.querySelector('[data-docs-code-title]')
+  const pre = rendered.container.querySelector('[data-docs-code-block] pre')
+  const button = rendered.container.querySelector('[aria-label="Copy code"]')
+
+  expect(title?.textContent).toContain('config.ts')
+  expect(title?.querySelector('svg')).not.toBeNull()
+  expect(pre?.className).toContain('border-t-0')
+  expect(button?.className).not.toContain('opacity-0')
+  expect(button?.className).toContain('top-[1.375rem]')
+})
+
+test('untitled code blocks keep the copy button hover-only', async () => {
+  const rendered = renderDocContent(createStyledCodeBlockDoc())
+  const button = rendered.container.querySelector('[aria-label="Copy code"]')
+
+  expect(button?.className).toContain('opacity-0')
 })
 
 test('code groups switch the visible panel when tabs are clicked', async () => {
@@ -191,6 +318,33 @@ test('steps render numbered timeline items', async () => {
     )
     .toHaveAttribute('href', '#install-and-start-orbstack')
   expect(rendered.container.querySelector('#install-and-start-orbstack')).not.toBeNull()
+})
+
+test('tables render inside a horizontal overflow container', async () => {
+  const rendered = renderDocContent(createTableDoc())
+  const tableContainer = rendered.container.querySelector('[data-docs-table]')
+  const table = tableContainer?.querySelector('table')
+  const headerCell = table?.querySelector('th')
+  const bodyCell = table?.querySelector('td')
+
+  expect(tableContainer).not.toBeNull()
+  expect(table).not.toBeNull()
+  expect(tableContainer?.className).toContain('overflow-x-auto')
+  expect(tableContainer?.className).toContain('minimal-scrollbar')
+  expect(table?.className).toContain('min-w-full')
+  expect(headerCell?.className).toContain('whitespace-nowrap')
+  expect(bodyCell?.className).toContain('whitespace-nowrap')
+})
+
+test('last updated renders in the browser locale without the word at', async () => {
+  const rendered = renderDocContent(createFooterDoc())
+
+  await waitForAnimationFrame()
+  await waitForTimeout(10)
+
+  const text = rendered.container.textContent ?? ''
+  expect(text).toContain('Last updated:')
+  expect(text).not.toContain(' at ')
 })
 
 function createDoc(): Doc {
@@ -317,6 +471,76 @@ function createPromptShellDoc(): Doc {
   }
 }
 
+function createStyledCodeBlockDoc(): Doc {
+  return {
+    Component: function Component(props) {
+      const components = props.components ?? {}
+      const Pre = (components.pre ?? 'pre') as React.ElementType
+      const Code = (components.code ?? 'code') as React.ElementType
+
+      return (
+        <Pre style={{ backgroundColor: '#000', color: '#fff' }}>
+          <Code className="language-ts">const md = create()</Code>
+        </Pre>
+      )
+    },
+    description: undefined,
+    headings: [],
+    path: 'test',
+    source: '# Test\n',
+    sourcePath: 'docs/reference/kitchen_sink.mdx',
+    title: 'Test',
+  }
+}
+
+function createTitledCodeBlockDoc(): Doc {
+  return {
+    Component: function Component(props) {
+      const components = props.components ?? {}
+      const Pre = (components.pre ?? 'pre') as React.ElementType
+      const Code = (components.code ?? 'code') as React.ElementType
+
+      return (
+        <Pre title="config.ts">
+          <Code className="language-ts">{'export const config = {}'}</Code>
+        </Pre>
+      )
+    },
+    description: undefined,
+    headings: [],
+    path: 'test',
+    source: '# Test\n',
+    sourcePath: 'docs/reference/kitchen_sink.mdx',
+    title: 'Test',
+  }
+}
+
+function createCopyPageDoc(): Doc {
+  return {
+    Component: function Component(props) {
+      const components = props.components ?? {}
+      const H1 = (components.h1 ?? 'h1') as React.ElementType
+      const H2 = (components.h2 ?? 'h2') as React.ElementType
+
+      return (
+        <>
+          <H1>Installation</H1>
+          <H2 id="installation">Installation</H2>
+          <p>Install curl.md in the environment you use most.</p>
+        </>
+      )
+    },
+    description: undefined,
+    headings: [{ id: 'installation', level: 2, text: 'Installation' }],
+    path: 'test',
+    source: `# Installation
+
+Install curl.md in the environment you use most.`,
+    sourcePath: 'docs/getting_started/installation.mdx',
+    title: 'Installation',
+  }
+}
+
 function createStepsDoc(): Doc {
   return {
     Component: function Component(props) {
@@ -376,6 +600,58 @@ function createCompactDoc(): Doc {
     headings: sections.map((section) => ({ id: section.id, level: 2, text: section.text })),
     path: 'test',
     source: '# Test',
+    sourcePath: 'docs/reference/kitchen_sink.mdx',
+    title: 'Test',
+  }
+}
+
+function createTableDoc(): Doc {
+  return {
+    Component: function Component(props) {
+      const components = props.components ?? {}
+      const Table = (components.table ?? 'table') as React.ElementType
+      const TableBody = (components.tbody ?? 'tbody') as React.ElementType
+      const TableCell = (components.td ?? 'td') as React.ElementType
+      const TableHead = (components.thead ?? 'thead') as React.ElementType
+      const TableHeaderCell = (components.th ?? 'th') as React.ElementType
+      const TableRow = (components.tr ?? 'tr') as React.ElementType
+
+      return (
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableHeaderCell>Runtime</TableHeaderCell>
+              <TableHeaderCell>Command</TableHeaderCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            <TableRow>
+              <TableCell>Node.js</TableCell>
+              <TableCell>pnpm add curl.md</TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      )
+    },
+    description: undefined,
+    headings: [],
+    path: 'test',
+    source: '# Test\n',
+    sourcePath: 'docs/reference/kitchen_sink.mdx',
+    title: 'Test',
+  }
+}
+
+function createFooterDoc(): Doc {
+  return {
+    Component: function Component() {
+      return <p>Footer test</p>
+    },
+    description: undefined,
+    headings: [],
+    lastUpdated: '2026-04-12T17:38:00.000Z',
+    path: 'test',
+    source: '# Test\n',
     sourcePath: 'docs/reference/kitchen_sink.mdx',
     title: 'Test',
   }

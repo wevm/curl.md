@@ -38,6 +38,55 @@ export const config = {}
   expect(code).not.toContain(':::codegroup')
 })
 
+test('docs mdx preserves fenced code block titles on highlighted pre elements', async () => {
+  const plugin = await docsMdx()
+  const source = `# Example
+
+\`\`\`ts title="config.ts"
+export const config = {}
+\`\`\`
+`
+
+  const transformed = await plugin.transform?.call(
+    {},
+    source,
+    path.join(process.cwd(), 'docs/reference/kitchen_sink.mdx'),
+  )
+  const code =
+    typeof transformed === 'string'
+      ? transformed
+      : (transformed as { code?: string } | null | undefined)?.code
+
+  expect(code).toContain('title: "config.ts"')
+  expect(code).toContain('className: "language-ts"')
+})
+
+test('docs mdx leaves raw imports untouched', async () => {
+  const plugin = await docsMdx()
+  const source = `---
+title: Installation
+---
+
+# Installation
+
+:::tip Pick one install path
+You only need one installation path.
+:::
+`
+
+  const transformed = await plugin.transform?.call(
+    {},
+    source,
+    `${path.join(process.cwd(), 'docs/getting_started/installation.mdx')}?raw`,
+  )
+  const code =
+    typeof transformed === 'string'
+      ? transformed
+      : (transformed as { code?: string } | null | undefined)?.code
+
+  expect(code).toBe(source)
+})
+
 test('docs mdx rewrites steps directives into numbered step components', async () => {
   const plugin = await docsMdx()
   const source = `# Example
@@ -72,4 +121,31 @@ docker compose up -d
   expect(code).toContain('title: "Install dependencies"')
   expect(code).toContain('title: "Start the app"')
   expect(code).not.toContain(':::steps')
+})
+
+test('docs mdx parses gfm tables into table elements', async () => {
+  const plugin = await docsMdx()
+  const source = `# Example
+
+| Runtime | Install Command |
+| --- | --- |
+| Node.js | pnpm add curl.md |
+`
+
+  const transformed = await plugin.transform?.call(
+    {},
+    source,
+    path.join(process.cwd(), 'docs/reference/kitchen_sink.mdx'),
+  )
+  const code =
+    typeof transformed === 'string'
+      ? transformed
+      : (transformed as { code?: string } | null | undefined)?.code
+
+  expect(code).toContain('_components.table')
+  expect(code).toContain('_components.thead')
+  expect(code).toContain('_components.tbody')
+  expect(code).toContain('_components.tr')
+  expect(code).toContain('_components.th')
+  expect(code).toContain('_components.td')
 })

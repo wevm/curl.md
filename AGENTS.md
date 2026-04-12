@@ -104,6 +104,7 @@ Follow [PlanetScale Postgres skill](https://github.com/planetscale/database-skil
 
 - **Icons** - Auto-imported via unplugin-icons. Use `<Icon{Collection}{Name} />` (e.g., `<IconLucideArrowRight />`, `<IconOcticonMarkGithub />`).
 - Icon-only interactive elements must have an accessible name (`aria-label`, `aria-labelledby`, or visible text), including pagination and overflow/menu buttons.
+- When adding a custom `focus-visible` ring or inset focus treatment, explicitly disable the global outline for that element/scope so focus styles do not render twice.
 - **Tailwind CSS v4** - Use `@import "tailwindcss"` in CSS; utility classes in components
   - Use logical properties for RTL/LTR support (e.g. `ms-4`/`me-4` instead of `ml-4`/`mr-4`, `start-2`/`end-2` instead of `left-2`/`right-2`)
   - Do NOT concatenate class names for conditional styles. Use `data-*` attributes with Tailwind's `data-[...]` variant instead (e.g., `data-[active]:bg-blue9` + `data-active={cond ? '' : undefined}`)

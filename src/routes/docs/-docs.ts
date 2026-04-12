@@ -1,5 +1,6 @@
 import { sidebar, type SidebarItem } from '../../../docs/_sidebar.ts'
 import type { Doc, DocPagination, Heading } from './-doc.types.ts'
+import { getDocHeadings } from './-headings.ts'
 import { createDocCopySource } from './-source.ts'
 
 type DocModule = {
@@ -20,13 +21,15 @@ export const allDocs: Array<Doc> = Object.entries(modules).map(([filePath, mod])
     .replace('../../../docs/', '')
     .replace(/\.mdx$/, '')
     .replace(/\/index$/, '')
+  const rawSource = sources[filePath] ?? ''
+
   return {
     Component: mod.default,
     description: mod.frontmatter?.description,
-    headings: mod.headings ?? [],
+    headings: getDocHeadings(rawSource, mod.headings ?? []),
     ...(mod.lastUpdated ? { lastUpdated: mod.lastUpdated } : {}),
     path: path === 'index' ? '' : path,
-    source: createDocCopySource(sources[filePath] ?? ''),
+    source: createDocCopySource(rawSource),
     sourcePath: filePath.replace('../../../', ''),
     title: mod.frontmatter?.title ?? path,
   }

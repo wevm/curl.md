@@ -9,6 +9,10 @@ node_modules
 .tanstack
 .output
 .vinxi
+public/docs/**/*.md
+public/docs/.generated-docs.json
+public/docs/llms-full.txt
+public/docs/llms.txt
 incur.generated.ts
 tsconfig.tsbuildinfo
 /test-results/

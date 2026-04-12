@@ -1,3 +1,4 @@
+import { Menu } from '@base-ui/react/menu'
 import { Tabs } from '@base-ui/react/tabs'
 import { Link } from '@tanstack/react-router'
 import * as React from 'react'
@@ -11,6 +12,7 @@ import IconVscodeIconsFileTypeBun from '~icons/vscode-icons/file-type-bun.jsx'
 import IconVscodeIconsFileTypeDeno from '~icons/vscode-icons/file-type-deno.jsx'
 import IconVscodeIconsFileTypeJs from '~icons/vscode-icons/file-type-js.jsx'
 import IconVscodeIconsFileTypeJson from '~icons/vscode-icons/file-type-json.jsx'
+import IconVscodeIconsFileTypeLightPnpm from '~icons/vscode-icons/file-type-light-pnpm.jsx'
 import IconVscodeIconsFileTypeMarkdown from '~icons/vscode-icons/file-type-markdown.jsx'
 import IconVscodeIconsFileTypeNpm from '~icons/vscode-icons/file-type-npm.jsx'
 import IconVscodeIconsFileTypePnpm from '~icons/vscode-icons/file-type-pnpm.jsx'
@@ -20,16 +22,91 @@ import IconVscodeIconsFileTypeTypescript from '~icons/vscode-icons/file-type-typ
 import IconVscodeIconsFileTypeYaml from '~icons/vscode-icons/file-type-yaml.jsx'
 import IconVscodeIconsFileTypeYarn from '~icons/vscode-icons/file-type-yarn.jsx'
 import { useCopyToClipboard } from '#hooks/useCopyToClipboard.ts'
-import type { Doc, DocPagination } from './-doc.types.ts'
+import type { Doc, DocPagination, Heading } from './-doc.types.ts'
 
 export function DocContent(props: { doc: Doc; pagination?: DocPagination }) {
   const { doc, pagination = { next: undefined, previous: undefined } } = props
   const { copied, copy } = useCopyToClipboard({ content: doc.source })
   const [activeHeadingId, setActiveHeadingId] = React.useState<string | undefined>(undefined)
+  const [lastUpdatedLabel, setLastUpdatedLabel] = React.useState<string | undefined>(undefined)
+  const [mobileOutlineOpen, setMobileOutlineOpen] = React.useState(false)
+  const [mobileOutlinePopupWidth, setMobileOutlinePopupWidth] = React.useState<number | undefined>(
+    undefined,
+  )
+  const [mobileOutlinePopupOffset, setMobileOutlinePopupOffset] = React.useState<
+    number | undefined
+  >(undefined)
   const honorHashUntilRef = React.useRef(0)
+  const mobileOutlineBarRef = React.useRef<HTMLDivElement>(null)
+  const mobileOutlineTriggerRef = React.useRef<HTMLDivElement>(null)
   const hasHeadings = doc.headings.length > 0
+  const hasPagination = Boolean(pagination.previous || pagination.next)
+  const activeHeading = doc.headings.find((heading) => heading.id === activeHeadingId)
   const editHref = `https://github.com/wevm/curl.md/edit/main/${doc.sourcePath}`
+  const mdxComponents = React.useMemo(
+    () => createMdxComponents({ copied, copyPage: copy }),
+    [copied, copy],
+  )
   const reportIssueHref = 'https://github.com/wevm/curl.md/issues/new/choose'
+
+  const setHashOverride = React.useCallback(() => {
+    honorHashUntilRef.current = window.performance.now() + hashHeadingGracePeriodMs
+  }, [])
+
+  const selectOutlineHeading = React.useCallback(
+    (headingId: string) => {
+      setHashOverride()
+      setActiveHeadingId((current) => (current === headingId ? current : headingId))
+    },
+    [setHashOverride],
+  )
+
+  React.useEffect(() => {
+    if (!doc.lastUpdated) {
+      setLastUpdatedLabel(undefined)
+      return
+    }
+
+    setLastUpdatedLabel(formatLastUpdated(doc.lastUpdated))
+  }, [doc.lastUpdated])
+
+  React.useEffect(() => {
+    setMobileOutlineOpen(false)
+  }, [doc.path])
+
+  React.useEffect(() => {
+    const closeMobileOutline = () => setMobileOutlineOpen(false)
+
+    window.addEventListener('hashchange', closeMobileOutline)
+    return () => window.removeEventListener('hashchange', closeMobileOutline)
+  }, [])
+
+  React.useEffect(() => {
+    const bar = mobileOutlineBarRef.current
+    const trigger = mobileOutlineTriggerRef.current
+    if (!bar || !trigger) return
+
+    const updatePopupWidth = () => {
+      const barRect = bar.getBoundingClientRect()
+      const triggerRect = trigger.getBoundingClientRect()
+      const nextWidth = Number((barRect.width + 0.48).toFixed(2))
+      const nextOffset = Number((-(triggerRect.left - barRect.left) - 0.48).toFixed(2))
+
+      setMobileOutlinePopupWidth((current) => (current === nextWidth ? current : nextWidth))
+      setMobileOutlinePopupOffset((current) => (current === nextOffset ? current : nextOffset))
+    }
+
+    updatePopupWidth()
+
+    const resizeObserver = new ResizeObserver(updatePopupWidth)
+    resizeObserver.observe(bar)
+    resizeObserver.observe(trigger)
+    window.addEventListener('resize', updatePopupWidth)
+    return () => {
+      resizeObserver.disconnect()
+      window.removeEventListener('resize', updatePopupWidth)
+    }
+  }, [])
 
   React.useEffect(() => {
     if (!hasHeadings) {
@@ -38,12 +115,7 @@ export function DocContent(props: { doc: Doc; pagination?: DocPagination }) {
     }
 
     const fixedNavbarHeightPx = 68
-    const hashHeadingGracePeriodMs = 250 // 0.25 seconds
     const thresholdOffsetPx = 24
-
-    const setHashOverride = () => {
-      honorHashUntilRef.current = window.performance.now() + hashHeadingGracePeriodMs
-    }
 
     const syncActiveHeading = () => {
       const headings = doc.headings
@@ -120,18 +192,151 @@ export function DocContent(props: { doc: Doc; pagination?: DocPagination }) {
 
   return (
     <div className="mx-auto grid w-full max-w-[76rem] grid-cols-1 lg:grid-cols-[minmax(0,56rem)_16rem] lg:gap-12">
-      <article className="min-w-0 px-8 py-8 md:px-12 lg:mx-auto lg:w-full lg:max-w-2xl lg:px-0">
+      {hasHeadings && (
+        <div
+          className="bg-bg1 border-gray-a3 sticky top-17 z-30 [margin-inline:calc(50%-50vw)] border-b md:[margin-inline:0] md:mx-0 md:[margin-inline-start:-3rem] md:[inline-size:calc(100%+3rem)] lg:hidden"
+          ref={mobileOutlineBarRef}
+        >
+          <div className="mx-auto w-full max-w-[76rem] md:mx-0 md:max-w-none">
+            <div className="flex items-center gap-4 px-4 py-2">
+              <Menu.Root modal={false} onOpenChange={setMobileOutlineOpen} open={mobileOutlineOpen}>
+                <div ref={mobileOutlineTriggerRef}>
+                  <Menu.Trigger
+                    className="border-gray-a5 text-gray9 hover:bg-gray-a2 hover:text-gray10 data-[popup-open]:bg-gray-a2 data-[popup-open]:text-gray10 flex shrink-0 items-center gap-2.5 rounded-none border px-2 py-2 text-xs font-medium outline-none"
+                    data-mobile-doc-outline-trigger=""
+                  >
+                    <span>On this page</span>
+                    <svg
+                      aria-hidden="true"
+                      className={['size-3.5 shrink-0', mobileOutlineOpen ? 'rotate-90' : undefined]
+                        .filter(Boolean)
+                        .join(' ')}
+                      fill="none"
+                      viewBox="0 0 16 16"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="m6 4 4 4-4 4"
+                        stroke="currentColor"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="1.5"
+                      />
+                    </svg>
+                  </Menu.Trigger>
+                </div>
+
+                <Menu.Portal>
+                  <Menu.Positioner
+                    align="start"
+                    className="z-40 min-w-[var(--anchor-width)]"
+                    collisionAvoidance={{ align: 'none', fallbackAxisSide: 'none', side: 'none' }}
+                    collisionPadding={0}
+                    sideOffset={8}
+                  >
+                    <Menu.Popup
+                      className="bg-bg1 border-gray-a3 max-h-[min(24rem,calc(100dvh-9rem))] overflow-x-hidden overflow-y-auto border p-0 shadow-2xl outline-none"
+                      data-doc-mobile-outline-panel=""
+                      id="docs-mobile-outline"
+                      style={
+                        mobileOutlinePopupWidth && mobileOutlinePopupOffset !== undefined
+                          ? {
+                              inlineSize: `${mobileOutlinePopupWidth}px`,
+                              marginInlineStart: `${mobileOutlinePopupOffset}px`,
+                            }
+                          : undefined
+                      }
+                    >
+                      <Menu.Item
+                        className="text-gray8 data-[active]:text-gray10 data-[highlighted]:bg-gray-a2 data-[highlighted]:text-gray10 focus-visible:ring-blue8 flex items-center gap-3 px-6 py-2.5 text-sm outline-none focus-visible:ring-1 focus-visible:outline-none focus-visible:ring-inset"
+                        closeOnClick
+                        data-active={activeHeadingId === undefined ? '' : undefined}
+                        onClick={() => setMobileOutlineOpen(false)}
+                        render={<a href={getDocHref(doc.path)} />}
+                      >
+                        <span className="min-w-0 flex-1 truncate text-left text-sm font-medium">
+                          Overview
+                        </span>
+                        {activeHeadingId === undefined && (
+                          <IconOcticonCheck16 className="text-blue9 size-4 shrink-0" />
+                        )}
+                      </Menu.Item>
+
+                      <div className="border-gray-a3 border-t" />
+
+                      {doc.headings.map((heading) => (
+                        <Menu.Item
+                          className="text-gray8 data-[active]:text-gray10 data-[highlighted]:bg-gray-a2 data-[highlighted]:text-gray10 focus-visible:ring-blue8 flex items-center gap-3 px-6 py-2.5 text-sm outline-none focus-visible:ring-1 focus-visible:outline-none focus-visible:ring-inset"
+                          closeOnClick
+                          data-active={activeHeadingId === heading.id ? '' : undefined}
+                          key={heading.id}
+                          onClick={() => {
+                            selectOutlineHeading(heading.id)
+                            setMobileOutlineOpen(false)
+                          }}
+                          render={<a href={`#${heading.id}`} />}
+                        >
+                          <span
+                            className="min-w-0 flex-1 text-left"
+                            style={{ paddingInlineStart: `${(heading.level - 2) * 1}rem` }}
+                          >
+                            <OutlineHeadingText text={heading.text} truncate />
+                          </span>
+                          {activeHeadingId === heading.id && (
+                            <IconOcticonCheck16 className="text-blue9 size-4 shrink-0" />
+                          )}
+                        </Menu.Item>
+                      ))}
+                    </Menu.Popup>
+                  </Menu.Positioner>
+                </Menu.Portal>
+              </Menu.Root>
+
+              <p
+                className="text-gray10 min-w-0 flex-1 truncate text-xs font-medium"
+                data-mobile-doc-outline-current-heading=""
+              >
+                {activeHeading?.text ?? 'Overview'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <article className="min-w-0 px-5 py-8 md:px-12 md:max-lg:-ms-12 md:max-lg:w-[calc(100%+3rem)] md:max-lg:px-8 lg:mx-auto lg:w-full lg:max-w-2xl lg:px-0">
         <doc.Component components={mdxComponents} />
 
-        {(pagination.previous || pagination.next) && (
-          <nav className="border-gray-a3 mt-12 grid gap-4 border-t pt-6 sm:grid-cols-2">
-            {pagination.previous ? (
-              <DocPaginationLink direction="previous" doc={pagination.previous} />
-            ) : (
-              <div className="hidden sm:block" />
+        {(doc.lastUpdated || hasPagination) && (
+          <div className="mt-14">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <a
+                className="text-gray8 hover:text-gray10 flex items-center gap-2 text-sm font-medium"
+                href={editHref}
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                <IconOcticonPencil16 className="size-4 shrink-0" />
+                <span>Edit page</span>
+              </a>
+
+              {doc.lastUpdated && (
+                <p className="text-gray8 text-sm">
+                  {lastUpdatedLabel ? `Last updated: ${lastUpdatedLabel}` : ''}
+                </p>
+              )}
+            </div>
+
+            {hasPagination && (
+              <nav className="border-gray-a3 mt-5 grid gap-4 border-t pt-6 sm:grid-cols-2">
+                {pagination.previous ? (
+                  <DocPaginationLink direction="previous" doc={pagination.previous} />
+                ) : (
+                  <div className="hidden sm:block" />
+                )}
+                {pagination.next && <DocPaginationLink direction="next" doc={pagination.next} />}
+              </nav>
             )}
-            {pagination.next && <DocPaginationLink direction="next" doc={pagination.next} />}
-          </nav>
+          </div>
         )}
       </article>
 
@@ -154,19 +359,11 @@ export function DocContent(props: { doc: Doc; pagination?: DocPagination }) {
                 </svg>
                 <p>On this page</p>
               </div>
-              <ul className="mt-3 flex flex-col gap-1">
-                {doc.headings.map((h) => (
-                  <li key={h.id} style={{ paddingInlineStart: `${(h.level - 2) * 0.75}rem` }}>
-                    <a
-                      className="text-gray8 hover:text-gray10 hover:bg-gray-a2 data-[active]:text-gray10 data-[active]:bg-gray-a2 -ms-2 block py-0.5 ps-2 pe-2 text-sm"
-                      data-active={activeHeadingId === h.id ? '' : undefined}
-                      href={`#${h.id}`}
-                    >
-                      {h.text}
-                    </a>
-                  </li>
-                ))}
-              </ul>
+              <DesktopDocOutline
+                activeHeadingId={activeHeadingId}
+                headings={doc.headings}
+                onHeadingSelect={selectOutlineHeading}
+              />
             </>
           )}
 
@@ -195,24 +392,11 @@ export function DocContent(props: { doc: Doc; pagination?: DocPagination }) {
                 <span>Report issue</span>
               </a>
 
-              <button
-                className="text-gray8 hover:text-gray10 -ms-2 flex items-center gap-2 py-1 ps-2 text-left text-sm"
-                onClick={() => copy()}
-                type="button"
-              >
-                {copied ? (
-                  <IconOcticonCheck16 className="text-teal9 size-4 shrink-0" />
-                ) : (
-                  <IconOcticonCopy16 className="size-4 shrink-0" />
-                )}
-                <span>Copy page</span>
-              </button>
-
-              {doc.lastUpdated && (
-                <p className="text-gray8 py-1 text-sm">
-                  Last updated {formatLastUpdated(doc.lastUpdated)}
-                </p>
-              )}
+              <CopyPageButton
+                className="text-gray8 hover:text-gray10 -ms-2 hidden py-1 ps-2 text-sm lg:flex"
+                copyPage={copy}
+                copied={copied}
+              />
             </div>
           </div>
         </div>
@@ -223,58 +407,156 @@ export function DocContent(props: { doc: Doc; pagination?: DocPagination }) {
 
 // --- Internal ---
 
-const mdxComponents = {
-  CodeGroup,
-  CodeGroupItem,
-  pre: DocsCodeBlock,
-  Notice,
-  Step,
-  Steps,
-  a: (props: React.ComponentProps<'a'>) => {
-    const { href, children, ...rest } = props
-    if (href?.startsWith('/'))
+function createMdxComponents(props: { copyPage: () => void; copied: boolean }) {
+  const { copied, copyPage } = props
+
+  return {
+    CodeGroup,
+    CodeGroupItem,
+    pre: DocsCodeBlock,
+    Notice,
+    Step,
+    Steps,
+    table: DocsTable,
+    tbody: DocsTableBody,
+    td: DocsTableCell,
+    th: DocsTableHeaderCell,
+    thead: DocsTableHead,
+    tr: DocsTableRow,
+    a: (anchorProps: React.ComponentProps<'a'>) => {
+      const { href, children, ...rest } = anchorProps
+      if (href?.startsWith('/'))
+        return (
+          <Link className="text-blue9 hover:underline" to={href}>
+            {children}
+          </Link>
+        )
       return (
-        <Link className="text-blue9 hover:underline" to={href}>
+        <a className="text-blue9 hover:underline" href={href} {...rest}>
           {children}
-        </Link>
+        </a>
       )
-    return (
-      <a className="text-blue9 hover:underline" href={href} {...rest}>
-        {children}
-      </a>
-    )
-  },
-  blockquote: (props: React.ComponentProps<'blockquote'>) => (
-    <blockquote
-      className="bg-gray-a1 border-gray-a4 text-gray9 mt-4 border-s-4 px-5 py-4 italic [&>p]:mt-0 [&>p]:leading-relaxed [&>p+p]:mt-3"
-      {...props}
-    />
-  ),
-  code: DocsInlineCode,
-  h1: (props: React.ComponentProps<'h1'>) =>
-    renderHeading('h1', 'text-xl font-bold md:text-2xl', props),
-  h2: (props: React.ComponentProps<'h2'>) =>
-    renderHeading('h2', 'mt-10 scroll-mt-4 text-lg font-bold md:text-xl', props),
-  h3: (props: React.ComponentProps<'h3'>) =>
-    renderHeading('h3', 'mt-8 scroll-mt-5 text-base font-bold md:text-lg', props),
-  h4: (props: React.ComponentProps<'h4'>) =>
-    renderHeading('h4', 'mt-7 scroll-mt-4 text-sm font-bold md:text-base', props),
-  hr: () => <hr className="border-gray-a3 my-8" />,
-  li: (props: React.ComponentProps<'li'>) => (
-    <li className="text-gray9 leading-relaxed" {...props} />
-  ),
-  ol: (props: React.ComponentProps<'ol'>) => (
-    <ol className="text-gray9 mt-4 list-decimal space-y-1 ps-6" {...props} />
-  ),
-  p: (props: React.ComponentProps<'p'>) => (
-    <p className="text-gray9 mt-4 leading-relaxed" {...props} />
-  ),
-  ul: (props: React.ComponentProps<'ul'>) => (
-    <ul
-      className="text-gray9 [&>li]:before:text-gray8 mt-4 list-none space-y-3 ps-0 [&>li]:relative [&>li]:ps-6 [&>li]:before:absolute [&>li]:before:start-0 [&>li]:before:top-0 [&>li]:before:content-['-']"
-      {...props}
-    />
-  ),
+    },
+    blockquote: (blockquoteProps: React.ComponentProps<'blockquote'>) => (
+      <blockquote
+        className="border-gray-a4 mt-4 border-s-4 [background-color:var(--color-docs-surface)] px-5 py-4 text-[color-mix(in_oklab,var(--color-gray10)_25%,var(--color-gray9))] [&>p]:mt-0 [&>p]:leading-relaxed [&>p+p]:mt-3"
+        {...blockquoteProps}
+      />
+    ),
+    code: DocsInlineCode,
+    h1: (headingProps: React.ComponentProps<'h1'>) =>
+      renderPageHeading({ copied, copyPage, ...headingProps }),
+    h2: (headingProps: React.ComponentProps<'h2'>) =>
+      renderHeading(
+        'h2',
+        'mt-10 scroll-mt-[7rem] text-lg font-bold md:text-xl lg:scroll-mt-4',
+        headingProps,
+      ),
+    h3: (headingProps: React.ComponentProps<'h3'>) =>
+      renderHeading(
+        'h3',
+        'mt-8 scroll-mt-[7rem] text-base font-bold md:text-lg lg:scroll-mt-5',
+        headingProps,
+      ),
+    h4: (headingProps: React.ComponentProps<'h4'>) =>
+      renderHeading(
+        'h4',
+        'mt-7 scroll-mt-[7rem] text-sm font-bold md:text-base lg:scroll-mt-4',
+        headingProps,
+      ),
+    hr: () => <hr className="border-gray-a3 my-8" />,
+    li: (listItemProps: React.ComponentProps<'li'>) => (
+      <li
+        className="leading-relaxed text-[color-mix(in_oklab,var(--color-gray10)_25%,var(--color-gray9))]"
+        {...listItemProps}
+      />
+    ),
+    ol: (listProps: React.ComponentProps<'ol'>) => (
+      <ol
+        className="mt-4 list-decimal space-y-1 ps-6 text-[color-mix(in_oklab,var(--color-gray10)_25%,var(--color-gray9))]"
+        {...listProps}
+      />
+    ),
+    p: (paragraphProps: React.ComponentProps<'p'>) => (
+      <p
+        className="mt-4 leading-relaxed text-[color-mix(in_oklab,var(--color-gray10)_25%,var(--color-gray9))]"
+        {...paragraphProps}
+      />
+    ),
+    ul: (listProps: React.ComponentProps<'ul'>) => (
+      <ul
+        className="[&>li]:before:text-gray9 mt-4 list-none space-y-3 ps-0 text-[color-mix(in_oklab,var(--color-gray10)_25%,var(--color-gray9))] [&>li]:relative [&>li]:ps-6 [&>li]:before:absolute [&>li]:before:start-0 [&>li]:before:top-0 [&>li]:before:content-['-']"
+        {...listProps}
+      />
+    ),
+  }
+}
+
+function CopyPageButton(
+  props: {
+    className: string
+    copyPage: () => void
+    copied: boolean
+  } & React.ComponentProps<'button'>,
+) {
+  const { className, copied, copyPage, ...rest } = props
+
+  return (
+    <button
+      {...rest}
+      className={['flex items-center gap-2 text-left', className].filter(Boolean).join(' ')}
+      onClick={() => copyPage()}
+      type="button"
+    >
+      {copied ? (
+        <IconOcticonCheck16 className="text-teal9 size-4 shrink-0" />
+      ) : (
+        <IconOcticonCopy16 className="size-4 shrink-0" />
+      )}
+      <span>Copy page</span>
+    </button>
+  )
+}
+
+function DesktopDocOutline(props: {
+  activeHeadingId: string | undefined
+  headings: Array<Heading>
+  onHeadingSelect: (headingId: string) => void
+}) {
+  const { activeHeadingId, headings, onHeadingSelect } = props
+
+  return (
+    <ul className="mt-3 flex flex-col gap-1">
+      {headings.map((heading) => (
+        <li key={heading.id} style={{ paddingInlineStart: `${(heading.level - 2) * 0.75}rem` }}>
+          <a
+            aria-current={activeHeadingId === heading.id ? 'location' : undefined}
+            className="text-gray8 hover:text-gray10 hover:bg-gray-a2 data-[active]:text-gray10 data-[active]:bg-gray-a2 -ms-2 block py-1 ps-2 pe-2 text-sm"
+            data-active={activeHeadingId === heading.id ? '' : undefined}
+            href={`#${heading.id}`}
+            onMouseDown={() => onHeadingSelect(heading.id)}
+            onClick={() => onHeadingSelect(heading.id)}
+          >
+            <OutlineHeadingText text={heading.text} />
+          </a>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+function OutlineHeadingText(props: { text: string; truncate?: boolean }) {
+  const { text, truncate } = props
+  const numberedHeading = splitNumberedHeading(text)
+  if (!numberedHeading)
+    return <span className={truncate ? 'block truncate' : undefined}>{text}</span>
+
+  return (
+    <span className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-2">
+      <span className="shrink-0">{numberedHeading.number}</span>
+      <span className={truncate ? 'truncate' : undefined}>{numberedHeading.title}</span>
+    </span>
+  )
 }
 
 function renderHeading<Tag extends 'h1' | 'h2' | 'h3' | 'h4'>(
@@ -305,6 +587,49 @@ function renderHeading<Tag extends 'h1' | 'h2' | 'h3' | 'h4'>(
       )}
       {children}
     </>,
+  )
+}
+
+function renderPageHeading(
+  props: React.ComponentProps<'h1'> & { copied: boolean; copyPage: () => void },
+) {
+  const { children, className, copied, copyPage, id, ...rest } = props
+
+  return (
+    <h1
+      {...rest}
+      className={[
+        'flex items-start justify-between gap-4 scroll-mt-[7rem] text-xl font-bold lg:scroll-mt-0 md:text-2xl',
+        className,
+      ]
+        .filter(Boolean)
+        .join(' ')}
+      id={id}
+    >
+      <span className="group/heading relative -ms-5 min-w-0 flex-1 ps-5">
+        {id && (
+          <a
+            aria-label="Link to section"
+            className="text-gray7 hover:text-gray9 focus-visible:text-gray9 absolute start-0 top-1/2 -translate-y-1/2 font-normal no-underline opacity-0 transition-opacity group-focus-within/heading:opacity-100 group-hover/heading:opacity-100 hover:opacity-100 focus:opacity-100"
+            data-heading-anchor=""
+            href={`#${id}`}
+          >
+            #
+          </a>
+        )}
+
+        <span className="block min-w-0" data-heading-title="">
+          {children}
+        </span>
+      </span>
+
+      <CopyPageButton
+        className="text-gray8 hover:text-gray10 mt-1 self-start text-sm lg:hidden"
+        copyPage={copyPage}
+        copied={copied}
+        data-doc-mobile-copy-page=""
+      />
+    </h1>
   )
 }
 
@@ -342,6 +667,69 @@ function Notice(props: React.PropsWithChildren<{ title?: string; type?: string }
   )
 }
 
+function DocsTable(props: React.ComponentProps<'table'>) {
+  return (
+    <div className="minimal-scrollbar mt-6 overflow-x-auto" data-docs-table="">
+      <table
+        {...props}
+        className={['min-w-full border-collapse text-sm', props.className]
+          .filter(Boolean)
+          .join(' ')}
+      />
+    </div>
+  )
+}
+
+function DocsTableHead(props: React.ComponentProps<'thead'>) {
+  return (
+    <thead
+      className={['border-gray-a3 border-b', props.className].filter(Boolean).join(' ')}
+      {...props}
+    />
+  )
+}
+
+function DocsTableBody(props: React.ComponentProps<'tbody'>) {
+  return <tbody className={props.className} {...props} />
+}
+
+function DocsTableRow(props: React.ComponentProps<'tr'>) {
+  return (
+    <tr
+      className={['border-gray-a3 border-b', props.className].filter(Boolean).join(' ')}
+      {...props}
+    />
+  )
+}
+
+function DocsTableHeaderCell(props: React.ComponentProps<'th'>) {
+  return (
+    <th
+      {...props}
+      className={[
+        'bg-gray-a1 text-gray10 px-4 py-3 text-left font-medium whitespace-nowrap',
+        props.className,
+      ]
+        .filter(Boolean)
+        .join(' ')}
+    />
+  )
+}
+
+function DocsTableCell(props: React.ComponentProps<'td'>) {
+  return (
+    <td
+      {...props}
+      className={[
+        'text-[color-mix(in_oklab,var(--color-gray10)_25%,var(--color-gray9))] px-4 py-3 align-top whitespace-nowrap',
+        props.className,
+      ]
+        .filter(Boolean)
+        .join(' ')}
+    />
+  )
+}
+
 function Steps(props: React.PropsWithChildren) {
   const { children } = props
   const stepSlugCounts = new Map<string, number>()
@@ -369,7 +757,7 @@ function Steps(props: React.PropsWithChildren) {
           <div className="relative -mt-px flex justify-center md:-mt-0.5">
             <a
               aria-label={`Link to step: ${item.title}`}
-              className="bg-gray-a3 text-gray11 hover:bg-gray-a4 hover:text-gray12 focus-visible:outline-blue8 relative z-10 flex size-7 items-center justify-center rounded-full text-sm font-medium no-underline transition-colors focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 md:size-8 md:text-[0.9375rem]"
+              className="bg-gray-a3 text-gray11 hover:bg-gray-a4 hover:text-gray12 focus-visible:ring-blue8 relative z-10 flex size-7 items-center justify-center rounded-full text-sm font-medium no-underline transition-[background-color,color] outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-bg1)] md:size-8 md:text-[0.9375rem]"
               href={`#${item.id}`}
             >
               {index + 1}
@@ -382,7 +770,10 @@ function Steps(props: React.PropsWithChildren) {
           </div>
 
           <div className="min-w-0">
-            <h3 className="text-gray12 scroll-mt-5 text-lg font-bold md:text-xl" id={item.id}>
+            <h3
+              className="text-gray12 scroll-mt-[7rem] text-lg font-bold md:text-xl lg:scroll-mt-5"
+              id={item.id}
+            >
               {item.title}
             </h3>
             <div className="[&>*:first-child]:mt-4 [&>*:last-child]:mb-0">{item.content}</div>
@@ -425,12 +816,12 @@ function CodeGroup(props: React.PropsWithChildren) {
   return (
     <Tabs.Root onValueChange={(nextValue) => setValue(String(nextValue))} value={value}>
       <div
-        className="bg-gray-a1/50 border-gray-a3 mt-6 overflow-hidden border"
+        className="border-gray-a3 mt-6 overflow-hidden border [background-color:var(--color-docs-surface)]"
         data-docs-code-group=""
       >
         <Tabs.List
           aria-label="Code group"
-          className="bg-gray-a1/50 minimal-scrollbar relative flex gap-1 overflow-x-auto overflow-y-hidden px-2"
+          className="minimal-scrollbar relative flex gap-1 overflow-x-auto overflow-y-hidden [background-color:var(--color-docs-surface)] px-2"
         >
           <span
             aria-hidden
@@ -478,11 +869,13 @@ function CodeGroupTabIcon(props: { label: string }) {
   const icon = getCodeGroupTabIcon(props.label)
   if (!icon) return null
 
+  if (icon === codeGroupTabIcons.pnpm) return <CodeGroupPnpmIcon />
+
   return <icon.Component aria-hidden className="size-4 shrink-0" />
 }
 
 function DocsCodeBlock(props: React.ComponentProps<'pre'>) {
-  const { children, className, ...rest } = props
+  const { children, className, style, title, ...rest } = props
   const copyText = getCodeBlockText(children)
   const promptShellLines = React.useMemo(() => getPromptShellLines(children), [children])
   const renderedChildren = React.useMemo(
@@ -494,39 +887,97 @@ function DocsCodeBlock(props: React.ComponentProps<'pre'>) {
         : children,
     [children, promptShellLines],
   )
+  const label = typeof title === 'string' && title.trim() ? title.trim() : undefined
+  const shouldShowCopyButton = Boolean(copyText && !promptShellLines)
   const { copied, copy } = useCopyToClipboard(copyText ? { content: copyText } : {})
 
   return (
     <div className="group/code relative mt-4" data-docs-code-block="">
-      {copyText && !promptShellLines && (
-        <button
-          aria-label={copied ? 'Code copied' : 'Copy code'}
-          className="bg-bg1/90 text-gray8 hover:text-gray10 focus-visible:text-gray10 focus-visible:ring-blue8 absolute end-3 top-3 z-10 p-1.5 opacity-0 backdrop-blur-sm transition-opacity group-focus-within/code:opacity-100 group-hover/code:opacity-100 focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset data-[copied]:opacity-100"
-          data-copied={copied ? '' : undefined}
-          onClick={() => copy()}
-          type="button"
+      {label && (
+        <div
+          className="border-gray-a3 border [background-color:var(--color-docs-surface)]"
+          data-docs-code-title=""
         >
-          {copied ? (
-            <IconOcticonCheck16 className="text-teal9 size-4" />
-          ) : (
-            <IconOcticonCopy16 className="size-4" />
-          )}
-        </button>
+          <span className="text-gray10 flex min-w-0 items-center gap-2 px-4 py-3 pe-14 text-sm font-medium whitespace-nowrap">
+            <CodeGroupTabIcon label={label} />
+            <span className="truncate">{label}</span>
+          </span>
+        </div>
+      )}
+
+      {shouldShowCopyButton && (
+        <CodeBlockCopyButton
+          copied={copied}
+          floating
+          headerAligned={Boolean(label)}
+          hoverOnly={!label}
+          onClick={() => copy()}
+        />
       )}
 
       <pre
         {...rest}
         className={[
-          'bg-gray-a1 border-gray-a3 minimal-scrollbar focus-visible:ring-blue8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset mt-0 overflow-x-auto border p-4 leading-relaxed',
+          '[background-color:var(--color-docs-surface)] border-gray-a3 minimal-scrollbar focus-visible:ring-blue8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset mt-0 overflow-x-auto border p-4 leading-relaxed',
+          label ? 'border-t-0' : undefined,
+          label ? 'pt-3' : undefined,
           '[&_code]:bg-transparent [&_code]:p-0 [&_code]:!text-[1em]',
           className,
         ]
           .filter(Boolean)
           .join(' ')}
+        style={{ ...style, backgroundColor: 'var(--color-docs-surface)' }}
       >
         {renderedChildren}
       </pre>
     </div>
+  )
+}
+
+function CodeBlockCopyButton(props: {
+  copied: boolean
+  floating?: boolean
+  headerAligned?: boolean
+  hoverOnly?: boolean
+  onClick: () => void
+}) {
+  const { copied, floating, headerAligned, hoverOnly, onClick } = props
+
+  return (
+    <button
+      aria-label={copied ? 'Code copied' : 'Copy code'}
+      className={[
+        'text-gray8 hover:text-gray10 focus-visible:text-gray10 focus-visible:ring-blue8 z-10 p-1.5 [background-color:var(--color-docs-surface)] focus:outline-none focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset data-[copied]:opacity-100',
+        floating
+          ? headerAligned
+            ? 'absolute end-3 top-[1.375rem] -translate-y-1/2'
+            : 'absolute end-3 top-3'
+          : 'me-3 shrink-0',
+        hoverOnly
+          ? 'opacity-0 transition-opacity group-focus-within/code:opacity-100 group-hover/code:opacity-100 focus:opacity-100'
+          : undefined,
+      ]
+        .filter(Boolean)
+        .join(' ')}
+      data-copied={copied ? '' : undefined}
+      onClick={onClick}
+      type="button"
+    >
+      {copied ? (
+        <IconOcticonCheck16 className="text-teal9 size-4" />
+      ) : (
+        <IconOcticonCopy16 className="size-4" />
+      )}
+    </button>
+  )
+}
+
+function CodeGroupPnpmIcon() {
+  return (
+    <>
+      <IconVscodeIconsFileTypeLightPnpm aria-hidden className="size-4 shrink-0 dark:hidden" />
+      <IconVscodeIconsFileTypePnpm aria-hidden className="hidden size-4 shrink-0 dark:block" />
+    </>
   )
 }
 
@@ -557,19 +1008,14 @@ function DocPaginationLink(props: {
 
   return (
     <Link
-      className="border-gray-a3 hover:bg-gray-a1/50 flex min-h-24 flex-col gap-2 border px-4 py-3 text-left data-[direction=next]:text-right"
+      className="border-gray-a3 hover:bg-gray-a1/50 flex flex-col gap-1 border px-5 py-4 text-left transition-colors data-[direction=next]:items-end data-[direction=next]:text-right"
       data-direction={direction}
       to={getDocHref(doc.path)}
     >
-      <span className="text-gray8 text-sm">{direction === 'previous' ? 'Previous' : 'Next'}</span>
-      <div
-        className="flex items-center gap-2 text-sm font-bold data-[direction=next]:justify-end md:text-base"
-        data-direction={direction}
-      >
-        {direction === 'previous' && <IconOcticonChevronLeft16 className="size-5 shrink-0" />}
-        <span>{doc.title}</span>
-        {direction === 'next' && <IconOcticonChevronRight16 className="size-5 shrink-0" />}
-      </div>
+      <span className="text-gray8 text-sm">
+        {direction === 'previous' ? 'Previous page' : 'Next page'}
+      </span>
+      <span className="text-gray10 text-sm font-medium md:text-base">{doc.title}</span>
     </Link>
   )
 }
@@ -606,14 +1052,17 @@ function formatLastUpdated(value: string) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value
 
-  const isCurrentYear = date.getUTCFullYear() === new Date().getUTCFullYear()
-
-  return new Intl.DateTimeFormat('en-US', {
-    ...(isCurrentYear
-      ? { day: 'numeric', month: 'long' }
-      : { day: 'numeric', month: 'long', year: 'numeric' }),
-    timeZone: 'UTC',
-  }).format(date)
+  return new Intl.DateTimeFormat(undefined, {
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    month: 'long',
+    year: 'numeric',
+  })
+    .formatToParts(date)
+    .map((part) => (part.type === 'literal' ? part.value.replace(' at ', ' ') : part.value))
+    .join('')
+    .trim()
 }
 
 function getNodeText(node: React.ReactNode): string | undefined {
@@ -849,6 +1298,18 @@ function getStepId(title: string, stepSlugCounts: Map<string, number>) {
   stepSlugCounts.set(baseSlug, count + 1)
   return count === 0 ? baseSlug : `${baseSlug}-${count + 1}`
 }
+
+function splitNumberedHeading(text: string) {
+  const match = /^(\d+\.)(?:\s+)(.+)$/u.exec(text.trim())
+  if (!match) return
+
+  return {
+    number: match[1],
+    title: match[2],
+  }
+}
+
+const hashHeadingGracePeriodMs = 250 // 0.25 seconds
 
 function getCodeGroupTabIcon(label: string) {
   const normalized = label.trim().toLowerCase()

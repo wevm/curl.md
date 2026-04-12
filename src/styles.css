@@ -5,7 +5,7 @@
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 .shiki {
-  background-color: color-mix(in oklab, var(--color-gray-a1) 50%, transparent) !important;
+  background-color: var(--color-docs-surface) !important;
   border-color: var(--color-gray-a3);
   color: var(--shiki-light) !important;
   font-style: var(--shiki-light-font-style, inherit) !important;
@@ -22,7 +22,7 @@
 }
 
 html[data-theme='dark'] .shiki {
-  background-color: color-mix(in oklab, var(--color-gray-a1) 50%, transparent) !important;
+  background-color: var(--color-docs-surface) !important;
   border-color: var(--color-gray-a3);
   color: var(--shiki-dark) !important;
   font-style: var(--shiki-dark-font-style, inherit) !important;
@@ -41,8 +41,12 @@ html[data-theme='dark'] .shiki span {
 [data-docs-code-block] .shiki,
 [data-docs-code-group],
 [data-docs-code-group] [role='tablist'],
-[data-docs-code-group] .shiki {
-  background-color: var(--color-gray-a1) !important;
+[data-docs-code-group] [role='tabpanel'] {
+  background-color: var(--color-docs-surface) !important;
+}
+
+[data-docs-code-block] pre > code {
+  background-color: transparent !important;
 }
 
 html {
@@ -58,6 +62,7 @@ html {
   /* Geist Backgrounds */
   --color-bg1: light-dark(hsl(0 0% 98%), hsl(0 0% 0%));
   --color-bg2: light-dark(hsl(0 0% 100%), hsl(0 0% 4%));
+  --color-docs-surface: light-dark(hsl(0 0% 95%), hsl(0 0% 6%));
 
   /* Geist Gray Scale */
   --color-gray1: light-dark(hsl(0 0% 95%), hsl(0 0% 10%));
@@ -177,6 +182,10 @@ html {
 
 [data-docs-code-group] :is([role='tab'], [role='tabpanel']):focus-visible,
 [data-docs-code-block] :is(button, pre):focus-visible {
+  outline: none;
+}
+
+[data-doc-mobile-outline-panel] [role='menuitem']:focus-visible {
   outline: none;
 }
 
