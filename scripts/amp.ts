@@ -2,6 +2,8 @@ import { execFileSync } from 'node:child_process'
 import { mkdirSync, rmSync, symlinkSync } from 'node:fs'
 import path from 'node:path'
 
+console.log('Launching amp plugin.')
+
 const root = path.resolve(import.meta.dirname, '..')
 const pluginsDir = path.join(root, '.amp', 'plugins')
 const legacyShimPath = path.join(pluginsDir, 'curlmd.js')
@@ -23,3 +25,5 @@ execFileSync('amp', process.argv.slice(2), {
   },
   stdio: 'inherit',
 })
+
+console.log('Done.')

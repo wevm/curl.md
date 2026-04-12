@@ -89,10 +89,19 @@ test('extracts data-content sections from link-heavy layouts', async () => {
       <a href="/docs/eight">Eight</a>
       <a href="/docs/nine">Nine</a>
       <a href="/docs/ten">Ten</a>
+      <section>
+        <p data-section="true">Installation</p>
+        <h1>Get started with Tailwind CSS</h1>
+        <p data-description="true">Tailwind CSS works by scanning all of your HTML files.</p>
+        <p>It's fast, flexible, and reliable.</p>
+        <div data-content="true">
+          <h2>Installing Tailwind CSS as a Vite plugin</h2>
+          <p>Create your project</p>
+          <pre><code>npm create vite@latest my-project</code></pre>
+        </div>
+      </section>
       <div data-content="true">
-        <h2>Installing Tailwind CSS as a Vite plugin</h2>
-        <p>Create your project</p>
-        <pre><code>npm create vite@latest my-project</code></pre>
+        <p>Duplicate subtree should not be emitted twice.</p>
       </div>
     </div>
   </body></html>`
@@ -104,9 +113,12 @@ test('extracts data-content sections from link-heavy layouts', async () => {
   const result = await md.fetch('https://tailwindcss.com/docs/installation/using-vite')
   expect(result.ok).toBe(true)
   if (!result.ok) return
+  expect(result.content).toContain('Get started with Tailwind CSS')
+  expect(result.content).toContain("It's fast, flexible, and reliable.")
   expect(result.content).toContain('Installing Tailwind CSS as a Vite plugin')
   expect(result.content).toContain('Create your project')
   expect(result.content).toContain('npm create vite@latest my-project')
+  expect(result.content).not.toContain('Duplicate subtree should not be emitted twice.')
   expect(result.meta.title).toBe('Installing Tailwind CSS with Vite - Tailwind CSS')
   expect(result.meta.description).toBe('Install Tailwind CSS with Vite.')
 })

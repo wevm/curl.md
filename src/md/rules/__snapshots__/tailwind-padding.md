@@ -1,3 +1,9 @@
+Spacing
+
+# padding
+
+Utilities for controlling an element's padding.
+
 | Class | Styles |
 | --- | --- |
 | `p-<number>` | `padding: calc(var(--spacing) * <number>);` |
