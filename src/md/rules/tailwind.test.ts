@@ -72,3 +72,41 @@ test('extracts meta from og tags', async () => {
   expect(result.meta.title).toBe('flex - Tailwind CSS')
   expect(result.meta.description).toBe('Utilities for controlling how flex items grow and shrink.')
 })
+
+test('extracts data-content sections from link-heavy layouts', async () => {
+  const html = `<html><head>
+    <title>Installing Tailwind CSS with Vite - Tailwind CSS</title>
+    <meta name="description" content="Install Tailwind CSS with Vite.">
+  </head><body>
+    <div>
+      <a href="/docs/one">One</a>
+      <a href="/docs/two">Two</a>
+      <a href="/docs/three">Three</a>
+      <a href="/docs/four">Four</a>
+      <a href="/docs/five">Five</a>
+      <a href="/docs/six">Six</a>
+      <a href="/docs/seven">Seven</a>
+      <a href="/docs/eight">Eight</a>
+      <a href="/docs/nine">Nine</a>
+      <a href="/docs/ten">Ten</a>
+      <div data-content="true">
+        <h2>Installing Tailwind CSS as a Vite plugin</h2>
+        <p>Create your project</p>
+        <pre><code>npm create vite@latest my-project</code></pre>
+      </div>
+    </div>
+  </body></html>`
+
+  const md = create({
+    rules: [tailwind()],
+    fetch: async () => new Response(html, { status: 200 }),
+  })
+  const result = await md.fetch('https://tailwindcss.com/docs/installation/using-vite')
+  expect(result.ok).toBe(true)
+  if (!result.ok) return
+  expect(result.content).toContain('Installing Tailwind CSS as a Vite plugin')
+  expect(result.content).toContain('Create your project')
+  expect(result.content).toContain('npm create vite@latest my-project')
+  expect(result.meta.title).toBe('Installing Tailwind CSS with Vite - Tailwind CSS')
+  expect(result.meta.description).toBe('Install Tailwind CSS with Vite.')
+})

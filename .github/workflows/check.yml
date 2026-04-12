@@ -102,7 +102,9 @@ jobs:
         run: pnpm test --project cli
 
       - name: Build
-        run: pnpm --filter curl.md build && pnpm --filter @curl.md/amp build
+        run: |
+          pnpm --filter curl.md build
+          pnpm --filter @curl.md/amp build
 
   e2e:
     name: E2E

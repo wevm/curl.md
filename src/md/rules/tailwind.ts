@@ -1,3 +1,6 @@
+import type { Element, ElementContent, Root } from 'hast'
+import rehypeParse from 'rehype-parse'
+import { unified } from 'unified'
 import { fromHtml } from '../fromHtml.ts'
 import { defineRule } from '../mod.ts'
 
@@ -27,6 +30,66 @@ export const tailwind = defineRule({
     // Strip "Show more" / "Show less" toggle buttons in ApiTable
     html = html.replace(/<button\b[^>]*>(?:Show more|Show less)<\/button>/g, '')
 
+    html = isolateDataContent(html)
+
     return fromHtml(html, { baseUrl: response.url })
   },
 })
+
+function isolateDataContent(html: string): string {
+  const tree = unified().use(rehypeParse).parse(html) as Root
+  const htmlNode = tree.children.find(
+    (node): node is Element => node.type === 'element' && node.tagName === 'html',
+  )
+  const head = htmlNode?.children.find(
+    (node): node is Element => node.type === 'element' && node.tagName === 'head',
+  )
+  const body = htmlNode?.children.find(
+    (node): node is Element => node.type === 'element' && node.tagName === 'body',
+  )
+  if (!body) return html
+
+  const content = collectDataContent(body)
+  if (content.length === 0) return html
+
+  return `<html>${head ? toHtml(head) : ''}<body>${content.map(toHtml).join('')}</body></html>`
+}
+
+function collectDataContent(node: Element | Root): Element[] {
+  const content: Element[] = []
+  for (const child of node.children ?? []) {
+    if (child.type !== 'element') continue
+    if (child.properties.dataContent === 'true' || child.properties.dataContent === true) {
+      content.push(child)
+      continue
+    }
+    content.push(...collectDataContent(child))
+  }
+  return content
+}
+
+function toHtml(node: ElementContent): string {
+  if (node.type === 'text') return escapeHtml(node.value)
+  if (node.type === 'comment') return `<!--${node.value}-->`
+  if (node.type !== 'element') return ''
+
+  const attributes = Object.entries(node.properties ?? {})
+    .flatMap(([key, value]) => {
+      if (value == null || value === false) return []
+      const attr = key.replace(/[A-Z]/g, (char) => `-${char.toLowerCase()}`)
+      if (value === true) return [attr]
+      if (Array.isArray(value)) return [`${attr}="${escapeHtml(value.join(' '))}"`]
+      return [`${attr}="${escapeHtml(String(value))}"`]
+    })
+    .join(' ')
+  const open = attributes ? `<${node.tagName} ${attributes}>` : `<${node.tagName}>`
+  return `${open}${node.children.map(toHtml).join('')}</${node.tagName}>`
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+}

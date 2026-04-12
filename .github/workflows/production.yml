@@ -107,9 +107,6 @@ jobs:
       - name: Setup pnpm
         uses: ./.github/actions/setup-pnpm
 
-      - name: Build packages
-        run: pnpm --filter curl.md build && pnpm --filter @curl.md/amp build
-
       - name: Create release PR or publish
         id: changesets
         uses: changesets/action@6a0a831ff30acef54f2c6aa1cbbc1096b066edaf # v1.7.0
