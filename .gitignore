@@ -1,9 +1,10 @@
-/.changeset
+/.amp
 .env*
 .vite
 !.env.example
 .wrangler
 dist
+dist-types
 node_modules
 .tanstack
 .output

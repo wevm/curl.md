@@ -11,6 +11,7 @@ declare namespace Cloudflare {
   interface Env {
     ASSETS: { fetch(input: any): Promise<Response> }
     GH_CLIENT_ID: string
+    KV: KV
     GH_CLIENT_SECRET: string
     GH_URL: string
     TOKEN_ENCRYPTION_KEY: string
@@ -31,16 +32,42 @@ declare interface D1DatabaseSession {
   prepare(query: string): any
 }
 
-declare interface KV {
-  get(key: string, type?: string): Promise<any>
-  put(key: string, value: any, options?: any): Promise<void>
-  delete(key: string): Promise<void>
-  list(options?: any): Promise<any>
+declare namespace KV {
+  type Value<key extends string> = key extends 'cli:latest'
+    ? { published_at: string | null; version: string }
+    : any
+
+  type Key = string
 }
 
-declare namespace KV {
-  type Value<key extends string> = any
-  type Key = string
+declare interface KV {
+  get<key extends KV.Key>(key: key, type: 'json'): Promise<KV.Value<key> | null>
+  get(key: KV.Key): Promise<string | null>
+  get(key: KV.Key, type: 'text'): Promise<string | null>
+  get(key: KV.Key, type: 'arrayBuffer'): Promise<ArrayBuffer | null>
+  get(key: KV.Key, type: 'stream'): Promise<ReadableStream | null>
+
+  put<key extends KV.Key>(
+    key: key,
+    value: KV.Value<key> | string | ArrayBuffer | ArrayBufferView | ReadableStream,
+    options?: {
+      expiration?: number
+      expirationTtl?: number
+      metadata?: unknown
+    },
+  ): Promise<void>
+  put(key: string, value: any, options?: any): Promise<void>
+  delete(key: string): Promise<void>
+  list<metadata = unknown>(options?: {
+    prefix?: string
+    limit?: number
+    cursor?: string
+  }): Promise<{
+    keys: { name: KV.Key; expiration?: number; metadata?: metadata }[]
+    list_complete: boolean
+    cursor?: string
+    cacheStatus: string | null
+  }>
 }
 
 declare interface Message<T = unknown> {

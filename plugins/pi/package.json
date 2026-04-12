@@ -1,0 +1,47 @@
+{
+  "name": "@curl.md/pi",
+  "version": "0.0.1",
+  "description": "curl.md Pi extension",
+  "contributors": [
+    "awkweb.eth <t@wevm.dev>",
+    "jxom.eth <j@wevm.dev>"
+  ],
+  "funding": "https://github.com/sponsors/wevm",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wevm/curl.md.git",
+    "directory": "plugins/pi"
+  },
+  "keywords": [
+    "curl.md",
+    "markdown",
+    "pi",
+    "pi-package"
+  ],
+  "files": [
+    "extensions"
+  ],
+  "type": "module",
+  "scripts": {
+    "check:types": "tsgo --noEmit"
+  },
+  "pi": {
+    "extensions": [
+      "./extensions"
+    ]
+  },
+  "dependencies": {
+    "curl.md": "workspace:*"
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-ai": ">=0.65.0",
+    "@mariozechner/pi-coding-agent": ">=0.65.0",
+    "@mariozechner/pi-tui": ">=0.65.0"
+  },
+  "devDependencies": {
+    "@mariozechner/pi-ai": "^0.65.2",
+    "@mariozechner/pi-coding-agent": "^0.65.2",
+    "@mariozechner/pi-tui": "^0.65.2"
+  }
+}

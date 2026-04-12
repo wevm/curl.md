@@ -1,9 +1,9 @@
-import { hc } from 'hono/client'
 import { Cli, type MiddlewareContext, middleware, z } from 'incur'
 import pc from 'picocolors'
-import type { api } from '../../src/api.ts'
 import pkg from '../package.json' with { type: 'json' }
-import type { Client, Command } from './types.ts'
+import { createClient, defaultBaseUrl, type Client } from './client.ts'
+import { Auth } from './internal/auth.ts'
+import { Session } from './internal/session.ts'
 import * as UI from './ui.ts'
 import {
   compareVersions,
@@ -12,10 +12,8 @@ import {
   installGlobal,
   isStandalone,
   openUrl,
-  parseApiError,
   pollWithCancel,
   relativeTime,
-  Session,
   UpdateCache,
   updateStandalone,
 } from './utils.ts'
@@ -24,11 +22,12 @@ const aliases = ['md', 'curlmd']
 
 const env = z.object({
   CURLMD_API_KEY: z.string().optional().describe('API token for authentication'),
-  CURLMD_BASE_URL: z.string().default('https://curl.md').describe('Base URL'),
+  CURLMD_BASE_URL: z.string().default(defaultBaseUrl).describe('Base URL'),
 })
 
 const vars = z.object({
   apiKey: z.custom<string | undefined>(),
+  baseUrl: z.custom<string>(),
   client: z.custom<Client>(),
   commands: z.custom<Command[]>(),
   session: z.custom<Session.Data | null>(),
@@ -137,26 +136,31 @@ const cli = Cli.create('curl.md', {
       })
 
     const keywords = c.options.keywords?.flatMap((k: string) => k.split(','))
+    const token = c.options.token ?? c.var.apiKey
     const spinner = UI.createSpinner('')
-    const res = await c.var.client.api[':url{.+}'].$get({
-      param: { url: result.data },
-      query: {
-        fresh: c.options.fresh ? '' : undefined,
-        keywords: keywords?.join(','),
-        mode: c.options.mode,
-        objective: c.options.objective,
-      },
+    const res = await c.var.client.fetch(result.data, {
+      fresh: c.options.fresh,
+      keywords,
+      mode: c.options.mode,
+      objective: c.options.objective,
+      token,
     })
 
     spinner.stop()
 
-    if (res.status === 401) {
-      const err = parseApiError(await res.json(), {
-        code: 'INVALID_API_KEY',
-        message: 'Invalid API key',
-      })
+    if (res.status === 400) {
+      const json = await res.json()
       return c.error({
-        ...err,
+        code: json.code.toUpperCase(),
+        message: formatValidationError(json),
+      })
+    }
+
+    if (res.status === 401) {
+      const json = await res.json()
+      return c.error({
+        code: json.code.toUpperCase(),
+        message: json.message,
         cta: {
           description: 'Create API token:',
           commands: [
@@ -170,23 +174,12 @@ const cli = Cli.create('curl.md', {
       })
     }
 
-    if (res.status === 400) {
-      const json = await res.json()
-      const err = parseApiError(json, { code: 'VALIDATION_ERROR', message: 'Validation failed' })
-      return c.error({
-        code: err.code,
-        message: formatValidationError(json),
-      })
-    }
-
     if (res.status === 403) {
-      const err = parseApiError(await res.json(), {
-        code: 'ORGANIZATION_ACCESS_DENIED',
-        message: 'Organization access denied',
-      })
-      Session.write({ organization_id: undefined })
+      const json = await res.json()
+      Session.write({ organization_id: undefined }, c.var.baseUrl)
       return c.error({
-        ...err,
+        code: json.code.toUpperCase(),
+        message: json.message,
         cta: {
           description: 'Switch organization:',
           commands: [
@@ -201,20 +194,18 @@ const cli = Cli.create('curl.md', {
     }
 
     if (res.status === 429) {
-      const err = parseApiError(await res.json(), {
-        code: 'RATE_LIMIT_EXCEEDED',
-        message: 'Rate limit exceeded',
-      })
+      const json = await res.json()
       const retryAfter = res.headers.get('retry-after')
+      const activeSession = c.var.apiKey ? null : Session.read(c.var.baseUrl)
       return c.error({
-        code: err.code,
-        message: retryAfter ? `${err.message}. Try again in ${retryAfter}s` : err.message,
+        code: json.code.toUpperCase(),
+        message: retryAfter ? `${json.message}. Try again in ${retryAfter}s` : json.message,
         cta: {
-          description: c.var.session
+          description: activeSession
             ? 'Add credits to remove rate limits:'
             : 'Authenticate for higher limits:',
           commands: [
-            ...(c.var.session
+            ...(activeSession
               ? [
                   {
                     command: `${c.displayName} credits add`,
@@ -233,13 +224,25 @@ const cli = Cli.create('curl.md', {
       })
     }
 
+    if (res.status === 502) {
+      const json = await res.json()
+      return c.error({ code: json.code.toUpperCase(), message: json.message })
+    }
+
     const text = await res.text()
     if (!res.ok) {
       let json: unknown
       try {
         json = JSON.parse(text)
       } catch {}
-      return c.error(parseApiError(json, { code: 'FETCH_FAILED', message: text }))
+      const error = (() => {
+        if (json && typeof json === 'object' && 'code' in json && 'message' in json) {
+          const obj = json as { code: string; message: string }
+          return { code: obj.code.toUpperCase(), message: obj.message }
+        }
+        return { code: 'FETCH_FAILED', message: text }
+      })()
+      return c.error(error)
     }
 
     if (!c.options.objective && text.length > 10_000)
@@ -270,23 +273,30 @@ const cli = Cli.create('curl.md', {
 })
 
 cli.use(async (c, next) => {
-  const session = Session.read()
+  const session = Session.read(c.env.CURLMD_BASE_URL)
+  c.set('baseUrl', c.env.CURLMD_BASE_URL)
   c.set('session', session)
 
   const apiKey = (() => {
     // TODO: add feature to incur (globalOptions)
-    const i = process.argv.indexOf('--token')
+    const i = process.argv.lastIndexOf('--token')
     return (i !== -1 ? process.argv[i + 1] : undefined) ?? c.env.CURLMD_API_KEY
   })()
   c.set('apiKey', apiKey)
 
-  const headers: Record<string, string> = {}
-  if (apiKey) headers.Authorization = `Bearer ${apiKey}`
-  else if (session) {
-    headers.Authorization = `Bearer ${session.session_id}`
-    if (session.organization_id) headers['x-organization-id'] = session.organization_id
-  }
-  c.set('client', hc<typeof api>(c.env.CURLMD_BASE_URL, { headers }))
+  const resolveAuthHeaders = Auth.createResolver(c.env.CURLMD_BASE_URL, apiKey)
+  c.set(
+    'client',
+    createClient(c.env.CURLMD_BASE_URL, {
+      headers: async () => {
+        const auth = await resolveAuthHeaders()
+        const headers: Record<string, string> = {}
+        if (auth?.authorization) headers.Authorization = auth.authorization
+        if (auth?.organization_id) headers['x-organization-id'] = auth.organization_id
+        return headers
+      },
+    }),
+  )
 
   return next()
 })
@@ -318,12 +328,14 @@ const requireAuth = middleware<typeof vars>((c, next) => {
   return next()
 })
 
-function expiredSession(
-  c: Pick<MiddlewareContext, 'displayName' | 'error'> & {
-    var: { commands: Command[] }
-  },
-) {
-  Session.delete()
+type Command = { command: string; description?: string }
+type AuthContext = Pick<MiddlewareContext, 'displayName' | 'error'> & {
+  var: { apiKey?: string | undefined; baseUrl: string; commands: Command[] }
+}
+
+function expiredSession(c: AuthContext) {
+  if (c.var.apiKey) return authError(c)
+  Session.delete(c.var.baseUrl)
   return authError(c)
 }
 
@@ -381,107 +393,52 @@ const auth = Cli.create('auth', {
     output: z.string(),
     format: 'md',
     async run(c) {
-      if (c.var.session) {
-        const res = await c.var.client.api.auth.me.$get()
-        const json = await res.json()
-        if (json.account)
-          return c.ok(UI.warn(`Already logged in as ${pc.bold(json.account.login)}`))
-      }
-
-      const deviceRes = await c.var.client.api.auth.device.$post()
-      if (deviceRes.status === 429) {
-        const json = await deviceRes.json()
-        const retryAfter = deviceRes.headers.get('retry-after')
+      const start = await Auth.startLogin(c.var.baseUrl)
+      if (!start.ok)
         return c.error({
-          code: json.code.toUpperCase(),
-          message: retryAfter ? `${json.message}. Try again in ${retryAfter}s` : json.message,
+          code: start.error.code.toUpperCase(),
+          message: start.error.message,
         })
-      }
 
-      const device = await deviceRes.json()
-      const url = `${device.verification_uri}?user_code=${device.user_code}`
-      openUrl(url)
+      if (start.data.kind === 'already_authenticated')
+        return c.ok(
+          UI.warn(`Already logged in${start.data.login ? ` as ${pc.bold(start.data.login)}` : ''}`),
+        )
 
-      console.log(`\n${UI.warn(`Confirmation code: ${pc.bold(pc.green(device.user_code))}`)}\n`)
+      openUrl(start.data.url)
+
+      console.log(`\n${UI.warn(`Confirmation code: ${pc.bold(pc.green(start.data.user_code))}`)}\n`)
       console.log(`  ${pc.dim('If something goes wrong, open this URL:')}`)
-      console.log(`  ${url}\n`)
+      console.log(`  ${start.data.url}\n`)
 
       const spinner = UI.createSpinner('Waiting for authentication')
       const abort = new AbortController()
       const onSignal = () => abort.abort()
       process.on('SIGINT', onSignal)
       process.on('SIGTERM', onSignal)
-      let timedOut = false
-      const timeout = setTimeout(
-        () => {
-          timedOut = true
-          abort.abort()
-        },
-        5 * 60 * 1000,
-      )
-      const interval = (device.interval ?? 5) * 1000
       try {
-        while (true) {
-          if (abort.signal.aborted) {
-            spinner.stop()
-            return c.error(
-              timedOut
-                ? { code: 'TIMEOUT', message: 'Login timed out. Try again.' }
-                : { code: 'CANCELED', message: 'Canceled login.' },
-            )
-          }
-          const res = await c.var.client.api.auth.device.token.$post({
-            json: { code: device.code },
+        const result = await Auth.waitForLogin(c.var.baseUrl, start.data, { signal: abort.signal })
+        if (!result.ok)
+          return c.error({
+            code: result.error.code.toUpperCase(),
+            message: result.error.message,
           })
-          if ((res.status as number) === 429) {
-            const retryAfter = Number(res.headers.get('retry-after') || 5)
-            await new Promise((r) => {
-              const t = setTimeout(r, retryAfter * 1000)
-              abort.signal.addEventListener('abort', () => {
-                clearTimeout(t)
-                r(undefined)
-              })
-            })
-            continue
-          }
-          if (res.status !== 200) {
-            const json = await res.json()
-            if (json.code === 'authorization_pending') {
-              await new Promise((r) => {
-                const t = setTimeout(r, interval)
-                abort.signal.addEventListener('abort', () => {
-                  clearTimeout(t)
-                  r(undefined)
-                })
-              })
-              continue
-            }
-            spinner.stop()
-            return c.error({
-              code: json.code.toUpperCase(),
-              message: formatValidationError(json, json.message),
-            })
-          }
-          const json = await res.json()
-          spinner.stop()
-          Session.write({ session_id: json.session_id })
-          const meRes = await c.var.client.api.auth.me.$get(
-            {},
-            {
-              headers: { Authorization: `Bearer ${json.session_id}` },
-            },
-          )
-          const me = await meRes.json()
-          const login = me.account?.login
-          return c.ok(UI.success(`Logged in${login ? ` as ${pc.bold(login)}` : ''}`))
-        }
+
+        return c.ok(
+          UI.success(`Logged in${result.data.login ? ` as ${pc.bold(result.data.login)}` : ''}`),
+        )
       } catch (error) {
-        spinner.stop()
+        if (abort.signal.aborted)
+          return c.error({
+            code: 'CANCELED',
+            message: 'Canceled login.',
+          })
+
         throw error
       } finally {
-        clearTimeout(timeout)
         process.off('SIGINT', onSignal)
         process.off('SIGTERM', onSignal)
+        spinner.stop()
       }
     },
   })
@@ -491,11 +448,16 @@ const auth = Cli.create('auth', {
     format: 'md',
     async run(c) {
       if (!c.var.session) return c.ok(UI.warn('Already logged out'))
-      const res = await c.var.client.api.auth.me.$get()
-      const json = await res.json()
-      const login = json.account?.login
-      Session.delete()
-      return c.ok(UI.success(`Logged out${login ? ` of ${pc.bold(login)}` : ''}`))
+      const result = await Auth.logout(c.var.baseUrl)
+      if (!result.ok)
+        return c.error({
+          code: result.error.code.toUpperCase(),
+          message: result.error.message,
+        })
+
+      return c.ok(
+        UI.success(`Logged out${result.data.login ? ` of ${pc.bold(result.data.login)}` : ''}`),
+      )
     },
   })
   .command('status', {
@@ -507,16 +469,24 @@ const auth = Cli.create('auth', {
     output: z.string(),
     format: 'md',
     async run(c) {
-      const res = await c.var.client.api.auth.me.$get()
+      const token = c.options.token ?? c.var.apiKey
+      const res = await (token
+        ? createClient(c.var.baseUrl, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }).api.auth.me.$get()
+        : c.var.client.api.auth.me.$get())
+      if (res.status !== 200) return token ? authError(c) : expiredSession(c)
+
       const json = await res.json()
-      if (!json.account) return expiredSession(c)
+      if (!json.account) return token ? authError(c) : expiredSession(c)
 
-      const authType = c.var.apiKey ? `token (${c.var.apiKey.slice(0, 12)}******)` : 'session'
+      const authType = token ? `token (${token.slice(0, 12)}******)` : 'session'
 
-      const activeOrg = c.var.session?.organization_id
-        ? json.account.organizations.find(
-            (o: { id: string }) => o.id === c.var.session?.organization_id,
-          )
+      const activeOrgId = token ? null : (Session.read(c.var.baseUrl)?.organization_id ?? null)
+      const activeOrg = activeOrgId
+        ? json.account.organizations.find((o: { id: string }) => o.id === activeOrgId)
         : null
       const orgDisplay = activeOrg ? activeOrg.login : 'none'
 
@@ -578,7 +548,7 @@ const credits = Cli.create('credits', {
             const values = ['5', '10', '20', '50'] as const
             const maxLen = `$${values[values.length - 1]}`.length
             const amountChoice = await UI.select(
-              'Amount:',
+              'Select amount:',
               values.map(
                 (v) =>
                   `$${v}`.padEnd(maxLen) +
@@ -595,7 +565,7 @@ const credits = Cli.create('credits', {
           const chargeRes = await c.var.client.api.credits.charge.$post({
             json: {
               amount: `${Number(selectedAmount) * 100}` as '500' | '1000' | '2000' | '5000',
-              organization_id: c.var.session?.organization_id,
+              organization_id: Session.read(c.var.baseUrl)?.organization_id,
             },
           })
 
@@ -605,12 +575,8 @@ const credits = Cli.create('credits', {
           }
           if (chargeRes.status !== 200) {
             spinner.stop()
-            return c.error(
-              parseApiError(await chargeRes.json(), {
-                code: 'UNKNOWN',
-                message: 'Unexpected error.',
-              }),
-            )
+            const json = await chargeRes.json()
+            return c.error({ code: json.code.toUpperCase(), message: json.message })
           }
 
           const chargeJson = await chargeRes.json()
@@ -651,7 +617,7 @@ const credits = Cli.create('credits', {
       const addRes = await c.var.client.api.credits.add.$post({
         json: {
           amount: `${Number(selectedAmount) * 100}` as '500' | '1000' | '2000' | '5000',
-          organization_id: c.var.session?.organization_id,
+          organization_id: Session.read(c.var.baseUrl)?.organization_id,
         },
       })
 
@@ -779,7 +745,7 @@ const invite = Cli.create('invite', {
     output: z.string(),
     format: 'md',
     async run(c) {
-      const orgId = c.var.session?.organization_id
+      const orgId = Session.read(c.var.baseUrl)?.organization_id
       if (!orgId) return noActiveOrg(c)
 
       const res = await c.var.client.api.orgs[':id'].invites.$post({
@@ -819,12 +785,13 @@ const invite = Cli.create('invite', {
     },
   })
   .command('list', {
+    aliases: ['ls'],
     description: 'List organization invites',
     middleware: [requireAuth],
     output: z.string(),
     format: 'md',
     async run(c) {
-      const orgId = c.var.session?.organization_id
+      const orgId = Session.read(c.var.baseUrl)?.organization_id
       if (!orgId) return noActiveOrg(c)
 
       const res = await c.var.client.api.orgs[':id'].invites.$get({
@@ -879,7 +846,7 @@ const invite = Cli.create('invite', {
     output: z.string(),
     format: 'md',
     async run(c) {
-      const orgId = c.var.session?.organization_id
+      const orgId = Session.read(c.var.baseUrl)?.organization_id
       if (!orgId) return noActiveOrg(c)
 
       let inviteId = c.args.invite
@@ -986,7 +953,7 @@ const member = Cli.create('member', {
     output: z.string(),
     format: 'md',
     async run(c) {
-      const orgId = c.var.session?.organization_id
+      const orgId = Session.read(c.var.baseUrl)?.organization_id
       if (!orgId) return noActiveOrg(c)
 
       const res = await c.var.client.api.orgs[':id'].members.$post({
@@ -1017,12 +984,13 @@ const member = Cli.create('member', {
     },
   })
   .command('list', {
+    aliases: ['ls'],
     description: 'List members of the active organization',
     middleware: [requireAuth],
     output: z.string(),
     format: 'md',
     async run(c) {
-      const orgId = c.var.session?.organization_id
+      const orgId = Session.read(c.var.baseUrl)?.organization_id
       if (!orgId) return noActiveOrg(c)
 
       const res = await c.var.client.api.orgs[':id'].members.$get({
@@ -1059,6 +1027,7 @@ const member = Cli.create('member', {
     },
   })
   .command('remove', {
+    aliases: ['rm'],
     description: 'Remove a member from the active organization',
     middleware: [requireAuth],
     args: z.object({
@@ -1071,7 +1040,7 @@ const member = Cli.create('member', {
     output: z.string(),
     format: 'md',
     async run(c) {
-      const orgId = c.var.session?.organization_id
+      const orgId = Session.read(c.var.baseUrl)?.organization_id
       if (!orgId) return noActiveOrg(c)
 
       const listRes = await c.var.client.api.orgs[':id'].members.$get({
@@ -1189,7 +1158,7 @@ const member = Cli.create('member', {
     output: z.string(),
     format: 'md',
     async run(c) {
-      const orgId = c.var.session?.organization_id
+      const orgId = Session.read(c.var.baseUrl)?.organization_id
       if (!orgId) return noActiveOrg(c)
 
       const listRes = await c.var.client.api.orgs[':id'].members.$get({
@@ -1238,7 +1207,7 @@ const member = Cli.create('member', {
           return `${m.login.padEnd(maxLogin)}  ${pc.dim(m.role)}`
         })
         const doneLabels = listJson.members.map((m) => m.login)
-        const index = await UI.select('Change role for:', choices, { doneLabels })
+        const index = await UI.select('Select member:', choices, { doneLabels })
         if (index === -1) return c.ok('Cancelled.')
         const selected = listJson.members[index]
         if (!selected)
@@ -1260,7 +1229,9 @@ const member = Cli.create('member', {
       if (!role) {
         const roles = ['member', 'admin'] as const
         const roleChoices = roles.map((r) => (r === match.role ? `${r}  ${pc.dim('current')}` : r))
-        const roleIndex = await UI.select('New role:', roleChoices, { doneLabels: [...roles] })
+        const roleIndex = await UI.select('Change member role:', roleChoices, {
+          doneLabels: [...roles],
+        })
         if (roleIndex === -1) return c.ok('Cancelled.')
         role = roles[roleIndex]
         if (!role)
@@ -1368,6 +1339,7 @@ const org = Cli.create('org', {
     },
   })
   .command('list', {
+    aliases: ['ls'],
     description: 'List organizations',
     middleware: [requireAuth],
     output: z.string(),
@@ -1377,10 +1349,10 @@ const org = Cli.create('org', {
       if (res.status === 401) return expiredSession(c)
 
       const json = await res.json()
-      let activeId = c.var.session?.organization_id
+      let activeId = Session.read(c.var.baseUrl)?.organization_id
 
       if (activeId && !json.organizations.some((org) => org.id === activeId)) {
-        Session.write({ organization_id: undefined })
+        Session.write({ organization_id: undefined }, c.var.baseUrl)
         activeId = undefined
       }
 
@@ -1416,7 +1388,8 @@ const org = Cli.create('org', {
     output: z.string(),
     format: 'md',
     async run(c) {
-      if (!c.var.session?.organization_id) {
+      const activeOrgId = Session.read(c.var.baseUrl)?.organization_id
+      if (!activeOrgId) {
         const orgsRes = await c.var.client.api.orgs.$get()
         if (orgsRes.status === 401) return expiredSession(c)
         const orgsJson = await orgsRes.json()
@@ -1440,11 +1413,11 @@ const org = Cli.create('org', {
       }
 
       const res = await c.var.client.api.orgs[':id'].$get({
-        param: { id: c.var.session.organization_id },
+        param: { id: activeOrgId },
       })
       if (res.status === 401) return expiredSession(c)
       if (res.status === 404) {
-        Session.write({ organization_id: undefined })
+        Session.write({ organization_id: undefined }, c.var.baseUrl)
         return c.ok('Organization no longer accessible. Switched to account.')
       }
 
@@ -1478,7 +1451,7 @@ const org = Cli.create('org', {
 
       if (c.args.login) {
         if (c.args.login === accountLogin || c.args.login === 'account') {
-          Session.write({ organization_id: undefined })
+          Session.write({ organization_id: undefined }, c.var.baseUrl)
           return c.ok(`Switched to ${pc.bold(accountLogin)}`)
         }
         const match = orgsJson.organizations.find((o) => o.login === c.args.login)
@@ -1487,11 +1460,11 @@ const org = Cli.create('org', {
             code: 'ORG_NOT_FOUND',
             message: `Organization "${c.args.login}" not found.`,
           })
-        Session.write({ organization_id: match.id })
+        Session.write({ organization_id: match.id }, c.var.baseUrl)
         return c.ok(`Switched to ${pc.bold(match.login)}`)
       }
 
-      const currentOrgId = c.var.session?.organization_id
+      const currentOrgId = Session.read(c.var.baseUrl)?.organization_id
       const choices = [
         ...orgsJson.organizations.map((o) => ({
           label: o.login,
@@ -1506,12 +1479,15 @@ const org = Cli.create('org', {
       const labels = choices.map((c) => c.label)
       const maxLabel = Math.max(...choices.map((c) => c.label.length))
       const index = await UI.select(
-        'Switch to:',
+        'Switch organization',
         choices.map((c) => {
           const isPersonal = !c.id
-          const isCurrent = c.id === currentOrgId && !isPersonal
-          const suffix = isPersonal ? pc.dim('account') : isCurrent ? pc.dim('current') : ''
-          return suffix ? `${c.label.padEnd(maxLabel)}  ${suffix}` : c.label
+          const isCurrent = c.id === currentOrgId
+          const suffixes = [
+            isPersonal ? pc.dim('account') : '',
+            isCurrent ? pc.green('✓') : '',
+          ].filter(Boolean)
+          return suffixes.length ? `${c.label.padEnd(maxLabel)}  ${suffixes.join('  ')}` : c.label
         }),
         { doneLabels: labels },
       )
@@ -1523,7 +1499,7 @@ const org = Cli.create('org', {
           code: 'INVALID_SELECTION',
           message: 'Invalid selection.',
         })
-      Session.write({ organization_id: selected.id })
+      Session.write({ organization_id: selected.id }, c.var.baseUrl)
       return c.ok(`Switched to ${pc.bold(selected.label)}`)
     },
   })
@@ -1576,6 +1552,7 @@ const token = Cli.create('token', {
     },
   })
   .command('list', {
+    aliases: ['ls'],
     description: 'List API tokens',
     middleware: [requireAuth],
     output: z.string(),
@@ -1614,6 +1591,7 @@ const token = Cli.create('token', {
     },
   })
   .command('delete', {
+    aliases: ['rm'],
     description: 'Delete API token',
     middleware: [requireAuth],
     args: z.object({
@@ -1706,6 +1684,7 @@ const token = Cli.create('token', {
   })
 
 const update = Cli.create('update', {
+  aliases: ['upgrade'],
   description: 'Update curl.md CLI',
   vars,
   options: z.object({

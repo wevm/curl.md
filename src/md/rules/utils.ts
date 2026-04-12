@@ -14,18 +14,6 @@ export function appendMd(options: Options) {
   })
 }
 
-export function appendIndexMd(options: Options) {
-  return defineRule({
-    ...options,
-    rewrite(url) {
-      const mdUrl = new URL(url.href)
-      const base = mdUrl.pathname.endsWith('/') ? mdUrl.pathname : `${mdUrl.pathname}/`
-      mdUrl.pathname = `${base}index.md`
-      return mdUrl
-    },
-  })
-}
-
 export function appendMdWithIndex(options: Options) {
   return defineRule({
     ...options,

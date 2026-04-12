@@ -11,7 +11,6 @@ import { stringify as yamlStringify } from 'yaml'
 import { z } from 'zod'
 import { createClient, type Database } from '#db/client.ts'
 import type { DB } from '#db/types.gen.ts'
-import { requestTokensSavedSumSql } from '#db/utils.ts'
 import * as ApiKey from '#lib/apiKey.ts'
 import * as Constants from '#lib/constants.ts'
 import * as Cookie from '#lib/cookie.ts'
@@ -19,6 +18,7 @@ import * as Crypto from '#lib/crypto.ts'
 import * as GitHub from '#lib/github.ts'
 import * as hono from '#lib/hono.ts'
 import * as Nanoid from '#lib/nanoid.ts'
+import * as SessionToken from '#lib/sessionToken.ts'
 import * as StripeUtils from '#lib/stripe.ts'
 import * as Md from '#md/index.ts'
 import * as Og from '#og.tsx'
@@ -27,6 +27,7 @@ export const api = new Hono<{
   Bindings: Cloudflare.Env
   Variables: {
     api_key_id: string | null
+    bearer_token: string | null
     db: Database
     organization_id: string | null
     session: Pick<DB.session, 'account_id'> | null
@@ -40,25 +41,25 @@ export const api = new Hono<{
     c.set('db', createClient(c.env.DB.connectionString))
 
     c.set('api_key_id', null)
+    c.set('bearer_token', null)
     c.set('organization_id', null)
     c.set('session', null)
 
-    // Try cookie → session lookup
+    // Extract auth inputs once for the request.
     const cookie = (await Cookie.getSigned(c, c.env.COOKIE_SECRET, 'curl.session')) || undefined
-    const sessionId =
-      cookie ??
-      (() => {
-        const authorizationHeader = c.req.header('authorization')
-        return authorizationHeader?.startsWith('Bearer ')
-          ? authorizationHeader.replace('Bearer ', '')
-          : undefined
-      })() ??
-      c.req.query('token') ??
-      c.req.query('t')
+    const bearerToken = (() => {
+      // CLI and API clients authenticate with Bearer tokens.
+      const authorizationHeader = c.req.header('authorization')
+      return authorizationHeader?.startsWith('Bearer ')
+        ? authorizationHeader.replace('Bearer ', '')
+        : undefined
+    })()
+    if (bearerToken) c.set('bearer_token', bearerToken)
+    const authToken = bearerToken ?? c.req.query('token') ?? c.req.query('t')
 
-    // Try API key (curlmd_ prefix)
-    if (!cookie && sessionId?.startsWith(ApiKey.prefix)) {
-      const keyHash = await ApiKey.hash(sessionId)
+    // 1. API keys never override a browser session cookie.
+    if (!cookie && authToken && ApiKey.isApiKey(authToken)) {
+      const keyHash = await ApiKey.hash(authToken)
       const apiKey = await c.var.db
         .selectFrom('api_key')
         .where('key_hash', '=', keyHash)
@@ -84,14 +85,31 @@ export const api = new Hono<{
       return
     }
 
-    // Try session lookup (cookie or bearer token)
-    if (sessionId) {
+    // 2. Resolve the browser session from the signed cookie.
+    if (cookie) {
       const session =
         (await c.var.db
           .selectFrom('session')
-          .where('id', '=', sessionId)
+          .where('id', '=', cookie)
           .where('expires_at', '>', new Date())
           .select('account_id')
+          .executeTakeFirst()) ?? null
+      c.set('session', session)
+    }
+
+    // 3. If the cookie was missing or stale, fall back to CLI bearer auth.
+    if (!c.var.session && bearerToken) {
+      // CLI access tokens are short-lived session_access_token rows tied to cli sessions.
+      const tokenHash = await ApiKey.hash(bearerToken)
+      const session =
+        (await c.var.db
+          .selectFrom('session_access_token')
+          .innerJoin('session', 'session.id', 'session_access_token.session_id')
+          .where('session.session_type', '=', 'cli')
+          .where('session_access_token.expires_at', '>', new Date())
+          .where('session.expires_at', '>', new Date())
+          .where('session_access_token.token_hash', '=', tokenHash)
+          .select('session.account_id')
           .executeTakeFirst()) ?? null
       c.set('session', session)
     }
@@ -130,6 +148,7 @@ export const api = new Hono<{
       })
 
       const origin = (() => {
+        // Respect the public protocol when the app is behind a proxy.
         const url = new URL(c.req.url)
         const proto = c.req.header('x-forwarded-proto')
         if (proto) url.protocol = `${proto}:`
@@ -189,6 +208,7 @@ export const api = new Hono<{
         Cookie.secureOpts(c.req.url, c.env.HOST, c.req.header('x-forwarded-proto')),
       )
       const origin = (() => {
+        // Respect the public protocol when the app is behind a proxy.
         const url = new URL(c.req.url)
         const proto = c.req.header('x-forwarded-proto')
         if (proto) url.protocol = `${proto}:`
@@ -420,7 +440,7 @@ export const api = new Hono<{
       window: 60,
     })
     if (rl.error)
-      return c.json({ code: 'rate_limit_exceeded', message: 'Rate limit exceeded' }, 429, {
+      return c.json({ code: 'rate_limit_exceeded' as const, message: 'Rate limit exceeded' }, 429, {
         'retry-after': String(rl.reset - Math.floor(Date.now() / 1000)),
       })
 
@@ -450,8 +470,30 @@ export const api = new Hono<{
     hono.validator('json', z.object({ user_code: z.string() })),
     async (c) => {
       if (hono.narrowValidation) return hono.validationError(c)
+      const requestOrigin = (() => {
+        // Compare browser-provided origins against the externally visible origin.
+        const url = new URL(c.req.url)
+        const proto = c.req.header('x-forwarded-proto')
+        if (proto) url.protocol = `${proto}:`
+        return url.origin
+      })()
+      const origin = c.req.header('origin')
+      const refererOrigin = (() => {
+        const referer = c.req.header('referer')
+        if (!referer) return null
+        try {
+          return new URL(referer).origin
+        } catch {
+          return null
+        }
+      })()
+      if (origin !== requestOrigin && refererOrigin !== requestOrigin)
+        return c.json(
+          { code: 'invalid_origin' as const, message: 'Request origin not allowed' },
+          403,
+        )
       if (!c.var.session)
-        return c.json({ code: 'unauthorized', message: 'Authentication required' }, 401)
+        return c.json({ code: 'unauthorized' as const, message: 'Authentication required' }, 401)
       const json = c.req.valid('json')
       const row = await c.var.db
         .selectFrom('device_code')
@@ -461,7 +503,10 @@ export const api = new Hono<{
         .select('id')
         .executeTakeFirst()
       if (!row)
-        return c.json({ code: 'invalid_or_expired_code', message: 'Invalid or expired code' }, 404)
+        return c.json(
+          { code: 'invalid_or_expired_code' as const, message: 'Invalid or expired code' },
+          404,
+        )
       await c.var.db
         .updateTable('device_code')
         .set({
@@ -486,37 +531,77 @@ export const api = new Hono<{
         window: 60,
       })
       if (rl.error)
-        return c.json({ code: 'rate_limit_exceeded', message: 'Rate limit exceeded' }, 429, {
-          'retry-after': String(rl.reset - Math.floor(Date.now() / 1000)),
-        })
+        return c.json(
+          { code: 'rate_limit_exceeded' as const, message: 'Rate limit exceeded' },
+          429,
+          {
+            'retry-after': String(rl.reset - Math.floor(Date.now() / 1000)),
+          },
+        )
 
       const json = c.req.valid('json')
-      const deviceCode = await c.var.db
-        .selectFrom('device_code')
-        .where('code', '=', json.code)
-        .select(['account_id', 'expires_at', 'id', 'status'])
-        .executeTakeFirst()
-      if (!deviceCode || deviceCode.expires_at <= new Date())
-        return c.json({ code: 'expired_token', message: 'Token has expired' }, 400)
-      if (deviceCode.status === 'pending')
-        return c.json({ code: 'authorization_pending', message: 'Authorization pending' }, 400)
-      if (!deviceCode.account_id)
-        return c.json({ code: 'expired_token', message: 'Token has expired' }, 400)
-      const session = await c.var.db
-        .insertInto('session')
-        .values({
-          account_id: deviceCode.account_id,
-          expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
-        })
-        .returning('id')
-        .executeTakeFirstOrThrow()
-      await c.var.db.deleteFrom('device_code').where('id', '=', deviceCode.id).execute()
-      return c.json({ session_id: session.id }, 200)
+      const now = new Date()
+      const result = await c.var.db.transaction().execute(async (tx) => {
+        const deviceCode = await tx
+          .deleteFrom('device_code')
+          .where('code', '=', json.code)
+          .where('status', '=', 'approved')
+          .where('expires_at', '>', now)
+          .returning('account_id')
+          .executeTakeFirst()
+        if (deviceCode?.account_id)
+          return {
+            auth: await SessionToken.createCliSession(tx as Database, deviceCode.account_id),
+          }
+
+        const existing = await tx
+          .selectFrom('device_code')
+          .where('code', '=', json.code)
+          .select(['expires_at', 'status'])
+          .executeTakeFirst()
+        if (!existing || existing.expires_at <= now)
+          return {
+            error: { code: 'expired_token' as const, message: 'Token has expired' },
+          }
+        if (existing.status === 'pending')
+          return {
+            error: { code: 'authorization_pending' as const, message: 'Authorization pending' },
+          }
+        return {
+          error: { code: 'expired_token' as const, message: 'Token has expired' },
+        }
+      })
+      if ('error' in result) return c.json(result.error, 400)
+
+      const auth = result.auth
+      return c.json(auth, 200)
     },
   )
+  .post('/api/auth/headers', async (c) => {
+    if (c.var.api_key_id)
+      return c.json(
+        {
+          code: 'api_key_not_supported' as const,
+          message: 'API keys do not mint interactive auth headers',
+        },
+        403,
+      )
+
+    if (c.var.bearer_token) {
+      const auth = await SessionToken.mintAuthHeaders(c.var.db, c.var.bearer_token)
+      if (auth) return c.json(auth, 200)
+    }
+
+    if (!c.var.session)
+      return c.json({ code: 'unauthorized' as const, message: 'Authentication required' }, 401)
+
+    const auth = await SessionToken.createCliSession(c.var.db, c.var.session.account_id)
+    return c.json(auth, 200)
+  })
   .post('/api/auth/logout', async (c) => {
     const sessionId = await Cookie.getSigned(c, c.env.COOKIE_SECRET, 'curl.session')
     if (sessionId) await c.var.db.deleteFrom('session').where('id', '=', sessionId).execute()
+    if (c.var.bearer_token) await SessionToken.deleteCliSessionByToken(c.var.db, c.var.bearer_token)
     Cookie.destroy(c, 'curl.session', {
       httpOnly: true,
       maxAge: 0,
@@ -589,7 +674,7 @@ export const api = new Hono<{
         signal: AbortSignal.timeout(5_000),
       })
       if (!res.ok)
-        return c.json({ code: 'upstream_error', message: 'Upstream request failed' }, 502)
+        return c.json({ code: 'upstream_error' as const, message: 'Upstream request failed' }, 502)
 
       const npm = z.safeParse(
         z.object({
@@ -599,13 +684,13 @@ export const api = new Hono<{
         await res.json(),
       )
       if (!npm.success || !npm.data['dist-tags']?.latest)
-        return c.json({ code: 'version_not_found', message: 'Version not found' }, 502)
+        return c.json({ code: 'version_not_found' as const, message: 'Version not found' }, 502)
 
       const version = npm.data['dist-tags'].latest
       const result = {
         published_at: npm.data.time?.[version] ?? null,
         version,
-      }
+      } as const
       c.executionCtx.waitUntil(
         c.env.KV.put('cli:latest', JSON.stringify(result), {
           expirationTtl: 300, // 5 minutes
@@ -616,7 +701,7 @@ export const api = new Hono<{
   )
   .get('/api/credits', async (c) => {
     if (!c.var.session)
-      return c.json({ code: 'unauthorized', message: 'Authentication required' }, 401)
+      return c.json({ code: 'unauthorized' as const, message: 'Authentication required' }, 401)
 
     const organizationId = c.var.organization_id
 
@@ -641,7 +726,7 @@ export const api = new Hono<{
       .where('id', '=', entityId)
       .select(['balance_mills', 'default_payment_method_id', 'stripe_customer_id'])
       .executeTakeFirst()
-    if (!billing) return c.json({ code: 'not_found', message: 'Not found' }, 404)
+    if (!billing) return c.json({ code: 'not_found' as const, message: 'Not found' }, 404)
 
     let method: Pick<Stripe.PaymentMethod.Card, 'brand' | 'last4'> | null = null
     if (billing.stripe_customer_id) {
@@ -683,7 +768,7 @@ export const api = new Hono<{
     async (c) => {
       if (hono.narrowValidation) return hono.validationError(c)
       if (!c.var.session)
-        return c.json({ code: 'unauthorized', message: 'Authentication required' }, 401)
+        return c.json({ code: 'unauthorized' as const, message: 'Authentication required' }, 401)
 
       const json = c.req.valid('json')
       const amount = Number(json.amount)
@@ -710,7 +795,7 @@ export const api = new Hono<{
         .where('id', '=', entityId)
         .select('stripe_customer_id')
         .executeTakeFirst()
-      if (!billing) return c.json({ code: 'not_found', message: 'Not found' }, 404)
+      if (!billing) return c.json({ code: 'not_found' as const, message: 'Not found' }, 404)
 
       const stripe = new Stripe(
         c.env.STRIPE_SECRET_KEY,
@@ -746,7 +831,8 @@ export const api = new Hono<{
         }
       }
 
-      if (!stripeCustomerId) return c.json({ code: 'not_found', message: 'Not found' }, 404)
+      if (!stripeCustomerId)
+        return c.json({ code: 'not_found' as const, message: 'Not found' }, 404)
       const savedPaymentMethods = await StripeUtils.listCardPaymentMethods(
         stripe,
         stripeCustomerId,
@@ -766,7 +852,7 @@ export const api = new Hono<{
         c.env.STRIPE_API_URL,
       )
       if (!paymentIntentSecret)
-        return c.json({ code: 'payment_failed', message: 'Payment failed' }, 400)
+        return c.json({ code: 'payment_failed' as const, message: 'Payment failed' }, 400)
 
       let csSecret: string | null = null
       let savedPaymentMethodsUnavailable = false
@@ -817,7 +903,7 @@ export const api = new Hono<{
     async (c) => {
       if (hono.narrowValidation) return hono.validationError(c)
       if (!c.var.session)
-        return c.json({ code: 'unauthorized', message: 'Authentication required' }, 401)
+        return c.json({ code: 'unauthorized' as const, message: 'Authentication required' }, 401)
 
       const json = c.req.valid('json')
       const amount = Number(json.amount)
@@ -844,11 +930,14 @@ export const api = new Hono<{
         .where('id', '=', entityId)
         .select(['default_payment_method_id', 'stripe_customer_id'])
         .executeTakeFirst()
-      if (!billing) return c.json({ code: 'not_found', message: 'Not found' }, 404)
+      if (!billing) return c.json({ code: 'not_found' as const, message: 'Not found' }, 404)
 
       const stripeCustomerId = billing.stripe_customer_id
       if (!stripeCustomerId)
-        return c.json({ code: 'no_payment_method', message: 'No payment method on file' }, 400)
+        return c.json(
+          { code: 'no_payment_method' as const, message: 'No payment method on file' },
+          400,
+        )
 
       const stripe = new Stripe(
         c.env.STRIPE_SECRET_KEY,
@@ -861,7 +950,10 @@ export const api = new Hono<{
         paymentMethods,
       )
       if (!defaultPaymentMethod)
-        return c.json({ code: 'no_payment_method', message: 'No payment method on file' }, 400)
+        return c.json(
+          { code: 'no_payment_method' as const, message: 'No payment method on file' },
+          400,
+        )
       if (defaultPaymentMethod.id !== billing.default_payment_method_id)
         await c.var.db
           .updateTable(entityType)
@@ -875,7 +967,7 @@ export const api = new Hono<{
           c.env.STRIPE_API_URL,
         )
         if (!paymentIntentSecret)
-          return c.json({ code: 'payment_failed', message: 'Payment failed' }, 400)
+          return c.json({ code: 'payment_failed' as const, message: 'Payment failed' }, 400)
 
         // Only enable saving in the Payment Element when the customer is still below our cap.
         const canSavePaymentMethod =
@@ -950,30 +1042,10 @@ export const api = new Hono<{
       if (paymentIntent.status === 'requires_action')
         return createRequiresActionResponse(paymentIntent)
 
-      return c.json({ code: 'payment_failed', message: 'Payment failed' }, 400)
+      return c.json({ code: 'payment_failed' as const, message: 'Payment failed' }, 400)
     },
   )
   .get('/api/health', (c) => c.json({ ok: true }, 200))
-  .get('/api/stats', async (c) => {
-    try {
-      const cached = await c.env.KV.get('stats:tokens_saved', 'json')
-      if (cached !== null) return c.json({ tokens_saved: cached }, 200)
-
-      const result = await c.var.db
-        .selectFrom('request')
-        .select(requestTokensSavedSumSql().as('total'))
-        .executeTakeFirstOrThrow()
-      const total = result.total ?? 0
-      c.executionCtx.waitUntil(
-        c.env.KV.put('stats:tokens_saved', JSON.stringify(total), {
-          expirationTtl: 300,
-        }),
-      )
-      return c.json({ tokens_saved: total }, 200)
-    } catch {
-      return c.json({ tokens_saved: 0 }, 200)
-    }
-  })
   .get('/api/invites/:token', async (c) => {
     const invite = await c.var.db
       .selectFrom('organization_invite')
@@ -990,7 +1062,7 @@ export const api = new Hono<{
       .select(['organization.login', 'organization.name', 'organization_invite.role'])
       .executeTakeFirst()
 
-    if (!invite) return c.json({ code: 'not_found', message: 'Invite not found' }, 404)
+    if (!invite) return c.json({ code: 'not_found' as const, message: 'Invite not found' }, 404)
     return c.json(
       {
         invite: {
@@ -1003,7 +1075,7 @@ export const api = new Hono<{
   })
   .post('/api/invites/:token/accept', async (c) => {
     if (!c.var.session)
-      return c.json({ code: 'unauthorized', message: 'Authentication required' }, 401)
+      return c.json({ code: 'unauthorized' as const, message: 'Authentication required' }, 401)
 
     // Atomically claim a use slot — prevents racing past max_uses
     const invite = await c.var.db
@@ -1015,7 +1087,7 @@ export const api = new Hono<{
       .where((eb) => eb.or([eb('max_uses', 'is', null), eb('use_count', '<', eb.ref('max_uses'))]))
       .returning(['organization_id', 'role'])
       .executeTakeFirst()
-    if (!invite) return c.json({ code: 'not_found', message: 'Invite not found' }, 404)
+    if (!invite) return c.json({ code: 'not_found' as const, message: 'Invite not found' }, 404)
 
     const inserted = await c.var.db
       .insertInto('organization_member')
@@ -1058,7 +1130,7 @@ export const api = new Hono<{
       window: 60,
     })
     if (rl.error)
-      return c.json({ code: 'rate_limit_exceeded', message: 'Rate limit exceeded' }, 429, {
+      return c.json({ code: 'rate_limit_exceeded' as const, message: 'Rate limit exceeded' }, 429, {
         'retry-after': String(rl.reset - Math.floor(Date.now() / 1000)),
       })
 
@@ -1067,12 +1139,12 @@ export const api = new Hono<{
       return await Og.render(c.req.raw, c.env, c.var.db, query)
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error'
-      return c.json({ code: 'og_generation_failed', message }, 500)
+      return c.json({ code: 'og_generation_failed' as const, message }, 500)
     }
   })
   .get('/api/orgs', async (c) => {
     if (!c.var.session)
-      return c.json({ code: 'unauthorized', message: 'Authentication required' }, 401)
+      return c.json({ code: 'unauthorized' as const, message: 'Authentication required' }, 401)
 
     const organizations = await c.var.db
       .selectFrom('organization_member')
@@ -1092,7 +1164,7 @@ export const api = new Hono<{
   })
   .get('/api/orgs/:id', async (c) => {
     if (!c.var.session)
-      return c.json({ code: 'unauthorized', message: 'Authentication required' }, 401)
+      return c.json({ code: 'unauthorized' as const, message: 'Authentication required' }, 401)
 
     const organization = await c.var.db
       .selectFrom('organization')
@@ -1108,7 +1180,7 @@ export const api = new Hono<{
       ])
       .executeTakeFirst()
 
-    if (!organization) return c.json({ code: 'not_found', message: 'Not found' }, 404)
+    if (!organization) return c.json({ code: 'not_found' as const, message: 'Not found' }, 404)
     return c.json({ organization }, 200)
   })
   .post(
@@ -1130,11 +1202,11 @@ export const api = new Hono<{
     async (c) => {
       if (hono.narrowValidation) return hono.validationError(c)
       if (!c.var.session)
-        return c.json({ code: 'unauthorized', message: 'Authentication required' }, 401)
+        return c.json({ code: 'unauthorized' as const, message: 'Authentication required' }, 401)
 
       const json = c.req.valid('json')
       if (Constants.reservedLogins.has(json.login))
-        return c.json({ code: 'login_reserved', message: 'Login is reserved' }, 409)
+        return c.json({ code: 'login_reserved' as const, message: 'Login is reserved' }, 409)
 
       const existingLogin = await c.var.db
         .selectFrom((eb) =>
@@ -1149,7 +1221,7 @@ export const api = new Hono<{
         .limit(1)
         .executeTakeFirst()
       if (existingLogin)
-        return c.json({ code: 'login_taken', message: 'Login is already taken' }, 409)
+        return c.json({ code: 'login_taken' as const, message: 'Login is already taken' }, 409)
 
       const accountId = c.var.session.account_id
       try {
@@ -1169,7 +1241,7 @@ export const api = new Hono<{
             .execute()
         })
       } catch {
-        return c.json({ code: 'login_taken', message: 'Login is already taken' }, 409)
+        return c.json({ code: 'login_taken' as const, message: 'Login is already taken' }, 409)
       }
 
       return c.json({ login: json.login }, 200)
@@ -1188,7 +1260,7 @@ export const api = new Hono<{
     async (c) => {
       if (hono.narrowValidation) return hono.validationError(c)
       if (!c.var.session)
-        return c.json({ code: 'unauthorized', message: 'Authentication required' }, 401)
+        return c.json({ code: 'unauthorized' as const, message: 'Authentication required' }, 401)
 
       const member = await c.var.db
         .selectFrom('organization_member')
@@ -1197,12 +1269,13 @@ export const api = new Hono<{
         .where('role', 'in', ['owner', 'admin'])
         .select(['id', 'role'])
         .executeTakeFirst()
-      if (!member) return c.json({ code: 'forbidden', message: 'Insufficient permissions' }, 403)
+      if (!member)
+        return c.json({ code: 'forbidden' as const, message: 'Insufficient permissions' }, 403)
 
       const json = c.req.valid('json')
       if (member.role === 'admin' && json.role === 'admin')
-        return c.json({ code: 'forbidden', message: 'Insufficient permissions' }, 403)
-      const token = customAlphabet('0123456789abcdefghijklmnopqrstuvwxyz', 32)()
+        return c.json({ code: 'forbidden' as const, message: 'Insufficient permissions' }, 403)
+      const token = customAlphabet(Nanoid.alphabet, 32)()
       const expires_at = new Date(Date.now() + (json.expires_in ?? 604800) * 1000)
 
       await c.var.db
@@ -1233,7 +1306,7 @@ export const api = new Hono<{
   )
   .get('/api/orgs/:id/invites', async (c) => {
     if (!c.var.session)
-      return c.json({ code: 'unauthorized', message: 'Authentication required' }, 401)
+      return c.json({ code: 'unauthorized' as const, message: 'Authentication required' }, 401)
 
     const member = await c.var.db
       .selectFrom('organization_member')
@@ -1242,7 +1315,8 @@ export const api = new Hono<{
       .where('role', 'in', ['owner', 'admin'])
       .select('id')
       .executeTakeFirst()
-    if (!member) return c.json({ code: 'forbidden', message: 'Insufficient permissions' }, 403)
+    if (!member)
+      return c.json({ code: 'forbidden' as const, message: 'Insufficient permissions' }, 403)
 
     const invites = await c.var.db
       .selectFrom('organization_invite')
@@ -1256,7 +1330,7 @@ export const api = new Hono<{
   })
   .delete('/api/orgs/:id/invites/:inviteId', async (c) => {
     if (!c.var.session)
-      return c.json({ code: 'unauthorized', message: 'Authentication required' }, 401)
+      return c.json({ code: 'unauthorized' as const, message: 'Authentication required' }, 401)
 
     const member = await c.var.db
       .selectFrom('organization_member')
@@ -1265,7 +1339,8 @@ export const api = new Hono<{
       .where('role', 'in', ['owner', 'admin'])
       .select('id')
       .executeTakeFirst()
-    if (!member) return c.json({ code: 'forbidden', message: 'Insufficient permissions' }, 403)
+    if (!member)
+      return c.json({ code: 'forbidden' as const, message: 'Insufficient permissions' }, 403)
 
     const result = await c.var.db
       .updateTable('organization_invite')
@@ -1275,12 +1350,13 @@ export const api = new Hono<{
       .where('deleted_at', 'is', null)
       .executeTakeFirst()
 
-    if (!result.numUpdatedRows) return c.json({ code: 'not_found', message: 'Not found' }, 404)
+    if (!result.numUpdatedRows)
+      return c.json({ code: 'not_found' as const, message: 'Not found' }, 404)
     return c.json({ ok: true }, 200)
   })
   .get('/api/orgs/:id/members', async (c) => {
     if (!c.var.session)
-      return c.json({ code: 'unauthorized', message: 'Authentication required' }, 401)
+      return c.json({ code: 'unauthorized' as const, message: 'Authentication required' }, 401)
 
     const member = await c.var.db
       .selectFrom('organization_member')
@@ -1289,7 +1365,8 @@ export const api = new Hono<{
       .where('role', 'in', ['owner', 'admin'])
       .select('id')
       .executeTakeFirst()
-    if (!member) return c.json({ code: 'forbidden', message: 'Insufficient permissions' }, 403)
+    if (!member)
+      return c.json({ code: 'forbidden' as const, message: 'Insufficient permissions' }, 403)
 
     const members = await c.var.db
       .selectFrom('organization_member')
@@ -1320,7 +1397,7 @@ export const api = new Hono<{
     async (c) => {
       if (hono.narrowValidation) return hono.validationError(c)
       if (!c.var.session)
-        return c.json({ code: 'unauthorized', message: 'Authentication required' }, 401)
+        return c.json({ code: 'unauthorized' as const, message: 'Authentication required' }, 401)
 
       const currentMember = await c.var.db
         .selectFrom('organization_member')
@@ -1330,11 +1407,11 @@ export const api = new Hono<{
         .select('role')
         .executeTakeFirst()
       if (!currentMember)
-        return c.json({ code: 'forbidden', message: 'Insufficient permissions' }, 403)
+        return c.json({ code: 'forbidden' as const, message: 'Insufficient permissions' }, 403)
 
       const json = c.req.valid('json')
       if (currentMember.role === 'admin' && json.role === 'admin')
-        return c.json({ code: 'forbidden', message: 'Insufficient permissions' }, 403)
+        return c.json({ code: 'forbidden' as const, message: 'Insufficient permissions' }, 403)
 
       const account = await c.var.db
         .selectFrom('account')
@@ -1342,7 +1419,8 @@ export const api = new Hono<{
         .where('deleted_at', 'is', null)
         .select('id')
         .executeTakeFirst()
-      if (!account) return c.json({ code: 'account_not_found', message: 'Account not found' }, 404)
+      if (!account)
+        return c.json({ code: 'account_not_found' as const, message: 'Account not found' }, 404)
 
       const member = await c.var.db
         .insertInto('organization_member')
@@ -1369,7 +1447,7 @@ export const api = new Hono<{
     async (c) => {
       if (hono.narrowValidation) return hono.validationError(c)
       if (!c.var.session)
-        return c.json({ code: 'unauthorized', message: 'Authentication required' }, 401)
+        return c.json({ code: 'unauthorized' as const, message: 'Authentication required' }, 401)
 
       const currentMember = await c.var.db
         .selectFrom('organization_member')
@@ -1379,9 +1457,9 @@ export const api = new Hono<{
         .select(['id', 'role'])
         .executeTakeFirst()
       if (!currentMember)
-        return c.json({ code: 'forbidden', message: 'Insufficient permissions' }, 403)
+        return c.json({ code: 'forbidden' as const, message: 'Insufficient permissions' }, 403)
       if (currentMember.id === c.req.param('memberId'))
-        return c.json({ code: 'forbidden', message: 'Insufficient permissions' }, 403)
+        return c.json({ code: 'forbidden' as const, message: 'Insufficient permissions' }, 403)
 
       const member = await c.var.db
         .selectFrom('organization_member')
@@ -1389,9 +1467,12 @@ export const api = new Hono<{
         .where('organization_id', '=', c.req.param('id'))
         .select('role')
         .executeTakeFirst()
-      if (!member) return c.json({ code: 'not_found', message: 'Member not found' }, 404)
+      if (!member) return c.json({ code: 'not_found' as const, message: 'Member not found' }, 404)
       if (member.role === 'owner')
-        return c.json({ code: 'cannot_change_owner', message: 'Cannot change owner role' }, 403)
+        return c.json(
+          { code: 'cannot_change_owner' as const, message: 'Cannot change owner role' },
+          403,
+        )
 
       const json = c.req.valid('json')
       await c.var.db
@@ -1406,7 +1487,7 @@ export const api = new Hono<{
   )
   .delete('/api/orgs/:id/members/:memberId', async (c) => {
     if (!c.var.session)
-      return c.json({ code: 'unauthorized', message: 'Authentication required' }, 401)
+      return c.json({ code: 'unauthorized' as const, message: 'Authentication required' }, 401)
 
     const currentMember = await c.var.db
       .selectFrom('organization_member')
@@ -1416,9 +1497,9 @@ export const api = new Hono<{
       .select(['id', 'role'])
       .executeTakeFirst()
     if (!currentMember)
-      return c.json({ code: 'forbidden', message: 'Insufficient permissions' }, 403)
+      return c.json({ code: 'forbidden' as const, message: 'Insufficient permissions' }, 403)
     if (currentMember.id === c.req.param('memberId'))
-      return c.json({ code: 'cannot_remove_self', message: 'Cannot remove yourself' }, 403)
+      return c.json({ code: 'cannot_remove_self' as const, message: 'Cannot remove yourself' }, 403)
 
     const member = await c.var.db
       .selectFrom('organization_member')
@@ -1426,9 +1507,9 @@ export const api = new Hono<{
       .where('organization_id', '=', c.req.param('id'))
       .select('role')
       .executeTakeFirst()
-    if (!member) return c.json({ code: 'not_found', message: 'Member not found' }, 404)
+    if (!member) return c.json({ code: 'not_found' as const, message: 'Member not found' }, 404)
     if (member.role === 'owner')
-      return c.json({ code: 'cannot_remove_owner', message: 'Cannot remove owner' }, 403)
+      return c.json({ code: 'cannot_remove_owner' as const, message: 'Cannot remove owner' }, 403)
 
     await c.var.db
       .deleteFrom('organization_member')
@@ -1444,7 +1525,7 @@ export const api = new Hono<{
     async (c) => {
       if (hono.narrowValidation) return hono.validationError(c)
       if (!c.var.session)
-        return c.json({ code: 'unauthorized', message: 'Authentication required' }, 401)
+        return c.json({ code: 'unauthorized' as const, message: 'Authentication required' }, 401)
       if (c.var.api_key_id)
         return c.json(
           { code: 'forbidden', message: 'Cannot create tokens with API token auth' },
@@ -1461,7 +1542,8 @@ export const api = new Hono<{
         .where('deleted_at', 'is', null)
         .select('id')
         .executeTakeFirst()
-      if (existing) return c.json({ code: 'name_taken', message: 'Token name already taken' }, 409)
+      if (existing)
+        return c.json({ code: 'name_taken' as const, message: 'Token name already taken' }, 409)
 
       const token = ApiKey.generate()
       const keyHash = await ApiKey.hash(token)
@@ -1484,7 +1566,7 @@ export const api = new Hono<{
   )
   .get('/api/tokens', async (c) => {
     if (!c.var.session)
-      return c.json({ code: 'unauthorized', message: 'Authentication required' }, 401)
+      return c.json({ code: 'unauthorized' as const, message: 'Authentication required' }, 401)
 
     const api_keys = await c.var.db
       .selectFrom('api_key')
@@ -1499,7 +1581,7 @@ export const api = new Hono<{
   })
   .delete('/api/tokens/:id', async (c) => {
     if (!c.var.session)
-      return c.json({ code: 'unauthorized', message: 'Authentication required' }, 401)
+      return c.json({ code: 'unauthorized' as const, message: 'Authentication required' }, 401)
 
     const result = await c.var.db
       .updateTable('api_key')
@@ -1510,13 +1592,14 @@ export const api = new Hono<{
       .executeTakeFirst()
 
     if (!result.numUpdatedRows)
-      return c.json({ code: 'not_found', message: 'Token not found' }, 404)
+      return c.json({ code: 'not_found' as const, message: 'Token not found' }, 404)
     return c.json({ ok: true }, 200)
   })
   .post('/api/stripe/webhook', async (c) => {
     const body = await c.req.text()
     const signature = c.req.header('stripe-signature')
-    if (!signature) return c.json({ code: 'missing_signature', message: 'Missing signature' }, 400)
+    if (!signature)
+      return c.json({ code: 'missing_signature' as const, message: 'Missing signature' }, 400)
 
     const stripe = new Stripe(
       c.env.STRIPE_SECRET_KEY,
@@ -1532,7 +1615,7 @@ export const api = new Hono<{
       )
     } catch (error) {
       Sentry.captureException(error)
-      return c.json({ code: 'invalid_signature', message: 'Invalid signature' }, 400)
+      return c.json({ code: 'invalid_signature' as const, message: 'Invalid signature' }, 400)
     }
 
     switch (event.type) {
@@ -1594,7 +1677,7 @@ export const api = new Hono<{
   .post('/api/sentry/tunnel', async (c) => {
     const body = await c.req.text()
     if (!body.includes('\n'))
-      return c.json({ code: 'invalid_envelope', message: 'Invalid envelope' }, 400)
+      return c.json({ code: 'invalid_envelope' as const, message: 'Invalid envelope' }, 400)
     const dsn = new URL(c.env.SENTRY_DSN)
     const project = dsn.pathname.replace(/^\//, '')
     const res = await fetch(`https://${dsn.hostname}/api/${project}/envelope/`, {
@@ -1603,7 +1686,10 @@ export const api = new Hono<{
       body,
     })
     if (!res.ok)
-      return c.json({ code: 'sentry_upstream_error', message: 'Sentry upstream error' }, 502)
+      return c.json(
+        { code: 'sentry_upstream_error' as const, message: 'Sentry upstream error' },
+        502,
+      )
     return c.json({ ok: true }, 200)
   })
   .get(
@@ -1695,13 +1781,13 @@ export const api = new Hono<{
 <meta name="twitter:description" content="URL to markdown for agents" />
 <meta name="twitter:image" content="${ogUrl}" />`,
           200,
-        )
+        ) as never // casting to never so hono/client can infer c.json responses
       }
 
       const orgHeader = c.req.header('x-organization-id')
       if (orgHeader && !c.var.organization_id)
         return c.json(
-          { code: 'organization_access_denied', message: 'Organization access denied' },
+          { code: 'organization_access_denied' as const, message: 'Organization access denied' },
           403,
         )
 
@@ -1752,7 +1838,7 @@ export const api = new Hono<{
         if (count > limit.max)
           return c.json(
             {
-              code: 'rate_limit_exceeded',
+              code: 'rate_limit_exceeded' as const,
               message: c.var.session ? 'Add credits to remove rate limits' : 'Rate limit exceeded',
             },
             429,
@@ -1820,7 +1906,7 @@ export const api = new Hono<{
       if (!response.ok)
         return c.json(
           {
-            code: 'fetch_failed',
+            code: 'fetch_failed' as const,
             message: response.error || `Upstream returned ${response.status}`,
           },
           502,
@@ -1888,8 +1974,19 @@ export const api = new Hono<{
           completionTokens = result.completionTokens
           excerpt = result.excerpt || filteredContent
         } catch (error) {
-          const message = error instanceof Error ? error.message : 'Unknown error'
-          return c.json({ code: 'ai_failed', message }, 502)
+          const message = (() => {
+            if (!(error instanceof Error)) return 'Unknown AI error'
+            const message = error.message.replace(/^Error:\s*/i, '').trim()
+            const code = message.match(/^error code:\s*(\d+)$/i)?.[1]
+            if (code) {
+              if (error.name === 'InferenceUpstreamError')
+                return `Inference upstream error (${code})`
+              if (error.name === 'AiInternalError') return `Workers AI internal error (${code})`
+              return `AI error (${code})`
+            }
+            return message || 'Unknown AI error'
+          })()
+          return c.json({ code: 'ai_failed' as const, message }, 502)
         }
       }
 
@@ -1959,9 +2056,6 @@ export const api = new Hono<{
         user_agent: userAgent,
       })
 
-      const content = c.var.session
-        ? finalDocument.trimEnd()
-        : `${finalDocument.trimEnd()}${Constants.attribution.suffix}`
       const commonHeaders: Record<string, string> = {
         ...rateLimitHeaders,
         'access-control-expose-headers':
@@ -1979,9 +2073,14 @@ export const api = new Hono<{
           commonHeaders['x-credits-remaining'] = String(Math.max(0, Number(cached) - costMills))
       }
 
+      const content = c.var.session
+        ? finalDocument.trimEnd()
+        : `${finalDocument.trimEnd()}${Constants.attribution.suffix}`
+
       // TODO: toon response
       if (c.req.header('accept')?.includes('application/json'))
-        return c.json({ content }, 200, commonHeaders)
+        // casting to string so hono/client can infer c.json response
+        return c.json({ content: content as string }, 200, commonHeaders)
 
       return c.text(content, 200, {
         ...commonHeaders,

@@ -1,7 +1,7 @@
 {
   "$schema": "./node_modules/knip/schema.json",
-  "entry": ["src/bin.ts"],
-  "ignore": ["**/*.test.ts", "**/test/**"],
+  "entry": ["src/bin.ts", "src/exports/index.ts", "src/exports/internal.ts"],
+  "ignore": ["**/*.test.ts", "**/*.test-d.ts", "**/test/**"],
   "ignoreDependencies": ["bun"],
   "exclude": ["binaries", "catalog", "exports", "unlisted"]
 }

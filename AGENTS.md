@@ -84,6 +84,7 @@ Follow [PlanetScale Postgres skill](https://github.com/planetscale/database-skil
 - Don't destructure unless necessary (e.g. prefer `const json = c.req.valid('json')` over `const { name, slug } = c.req.valid('json')`)
 - Avoid creating variables for basic things unless necessary (e.g. prefer using `c.var.db` over `const db = c.var.db`)
 - Use rpc $url() method for type-safe url generation instead of hardcoding strings
+- whenever you add a time duration/amount, make sure it has comment next to it with the human-readable time (e.g. `const accessTokenTtlMs = 15 * 60 * 1000 // 15 minutes`)
 
 ## Tests
 

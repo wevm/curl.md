@@ -152,13 +152,18 @@ function rehypeStripNoise() {
   }
 }
 
-function strip(node: Element | Root) {
+const sectioningTags = new Set(['article', 'main', 'section'])
+
+function strip(node: Element | Root, inSectioning = false) {
   if (!node.children) return
   node.children = node.children.filter((child) => {
     if (child.type === 'comment') return false
     if (child.type !== 'element') return true
 
     if (strippedTagNames.has(child.tagName)) return false
+
+    // <header> has implicit role="banner" only outside sectioning content
+    if (child.tagName === 'header' && !inSectioning) return false
 
     const role = child.properties?.role as string | undefined
     if (role && strippedRoles.has(role)) return false
@@ -168,7 +173,7 @@ function strip(node: Element | Root) {
     if (matchesNoiseClassId(child)) return false
     if (isHighLinkDensity(child)) return false
 
-    strip(child)
+    strip(child, inSectioning || sectioningTags.has(child.tagName))
     return true
   })
 }

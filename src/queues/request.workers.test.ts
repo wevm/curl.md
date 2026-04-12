@@ -2,7 +2,7 @@ import { createMessageBatch } from 'cloudflare:test'
 import { env } from 'cloudflare:workers'
 import { HttpResponse, http } from 'msw'
 import { estimateTokenCount } from 'tokenx'
-import { afterAll, expect, test } from 'vitest'
+import { afterAll, expect, test, vi } from 'vitest'
 import { createClient } from '#db/client.ts'
 import * as Nanoid from '#lib/nanoid.ts'
 import { processRequestMessage } from '#queues/request.ts'
@@ -61,9 +61,21 @@ test('inserts request record', async () => {
   expect(row.user_agent).toBe('test-agent')
 })
 
-test('clears KV cache when a request is recorded', async () => {
+test('leaves KV stats cache untouched when a request is recorded', async () => {
   await env.KV.put('stats:tokens_saved', '1000')
   await env.KV.put('stats:tokens_saved:example.com', '500')
+
+  const html = '<html><body><main><h1>Example</h1><p>Hello world</p></main></body></html>'
+  server.use(
+    http.get(
+      'https://example.com/',
+      () =>
+        new HttpResponse(html, {
+          headers: { 'content-type': 'text/html; charset=utf-8' },
+          status: 200,
+        }),
+    ),
+  )
 
   const batch = createMessageBatch<processRequestMessage.Body>(processRequestMessage.queueName, [
     {
@@ -81,11 +93,12 @@ test('clears KV cache when a request is recorded', async () => {
         extracted_tokens: null,
         filtered_tokens: null,
         markdown_tokens: 25,
+        mode: null,
         objective: null,
         organization_id: null,
         path: '/',
-        source_tokens: 525,
-        source_tokens_method: 'html',
+        source_tokens: 25,
+        source_tokens_method: 'estimated',
         url: 'https://example.com',
         user_agent: 'test-agent',
       },
@@ -97,8 +110,57 @@ test('clears KV cache when a request is recorded', async () => {
 
   const cached = await env.KV.get('stats:tokens_saved')
   const hostCached = await env.KV.get('stats:tokens_saved:example.com')
-  expect(cached).toBeNull()
-  expect(hostCached).toBeNull()
+  expect(cached).toBe('1000')
+  expect(hostCached).toBe('500')
+})
+
+test('does not fail when KV delete is rate limited', async () => {
+  const deleteSpy = vi
+    .spyOn(env.KV, 'delete')
+    .mockRejectedValue(new Error('KV DELETE failed: 429 Too Many Requests'))
+
+  try {
+    const batch = createMessageBatch<processRequestMessage.Body>(processRequestMessage.queueName, [
+      {
+        attempts: 1,
+        body: {
+          account_id: null,
+          api_key_id: null,
+          billable: false,
+          cached: false,
+          cost_mills: 0,
+          hostname: 'ratelimit.example.com',
+          id: 'req_no_kv_delete',
+          keywords: null,
+          extracted_tokens: null,
+          filtered_tokens: null,
+          markdown_tokens: 25,
+          mode: null,
+          objective: null,
+          organization_id: null,
+          path: '/',
+          source_tokens: 60,
+          source_tokens_method: 'markdown',
+          url: 'https://ratelimit.example.com',
+          user_agent: 'test-agent',
+        },
+        id: crypto.randomUUID(),
+        timestamp: new Date(),
+      },
+    ])
+
+    await expect(processRequestMessage(batch.messages[0]!, db)).resolves.toBeUndefined()
+    expect(deleteSpy).not.toHaveBeenCalled()
+
+    const row = await db
+      .selectFrom('request')
+      .where('id', '=', 'req_no_kv_delete')
+      .select(['id', 'source_tokens_method'])
+      .executeTakeFirstOrThrow()
+    expect(row).toEqual({ id: 'req_no_kv_delete', source_tokens_method: 'markdown' })
+  } finally {
+    deleteSpy.mockRestore()
+  }
 })
 
 test('stores total savings when stage counts are present', async () => {

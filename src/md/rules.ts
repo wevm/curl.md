@@ -108,6 +108,18 @@ export const astral = appendMdWithIndex({
   patterns: [new URLPattern({ hostname: 'docs.astral.sh' })],
   checks: [{ url: 'https://docs.astral.sh/uv/getting-started/installation/', contains: ['uv'] }],
 })
+export const baseUi = appendMd({
+  key: 'baseUi',
+  patterns: [new URLPattern({ hostname: 'base-ui.com', pathname: '/react/:path+' })],
+  checks: [
+    {
+      url: 'https://base-ui.com/react/overview/quick-start',
+      contains: ['# Quick start', 'npm i @base-ui/react'],
+      minLength: 500,
+      title: 'Quick start',
+    },
+  ],
+})
 export const openclaw = appendMdWithIndex({
   key: 'openclaw',
   patterns: [new URLPattern({ hostname: 'docs.openclaw.ai' })],

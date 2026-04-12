@@ -48,6 +48,7 @@ const customTypes: Record<string, Record<string, string>> = {
     mode: "'rush' | 'smart'",
     source_tokens_method: "'estimated' | 'html' | 'markdown'",
   },
+  session: { session_type: "'browser' | 'cli'" },
 }
 
 const timestampTypes = new Set([

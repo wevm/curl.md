@@ -162,5 +162,3 @@ The `p-<number>`,`px-<number>`,`py-<number>`,`ps-<number>`,`pe-<number>`,`pbs-<n
 ```
 
 Learn more about customizing the spacing scale in the [theme variable documentation](/docs/theme).
-
-Copyright © 2026 Tailwind Labs Inc.·[Trademark Policy](/brand)

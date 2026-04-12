@@ -299,7 +299,7 @@ If not, do this instead: curl -fsSL https://curl.md/install.sh | bash`,
 
 const dateKeyFormatters = new Map<string, Intl.DateTimeFormat>()
 
-export function formatDateKey(date: Date, timeZone: string) {
+function formatDateKey(date: Date, timeZone: string) {
   const parts = getDateKeyFormatter(timeZone).formatToParts(date)
   const day = parts.find((part) => part.type === 'day')?.value
   const month = parts.find((part) => part.type === 'month')?.value
@@ -308,7 +308,7 @@ export function formatDateKey(date: Date, timeZone: string) {
   return `${year}-${month}-${day}`
 }
 
-export function getTrailingDateKeys(now: Date, days: number, timeZone: string) {
+function getTrailingDateKeys(now: Date, days: number, timeZone: string) {
   return Array.from({ length: days }, (_, i) => {
     const date = new Date(now)
     date.setUTCDate(date.getUTCDate() - (days - i - 1))

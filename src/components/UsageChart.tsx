@@ -50,7 +50,15 @@ export function UsageChart(props: {
           margin={{ top: 8, right: 0, bottom: 0, left: 0 }}
           width={size.width}
         >
-          <CartesianGrid horizontalValues={ticks} vertical={false} stroke="var(--color-gray3)" />
+          <CartesianGrid
+            horizontalCoordinatesGenerator={({ yAxis }) =>
+              ticks
+                .map((tick) => yAxis?.scale?.map(tick))
+                .filter((coordinate): coordinate is number => typeof coordinate === 'number')
+            }
+            stroke="var(--color-gray3)"
+            vertical={false}
+          />
           <XAxis
             axisLine={false}
             dataKey="label"

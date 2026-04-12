@@ -3,21 +3,39 @@ name: Release Binaries
 on:
   release:
     types: [published]
-  workflow_dispatch:
-    inputs:
-      tag:
-        required: true
-        type: string
   workflow_call:
     inputs:
-      tag:
-        required: true
+      publishedPackages:
+        required: false
         type: string
 
 permissions: {}
 
 jobs:
+  resolve:
+    name: Resolve Release Tag
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }}
+    steps:
+      - name: Resolve release tag
+        id: resolve
+        env:
+          PUBLISHED_PACKAGES: ${{ inputs.publishedPackages }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          TAG=''
+          if [ -n "$PUBLISHED_PACKAGES" ]; then
+            TAG="$(printf '%s' "$PUBLISHED_PACKAGES" | jq -r 'map(select(.name == "curl.md"))[0] | if . then "\(.name)@\(.version)" else "" end')"
+          fi
+          if [ -z "$TAG" ]; then
+            TAG="$RELEASE_TAG"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
   build:
+    needs: resolve
+    if: needs.resolve.outputs.tag != ''
     name: Build ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
     permissions:
@@ -45,7 +63,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
-          ref: ${{ inputs.tag || github.event.release.tag_name }}
+          ref: ${{ needs.resolve.outputs.tag }}
 
       - name: Setup bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
@@ -63,11 +81,12 @@ jobs:
         run: gh release upload "$TAG" "${{ matrix.artifact }}" "${{ matrix.artifact }}.sha256" --clobber
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ inputs.tag || github.event.release.tag_name }}
+          TAG: ${{ needs.resolve.outputs.tag }}
 
   test:
     name: Test install.sh (${{ matrix.os }})
-    needs: build
+    needs: [resolve, build]
+    if: needs.resolve.outputs.tag != ''
     permissions:
       contents: read
     strategy:
@@ -85,7 +104,7 @@ jobs:
         run: sh public/install.sh "$TAG"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ inputs.tag || github.event.release.tag_name }}
+          TAG: ${{ needs.resolve.outputs.tag }}
 
       - name: Verify binary
         run: ~/.local/bin/curl.md --version

@@ -1,5 +1,6 @@
 packages:
   - cli
+  - plugins/*
 
 auditConfig:
   ignoreCves:
@@ -32,6 +33,7 @@ onlyBuiltDependencies:
 overrides:
   # Force emulate's transitive @hono/node-server to the patched release for GHSA-92pp-h63x-v22m.
   '@hono/node-server': 1.19.13
+  basic-ftp@5.2.0: 5.2.2
   brace-expansion@>=2.0.0 <2.0.3: 2.0.3
   defu@<=6.1.4: 6.1.5
   h3: 2.0.1-rc.18
@@ -41,8 +43,8 @@ overrides:
   path-to-regexp@>=8.0.0 <8.4.0: 8.4.0
   picomatch@>=4.0.0 <4.0.4: 4.0.4
 
-# Temporary until TanStack/router issue #7115 lands via PR #7116 and ships in a release.
-# https://github.com/TanStack/router/pull/7116
+# Temporary until TanStack/router issue #7115 lands
+# https://github.com/TanStack/router/pull/7115
 patchedDependencies:
   '@tanstack/react-router@1.168.7': config/patches/@tanstack__react-router@1.168.7.patch
   '@tanstack/router-core@1.168.6': config/patches/@tanstack__router-core@1.168.6.patch

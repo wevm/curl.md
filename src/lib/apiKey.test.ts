@@ -1,6 +1,13 @@
 import { expect, test } from 'vitest'
 import * as ApiKey from '#lib/apiKey.ts'
 
+test('generate matches api key shape and excludes cli access tokens', () => {
+  const token = ApiKey.generate()
+
+  expect(ApiKey.isApiKey(token)).toBe(true)
+  expect(ApiKey.isApiKey('curlmd_at_abcdefghijklmnopqrstuvwxyz0123456789abcd')).toBe(false)
+})
+
 test('returns 64-char hex string', async () => {
   const result = await ApiKey.hash('curlmd_test123')
   expect(result).toMatch(/^[0-9a-f]{64}$/)

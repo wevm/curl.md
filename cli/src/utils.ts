@@ -5,48 +5,14 @@ import path from 'node:path'
 import util from 'node:util'
 import pc from 'picocolors'
 import pkg from '../package.json' with { type: 'json' }
+import type { Client } from './client.ts'
+import { createSpinner } from './ui.ts'
 
 export function dataDir() {
   if (process.env.XDG_DATA_HOME) return path.join(process.env.XDG_DATA_HOME, 'curl-md')
   if (process.platform === 'win32')
     return path.join(process.env.LOCALAPPDATA || os.homedir(), 'curl-md')
   return path.join(os.homedir(), '.local', 'share', 'curl-md')
-}
-
-export function configDir() {
-  if (process.env.XDG_CONFIG_HOME) return path.join(process.env.XDG_CONFIG_HOME, 'curl-md')
-  if (process.platform === 'win32') return path.join(process.env.APPDATA || os.homedir(), 'curl-md')
-  return path.join(os.homedir(), '.config', 'curl-md')
-}
-
-export const Session = {
-  dir: () => path.join(dataDir(), 'session.json'),
-  read(): Session.Data | null {
-    try {
-      return JSON.parse(fs.readFileSync(Session.dir(), 'utf-8'))
-    } catch {
-      return null
-    }
-  },
-  write(session: Partial<Session.Data>) {
-    const p = Session.dir()
-    fs.mkdirSync(path.dirname(p), { recursive: true })
-    const existing = Session.read()
-    const merged = { ...existing, ...session }
-    fs.writeFileSync(p, JSON.stringify(merged), { mode: 0o600 })
-  },
-  delete() {
-    try {
-      fs.unlinkSync(Session.dir())
-    } catch {}
-  },
-}
-
-export declare namespace Session {
-  export type Data = {
-    session_id: string
-    organization_id?: string | undefined
-  }
 }
 
 export function compareVersions(a: string, b: string): number {
@@ -67,10 +33,6 @@ export function installGlobal(name: string, version?: string) {
   if (type === 'bun') return execFileAsync('bun', ['add', '-g', spec])
   return execFileAsync('npm', ['install', '-g', spec])
 }
-
-import type { Client } from './types.ts'
-import { createSpinner, select } from './ui.ts'
-export { createSpinner, select }
 
 export function openUrl(url: string) {
   const cmd =
@@ -205,15 +167,6 @@ export function formatValidationError(json: unknown, fallback = 'Invalid request
   return json.issues
     .map((i: { message: string; path: string }) => `${i.path}: ${i.message}`)
     .join('\n')
-}
-
-/** Extracts `code` and `message` from an untyped API error response (e.g. wildcard routes where Hono RPC can't infer types). Returns uppercased `code`. Falls back to provided defaults if the shape doesn't match. */
-export function parseApiError(json: unknown, fallback: { code: string; message: string }) {
-  if (json && typeof json === 'object' && 'code' in json && 'message' in json) {
-    const obj = json as { code: string; message: string }
-    return { code: obj.code.toUpperCase(), message: obj.message }
-  }
-  return fallback
 }
 
 export function isStandalone(): boolean {

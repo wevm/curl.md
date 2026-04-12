@@ -16,6 +16,7 @@ export interface DB {
   organization_member: organization_member
   request: request
   session: session
+  session_access_token: session_access_token
 }
 
 type account = {
@@ -135,6 +136,16 @@ type session = {
   created_at: GeneratedTimestamp
   expires_at: Timestamp
   id: k.Generated<string>
+  refresh_token_hash: string | null
+  session_type: k.Generated<'browser' | 'cli'>
+}
+
+type session_access_token = {
+  created_at: GeneratedTimestamp
+  expires_at: Timestamp
+  id: k.Generated<string>
+  session_id: string
+  token_hash: string
 }
 
 export declare namespace DB {
@@ -148,6 +159,7 @@ export declare namespace DB {
   type organization_member = k.Selectable<DB['organization_member']>
   type request = k.Selectable<DB['request']>
   type session = k.Selectable<DB['session']>
+  type session_access_token = k.Selectable<DB['session_access_token']>
 
   export namespace Insertable {
     type account = k.Insertable<DB['account']>
@@ -160,6 +172,7 @@ export declare namespace DB {
     type organization_member = k.Insertable<DB['organization_member']>
     type request = k.Insertable<DB['request']>
     type session = k.Insertable<DB['session']>
+    type session_access_token = k.Insertable<DB['session_access_token']>
   }
 
   export namespace Selectable {
@@ -173,6 +186,7 @@ export declare namespace DB {
     type organization_member = k.Selectable<DB['organization_member']>
     type request = k.Selectable<DB['request']>
     type session = k.Selectable<DB['session']>
+    type session_access_token = k.Selectable<DB['session_access_token']>
   }
 
   export namespace Updateable {
@@ -186,5 +200,6 @@ export declare namespace DB {
     type organization_member = k.Updateable<DB['organization_member']>
     type request = k.Updateable<DB['request']>
     type session = k.Updateable<DB['session']>
+    type session_access_token = k.Updateable<DB['session_access_token']>
   }
 }

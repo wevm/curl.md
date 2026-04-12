@@ -57,6 +57,40 @@ test('preserves non-expired device codes', async () => {
   expect(rows).toHaveLength(1)
 })
 
+test('deletes expired session access tokens', async () => {
+  const account = await factory.account.insert({})
+  const session = await factory.session.insert({
+    account_id: account.id,
+    expires_at: new Date(Date.now() + 60_000).toISOString(),
+  })
+  const tokenHash = Nanoid.generate()
+
+  await db
+    .insertInto('session_access_token')
+    .values({
+      expires_at: new Date(Date.now() - 1000).toISOString(),
+      session_id: session.id,
+      token_hash: tokenHash,
+    })
+    .execute()
+
+  await runCleanup()
+
+  const tokenRows = await db
+    .selectFrom('session_access_token')
+    .where('token_hash', '=', tokenHash)
+    .selectAll()
+    .execute()
+  expect(tokenRows).toHaveLength(0)
+
+  const sessionRows = await db
+    .selectFrom('session')
+    .where('id', '=', session.id)
+    .selectAll()
+    .execute()
+  expect(sessionRows).toHaveLength(1)
+})
+
 test('deletes expired sessions', async () => {
   const account = await factory.account.insert({})
   await factory.session.insert({

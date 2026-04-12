@@ -21,6 +21,68 @@ test('extract produces expected output for PR HTML', async () => {
   await expect(result.content).toMatchFileSnapshot('__snapshots__/github-pr-66.md')
 })
 
+test('extracts issue content from modern GitHub embedded data', async () => {
+  const html = `<script type="application/json" data-target="react-app.embeddedData">${JSON.stringify(
+    {
+      payload: {
+        preloadedQueries: [
+          {
+            result: {
+              data: {
+                repository: {
+                  issue: {
+                    author: { login: 'gumonteilh' },
+                    body: 'Issue body',
+                    createdAt: '2026-04-10T13:00:05Z',
+                    frontTimelineItems: {
+                      edges: [
+                        {
+                          node: {
+                            __typename: 'IssueComment',
+                            author: { login: 'github-actions' },
+                            body: 'Auto-close comment',
+                            createdAt: '2026-04-10T13:00:17Z',
+                          },
+                        },
+                      ],
+                    },
+                    number: 3005,
+                    state: 'OPEN',
+                    title: 'Make "UPDATE AVAILABLE" message toggleable',
+                    updatedAt: '2026-04-11T14:50:26Z',
+                  },
+                },
+              },
+            },
+          },
+        ],
+      },
+    },
+  )}</script>`
+  const md = create({
+    rules: [githubIssue()],
+    fetch: async () => new Response(html, { status: 200 }),
+  })
+  const result = await md.fetch('https://github.com/badlogic/pi-mono/issues/3005')
+
+  expect(result.ok).toBe(true)
+  if (!result.ok) return
+
+  expect(result.content).toBe(
+    'Issue body\n\n<comment author="github-actions" date="2026-04-10T13:00:17Z">\nAuto-close comment\n</comment>',
+  )
+  expect(result.meta).toEqual({
+    author: 'gumonteilh',
+    created_at: '2026-04-10T13:00:05Z',
+    number: 3005,
+    site: 'github.com',
+    state: 'open',
+    title: 'Make "UPDATE AVAILABLE" message toggleable',
+    updated_at: '2026-04-11T14:50:26Z',
+    url: 'https://github.com/badlogic/pi-mono/issues/3005',
+  })
+})
+
 test('githubRepo rewrites to raw README.md', () => {
   const rule = githubRepo()
   const url = new URL('https://github.com/owner/repo')

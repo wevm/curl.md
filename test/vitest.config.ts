@@ -88,6 +88,21 @@ export default defineConfig({
           testTimeout: 30_000,
         },
       },
+      {
+        test: {
+          name: 'plugins:amp',
+          include: ['plugins/amp/**/*.test.ts'],
+          root,
+        },
+      },
+      {
+        test: {
+          name: 'plugins:pi',
+          include: ['plugins/pi/**/*.test.ts'],
+          root,
+          setupFiles: ['plugins/pi/test/setup.ts'],
+        },
+      },
     ],
   },
 })

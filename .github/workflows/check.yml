@@ -67,6 +67,7 @@ jobs:
 
       - name: Generate code
         run: |
+          pnpm preconstruct
           pnpm gen:types
           pnpm db:codegen
 
@@ -101,7 +102,9 @@ jobs:
         run: pnpm test --project cli
 
       - name: Build
-        run: pnpm build:cli
+        run: |
+          pnpm --filter curl.md build
+          pnpm --filter @curl.md/amp build
 
   e2e:
     name: E2E

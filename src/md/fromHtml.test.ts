@@ -154,14 +154,24 @@ describe('strips noise elements', () => {
     expect(result).not.toContain('Home')
   })
 
-  test('preserves header elements', async () => {
+  test('strips top-level header elements', async () => {
     const { content: result } = await fromHtml(
       html({
         body: '<header><h1>Site Title</h1></header><main><p>Content</p></main>',
       }),
     )
     expect(result).toContain('Content')
-    expect(result).toContain('Site Title')
+    expect(result).not.toContain('Site Title')
+  })
+
+  test('preserves header elements inside sectioning content', async () => {
+    const { content: result } = await fromHtml(
+      html({
+        body: '<article><header><h1>Article Title</h1></header><p>Content</p></article>',
+      }),
+    )
+    expect(result).toContain('Content')
+    expect(result).toContain('Article Title')
   })
 
   test('strips skip-to-content links', async () => {
