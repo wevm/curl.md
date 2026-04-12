@@ -30,42 +30,45 @@ function Component() {
           <Nav.Logo />
           <Nav.Links />
           <Nav.Group>
-            <a
-              aria-label="GitHub"
-              className="text-gray8 hover:text-gray10 p-1.5"
-              href="https://github.com/wevm/curl.md"
-              rel="noopener noreferrer"
-              target="_blank"
-            >
-              <IconOcticonMarkGithub16 className="size-[1.125rem]" />
-            </a>
-            <a
-              aria-label="X"
-              className="text-gray8 hover:text-gray10 me-2 p-1.5"
-              href="https://x.com/wevm_dev"
-              rel="noopener noreferrer"
-              target="_blank"
-            >
-              <IconSimpleIconsX className="size-4.5" />
-            </a>
-            {login ? (
-              <Link
-                className="bg-gray10 text-bg1 px-3 py-1.5 text-sm transition-opacity hover:opacity-90"
-                params={{ login }}
-                to="/$login"
+            <div className="hidden items-center gap-1.5 md:flex">
+              <a
+                aria-label="GitHub"
+                className="text-gray8 hover:text-gray10 p-1.5"
+                href="https://github.com/wevm/curl.md"
+                rel="noopener noreferrer"
+                target="_blank"
               >
-                Dashboard
-              </Link>
-            ) : (
-              <Link
-                className="bg-gray10 text-bg1 px-3 py-1.5 text-sm transition-opacity hover:opacity-90"
-                search={{ next }}
-                to="/login"
+                <IconOcticonMarkGithub16 className="size-[1.125rem]" />
+              </a>
+              <a
+                aria-label="X"
+                className="text-gray8 hover:text-gray10 me-2 p-1.5"
+                href="https://x.com/wevm_dev"
+                rel="noopener noreferrer"
+                target="_blank"
               >
-                Sign in
-              </Link>
-            )}
+                <IconSimpleIconsX className="size-4.5" />
+              </a>
+              {login ? (
+                <Link
+                  className="bg-gray10 text-bg1 px-3 py-1.5 text-sm transition-opacity hover:opacity-90"
+                  params={{ login }}
+                  to="/$login"
+                >
+                  Dashboard
+                </Link>
+              ) : (
+                <Link
+                  className="bg-gray10 text-bg1 px-3 py-1.5 text-sm transition-opacity hover:opacity-90"
+                  search={{ next }}
+                  to="/login"
+                >
+                  Sign in
+                </Link>
+              )}
+            </div>
             <button
+              aria-label={open ? 'Close navigation' : 'Open navigation'}
               className="hover:bg-gray-a2 p-1.5 md:hidden"
               onClick={() => setOpen((o) => !o)}
               type="button"
@@ -83,14 +86,69 @@ function Component() {
       <div className="mt-17 flex flex-1 justify-center">
         <div className="flex w-full max-w-[90rem] md:gap-12">
           <aside
-            className="bg-bg1 border-gray-a3 fixed top-17 bottom-0 z-40 hidden w-64 border-e data-[open]:block md:static md:block md:shrink-0"
+            className="bg-bg1 border-gray-a3 fixed inset-x-0 top-17 bottom-0 z-40 hidden w-full border-e data-[open]:block md:static md:block md:w-64 md:shrink-0"
             data-open={open ? '' : undefined}
           >
             <div className="h-full overflow-y-auto py-6 ps-6 pe-6 md:sticky md:top-17 md:h-[calc(100dvh-4.25rem)]">
               <div className="flex min-h-full flex-col">
                 <SidebarNav items={sidebar} onNavigate={() => setOpen(false)} />
+
+                <div className="border-gray-a3 mt-6 border-t pt-4 md:hidden">
+                  <MobileTopLinks onNavigate={() => setOpen(false)} />
+                </div>
+
                 <div className="mt-auto pt-4">
-                  <ThemeToggle />
+                  <div className="border-gray-a3 border-t pt-4 md:hidden">
+                    <div className="flex items-center gap-3">
+                      <div className="min-w-28 shrink-0">
+                        <ThemeToggle />
+                      </div>
+
+                      <div className="ms-auto flex min-w-0 items-center gap-1.5">
+                        <a
+                          aria-label="GitHub"
+                          className="text-gray8 hover:text-gray10 p-1.5"
+                          href="https://github.com/wevm/curl.md"
+                          rel="noopener noreferrer"
+                          target="_blank"
+                        >
+                          <IconOcticonMarkGithub16 className="size-[1.125rem]" />
+                        </a>
+                        <a
+                          aria-label="X"
+                          className="text-gray8 hover:text-gray10 me-2 p-1.5"
+                          href="https://x.com/wevm_dev"
+                          rel="noopener noreferrer"
+                          target="_blank"
+                        >
+                          <IconSimpleIconsX className="size-4.5" />
+                        </a>
+                        {login ? (
+                          <Link
+                            className="bg-gray10 text-bg1 px-3 py-1.5 text-sm transition-opacity hover:opacity-90"
+                            onClick={() => setOpen(false)}
+                            params={{ login }}
+                            to="/$login"
+                          >
+                            Dashboard
+                          </Link>
+                        ) : (
+                          <Link
+                            className="bg-gray10 text-bg1 px-3 py-1.5 text-sm transition-opacity hover:opacity-90"
+                            onClick={() => setOpen(false)}
+                            search={{ next }}
+                            to="/login"
+                          >
+                            Sign in
+                          </Link>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="hidden md:block">
+                    <ThemeToggle />
+                  </div>
                 </div>
               </div>
             </div>
@@ -105,13 +163,43 @@ function Component() {
   )
 }
 
+function MobileTopLinks(props: { onNavigate: () => void }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <Link
+        className="text-gray8 hover:text-gray10 hover:bg-gray-a2 block px-2 py-1.5 text-sm"
+        onClick={props.onNavigate}
+        to="/docs"
+      >
+        Guides
+      </Link>
+      <Link
+        className="text-gray8 hover:text-gray10 hover:bg-gray-a2 block px-2 py-1.5 text-sm"
+        onClick={props.onNavigate}
+        to="/playground"
+      >
+        API
+      </Link>
+      <Link
+        className="text-gray8 hover:text-gray10 hover:bg-gray-a2 block px-2 py-1.5 text-sm"
+        hash="cli"
+        onClick={props.onNavigate}
+        params={{ _splat: 'getting_started/installation' }}
+        to="/docs/$"
+      >
+        CLI
+      </Link>
+    </div>
+  )
+}
+
 function ThemeToggle() {
   const { mounted, resolvedTheme, setTheme, theme } = useTheme()
   const activeTheme = themeOptions.find((option) => option.value === theme) ?? themeOptions[0]!
 
   return (
     <Menu.Root modal={false}>
-      <Menu.Trigger className="text-gray8 hover:text-gray10 hover:bg-gray-a2 data-[popup-open]:bg-gray-a2 data-[popup-open]:text-gray10 flex w-full items-center gap-2 px-3 py-2 text-xs outline-none">
+      <Menu.Trigger className="text-gray8 hover:text-gray10 hover:bg-gray-a2 data-[popup-open]:bg-gray-a2 data-[popup-open]:text-gray10 flex w-full items-center gap-2 px-3 py-2 text-sm outline-none md:text-xs">
         {getThemeIcon(activeTheme.value, resolvedTheme, mounted)}
         <span className="flex-1 text-left">{activeTheme.label}</span>
       </Menu.Trigger>
@@ -172,8 +260,8 @@ function SidebarNavItem(props: { item: SidebarItem; onNavigate: () => void }) {
   if (item.type === 'group')
     return (
       <li className="mt-6 first:mt-0">
-        <span className="text-gray8 block px-2 text-xs font-medium tracking-wide uppercase">
-          {item.label}
+        <span className="text-gray10 block px-2 text-sm font-medium">
+          {formatSidebarGroupLabel(item.label)}
         </span>
         <ul className="mt-1.5 flex flex-col gap-0.5">
           {item.items.map((child) => (
@@ -197,4 +285,8 @@ function SidebarNavItem(props: { item: SidebarItem; onNavigate: () => void }) {
       </Link>
     </li>
   )
+}
+
+function formatSidebarGroupLabel(label: string) {
+  return label.charAt(0) + label.slice(1).toLowerCase()
 }

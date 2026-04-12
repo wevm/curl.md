@@ -251,7 +251,13 @@ export function DocContent(props: { doc: Doc; pagination?: DocPagination }) {
                         className="text-gray8 data-[active]:text-gray10 data-[highlighted]:bg-gray-a2 data-[highlighted]:text-gray10 focus-visible:ring-blue8 flex items-center gap-3 px-6 py-2.5 text-sm outline-none focus-visible:ring-1 focus-visible:outline-none focus-visible:ring-inset"
                         closeOnClick
                         data-active={activeHeadingId === undefined ? '' : undefined}
-                        onClick={() => setMobileOutlineOpen(false)}
+                        onClick={(event) => {
+                          event.preventDefault()
+                          window.history.pushState(null, '', getDocHref(doc.path))
+                          setActiveHeadingId(undefined)
+                          setMobileOutlineOpen(false)
+                          window.scrollTo({ top: 0 })
+                        }}
                         render={<a href={getDocHref(doc.path)} />}
                       >
                         <span className="min-w-0 flex-1 truncate text-left text-sm font-medium">
@@ -570,7 +576,7 @@ function renderHeading<Tag extends 'h1' | 'h2' | 'h3' | 'h4'>(
     tag,
     {
       ...rest,
-      className: ['group/heading relative -ms-5 ps-5', baseClassName, className]
+      className: ['group/heading relative -ms-4 ps-4 md:-ms-5 md:ps-5', baseClassName, className]
         .filter(Boolean)
         .join(' '),
       id,
@@ -606,7 +612,7 @@ function renderPageHeading(
         .join(' ')}
       id={id}
     >
-      <span className="group/heading relative -ms-5 min-w-0 flex-1 ps-5">
+      <span className="group/heading relative -ms-4 min-w-0 flex-1 ps-4 md:-ms-5 md:ps-5">
         {id && (
           <a
             aria-label="Link to section"
