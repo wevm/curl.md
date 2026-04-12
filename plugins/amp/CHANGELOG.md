@@ -1,5 +1,11 @@
 # @curl.md/amp
 
+## 0.0.3
+
+### Patch Changes
+
+- Updated install logging ([`80d044d`](https://github.com/wevm/curl.md/commit/80d044d76f7c51e3a3ca8c390b508515a8a4d1fd))
+
 ## 0.0.2
 
 ### Patch Changes
