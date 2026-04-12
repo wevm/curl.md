@@ -6,8 +6,8 @@ export function DocContent(props: { doc: Doc }) {
   const { doc } = props
 
   return (
-    <div className="flex">
-      <article className="min-w-0 max-w-2xl flex-1 px-8 py-8 md:px-12 lg:pe-0">
+    <div className="mx-auto flex w-full max-w-[76rem] justify-center">
+      <article className="w-full max-w-2xl min-w-0 px-8 py-8 md:px-12 lg:pe-0">
         <doc.Component components={mdxComponents} />
       </article>
 
@@ -50,7 +50,9 @@ const mdxComponents = {
     <code className="bg-gray-a2 px-1 py-0.5 text-[0.875em]" {...props} />
   ),
   h1: (props: React.ComponentProps<'h1'>) => <h1 className="text-lg font-bold" {...props} />,
-  h2: (props: React.ComponentProps<'h2'>) => <h2 className="mt-10 text-base font-bold" {...props} />,
+  h2: (props: React.ComponentProps<'h2'>) => (
+    <h2 className="mt-10 text-base font-bold" {...props} />
+  ),
   h3: (props: React.ComponentProps<'h3'>) => <h3 className="mt-8 font-bold" {...props} />,
   hr: () => <hr className="border-gray-a3 my-8" />,
   li: (props: React.ComponentProps<'li'>) => <li className="text-gray9 mt-1 ps-1" {...props} />,

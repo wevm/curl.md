@@ -31,16 +31,18 @@ function Component() {
         </Nav.Group>
       </nav>
 
-      <div className="mt-12 flex flex-1">
-        <aside
-          className="bg-bg1 border-gray-a3 fixed top-12 bottom-0 z-40 hidden w-56 overflow-y-auto border-e py-6 ps-6 pe-4 data-[open]:block md:block"
-          data-open={open ? '' : undefined}
-        >
-          <SidebarNav items={sidebar} onNavigate={() => setOpen(false)} />
-        </aside>
+      <div className="mt-12 flex flex-1 justify-center">
+        <div className="flex w-full max-w-[90rem]">
+          <aside
+            className="bg-bg1 border-gray-a3 fixed top-12 bottom-0 z-40 hidden w-56 overflow-y-auto border-e py-6 ps-6 pe-4 data-[open]:block md:sticky md:top-12 md:bottom-auto md:block md:h-[calc(100dvh-3rem)] md:shrink-0"
+            data-open={open ? '' : undefined}
+          >
+            <SidebarNav items={sidebar} onNavigate={() => setOpen(false)} />
+          </aside>
 
-        <div className="min-w-0 flex-1 md:ms-56">
-          <Outlet />
+          <div className="min-w-0 flex-1">
+            <Outlet />
+          </div>
         </div>
       </div>
     </div>
