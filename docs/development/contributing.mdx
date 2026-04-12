@@ -15,29 +15,42 @@ Use this page to get a local `curl.md` development environment running and to fi
 
 ## Local Setup
 
-1. Install and start OrbStack.
-2. Copy the environment file.
-3. Start the app with Docker Compose.
+:::steps
+
+### Install and start OrbStack
+
+OrbStack provides the local Docker runtime used by `curl.md` on macOS.
+
+### Copy the environment file
 
 ```sh
-cp .env.example .env
-docker compose up -d
+$ cp .env.example .env
 ```
 
-Once the app is running, open [https://curl.local](https://curl.local) or request a page directly:
+### Start the app with Docker Compose
 
 ```sh
-curl curl.local/example.com
+$ docker compose up -d
 ```
+
+### Open curl.md locally
+
+Open [https://curl.local](https://curl.local) or request a page directly:
+
+```sh
+$ curl curl.local/example.com
+```
+
+:::
 
 ## Daily Workflow
 
 The app runs inside Docker during local development.
 
 ```sh
-docker compose up
-docker logs curl -f
-docker compose exec app sh
+$ docker compose up
+$ docker logs curl -f
+$ docker compose exec app sh
 ```
 
 ## Checks
@@ -45,15 +58,15 @@ docker compose exec app sh
 Run these before opening a PR:
 
 ```sh
-pnpm check
-pnpm check:types
-pnpm test --project app --project md --project workers
+$ pnpm check
+$ pnpm check:types
+$ pnpm test --project app --project md --project workers
 ```
 
 When working on browser behavior, run E2E tests:
 
 ```sh
-pnpm test:e2e
+$ pnpm test:e2e
 ```
 
 ## Docs

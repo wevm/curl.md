@@ -195,6 +195,13 @@ function rewriteDocsDirectiveSource(source: string) {
       continue
     }
 
+    const steps = rewriteStepsDirective(lines, index)
+    if (steps) {
+      output.push(...steps.lines)
+      index = steps.endIndex
+      continue
+    }
+
     const notice = rewriteNoticeDirective(lines, index)
     if (notice) {
       output.push(...notice.lines)
@@ -238,6 +245,21 @@ function rewriteCodeGroupDirective(lines: Array<string>, index: number) {
   return {
     endIndex: body.endIndex,
     lines: ['<CodeGroup>', '', ...rewrittenBody, '', '</CodeGroup>'],
+  }
+}
+
+function rewriteStepsDirective(lines: Array<string>, index: number) {
+  if (!/^:::\s*steps\s*$/i.test(lines[index]!)) return
+
+  const body = collectDirectiveBody(lines, index)
+  if (!body) return
+
+  const rewrittenBody = rewriteStepsItems(body.body)
+  if (!rewrittenBody) return
+
+  return {
+    endIndex: body.endIndex,
+    lines: ['<Steps>', '', ...rewrittenBody, '', '</Steps>'],
   }
 }
 
@@ -305,6 +327,58 @@ function rewriteCodeGroupItem(lines: Array<string>, index: number) {
   }
 }
 
+function rewriteStepsItems(lines: Array<string>) {
+  const rewritten: Array<string> = []
+  let itemCount = 0
+
+  for (let index = 0; index < lines.length; ) {
+    const line = lines[index]!
+    if (!line.trim()) {
+      index++
+      continue
+    }
+
+    const item = rewriteStepsItem(lines, index)
+    if (!item) return
+
+    if (rewritten.length > 0) rewritten.push('')
+    rewritten.push(...item.lines)
+    index = item.endIndex + 1
+    itemCount++
+  }
+
+  return itemCount > 0 ? rewritten : undefined
+}
+
+function rewriteStepsItem(lines: Array<string>, index: number) {
+  const line = lines[index]
+  if (!line) return
+
+  const heading = parseStepHeading(line)
+  if (!heading) return
+
+  const body: Array<string> = []
+  let codeFenceMarker: string | undefined
+
+  for (let endIndex = index + 1; endIndex < lines.length; endIndex++) {
+    const line = lines[endIndex]!
+    const fenceMarker = getCodeFenceMarker(line)
+    if (fenceMarker) {
+      if (!codeFenceMarker) codeFenceMarker = fenceMarker
+      else if (isMatchingFenceMarker(fenceMarker, codeFenceMarker)) codeFenceMarker = undefined
+      body.push(line)
+      continue
+    }
+
+    if (!codeFenceMarker && parseStepHeading(line))
+      return createStepItemRewrite(heading.title, trimBlankLines(body), endIndex - 1)
+
+    body.push(line)
+  }
+
+  return createStepItemRewrite(heading.title, trimBlankLines(body), lines.length - 1)
+}
+
 function splitCodeGroupFenceInfo(info: string) {
   const trimmed = info.trim()
   if (!trimmed) return { info: '', label: undefined }
@@ -314,6 +388,15 @@ function splitCodeGroupFenceInfo(info: string) {
     info: match?.[1]?.trim() ?? trimmed,
     label: match?.[2]?.trim() || undefined,
   }
+}
+
+function parseStepHeading(line: string) {
+  const match = /^(?: {0,3})#{2,6}[ \t]+(.+?)\s*$/.exec(line)
+  const rawTitle = match?.[1]?.trim()
+  if (!rawTitle) return
+
+  const title = rawTitle.replace(/[ \t]+#+[ \t]*$/, '').trim()
+  return title ? { title } : undefined
 }
 
 function normalizeNoticeBlocks(node: any) {
@@ -470,6 +553,25 @@ function getTitleAttribute(title: string | undefined) {
 
 function getLabelAttribute(label: string | undefined) {
   return label?.trim() ? ` label=${JSON.stringify(label.trim())}` : ''
+}
+
+function createStepItemRewrite(title: string, body: Array<string>, endIndex: number) {
+  return {
+    endIndex,
+    lines: [`<Step title=${JSON.stringify(title)}>`].concat(
+      body.length > 0 ? ['', ...body, '', '</Step>'] : ['</Step>'],
+    ),
+  }
+}
+
+function trimBlankLines(lines: Array<string>) {
+  let start = 0
+  let end = lines.length
+
+  while (start < end && !lines[start]!.trim()) start++
+  while (end > start && !lines[end - 1]!.trim()) end--
+
+  return lines.slice(start, end)
 }
 
 function normalizeNoticeType(type: string | undefined) {

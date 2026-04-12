@@ -38,6 +38,13 @@ html[data-theme='dark'] .shiki span {
   text-decoration: var(--shiki-dark-text-decoration, inherit) !important;
 }
 
+[data-docs-code-block] .shiki,
+[data-docs-code-group],
+[data-docs-code-group] [role='tablist'],
+[data-docs-code-group] .shiki {
+  background-color: var(--color-gray-a1) !important;
+}
+
 html {
   scroll-padding-top: 5rem;
 }

@@ -69,7 +69,7 @@ Danger notices are useful when a step can be destructive or hard to undo.
 ## Code Blocks
 
 ```sh
-curl.md https://example.com
+$ curl.md https://example.com
 ```
 
 ```ts
@@ -84,16 +84,36 @@ const md = create({ rules: [rules.githubRepo()] })
 :::codegroup
 
 ```sh [npm]
-npm run dev
+$ npm run dev
 ```
 
 ```sh [pnpm]
-pnpm dev
+$ pnpm dev
 ```
 
 ```sh [bun]
-bun run dev
+$ bun run dev
 ```
+
+:::
+
+## Steps
+
+:::steps
+
+### Install dependencies
+
+Use your preferred package manager to install project dependencies.
+
+### Start the dev server
+
+```sh
+$ pnpm dev
+```
+
+### Open the app
+
+Visit [https://curl.local](https://curl.local) once the server is running.
 
 :::
 

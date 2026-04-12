@@ -26,6 +26,7 @@ export function DocContent(props: { doc: Doc; pagination?: DocPagination }) {
   const { doc, pagination = { next: undefined, previous: undefined } } = props
   const { copied, copy } = useCopyToClipboard({ content: doc.source })
   const [activeHeadingId, setActiveHeadingId] = React.useState<string | undefined>(undefined)
+  const honorHashUntilRef = React.useRef(0)
   const hasHeadings = doc.headings.length > 0
   const editHref = `https://github.com/wevm/curl.md/edit/main/${doc.sourcePath}`
   const reportIssueHref = 'https://github.com/wevm/curl.md/issues/new/choose'
@@ -37,7 +38,12 @@ export function DocContent(props: { doc: Doc; pagination?: DocPagination }) {
     }
 
     const fixedNavbarHeightPx = 68
+    const hashHeadingGracePeriodMs = 250 // 0.25 seconds
     const thresholdOffsetPx = 24
+
+    const setHashOverride = () => {
+      honorHashUntilRef.current = window.performance.now() + hashHeadingGracePeriodMs
+    }
 
     const syncActiveHeading = () => {
       const headings = doc.headings
@@ -49,11 +55,14 @@ export function DocContent(props: { doc: Doc; pagination?: DocPagination }) {
         .filter((heading) => !Number.isNaN(heading.top))
       if (!headings.length) return
 
-      const hashHeadingId = headings.find(
+      const hashHeading = headings.find(
         (heading) => heading.id === decodeURIComponent(window.location.hash.slice(1)),
-      )?.id
+      )
+      const hashHeadingId = hashHeading?.id
+      const shouldHonorHash =
+        hashHeadingId !== undefined && honorHashUntilRef.current > window.performance.now()
 
-      if (window.scrollY < 1 && !hashHeadingId) {
+      if (window.scrollY < 1) {
         setActiveHeadingId((current) => (current === undefined ? current : undefined))
         return
       }
@@ -66,7 +75,15 @@ export function DocContent(props: { doc: Doc; pagination?: DocPagination }) {
         else break
       }
 
-      if (nextActiveHeadingId === undefined && hashHeadingId) nextActiveHeadingId = hashHeadingId
+      if (
+        shouldHonorHash &&
+        hashHeading &&
+        isHeadingVisibleInViewport(hashHeading.element, fixedNavbarHeightPx, thresholdOffsetPx)
+      ) {
+        nextActiveHeadingId = hashHeading.id
+      }
+
+      if (nextActiveHeadingId === undefined && shouldHonorHash) nextActiveHeadingId = hashHeadingId
 
       setActiveHeadingId((current) =>
         current === nextActiveHeadingId ? current : nextActiveHeadingId,
@@ -83,13 +100,19 @@ export function DocContent(props: { doc: Doc; pagination?: DocPagination }) {
       })
     }
 
+    const onHashChange = () => {
+      setHashOverride()
+      syncActiveHeading()
+    }
+
+    if (window.location.hash) setHashOverride()
     requestAnimationFrame(syncActiveHeading)
-    window.addEventListener('hashchange', syncActiveHeading)
+    window.addEventListener('hashchange', onHashChange)
     window.addEventListener('resize', syncActiveHeading)
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => {
       if (frameId !== undefined) window.cancelAnimationFrame(frameId)
-      window.removeEventListener('hashchange', syncActiveHeading)
+      window.removeEventListener('hashchange', onHashChange)
       window.removeEventListener('resize', syncActiveHeading)
       window.removeEventListener('scroll', onScroll)
     }
@@ -205,6 +228,8 @@ const mdxComponents = {
   CodeGroupItem,
   pre: DocsCodeBlock,
   Notice,
+  Step,
+  Steps,
   a: (props: React.ComponentProps<'a'>) => {
     const { href, children, ...rest } = props
     if (href?.startsWith('/'))
@@ -221,18 +246,11 @@ const mdxComponents = {
   },
   blockquote: (props: React.ComponentProps<'blockquote'>) => (
     <blockquote
-      className="bg-gray-a2/30 border-gray-a4 text-gray9 mt-4 border-s-4 px-5 py-4 italic [&>p]:mt-0 [&>p]:leading-relaxed [&>p+p]:mt-3"
+      className="bg-gray-a1 border-gray-a4 text-gray9 mt-4 border-s-4 px-5 py-4 italic [&>p]:mt-0 [&>p]:leading-relaxed [&>p+p]:mt-3"
       {...props}
     />
   ),
-  code: (props: React.ComponentProps<'code'>) => (
-    <code
-      {...props}
-      className={['bg-gray-a2 px-1 py-0.5 text-[0.9375em]', props.className]
-        .filter(Boolean)
-        .join(' ')}
-    />
-  ),
+  code: DocsInlineCode,
   h1: (props: React.ComponentProps<'h1'>) =>
     renderHeading('h1', 'text-xl font-bold md:text-2xl', props),
   h2: (props: React.ComponentProps<'h2'>) =>
@@ -290,6 +308,17 @@ function renderHeading<Tag extends 'h1' | 'h2' | 'h3' | 'h4'>(
   )
 }
 
+function DocsInlineCode(props: React.ComponentProps<'code'>) {
+  return (
+    <code
+      {...props}
+      className={['bg-gray-a2 px-1 py-0.5 text-[0.9375em]', props.className]
+        .filter(Boolean)
+        .join(' ')}
+    />
+  )
+}
+
 function Notice(props: React.PropsWithChildren<{ title?: string; type?: string }>) {
   const { children, title, type = 'note' } = props
   const label = title ?? noticeTitles[type] ?? noticeTitles.note
@@ -311,6 +340,62 @@ function Notice(props: React.PropsWithChildren<{ title?: string; type?: string }
       <div className="[&>*:first-child]:mt-3 [&>*:last-child]:mb-0">{children}</div>
     </div>
   )
+}
+
+function Steps(props: React.PropsWithChildren) {
+  const { children } = props
+  const stepSlugCounts = new Map<string, number>()
+  const items = React.Children.toArray(children)
+    .filter(
+      (child): child is React.ReactElement<React.PropsWithChildren<{ title?: string }>> =>
+        React.isValidElement(child) && child.type === Step,
+    )
+    .map((child, index) => ({
+      content: child.props.children,
+      id: getStepId(child.props.title?.trim() || `Step ${index + 1}`, stepSlugCounts),
+      title: child.props.title?.trim() || `Step ${index + 1}`,
+    }))
+
+  if (!items[0]) return <>{children}</>
+
+  return (
+    <ol className="mt-6 list-none ps-0" data-docs-steps="">
+      {items.map((item, index) => (
+        <li
+          className="grid grid-cols-[2.25rem_minmax(0,1fr)] gap-3 pb-10 last:pb-0 md:grid-cols-[2.5rem_minmax(0,1fr)] md:gap-4"
+          data-docs-step=""
+          key={`${index}-${item.title}`}
+        >
+          <div className="relative -mt-px flex justify-center md:-mt-0.5">
+            <a
+              aria-label={`Link to step: ${item.title}`}
+              className="bg-gray-a3 text-gray11 hover:bg-gray-a4 hover:text-gray12 focus-visible:outline-blue8 relative z-10 flex size-7 items-center justify-center rounded-full text-sm font-medium no-underline transition-colors focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 md:size-8 md:text-[0.9375rem]"
+              href={`#${item.id}`}
+            >
+              {index + 1}
+            </a>
+            <span
+              aria-hidden
+              className="bg-gray-a3 absolute start-1/2 top-7 bottom-[-2rem] w-px -translate-x-1/2 data-[last]:hidden md:top-8 md:bottom-[-2.25rem]"
+              data-last={index === items.length - 1 ? '' : undefined}
+            />
+          </div>
+
+          <div className="min-w-0">
+            <h3 className="text-gray12 scroll-mt-5 text-lg font-bold md:text-xl" id={item.id}>
+              {item.title}
+            </h3>
+            <div className="[&>*:first-child]:mt-4 [&>*:last-child]:mb-0">{item.content}</div>
+          </div>
+        </li>
+      ))}
+    </ol>
+  )
+}
+
+function Step(props: React.PropsWithChildren<{ title?: string }>) {
+  const { children } = props
+  return <>{children}</>
 }
 
 function CodeGroup(props: React.PropsWithChildren) {
@@ -398,15 +483,25 @@ function CodeGroupTabIcon(props: { label: string }) {
 
 function DocsCodeBlock(props: React.ComponentProps<'pre'>) {
   const { children, className, ...rest } = props
-  const copyText = getNodeText(children)
+  const copyText = getCodeBlockText(children)
+  const promptShellLines = React.useMemo(() => getPromptShellLines(children), [children])
+  const renderedChildren = React.useMemo(
+    () =>
+      promptShellLines
+        ? replaceCodeElement(children, (codeElement) =>
+            renderPromptCopyCodeElement(codeElement, promptShellLines),
+          )
+        : children,
+    [children, promptShellLines],
+  )
   const { copied, copy } = useCopyToClipboard(copyText ? { content: copyText } : {})
 
   return (
     <div className="group/code relative mt-4" data-docs-code-block="">
-      {copyText && (
+      {copyText && !promptShellLines && (
         <button
           aria-label={copied ? 'Code copied' : 'Copy code'}
-          className="bg-bg1/90 border-gray-a3 text-gray8 hover:text-gray10 focus-visible:text-gray10 focus-visible:ring-blue8 absolute end-3 top-3 z-10 border p-1.5 opacity-0 backdrop-blur-sm transition-opacity group-focus-within/code:opacity-100 group-hover/code:opacity-100 focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset data-[copied]:opacity-100"
+          className="bg-bg1/90 text-gray8 hover:text-gray10 focus-visible:text-gray10 focus-visible:ring-blue8 absolute end-3 top-3 z-10 p-1.5 opacity-0 backdrop-blur-sm transition-opacity group-focus-within/code:opacity-100 group-hover/code:opacity-100 focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset data-[copied]:opacity-100"
           data-copied={copied ? '' : undefined}
           onClick={() => copy()}
           type="button"
@@ -422,14 +517,14 @@ function DocsCodeBlock(props: React.ComponentProps<'pre'>) {
       <pre
         {...rest}
         className={[
-          'bg-gray-a1/50 border-gray-a3 minimal-scrollbar focus-visible:ring-blue8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset mt-0 overflow-x-auto border p-4 leading-relaxed',
+          'bg-gray-a1 border-gray-a3 minimal-scrollbar focus-visible:ring-blue8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset mt-0 overflow-x-auto border p-4 leading-relaxed',
           '[&_code]:bg-transparent [&_code]:p-0 [&_code]:!text-[1em]',
           className,
         ]
           .filter(Boolean)
           .join(' ')}
       >
-        {children}
+        {renderedChildren}
       </pre>
     </div>
   )
@@ -492,6 +587,17 @@ function getAbsoluteTop(element: HTMLElement) {
   return offsetTop
 }
 
+function isHeadingVisibleInViewport(
+  element: HTMLElement,
+  fixedNavbarHeightPx: number,
+  thresholdOffsetPx: number,
+) {
+  const rect = element.getBoundingClientRect()
+  const viewportTop = fixedNavbarHeightPx + thresholdOffsetPx
+
+  return rect.bottom > viewportTop && rect.top < window.innerHeight
+}
+
 function getDocHref(path: string) {
   return path ? `/docs/${path}` : '/docs'
 }
@@ -515,6 +621,15 @@ function getNodeText(node: React.ReactNode): string | undefined {
   return text || undefined
 }
 
+function getCodeBlockText(node: React.ReactNode): string | undefined {
+  const codeElement = getCodeElement(node)
+  if (!codeElement) return getNodeText(node)
+
+  const lines = getCodeElementTextLines(codeElement)
+  const text = lines.join('\n').replace(/\n+$/, '')
+  return text || undefined
+}
+
 function nodeToString(node: React.ReactNode): string {
   if (typeof node === 'string' || typeof node === 'number') return String(node)
   if (node === null || node === undefined || typeof node === 'boolean') return ''
@@ -524,6 +639,195 @@ function nodeToString(node: React.ReactNode): string {
     return nodeToString(element.props.children)
   }
   return ''
+}
+
+function getPromptShellLines(node: React.ReactNode) {
+  const codeElement = getCodeElement(node)
+  if (!codeElement) return undefined
+
+  const language = getCodeElementLanguage(codeElement)
+  if (!language || !shellCodeLanguages.has(language)) return undefined
+
+  const lines = getCodeElementLineElements(codeElement)
+  const nonEmptyLines = lines.filter((line) => line.text.trim() !== '')
+  if (!nonEmptyLines.length || nonEmptyLines.some((line) => !line.text.startsWith('$ ')))
+    return undefined
+
+  return lines.map((line) => ({
+    childIndex: line.childIndex,
+    text: line.text.slice(2),
+  }))
+}
+
+function getCodeElement(node: React.ReactNode): CodeElement | undefined {
+  if (Array.isArray(node)) {
+    for (const child of node) {
+      const codeElement = getCodeElement(child)
+      if (codeElement) return codeElement
+    }
+
+    return undefined
+  }
+
+  if (!React.isValidElement(node)) return undefined
+  const element = node as React.ReactElement<{ children?: React.ReactNode; className?: string }>
+  if (element.type === 'code' || element.type === DocsInlineCode) return element
+
+  return getCodeElement(element.props.children)
+}
+
+function getCodeElementLanguage(codeElement: CodeElement | undefined): string | undefined {
+  const className =
+    typeof codeElement?.props.className === 'string' ? codeElement.props.className : ''
+  return /\blanguage-([\w-]+)/.exec(className)?.[1]
+}
+
+function getCodeElementLineElements(codeElement: CodeElement) {
+  return React.Children.toArray(codeElement.props.children)
+    .map((child, childIndex) => {
+      if (!isCodeLineElement(child)) return undefined
+
+      return {
+        childIndex,
+        text: nodeToString(child.props.children),
+      }
+    })
+    .filter((line): line is { childIndex: number; text: string } => line !== undefined)
+}
+
+function getCodeElementTextLines(codeElement: CodeElement) {
+  const lines = getCodeElementLineElements(codeElement)
+  if (lines.length) return lines.map((line) => line.text)
+
+  const text = nodeToString(codeElement.props.children)
+  return text ? text.split('\n') : []
+}
+
+function isCodeLineElement(node: React.ReactNode): node is CodeLineElement {
+  if (!React.isValidElement(node)) return false
+
+  const element = node as React.ReactElement<{ children?: React.ReactNode; className?: string }>
+  return typeof element.props.className === 'string' && /\bline\b/.test(element.props.className)
+}
+
+function replaceCodeElement(
+  node: React.ReactNode,
+  replace: (codeElement: CodeElement) => React.ReactNode,
+): React.ReactNode {
+  if (Array.isArray(node)) return node.map((child) => replaceCodeElement(child, replace))
+  if (!React.isValidElement(node)) return node
+
+  const element = node as React.ReactElement<{ children?: React.ReactNode; className?: string }>
+  if (element.type === 'code' || element.type === DocsInlineCode) return replace(element)
+  if (element.props.children === undefined) return node
+
+  return React.cloneElement(element, undefined, replaceCodeElement(element.props.children, replace))
+}
+
+function renderPromptCopyCodeElement(
+  codeElement: CodeElement,
+  promptShellLines: Array<{ childIndex: number; text: string }>,
+) {
+  const codeChildren = React.Children.toArray(codeElement.props.children)
+  const promptLineMap = new Map(promptShellLines.map((line) => [line.childIndex, line.text]))
+
+  return React.cloneElement(
+    codeElement,
+    undefined,
+    codeChildren.flatMap((child, childIndex) => {
+      if (typeof child === 'string' && child.trim() === '') return []
+      if (!isCodeLineElement(child)) return [child]
+
+      const text = promptLineMap.get(childIndex)
+      if (!text) return [child]
+
+      return React.cloneElement(
+        child,
+        {
+          className: [child.props.className, 'group/command flex w-full items-center gap-3']
+            .filter(Boolean)
+            .join(' '),
+        },
+        <>
+          <span
+            aria-hidden
+            className="text-gray8 shrink-0 opacity-70 select-none"
+            data-command-prompt=""
+          >
+            $
+          </span>
+          <span className="min-w-0 flex-1">
+            {stripLeadingCharacters(child.props.children, 2).node}
+          </span>
+          <PromptCopyButton text={text} />
+        </>,
+      )
+    }),
+  )
+}
+
+function PromptCopyButton(props: { text: string }) {
+  const { text } = props
+  const { copied, copy } = useCopyToClipboard({ content: text })
+
+  return (
+    <button
+      aria-label={`Copy command: ${text}`}
+      className="text-gray8 hover:text-gray10 focus-visible:text-gray10 focus-visible:ring-blue8 -m-1 shrink-0 p-1 opacity-0 transition-opacity group-focus-within/command:opacity-100 group-hover/command:opacity-100 focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset data-[copied]:opacity-100"
+      data-copied={copied ? '' : undefined}
+      data-copy-command=""
+      onClick={() => copy()}
+      type="button"
+    >
+      {copied ? (
+        <IconOcticonCheck16 className="text-teal9 size-4" />
+      ) : (
+        <IconOcticonCopy16 className="size-4" />
+      )}
+    </button>
+  )
+}
+
+function stripLeadingCharacters(
+  node: React.ReactNode,
+  count: number,
+): {
+  node: React.ReactNode
+  remaining: number
+} {
+  if (count <= 0) return { node, remaining: 0 }
+
+  if (typeof node === 'string') {
+    if (node.length <= count) return { node: '', remaining: count - node.length }
+    return { node: node.slice(count), remaining: 0 }
+  }
+
+  if (typeof node === 'number') return stripLeadingCharacters(String(node), count)
+  if (node === null || node === undefined || typeof node === 'boolean')
+    return { node, remaining: count }
+
+  if (Array.isArray(node)) {
+    const children: Array<React.ReactNode> = []
+    let remaining = count
+
+    for (const child of React.Children.toArray(node)) {
+      const stripped = stripLeadingCharacters(child, remaining)
+      remaining = stripped.remaining
+      if (stripped.node === '') continue
+      children.push(...React.Children.toArray(stripped.node))
+    }
+
+    return { node: children, remaining }
+  }
+
+  if (!React.isValidElement(node)) return { node, remaining: count }
+
+  const element = node as React.ReactElement<{ children?: React.ReactNode }>
+  const strippedChildren = stripLeadingCharacters(element.props.children, count)
+  return {
+    node: React.cloneElement(element, undefined, strippedChildren.node),
+    remaining: strippedChildren.remaining,
+  }
 }
 
 function getCodeGroupLanguage(node: React.ReactNode): string | undefined {
@@ -536,15 +840,14 @@ function getCodeGroupLanguage(node: React.ReactNode): string | undefined {
     return undefined
   }
 
-  if (!React.isValidElement(node)) return undefined
-  const element = node as React.ReactElement<{ children?: React.ReactNode; className?: string }>
-  if (element.type === 'code') {
-    const className = typeof element.props.className === 'string' ? element.props.className : ''
-    const language = /\blanguage-([\w-]+)/.exec(className)?.[1]
-    if (language) return language
-  }
+  return getCodeElementLanguage(getCodeElement(node))
+}
 
-  return getCodeGroupLanguage(element.props.children)
+function getStepId(title: string, stepSlugCounts: Map<string, number>) {
+  const baseSlug = slugifyHeading(title) || 'step'
+  const count = stepSlugCounts.get(baseSlug) ?? 0
+  stepSlugCounts.set(baseSlug, count + 1)
+  return count === 0 ? baseSlug : `${baseSlug}-${count + 1}`
 }
 
 function getCodeGroupTabIcon(label: string) {
@@ -557,6 +860,15 @@ function getCodeGroupTabIcon(label: string) {
     return codeGroupExtensionIcons[extension as keyof typeof codeGroupExtensionIcons]
 
   return undefined
+}
+
+function slugifyHeading(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[`'".(),/#!?]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
 }
 
 const noticeTitles: Record<string, string> = {
@@ -603,3 +915,8 @@ const codeGroupExtensionIcons = {
   yml: codeGroupTabIcons.yaml,
   zsh: codeGroupTabIcons.sh,
 } as const
+
+const shellCodeLanguages = new Set(['bash', 'shell', 'sh', 'zsh'])
+
+type CodeElement = React.ReactElement<{ children?: React.ReactNode; className?: string }>
+type CodeLineElement = React.ReactElement<{ children?: React.ReactNode; className?: string }>

@@ -37,3 +37,39 @@ export const config = {}
   expect(code).not.toContain('language-text')
   expect(code).not.toContain(':::codegroup')
 })
+
+test('docs mdx rewrites steps directives into numbered step components', async () => {
+  const plugin = await docsMdx()
+  const source = `# Example
+
+:::steps
+
+### Install dependencies
+
+Run the installer before starting the app.
+
+### Start the app
+
+\`\`\`sh
+docker compose up -d
+\`\`\`
+
+:::
+`
+
+  const transformed = await plugin.transform?.call(
+    {},
+    source,
+    path.join(process.cwd(), 'docs/development/contributing.mdx'),
+  )
+  const code =
+    typeof transformed === 'string'
+      ? transformed
+      : (transformed as { code?: string } | null | undefined)?.code
+
+  expect(code).toContain('Steps')
+  expect(code).toContain('Step')
+  expect(code).toContain('title: "Install dependencies"')
+  expect(code).toContain('title: "Start the app"')
+  expect(code).not.toContain(':::steps')
+})

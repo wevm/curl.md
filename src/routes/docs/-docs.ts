@@ -1,5 +1,6 @@
 import { sidebar, type SidebarItem } from '../../../docs/_sidebar.ts'
 import type { Doc, DocPagination, Heading } from './-doc.types.ts'
+import { createDocCopySource } from './-source.ts'
 
 type DocModule = {
   default: React.ComponentType<{ components?: Record<string, React.ComponentType> }>
@@ -9,9 +10,8 @@ type DocModule = {
 }
 
 const modules = import.meta.glob<DocModule>('../../../docs/**/*.mdx', { eager: true })
-const sources = import.meta.glob<string>('../../../docs/**/*.mdx', {
+const sources = import.meta.glob<unknown>('../../../docs/**/*.mdx', {
   eager: true,
-  import: 'default',
   query: '?raw',
 })
 
@@ -26,7 +26,7 @@ export const allDocs: Array<Doc> = Object.entries(modules).map(([filePath, mod])
     headings: mod.headings ?? [],
     ...(mod.lastUpdated ? { lastUpdated: mod.lastUpdated } : {}),
     path: path === 'index' ? '' : path,
-    source: sources[filePath] ?? '',
+    source: createDocCopySource(sources[filePath] ?? ''),
     sourcePath: filePath.replace('../../../', ''),
     title: mod.frontmatter?.title ?? path,
   }

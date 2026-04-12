@@ -5,6 +5,7 @@ import { Nav } from '#components/Nav.tsx'
 import { type Theme, useTheme } from '#hooks/useTheme.ts'
 import { getSessionLogin } from '#server/session.ts'
 import { sidebar, type SidebarItem } from '../../../docs/_sidebar.ts'
+import { getThemeIconTheme } from './-theme.ts'
 
 export const Route = createFileRoute('/docs')({
   async loader({ location }) {
@@ -150,23 +151,8 @@ function getThemeIcon(theme: Theme, resolvedTheme: Exclude<Theme, 'system'>, mou
 
   if (iconTheme === 'system') return <IconLucideMonitor className="size-3.5" />
 
-  if (iconTheme === 'light') return <IconMaterialSymbolsWbSunny className="size-3.5" />
-  return <IconMaterialSymbolsBedtime className="size-3.5" />
-}
-
-function getThemeIconTheme(
-  theme: Theme,
-  resolvedTheme: Exclude<Theme, 'system'>,
-  mounted: boolean,
-) {
-  if (theme !== 'system') return theme
-  if (mounted) return resolvedTheme
-  if (typeof document === 'undefined') return 'system'
-
-  const htmlTheme = document.documentElement.dataset.theme
-  if (htmlTheme === 'dark' || htmlTheme === 'light') return htmlTheme
-
-  return 'system'
+  if (iconTheme === 'light') return <IconLucideSun className="size-3.5" />
+  return <IconMaterialSymbolsDarkMode className="size-3.5" />
 }
 
 function SidebarNav(props: { items: Array<SidebarItem>; onNavigate: () => void }) {
