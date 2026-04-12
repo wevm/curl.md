@@ -7,6 +7,8 @@
 export {}
 declare global {
   const IconLucideArrowUpRight: typeof import('~icons/lucide/arrow-up-right.jsx').default
+  const IconLucideBadgeAlert: typeof import('~icons/lucide/badge-alert.jsx').default
+  const IconLucideBadgeInfo: typeof import('~icons/lucide/badge-info.jsx').default
   const IconLucideChevronDown: typeof import('~icons/lucide/chevron-down.jsx').default
   const IconLucideChevronLeft: typeof import('~icons/lucide/chevron-left.jsx').default
   const IconLucideChevronRight: typeof import('~icons/lucide/chevron-right.jsx').default
@@ -14,14 +16,20 @@ declare global {
   const IconLucideCircleCheck: typeof import('~icons/lucide/circle-check.jsx').default
   const IconLucideCreditCard: typeof import('~icons/lucide/credit-card.jsx').default
   const IconLucideFingerprint: typeof import('~icons/lucide/fingerprint.jsx').default
+  const IconLucideInfo: typeof import('~icons/lucide/info.jsx').default
   const IconLucideKey: typeof import('~icons/lucide/key.jsx').default
   const IconLucideLayoutDashboard: typeof import('~icons/lucide/layout-dashboard.jsx').default
+  const IconLucideLightbulb: typeof import('~icons/lucide/lightbulb.jsx').default
   const IconLucideLogOut: typeof import('~icons/lucide/log-out.jsx').default
   const IconLucideMail: typeof import('~icons/lucide/mail.jsx').default
   const IconLucideMonitor: typeof import('~icons/lucide/monitor.jsx').default
   const IconLucideMoon: typeof import('~icons/lucide/moon.jsx').default
+  const IconLucideOctagonAlert: typeof import('~icons/lucide/octagon-alert.jsx').default
   const IconLucideSettings: typeof import('~icons/lucide/settings.jsx').default
+  const IconLucideShieldAlert: typeof import('~icons/lucide/shield-alert.jsx').default
+  const IconLucideSparkles: typeof import('~icons/lucide/sparkles.jsx').default
   const IconLucideSun: typeof import('~icons/lucide/sun.jsx').default
+  const IconLucideTriangleAlert: typeof import('~icons/lucide/triangle-alert.jsx').default
   const IconLucideUsers: typeof import('~icons/lucide/users.jsx').default
   const IconLucideX: typeof import('~icons/lucide/x.jsx').default
   const IconOcticonAlert16: typeof import('~icons/octicon/alert16.jsx').default

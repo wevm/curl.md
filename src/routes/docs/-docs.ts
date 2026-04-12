@@ -1,20 +1,14 @@
-type Heading = { id: string; level: number; text: string }
+import { sidebar, type SidebarItem } from '../../../docs/_sidebar.ts'
+import type { Doc, DocPagination, Heading } from './-doc.types.ts'
 
 type DocModule = {
   default: React.ComponentType<{ components?: Record<string, React.ComponentType> }>
   frontmatter?: { description?: string; title?: string }
   headings?: Array<Heading>
+  lastUpdated?: string
 }
 
 const modules = import.meta.glob<DocModule>('../../../docs/**/*.mdx', { eager: true })
-
-export type Doc = {
-  Component: React.ComponentType<{ components?: Record<string, React.ComponentType> }>
-  description: string | undefined
-  headings: Array<Heading>
-  path: string
-  title: string
-}
 
 export const allDocs: Array<Doc> = Object.entries(modules).map(([filePath, mod]) => {
   const path = filePath
@@ -25,11 +19,43 @@ export const allDocs: Array<Doc> = Object.entries(modules).map(([filePath, mod])
     Component: mod.default,
     description: mod.frontmatter?.description,
     headings: mod.headings ?? [],
+    ...(mod.lastUpdated ? { lastUpdated: mod.lastUpdated } : {}),
     path: path === 'index' ? '' : path,
+    sourcePath: filePath.replace('../../../', ''),
     title: mod.frontmatter?.title ?? path,
   }
 })
 
 export function findDoc(path: string) {
   return allDocs.find((d) => d.path === path)
+}
+
+export function findDocPagination(path: string): DocPagination {
+  const index = orderedDocs.findIndex((doc) => doc.path === path)
+  if (index === -1) return { next: undefined, previous: undefined }
+  return {
+    next: orderedDocs[index + 1],
+    previous: orderedDocs[index - 1],
+  }
+}
+
+const orderedDocs = flattenSidebarItems(sidebar)
+  .map((item) => findDoc(normalizeSidebarPath(item.path)))
+  .filter((doc): doc is Doc => doc !== undefined)
+
+function flattenSidebarItems(
+  items: Array<SidebarItem>,
+): Array<Extract<SidebarItem, { type: 'link' }>> {
+  const links: Array<Extract<SidebarItem, { type: 'link' }>> = []
+
+  for (const item of items) {
+    if (item.type === 'link') links.push(item)
+    else links.push(...flattenSidebarItems(item.items))
+  }
+
+  return links
+}
+
+function normalizeSidebarPath(path: string) {
+  return path === '/' ? '' : path.replace(/^\//, '')
 }

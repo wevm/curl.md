@@ -63,6 +63,30 @@ test('cloudflare rewrites docs path to raw mdx', () => {
   )
 })
 
+test('curlDocs rewrites docs root to raw GitHub docs index', () => {
+  expect(patternsMatch(rules.curlDocs(), 'https://curl.md/docs')).toBe(true)
+  expect(rewrite(rules.curlDocs, 'https://curl.md/docs')?.href).toBe(
+    'https://raw.githubusercontent.com/wevm/curl.md/main/docs/index.mdx',
+  )
+})
+
+test('curlDocs rewrites docs pages to raw GitHub docs mdx', () => {
+  expect(
+    patternsMatch(rules.curlDocs(), 'https://curl.local/docs/getting_started/installation'),
+  ).toBe(true)
+  expect(
+    rewrite(rules.curlDocs, 'https://curl.local/docs/getting_started/installation')?.href,
+  ).toBe(
+    'https://raw.githubusercontent.com/wevm/curl.md/main/docs/getting_started/installation.mdx',
+  )
+})
+
+test('curlDocs rewrites preview hosts to raw GitHub docs mdx', () => {
+  expect(
+    rewrite(rules.curlDocs, 'https://preview-123.curl.md/docs/getting_started/quick_start')?.href,
+  ).toBe('https://raw.githubusercontent.com/wevm/curl.md/main/docs/getting_started/quick_start.mdx')
+})
+
 test('cloudflare keeps trailing slash paths on raw mdx candidate', () => {
   expect(rewrite(rules.cloudflare, 'https://developers.cloudflare.com/workers/')?.href).toBe(
     'https://raw.githubusercontent.com/cloudflare/cloudflare-docs/production/src/content/docs/workers.mdx',

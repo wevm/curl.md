@@ -16,6 +16,28 @@ export { mdn } from './rules/mdn.ts'
 export { tailwind } from './rules/tailwind.ts'
 export { zero } from './rules/zero.ts'
 
+export const curlDocs = defineRule({
+  key: 'curlDocs',
+  patterns: [
+    new URLPattern({ hostname: 'curl.:tld(md|local)', pathname: '/docs' }),
+    new URLPattern({ hostname: 'curl.:tld(md|local)', pathname: '/docs/:path+' }),
+    new URLPattern({ hostname: '*.curl.:tld(md|local)', pathname: '/docs' }),
+    new URLPattern({ hostname: '*.curl.:tld(md|local)', pathname: '/docs/:path+' }),
+  ],
+  checks: [
+    {
+      url: 'https://curl.md/docs/getting_started/installation',
+      contains: ['curl.md auth login', 'Amp Plugin'],
+      title: 'Installation',
+    },
+  ],
+  rewrite(url) {
+    const path = url.pathname.replace(/^\/docs/, '')
+    const pathname = path === '' || path === '/' ? '/index' : path.replace(/\/$/, '')
+    return new URL(`https://raw.githubusercontent.com/wevm/curl.md/main/docs${pathname}.mdx`)
+  },
+})
+
 export const curlMd = defineRule<{ fetch?: typeof globalThis.fetch }>({
   key: 'curlMd',
   patterns: [

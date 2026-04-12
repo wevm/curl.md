@@ -8,6 +8,11 @@ export const sidebar = [
       { type: 'link', label: 'Quick Start', path: '/getting_started/quick_start' },
     ],
   },
+  {
+    type: 'group',
+    label: 'Reference',
+    items: [{ type: 'link', label: 'Kitchen Sink', path: '/reference/kitchen_sink' }],
+  },
 ] satisfies Array<SidebarItem>
 
 export type SidebarItem =

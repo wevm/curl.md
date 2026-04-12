@@ -1,0 +1,86 @@
+---
+title: Kitchen Sink
+description: Preview how curl.md docs render common Markdown content.
+---
+
+# Kitchen Sink
+
+Use this page to preview the common Markdown and notice styles supported by the docs renderer.
+
+## Headings
+
+### Level 3 Heading
+
+#### Level 4 Heading
+
+## Paragraphs And Links
+
+Use **bold text**, _italic text_, and `inline code` for short callouts in prose.
+
+Link to [Installation](/docs/getting_started/installation) for setup instructions, or visit [GitHub](https://github.com/wevm/curl.md) for source code.
+
+## Notices
+
+:::note
+Notices without a custom title default to the notice type.
+:::
+
+:::tip Custom tip title
+Use titled notices when the label should be more specific than the default notice type.
+:::
+
+:::hint
+Hints work well for shortcuts, alternatives, or small workflow improvements.
+:::
+
+:::important
+Use important notices for behavior people should not miss.
+:::
+
+:::warning
+Warnings should call out risky behavior or easy-to-make mistakes.
+:::
+
+:::danger
+Danger notices are useful when a step can be destructive or hard to undo.
+:::
+
+> [!TIP]
+> GitHub-style alerts also render through the same shared notice component.
+
+## Lists
+
+- Unordered lists work for short collections.
+- Nested items are supported.
+  - This is a nested bullet.
+  - This is another nested bullet.
+- Keep bullets short when possible.
+
+1. Ordered lists work well for step-by-step instructions.
+2. They keep sequence obvious.
+3. They also match the rest of the docs UI.
+
+## Blockquotes
+
+> Regular blockquotes still render as blockquotes.
+>
+> Use them for quotes that are not notices.
+
+## Code Blocks
+
+```sh
+curl.md https://example.com
+```
+
+```ts
+import { create } from 'curl.md'
+import { rules } from 'curl.md'
+
+const md = create({ rules: [rules.githubRepo()] })
+```
+
+## Horizontal Rule
+
+---
+
+The separator above is a standard horizontal rule.

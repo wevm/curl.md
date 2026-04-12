@@ -1,7 +1,7 @@
 import { createFileRoute, notFound } from '@tanstack/react-router'
 import { rpc } from '#lib/rpc.ts'
 import { DocContent } from './-doc.tsx'
-import { findDoc } from './-docs.ts'
+import { findDoc, findDocPagination } from './-docs.ts'
 
 export const Route = createFileRoute('/docs/$')({
   head({ params }) {
@@ -36,5 +36,5 @@ function Component() {
   const { _splat } = Route.useParams()
   const doc = findDoc(_splat ?? '')
   if (!doc) return null
-  return <DocContent doc={doc} />
+  return <DocContent doc={doc} pagination={findDocPagination(doc.path)} />
 }
