@@ -99,7 +99,7 @@ jobs:
       pull-requests: write
     outputs:
       published: ${{ steps.changesets.outputs.published }}
-      publishedPackages: ${{ steps.changesets.outputs.publishedPackages }}
+      tag: ${{ steps.resolve_tag.outputs.tag }}
     steps:
       - name: Checkout
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -120,10 +120,19 @@ jobs:
           # TODO(public): uncomment when repo is public
           # NPM_CONFIG_PROVENANCE: true
 
+      - name: Resolve release tag
+        id: resolve_tag
+        if: steps.changesets.outputs.published == 'true'
+        env:
+          PUBLISHED_PACKAGES: ${{ steps.changesets.outputs.publishedPackages }}
+        run: |
+          TAG="$(printf '%s' "$PUBLISHED_PACKAGES" | jq -r 'map(select(.name == "curl.md"))[0] | if . then "\(.name)@\(.version)" else "" end')"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
   release_binaries:
     name: Release Binaries
     needs: changesets
-    if: needs.changesets.outputs.published == 'true'
+    if: needs.changesets.outputs.tag != ''
     uses: ./.github/workflows/release_binaries.yml
     with:
-      publishedPackages: ${{ needs.changesets.outputs.publishedPackages }}
+      tag: ${{ needs.changesets.outputs.tag }}

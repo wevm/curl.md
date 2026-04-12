@@ -57,7 +57,7 @@ test('tool.call hook intercepts read_web_page and synthesizes result', async () 
       const url = new URL(request.url)
       if (url.origin !== new URL(defaultBaseUrl).origin) return passthrough()
       return HttpResponse.json(
-        { content: '# Example Page' },
+        { content: '# Example Page\n\n---\n\nPowered by [curl.md](https://curl.md)' },
         {
           headers: {
             'x-cache': 'HIT',
@@ -148,7 +148,7 @@ test('fetches anonymously and returns expected shape', async () => {
       const url = new URL(request.url)
       if (url.origin !== new URL(defaultBaseUrl).origin) return passthrough()
       return HttpResponse.json(
-        { content: '# Example' },
+        { content: '# Example\n\n---\n\nPowered by [curl.md](https://curl.md)' },
         {
           headers: {
             'x-cache': 'HIT',

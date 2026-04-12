@@ -185,7 +185,10 @@ export default function (amp: PluginAPI) {
       credits_remaining: parseNumberHeader(res.headers.get('x-credits-remaining')),
       fresh: input.fresh || undefined,
       keywords: input.keywords,
-      markdown: json.content,
+      markdown: json.content.replace(
+        /\n\n---\n\nPowered by \[curl\.md\]\(https:\/\/curl\.md\)$/,
+        '',
+      ),
       mode: input.mode,
       objective: input.objective,
       request_id: res.headers.get('x-request-id') || undefined,
