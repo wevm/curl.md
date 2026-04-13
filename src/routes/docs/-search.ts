@@ -1,5 +1,5 @@
 import MiniSearch from 'minisearch'
-import type { Heading } from './-doc.types.ts'
+import type { Heading } from './-doc.tsx'
 
 export type DocSearchResult =
   | {

@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { generateDocsLlmsFullTxt, generateDocsLlmsTxt } from './-llms.ts'
+import { generateDocsLlmsFullTxt, generateDocsLlmsTxt } from './docs.ts'
 
 test('generateDocsLlmsTxt includes the published docs in sidebar order', () => {
   const llms = generateDocsLlmsTxt({

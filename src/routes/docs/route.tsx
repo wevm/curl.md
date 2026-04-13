@@ -13,10 +13,13 @@ import { type Theme, useTheme } from '#hooks/useTheme.ts'
 import { getSessionLogin } from '#server/session.ts'
 import { navbarLinks, type NavbarLink } from '../../../docs/_config.ts'
 import { sidebar, type SidebarItem } from '../../../docs/_sidebar.ts'
-import { DocSearchPreview } from './-doc.tsx'
-import type { Doc } from './-doc.types.ts'
+import {
+  docSearchHighlightClassName,
+  DocSearchPreview,
+  getDocSearchHighlightRanges,
+  type Doc,
+} from './-doc.tsx'
 import { findDoc, searchDocs } from './-docs.ts'
-import { docSearchHighlightClassName, getDocSearchHighlightRanges } from './-search-highlight.ts'
 import type { DocSearchResult } from './-search.ts'
 import docsCssHref from './docs.css?url'
 

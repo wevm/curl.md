@@ -17,7 +17,7 @@ export default defineConfig({
       {
         test: {
           name: 'app',
-          include: ['src/**/!(*workers).test.ts'],
+          include: ['config/**/*.test.ts', 'src/**/!(*workers).test.ts'],
           exclude: ['src/md/**'],
           root,
         },

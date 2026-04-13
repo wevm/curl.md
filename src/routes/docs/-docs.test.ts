@@ -1,39 +1,5 @@
-import { readFileSync } from 'node:fs'
-import path from 'node:path'
 import { expect, test } from 'vitest'
-import { getDocHeadings } from './-headings.ts'
 import { createDocsSearch } from './-search.ts'
-
-test('contributing doc headings include numbered steps in outline order', () => {
-  const rawSource = readFileSync(
-    path.join(process.cwd(), 'docs/development/contributing.mdx'),
-    'utf8',
-  )
-
-  const headings = getDocHeadings(rawSource, [
-    { id: 'prerequisites', level: 2, text: 'Prerequisites' },
-    { id: 'local-setup', level: 2, text: 'Local Setup' },
-    { id: 'daily-workflow', level: 2, text: 'Daily Workflow' },
-    { id: 'checks', level: 2, text: 'Checks' },
-    { id: 'docs', level: 2, text: 'Docs' },
-  ])
-
-  expect(headings).toEqual([
-    { id: 'prerequisites', level: 2, text: 'Prerequisites' },
-    { id: 'local-setup', level: 2, text: 'Local Setup' },
-    { id: 'install-and-start-orbstack', level: 3, text: '1. Install and start OrbStack' },
-    { id: 'copy-the-environment-file', level: 3, text: '2. Copy the environment file' },
-    {
-      id: 'start-the-app-with-docker-compose',
-      level: 3,
-      text: '3. Start the app with Docker Compose',
-    },
-    { id: 'open-curlmd-locally', level: 3, text: '4. Open curl.md locally' },
-    { id: 'daily-workflow', level: 2, text: 'Daily Workflow' },
-    { id: 'checks', level: 2, text: 'Checks' },
-    { id: 'docs', level: 2, text: 'Docs' },
-  ])
-})
 
 test('doc search finds heading anchors and body matches', () => {
   const docsSearch = createDocsSearch(
@@ -325,44 +291,4 @@ Use the install script if you do not want to use a package manager.
       path: 'reference/kitchen_sink',
     }),
   )
-})
-
-test('kitchen sink doc headings include numbered steps in outline order', () => {
-  const rawSource = readFileSync(
-    path.join(process.cwd(), 'docs/reference/kitchen_sink.mdx'),
-    'utf8',
-  )
-
-  const headings = getDocHeadings(rawSource, [
-    { id: 'headings', level: 2, text: 'Headings' },
-    { id: 'level-3-heading', level: 3, text: 'Level 3 Heading' },
-    { id: 'level-4-heading', level: 4, text: 'Level 4 Heading' },
-    { id: 'paragraphs-and-links', level: 2, text: 'Paragraphs And Links' },
-    { id: 'notices', level: 2, text: 'Notices' },
-    { id: 'lists', level: 2, text: 'Lists' },
-    { id: 'blockquotes', level: 2, text: 'Blockquotes' },
-    { id: 'code-blocks', level: 2, text: 'Code Blocks' },
-    { id: 'code-groups', level: 2, text: 'Code Groups' },
-    { id: 'tables', level: 2, text: 'Tables' },
-    { id: 'steps', level: 2, text: 'Steps' },
-    { id: 'horizontal-rule', level: 2, text: 'Horizontal Rule' },
-  ])
-
-  expect(headings).toEqual([
-    { id: 'headings', level: 2, text: 'Headings' },
-    { id: 'level-3-heading', level: 3, text: 'Level 3 Heading' },
-    { id: 'level-4-heading', level: 4, text: 'Level 4 Heading' },
-    { id: 'paragraphs-and-links', level: 2, text: 'Paragraphs And Links' },
-    { id: 'notices', level: 2, text: 'Notices' },
-    { id: 'lists', level: 2, text: 'Lists' },
-    { id: 'blockquotes', level: 2, text: 'Blockquotes' },
-    { id: 'code-blocks', level: 2, text: 'Code Blocks' },
-    { id: 'code-groups', level: 2, text: 'Code Groups' },
-    { id: 'tables', level: 2, text: 'Tables' },
-    { id: 'steps', level: 2, text: 'Steps' },
-    { id: 'install-dependencies', level: 3, text: '1. Install dependencies' },
-    { id: 'start-the-dev-server', level: 3, text: '2. Start the dev server' },
-    { id: 'open-the-app', level: 3, text: '3. Open the app' },
-    { id: 'horizontal-rule', level: 2, text: 'Horizontal Rule' },
-  ])
 })

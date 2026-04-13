@@ -22,8 +22,24 @@ import IconVscodeIconsFileTypeTypescript from '~icons/vscode-icons/file-type-typ
 import IconVscodeIconsFileTypeYaml from '~icons/vscode-icons/file-type-yaml.jsx'
 import IconVscodeIconsFileTypeYarn from '~icons/vscode-icons/file-type-yarn.jsx'
 import { useCopyToClipboard } from '#hooks/useCopyToClipboard.ts'
-import type { Doc, DocPagination, Heading } from './-doc.types.ts'
-import { docSearchHighlightClassName, getDocSearchHighlightRanges } from './-search-highlight.ts'
+
+export type Heading = { id: string; level: number; text: string }
+
+export type Doc = {
+  Component: React.ComponentType<{ components?: Record<string, React.ComponentType> }>
+  description: string | undefined
+  headings: Array<Heading>
+  lastUpdated?: string
+  path: string
+  source: string
+  sourcePath: string
+  title: string
+}
+
+export type DocPagination = {
+  next: Pick<Doc, 'path' | 'title'> | undefined
+  previous: Pick<Doc, 'path' | 'title'> | undefined
+}
 
 // Share one lightweight store per docs page so tab changes do not rerender the route tree.
 type CodeGroupStore = {
@@ -1582,6 +1598,166 @@ function getStepId(title: string, stepSlugCounts: Map<string, number>) {
   return count === 0 ? baseSlug : `${baseSlug}-${count + 1}`
 }
 
+export function getDocHeadings(rawSource: unknown, renderedHeadings: Array<Heading>) {
+  const sourceOutline = getSourceOutline(rawSource)
+  const renderedHeadingCount = sourceOutline.filter((entry) => entry.type === 'rendered').length
+  if (renderedHeadingCount !== renderedHeadings.length) return renderedHeadings
+
+  const headings: Array<Heading> = []
+  let renderedHeadingIndex = 0
+
+  for (const entry of sourceOutline) {
+    if (entry.type === 'rendered') {
+      const heading = renderedHeadings[renderedHeadingIndex]
+      if (heading) headings.push(heading)
+      renderedHeadingIndex++
+      continue
+    }
+
+    headings.push(entry.heading)
+  }
+
+  return headings
+}
+
+function getSourceOutline(rawSource: unknown) {
+  const lines = stripFrontmatter(getRawDocSource(rawSource)).split('\n')
+  const outline: Array<{ type: 'rendered' } | { heading: Heading; type: 'step' }> = []
+  let codeFenceMarker: string | undefined
+
+  for (let index = 0; index < lines.length; index++) {
+    const line = lines[index]!
+    const fenceMarker = getCodeFenceMarker(line)
+
+    if (fenceMarker) {
+      if (!codeFenceMarker) codeFenceMarker = fenceMarker
+      else if (isMatchingFenceMarker(fenceMarker, codeFenceMarker)) codeFenceMarker = undefined
+      continue
+    }
+
+    if (codeFenceMarker) continue
+
+    const stepHeadings = getStepHeadings(lines, index)
+    if (stepHeadings) {
+      outline.push(...stepHeadings)
+      const body = collectDirectiveBody(lines, index)
+      if (body) index = body.endIndex
+      continue
+    }
+
+    if (parseRenderedHeading(line)) outline.push({ type: 'rendered' })
+  }
+
+  return outline
+}
+
+function getStepHeadings(lines: Array<string>, index: number) {
+  if (!/^:::\s*steps\s*$/iu.test(lines[index]!)) return
+
+  const body = collectDirectiveBody(lines, index)
+  if (!body) return []
+
+  const stepSlugCounts = new Map<string, number>()
+  const headings: Array<{ heading: Heading; type: 'step' }> = []
+  let codeFenceMarker: string | undefined
+  let stepNumber = 1
+
+  for (const line of body.body) {
+    const fenceMarker = getCodeFenceMarker(line)
+
+    if (fenceMarker) {
+      if (!codeFenceMarker) codeFenceMarker = fenceMarker
+      else if (isMatchingFenceMarker(fenceMarker, codeFenceMarker)) codeFenceMarker = undefined
+      continue
+    }
+
+    if (codeFenceMarker) continue
+
+    const heading = parseStepHeading(line)
+    if (!heading) continue
+
+    headings.push({
+      heading: {
+        id: getStepId(heading.title, stepSlugCounts),
+        level: 3,
+        text: `${stepNumber}. ${heading.title}`,
+      },
+      type: 'step',
+    })
+    stepNumber++
+  }
+
+  return headings
+}
+
+function getRawDocSource(rawSource: unknown) {
+  if (typeof rawSource === 'string') return rawSource
+  if (
+    rawSource &&
+    typeof rawSource === 'object' &&
+    'default' in rawSource &&
+    typeof rawSource.default === 'string'
+  )
+    return rawSource.default
+  return ''
+}
+
+function stripFrontmatter(markdown: string) {
+  if (!markdown.startsWith('---\n')) return markdown
+  const end = markdown.indexOf('\n---\n', 4)
+  if (end === -1) return markdown
+  return markdown.slice(end + 5).replace(/^\n+/, '')
+}
+
+function collectDirectiveBody(lines: Array<string>, index: number) {
+  const body: Array<string> = []
+  let codeFenceMarker: string | undefined
+
+  for (let endIndex = index + 1; endIndex < lines.length; endIndex++) {
+    const line = lines[endIndex]!
+    const fenceMarker = getCodeFenceMarker(line)
+
+    if (fenceMarker) {
+      if (!codeFenceMarker) codeFenceMarker = fenceMarker
+      else if (isMatchingFenceMarker(fenceMarker, codeFenceMarker)) codeFenceMarker = undefined
+      body.push(line)
+      continue
+    }
+
+    if (!codeFenceMarker && /^:::\s*$/u.test(line)) return { body, endIndex }
+    body.push(line)
+  }
+}
+
+function parseRenderedHeading(line: string) {
+  const match = /^(?: {0,3})(#{2,4})[ \t]+(.+?)\s*$/u.exec(line)
+  if (!match) return
+
+  const levelMarker = match[1]
+  const rawTitle = match[2]?.trim()
+  if (!levelMarker || !rawTitle) return
+
+  const title = rawTitle.replace(/[ \t]+#+[ \t]*$/, '').trim()
+  return title ? { level: levelMarker.length, title } : undefined
+}
+
+function parseStepHeading(line: string) {
+  const match = /^(?: {0,3})#{2,6}[ \t]+(.+?)\s*$/u.exec(line)
+  const rawTitle = match?.[1]?.trim()
+  if (!rawTitle) return
+
+  const title = rawTitle.replace(/[ \t]+#+[ \t]*$/, '').trim()
+  return title ? { title } : undefined
+}
+
+function getCodeFenceMarker(line: string) {
+  return /^(?: {0,3})(`{3,}|~{3,})/u.exec(line)?.[1]
+}
+
+function isMatchingFenceMarker(marker: string, other: string) {
+  return marker[0] === other[0]
+}
+
 function splitNumberedHeading(text: string) {
   const match = /^(\d+\.)(?:\s+)(.+)$/u.exec(text.trim())
   if (!match) return
@@ -1676,6 +1852,35 @@ function getDocSearchPreviewBlock(element: HTMLElement) {
   )
 }
 
+export const docSearchHighlightClassName = 'docs-search-highlight'
+
+export function getDocSearchHighlightRanges(value: string, terms: Array<string> | undefined) {
+  if (!value) return []
+
+  const pattern = createDocSearchHighlightRegExp(terms)
+  if (!pattern) return []
+
+  const ranges: Array<{ end: number; start: number }> = []
+
+  for (const match of value.matchAll(pattern)) {
+    const start = match.index ?? 0
+    const end = start + match[0].length
+    const previousRange = ranges.at(-1)
+
+    if (
+      previousRange &&
+      (start <= previousRange.end || !value.slice(previousRange.end, start).trim())
+    ) {
+      previousRange.end = end
+      continue
+    }
+
+    ranges.push({ end, start })
+  }
+
+  return ranges
+}
+
 function highlightDocSearchPreview(container: HTMLElement, terms: Array<string> | undefined) {
   const textNodes: Array<Text> = []
   const textWalker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, {
@@ -1729,6 +1934,13 @@ function clampNumber(value: number, minimum: number, maximum: number) {
   return Math.min(maximum, Math.max(minimum, value))
 }
 
+function createDocSearchHighlightRegExp(terms: Array<string> | undefined) {
+  const normalizedTerms = normalizeDocSearchHighlightTerms(terms)
+  if (!normalizedTerms.length) return undefined
+
+  return new RegExp(`(${normalizedTerms.map((term) => escapeRegExp(term)).join('|')})`, 'giu')
+}
+
 function getCodeGroupTabIcon(label: string) {
   const normalized = label.trim().toLowerCase()
   if (normalized in codeGroupTabIcons)
@@ -1752,6 +1964,12 @@ function slugifyHeading(value: string) {
 
 function normalizeCodeGroupLabel(label: string) {
   return label.trim().toLowerCase()
+}
+
+function normalizeDocSearchHighlightTerms(terms: Array<string> | undefined) {
+  return [...new Set((terms ?? []).map((term) => term.trim()).filter(Boolean))].sort(
+    (a, b) => b.length - a.length || a.localeCompare(b),
+  )
 }
 
 function createCodeGroupStore(
@@ -1804,6 +2022,10 @@ function getCodeGroupStoreSnapshot() {
 
 function subscribeToCodeGroupStore(_listener: () => void) {
   return () => {}
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
 const noticeTitles: Record<string, string> = {
