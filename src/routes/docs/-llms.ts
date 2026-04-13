@@ -24,7 +24,9 @@ export function generateDocsLlmsTxt(props: { sections: Array<DocsLlmsSection> })
     lines.push('', `## ${section.title}`, '')
 
     for (const doc of section.docs)
-      lines.push(`- [${doc.title}](${getDocUrl(doc.path)}): ${doc.description ?? doc.title}`)
+      lines.push(
+        `- [${doc.title}](${doc.path ? `/docs/${doc.path}.md` : '/docs/index.md'}): ${doc.description ?? doc.title}`,
+      )
   }
 
   return `${lines.join('\n')}\n`
@@ -41,7 +43,7 @@ export function generateDocsLlmsFullTxt(props: { docs: Array<DocsLlmsFullDoc> })
   ]
 
   for (const doc of docs) {
-    lines.push('', `## ${getDocUrl(doc.path)}`, '')
+    lines.push('', `## ${doc.path ? `/docs/${doc.path}.md` : '/docs/index.md'}`, '')
 
     if (doc.description) lines.push(doc.description, '')
 
@@ -49,9 +51,4 @@ export function generateDocsLlmsFullTxt(props: { docs: Array<DocsLlmsFullDoc> })
   }
 
   return `${lines.join('\n')}\n`
-}
-
-function getDocUrl(path: string) {
-  if (!path) return '/docs/index.md'
-  return `/docs/${path}.md`
 }

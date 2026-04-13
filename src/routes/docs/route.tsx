@@ -21,10 +21,6 @@ import type { DocSearchResult } from './-search.ts'
 import { getThemeIconTheme } from './-theme.ts'
 import docsCssHref from './docs.css?url'
 
-const searchSchema = z.object({
-  q: z.string().optional(),
-})
-
 export const Route = createFileRoute('/docs')({
   head: () => ({
     links: [{ href: docsCssHref, rel: 'stylesheet' }],
@@ -35,7 +31,9 @@ export const Route = createFileRoute('/docs')({
       next: location.publicHref ?? location.pathname,
     }
   },
-  validateSearch: searchSchema,
+  validateSearch: z.object({
+    q: z.string().optional(),
+  }),
   component: Component,
 })
 
@@ -457,8 +455,8 @@ function SidebarNavItem(props: { item: SidebarItem; onNavigate: () => void }) {
   if (item.type === 'group')
     return (
       <li className="mt-6 first:mt-0">
-        <span className="text-gray10 block px-2 py-1.5 text-sm font-medium md:py-0">
-          {formatSidebarGroupLabel(item.label)}
+        <span className="text-gray10 block px-2 py-1.5 text-sm font-medium lowercase first-letter:uppercase md:py-0">
+          {item.label}
         </span>
         <ul className="mt-1.5 flex list-none flex-col gap-0.5 ps-0">
           {item.items.map((child) => (
@@ -482,10 +480,6 @@ function SidebarNavItem(props: { item: SidebarItem; onNavigate: () => void }) {
       </Link>
     </li>
   )
-}
-
-function formatSidebarGroupLabel(label: string) {
-  return label.charAt(0) + label.slice(1).toLowerCase()
 }
 
 function SearchTrigger(props: {
@@ -645,7 +639,7 @@ function DocsSearchDialog(props: {
       highlightItemOnHover={false}
       inline
       inputValue={props.query}
-      itemToStringLabel={getSearchResultLabel}
+      itemToStringLabel={(result) => getSearchResultHeadingSegments(result).join(' > ')}
       items={displayedResults}
       onItemHighlighted={scrollHighlightedResultIntoView}
       onInputValueChange={props.onQueryChange}
@@ -942,14 +936,6 @@ function getSearchResultPath(result: DocSearchResult) {
 
 function getSearchResultId(result: DocSearchResult) {
   return `${result.path}#${result.kind === 'section' ? result.hash : ''}`
-}
-
-function getSearchResultLabel(result: DocSearchResult) {
-  return getSearchResultHeading(result)
-}
-
-function getSearchResultHeading(result: DocSearchResult) {
-  return getSearchResultHeadingSegments(result).join(' > ')
 }
 
 function getSearchResultHeadingSegments(result: DocSearchResult) {

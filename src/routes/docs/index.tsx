@@ -5,11 +5,6 @@ import { rpc } from '#lib/rpc.ts'
 import { DocContent } from './-doc.tsx'
 import { findDoc, findDocPagination } from './-docs.ts'
 
-const searchSchema = z.object({
-  codegroup: z.string().optional(),
-  q: z.string().optional(),
-})
-
 export const Route = createFileRoute('/docs/')({
   head() {
     const doc = findDoc('')
@@ -36,7 +31,10 @@ export const Route = createFileRoute('/docs/')({
   loader() {
     if (!findDoc('')) throw notFound()
   },
-  validateSearch: searchSchema,
+  validateSearch: z.object({
+    codegroup: z.string().optional(),
+    q: z.string().optional(),
+  }),
   component: Component,
 })
 

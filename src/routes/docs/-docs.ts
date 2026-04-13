@@ -64,7 +64,7 @@ export function findDocPreview(path: string) {
 }
 
 const orderedDocs = flattenSidebarItems(sidebar)
-  .map((item) => findDoc(normalizeSidebarPath(item.path)))
+  .map((item) => findDoc(item.path === '/' ? '' : item.path.replace(/^\//, '')))
   .filter((doc): doc is Doc => doc !== undefined)
 
 const docsSearch = createDocsSearch(
@@ -83,8 +83,4 @@ function flattenSidebarItems(
   }
 
   return links
-}
-
-function normalizeSidebarPath(path: string) {
-  return path === '/' ? '' : path.replace(/^\//, '')
 }
