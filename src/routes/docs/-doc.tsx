@@ -1594,7 +1594,8 @@ function splitNumberedHeading(text: string) {
 
 const hashHeadingGracePeriodMs = 250 // 0.25 seconds
 const docSearchPreviewOffsetTopPx = 20 // 20 pixels
-const codeGroupQueryParam = 'codegroup'
+const codeGroupLegacyQueryParam = 'codegroup'
+const codeGroupQueryParam = 'tab'
 const useBrowserLayoutEffect =
   typeof window === 'undefined' ? React.useEffect : React.useLayoutEffect
 
@@ -1767,6 +1768,7 @@ function createCodeGroupStore(
       else if (typeof window !== 'undefined') {
         const url = new URL(window.location.href)
         url.searchParams.set(codeGroupQueryParam, nextValue)
+        url.searchParams.delete(codeGroupLegacyQueryParam)
         if (
           `${url.pathname}${url.search}${url.hash}` !==
           window.location.pathname + window.location.search + window.location.hash
@@ -1794,7 +1796,9 @@ function createCodeGroupStore(
 function getCodeGroupStoreSnapshot() {
   if (typeof window === 'undefined') return
 
-  const queryValue = new URLSearchParams(window.location.search).get(codeGroupQueryParam)
+  const searchParams = new URLSearchParams(window.location.search)
+  const queryValue =
+    searchParams.get(codeGroupQueryParam) ?? searchParams.get(codeGroupLegacyQueryParam)
   return queryValue ? normalizeCodeGroupLabel(queryValue) : undefined
 }
 

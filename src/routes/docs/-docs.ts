@@ -17,7 +17,7 @@ const sources = import.meta.glob<unknown>('../../../docs/**/*.mdx', {
   query: '?raw',
 })
 
-export const allDocs: Array<Doc> = Object.entries(modules).map(([filePath, mod]) => {
+const allDocs: Array<Doc> = Object.entries(modules).map(([filePath, mod]) => {
   const path = filePath
     .replace('../../../docs/', '')
     .replace(/\.mdx$/, '')
@@ -51,16 +51,6 @@ export function findDocPagination(path: string): DocPagination {
 
 export function searchDocs(query: string): Array<DocSearchResult> {
   return docsSearch.search(query)
-}
-
-export function findDocPreview(path: string) {
-  const doc = findDoc(path)
-  if (!doc) return
-
-  return {
-    Component: doc.Component,
-    path: doc.path,
-  }
 }
 
 const orderedDocs = flattenSidebarItems(sidebar)

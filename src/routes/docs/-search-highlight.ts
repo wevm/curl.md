@@ -1,6 +1,6 @@
 export const docSearchHighlightClassName = 'docs-search-highlight'
 
-export function createDocSearchHighlightRegExp(terms: Array<string> | undefined) {
+function createDocSearchHighlightRegExp(terms: Array<string> | undefined) {
   const normalizedTerms = normalizeDocSearchHighlightTerms(terms)
   if (!normalizedTerms.length) return undefined
 

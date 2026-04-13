@@ -14,11 +14,10 @@ import { getSessionLogin } from '#server/session.ts'
 import { navbarLinks, type NavbarLink } from '../../../docs/_config.ts'
 import { sidebar, type SidebarItem } from '../../../docs/_sidebar.ts'
 import { DocSearchPreview } from './-doc.tsx'
-import { findDocPreview, searchDocs } from './-docs.ts'
+import type { Doc } from './-doc.types.ts'
+import { findDoc, searchDocs } from './-docs.ts'
 import { docSearchHighlightClassName, getDocSearchHighlightRanges } from './-search-highlight.ts'
-import { getNextSearchPreviewCacheState } from './-search-preview-cache.ts'
 import type { DocSearchResult } from './-search.ts'
-import { getThemeIconTheme } from './-theme.ts'
 import docsCssHref from './docs.css?url'
 
 export const Route = createFileRoute('/docs')({
@@ -431,10 +430,8 @@ const themeOptions = [
 ] satisfies Array<{ label: string; value: Theme }>
 
 function getThemeIcon(theme: Theme, resolvedTheme: Exclude<Theme, 'system'>, mounted: boolean) {
-  const iconTheme = getThemeIconTheme(theme, resolvedTheme, mounted)
-
+  const iconTheme = theme === 'system' && mounted ? resolvedTheme : theme
   if (iconTheme === 'system') return <IconLucideMonitor className="size-3.5" />
-
   if (iconTheme === 'light') return <IconMaterialSymbolsWbSunny className="size-3.5" />
   return <IconMaterialSymbolsDarkMode className="size-3.5" />
 }
@@ -579,16 +576,24 @@ function DocsSearchDialog(props: {
   )
 
   React.useEffect(() => {
-    setCachedPreviewState((current) =>
-      getNextSearchPreviewCacheState(current, { key: previewCacheScopeKey }),
-    )
+    setCachedPreviewState((current) => {
+      if (current.key === previewCacheScopeKey) return current
+      return { ids: new Set(), key: previewCacheScopeKey }
+    })
   }, [previewCacheScopeKey])
 
   const cachePreview = React.useCallback(
     (resultId: string) => {
-      setCachedPreviewState((current) =>
-        getNextSearchPreviewCacheState(current, { cacheId: resultId, key: previewCacheScopeKey }),
-      )
+      setCachedPreviewState((current) => {
+        if (current.key !== previewCacheScopeKey)
+          return { ids: new Set([resultId]), key: previewCacheScopeKey }
+
+        if (current.ids.has(resultId)) return current
+
+        const ids = new Set(current.ids)
+        ids.add(resultId)
+        return { ids, key: current.key }
+      })
     },
     [previewCacheScopeKey],
   )
@@ -799,7 +804,7 @@ function SearchResultContent(props: {
   const previewFallback = props.result.snippet ?? getSearchResultPath(props.result)
   const resultId = getSearchResultId(props.result)
   const isPageResult = props.result.kind === 'page'
-  const docPreview = props.showDetails ? findDocPreview(props.result.path) : undefined
+  const docPreview = props.showDetails ? findDoc(props.result.path) : undefined
 
   return (
     <>
@@ -837,7 +842,7 @@ function SearchResultContent(props: {
 function SearchResultPreview(props: {
   cacheId: string
   cached: boolean
-  doc: NonNullable<ReturnType<typeof findDocPreview>>
+  doc: Pick<Doc, 'Component' | 'path'>
   fallback: React.ReactNode
   hash?: string
   onCache: (resultId: string) => void

@@ -331,7 +331,7 @@ test('code groups switch the visible panel when tabs are clicked', async () => {
 })
 
 test('code groups sync matching labels through the query param', async () => {
-  window.history.replaceState(null, '', '/docs/test?codegroup=pnpm')
+  window.history.replaceState(null, '', '/docs/test?tab=pnpm')
   const rendered = renderDocContent(createSyncedCodeGroupDoc())
   await waitForAnimationFrame()
   const groups = rendered.container.querySelectorAll('[data-docs-code-group]')
@@ -345,11 +345,11 @@ test('code groups sync matching labels through the query param', async () => {
 
   expect(getActiveCodeGroupTabLabel(firstGroup)).toBe('npm')
   expect(getActiveCodeGroupTabLabel(secondGroup)).toBe('npm')
-  expect(new URLSearchParams(window.location.search).get('codegroup')).toBe('npm')
+  expect(new URLSearchParams(window.location.search).get('tab')).toBe('npm')
 })
 
 test('synced code groups keep focus on the interacted tab', async () => {
-  window.history.replaceState(null, '', '/docs/test?codegroup=pnpm')
+  window.history.replaceState(null, '', '/docs/test?tab=pnpm')
   const rendered = renderDocContent(createSyncedCodeGroupDoc())
   await waitForAnimationFrame()
   const groups = rendered.container.querySelectorAll('[data-docs-code-group]')
@@ -367,6 +367,18 @@ test('synced code groups keep focus on the interacted tab', async () => {
   expect(document.activeElement).toBe(firstGroupNpmTab)
   expect(getActiveCodeGroupTabLabel(secondGroup)).toBe('npm')
   expect(secondGroup.contains(document.activeElement)).toBe(false)
+})
+
+test('code groups still read the legacy codegroup query param', async () => {
+  window.history.replaceState(null, '', '/docs/test?codegroup=pnpm')
+  const rendered = renderDocContent(createSyncedCodeGroupDoc())
+  await waitForAnimationFrame()
+  const groups = rendered.container.querySelectorAll('[data-docs-code-group]')
+  const [firstGroup, secondGroup] = groups
+  if (!firstGroup || !secondGroup) throw new Error('Expected two code groups to render')
+
+  expect(getActiveCodeGroupTabLabel(firstGroup)).toBe('pnpm')
+  expect(getActiveCodeGroupTabLabel(secondGroup)).toBe('pnpm')
 })
 
 test('code groups delegate url sync through the provided handler', async () => {
