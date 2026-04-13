@@ -92,9 +92,24 @@ export const stripe = appendMd({
   patterns: [new URLPattern({ hostname: 'docs.stripe.com' })],
   checks: [{ url: 'https://docs.stripe.com/api', contains: ['Stripe'] }],
 })
-export const tanstack = appendMd({
+export const tanstackBlog = repo({
+  key: 'tanstackBlog',
+  repo: 'tanstack/tanstack.com',
+  prefix: 'src',
+  patterns: [new URLPattern({ hostname: 'tanstack.com', pathname: '/blog/:path+' })],
+  checks: [
+    {
+      url: 'https://tanstack.com/blog/react-server-components',
+      contains: ['What are server components?', 'The RSC Status Quo'],
+    },
+  ],
+})
+export const tanstack = acceptMarkdown({
   key: 'tanstack',
-  patterns: [new URLPattern({ hostname: 'tanstack.com' })],
+  patterns: [
+    new URLPattern({ hostname: 'tanstack.com', pathname: '/:product/:version/docs' }),
+    new URLPattern({ hostname: 'tanstack.com', pathname: '/:product/:version/docs/:path+' }),
+  ],
   checks: [
     {
       url: 'https://tanstack.com/start/latest/docs/framework/react/overview',

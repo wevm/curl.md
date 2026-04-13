@@ -1,4 +1,5 @@
 import assert from 'node:assert'
+import * as Sentry from '@sentry/cloudflare'
 import { env } from 'cloudflare:workers'
 import { testClient } from 'hono/testing'
 import { HttpResponse, http } from 'msw'
@@ -2508,6 +2509,30 @@ test('GET /api/:url returns a readable ai_failed message for numeric AI errors',
     code: 'ai_failed',
     message: 'Inference upstream error (1031)',
   })
+})
+
+test('GET /api/:url reports upstream 5xx fetch failures to sentry', async () => {
+  const captureException = vi.spyOn(Sentry, 'captureException').mockImplementation(() => '')
+  server.use(
+    http.get('https://fetch-failed.example.com/', () => new HttpResponse(null, { status: 500 })),
+  )
+
+  const res = await client.api[':url{.+}'].$get({
+    param: { url: 'fetch-failed.example.com' },
+    query: {},
+  })
+
+  expect(res.status).toBe(502)
+  await expect(res.json()).resolves.toEqual({
+    code: 'fetch_failed',
+    message: 'Upstream returned 500',
+  })
+  expect(captureException).toHaveBeenCalledWith(
+    expect.objectContaining({
+      message: 'Upstream returned 500 for https://fetch-failed.example.com/',
+    }),
+  )
+  captureException.mockRestore()
 })
 
 test('GET /api/:url returns 429 when fetch limit exceeded', async () => {

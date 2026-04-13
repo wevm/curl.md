@@ -1903,6 +1903,11 @@ export const api = new Hono<{
         return result
       })()
 
+      if (!response.ok && (response.status >= 500 || response.error))
+        Sentry.captureException(
+          new Error(response.error || `Upstream returned ${response.status} for ${url.href}`),
+        )
+
       if (!response.ok)
         return c.json(
           {

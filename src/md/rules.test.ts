@@ -1,4 +1,4 @@
-import { expect, test } from 'vitest'
+import { expect, test, vi } from 'vitest'
 import type { defineRule } from './mod.ts'
 import * as rules from './rules.ts'
 
@@ -25,7 +25,6 @@ test.each([
   rules.routerVue,
   rules.shadcn,
   rules.stripe,
-  rules.tanstack,
   rules.turbo,
   rules.vite,
   rules.vitest,
@@ -124,6 +123,37 @@ test.each([
   expect(rewrite(factory, url)).toBeUndefined()
 })
 
+test('tanstack matches docs paths', () => {
+  expect(patternsMatch(rules.tanstack(), 'https://tanstack.com/start/latest/docs')).toBe(true)
+  expect(
+    patternsMatch(
+      rules.tanstack(),
+      'https://tanstack.com/start/latest/docs/framework/react/overview',
+    ),
+  ).toBe(true)
+})
+
+test('tanstack does not match blog paths', () => {
+  expect(patternsMatch(rules.tanstack(), 'https://tanstack.com/blog/react-server-components')).toBe(
+    false,
+  )
+})
+
+test('tanstack requests markdown for docs paths', async () => {
+  const fetch = vi.fn(() => Promise.resolve(new Response('ok')))
+  await rules
+    .tanstack()
+    .fetch?.(
+      new URL('https://tanstack.com/start/latest/docs/framework/react/overview'),
+      undefined,
+      { fetch },
+    )
+  expect(fetch).toHaveBeenCalledWith(
+    new URL('https://tanstack.com/start/latest/docs/framework/react/overview'),
+    expect.objectContaining({ headers: { Accept: 'text/markdown' } }),
+  )
+})
+
 test('repo: deno rewrites to raw.githubusercontent.com', () => {
   expect(patternsMatch(rules.deno(), 'https://docs.deno.com/runtime/fundamentals')).toBe(true)
   expect(rewrite(rules.deno, 'https://docs.deno.com/runtime/fundamentals')?.href).toBe(
@@ -133,6 +163,17 @@ test('repo: deno rewrites to raw.githubusercontent.com', () => {
 
 test('repo: deno returns undefined for root', () => {
   expect(rewrite(rules.deno, 'https://docs.deno.com/')).toBeUndefined()
+})
+
+test('repo: tanstackBlog rewrites blog posts to raw.githubusercontent.com', () => {
+  expect(
+    patternsMatch(rules.tanstackBlog(), 'https://tanstack.com/blog/react-server-components'),
+  ).toBe(true)
+  expect(
+    rewrite(rules.tanstackBlog, 'https://tanstack.com/blog/react-server-components')?.href,
+  ).toBe(
+    'https://raw.githubusercontent.com/tanstack/tanstack.com/main/src/blog/react-server-components.md',
+  )
 })
 
 test('repo: rolldown rewrites to raw.githubusercontent.com with prefix', () => {
