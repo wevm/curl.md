@@ -23,6 +23,7 @@ import IconVscodeIconsFileTypeYaml from '~icons/vscode-icons/file-type-yaml.jsx'
 import IconVscodeIconsFileTypeYarn from '~icons/vscode-icons/file-type-yarn.jsx'
 import { useCopyToClipboard } from '#hooks/useCopyToClipboard.ts'
 import type { Doc, DocPagination, Heading } from './-doc.types.ts'
+import { docSearchHighlightClassName, getDocSearchHighlightRanges } from './-search-highlight.ts'
 
 // Share one lightweight store per docs page so tab changes do not rerender the route tree.
 type CodeGroupStore = {
@@ -227,7 +228,7 @@ export function DocContent(props: {
       <div className="mx-auto grid w-full max-w-[76rem] grid-cols-1 lg:grid-cols-[minmax(0,56rem)_16rem] lg:gap-12">
         {hasHeadings && (
           <div
-            className="bg-bg1 border-gray-a3 sticky top-17 z-30 [margin-inline:calc(50%-50vw)] border-b md:[margin-inline:0] md:mx-0 md:[margin-inline-start:-3rem] md:[inline-size:calc(100%+3rem)] lg:hidden"
+            className="bg-bg1 border-gray-a3 sticky top-17 z-30 w-full border-b md:[margin-inline:0] md:mx-0 md:[margin-inline-start:-3rem] md:[inline-size:calc(100%+3rem)] lg:hidden"
             data-mobile-doc-outline-bar=""
             ref={mobileOutlineBarRef}
           >
@@ -240,7 +241,7 @@ export function DocContent(props: {
                 >
                   <div ref={mobileOutlineTriggerRef}>
                     <Menu.Trigger
-                      className="border-gray-a5 text-gray9 hover:bg-gray-a2 hover:text-gray10 data-[popup-open]:bg-gray-a2 data-[popup-open]:text-gray10 flex shrink-0 items-center gap-2.5 rounded-none border px-2 py-2 text-xs font-medium outline-none"
+                      className="border-gray-a3 text-gray9 hover:bg-gray-a2 hover:text-gray10 data-[popup-open]:bg-gray-a2 data-[popup-open]:text-gray10 flex shrink-0 items-center gap-2.5 rounded-none border px-2 py-2 text-xs font-medium outline-none"
                       data-mobile-doc-outline-trigger=""
                     >
                       <span>On this page</span>
@@ -285,7 +286,7 @@ export function DocContent(props: {
                       }
                     >
                       <Menu.Popup
-                        className="bg-bg1 border-gray-a3 max-h-[min(24rem,calc(100dvh-9rem))] w-full overflow-x-hidden overflow-y-auto border p-0 shadow-2xl outline-none"
+                        className="bg-bg1 border-gray-a3 max-h-[min(24rem,calc(100dvh-9rem))] w-full overflow-x-hidden overflow-y-auto overscroll-contain border p-0 shadow-2xl outline-none"
                         data-doc-mobile-outline-panel=""
                         id="docs-mobile-outline"
                       >
@@ -454,18 +455,83 @@ export function DocContent(props: {
   )
 }
 
+export function DocSearchPreview(props: {
+  doc: Pick<Doc, 'Component' | 'path'>
+  hash?: string | undefined
+  terms?: Array<string> | undefined
+}) {
+  const mdxComponents = React.useMemo(
+    () => createMdxComponents({ copied: false, copyPage: () => undefined, preview: true }),
+    [],
+  )
+  const contentRef = React.useRef<HTMLDivElement>(null)
+  const viewportRef = React.useRef<HTMLDivElement>(null)
+  const [offsetTop, setOffsetTop] = React.useState(0)
+
+  useBrowserLayoutEffect(() => {
+    const content = contentRef.current
+    const viewport = viewportRef.current
+    if (!content || !viewport) return
+
+    const updateOffset = () => {
+      clearDocSearchPreviewHighlights(content)
+      highlightDocSearchPreview(content, props.terms)
+
+      const anchor = getDocSearchPreviewAnchor(content, props.hash)
+      if (!anchor) {
+        setOffsetTop(0)
+        return
+      }
+
+      const maxOffset = Math.max(0, content.scrollHeight - viewport.clientHeight)
+      const nextOffset = clampNumber(anchor.offsetTop - docSearchPreviewOffsetTopPx, 0, maxOffset)
+      setOffsetTop((current) => (current === nextOffset ? current : nextOffset))
+    }
+
+    updateOffset()
+
+    const resizeObserver = new ResizeObserver(updateOffset)
+    resizeObserver.observe(content)
+    resizeObserver.observe(viewport)
+    return () => resizeObserver.disconnect()
+  }, [props.doc.path, props.hash, props.terms])
+
+  return (
+    <div
+      aria-hidden="true"
+      className="relative max-h-40 overflow-hidden [mask-image:linear-gradient(to_bottom,black_0%,black_82%,transparent_100%)]"
+      data-doc-search-preview=""
+      ref={viewportRef}
+    >
+      <div
+        className="pointer-events-none select-none [&_[data-docs-code-block]]:mt-3 [&_[data-docs-step]:first-child]:pt-0 [&_[data-docs-steps]]:mt-3 [&>*:first-child]:mt-0"
+        ref={contentRef}
+        style={offsetTop ? { transform: `translateY(-${offsetTop}px)` } : undefined}
+      >
+        <props.doc.Component components={mdxComponents} />
+      </div>
+    </div>
+  )
+}
+
 // --- Internal ---
 
-function createMdxComponents(props: { copyPage: () => void; copied: boolean }) {
-  const { copied, copyPage } = props
+export function createMdxComponents(props: {
+  copied: boolean
+  copyPage: () => void
+  preview?: boolean
+}) {
+  const { copied, copyPage, preview = false } = props
 
   return {
-    CodeGroup,
+    CodeGroup: preview ? PreviewCodeGroup : CodeGroup,
     CodeGroupItem,
-    pre: DocsCodeBlock,
+    pre: (preProps: React.ComponentProps<'pre'>) => (
+      <DocsCodeBlock preview={preview} {...preProps} />
+    ),
     Notice,
     Step,
-    Steps,
+    Steps: preview ? PreviewSteps : Steps,
     table: DocsTable,
     tbody: DocsTableBody,
     td: DocsTableCell,
@@ -474,7 +540,8 @@ function createMdxComponents(props: { copyPage: () => void; copied: boolean }) {
     tr: DocsTableRow,
     a: (anchorProps: React.ComponentProps<'a'>) => {
       const { href, children, ...rest } = anchorProps
-      if (href?.startsWith('/'))
+      if (preview) return <span className="text-blue9">{children}</span>
+      if (!preview && href?.startsWith('/'))
         return (
           <Link className="text-blue9 hover:underline" to={href}>
             {children}
@@ -494,25 +561,45 @@ function createMdxComponents(props: { copyPage: () => void; copied: boolean }) {
     ),
     code: DocsInlineCode,
     h1: (headingProps: React.ComponentProps<'h1'>) =>
-      renderPageHeading({ copied, copyPage, ...headingProps }),
+      preview
+        ? renderPreviewPageHeading(headingProps)
+        : renderPageHeading({ copied, copyPage, ...headingProps }),
     h2: (headingProps: React.ComponentProps<'h2'>) =>
-      renderHeading(
-        'h2',
-        'mt-10 scroll-mt-[7rem] text-lg font-bold md:text-xl lg:scroll-mt-4',
-        headingProps,
-      ),
+      preview
+        ? renderPreviewHeading(
+            'h2',
+            'mt-10 scroll-mt-[7rem] text-lg font-bold md:text-xl lg:scroll-mt-4',
+            headingProps,
+          )
+        : renderHeading(
+            'h2',
+            'mt-10 scroll-mt-[7rem] text-lg font-bold md:text-xl lg:scroll-mt-4',
+            headingProps,
+          ),
     h3: (headingProps: React.ComponentProps<'h3'>) =>
-      renderHeading(
-        'h3',
-        'mt-8 scroll-mt-[7rem] text-base font-bold md:text-lg lg:scroll-mt-5',
-        headingProps,
-      ),
+      preview
+        ? renderPreviewHeading(
+            'h3',
+            'mt-8 scroll-mt-[7rem] text-base font-bold md:text-lg lg:scroll-mt-5',
+            headingProps,
+          )
+        : renderHeading(
+            'h3',
+            'mt-8 scroll-mt-[7rem] text-base font-bold md:text-lg lg:scroll-mt-5',
+            headingProps,
+          ),
     h4: (headingProps: React.ComponentProps<'h4'>) =>
-      renderHeading(
-        'h4',
-        'mt-7 scroll-mt-[7rem] text-sm font-bold md:text-base lg:scroll-mt-4',
-        headingProps,
-      ),
+      preview
+        ? renderPreviewHeading(
+            'h4',
+            'mt-7 scroll-mt-[7rem] text-sm font-bold md:text-base lg:scroll-mt-4',
+            headingProps,
+          )
+        : renderHeading(
+            'h4',
+            'mt-7 scroll-mt-[7rem] text-sm font-bold md:text-base lg:scroll-mt-4',
+            headingProps,
+          ),
     hr: () => <hr className="border-gray-a3 my-8" />,
     li: (listItemProps: React.ComponentProps<'li'>) => (
       <li
@@ -641,6 +728,24 @@ function renderHeading<Tag extends 'h1' | 'h2' | 'h3' | 'h4'>(
   )
 }
 
+function renderPreviewHeading<Tag extends 'h1' | 'h2' | 'h3' | 'h4'>(
+  tag: Tag,
+  baseClassName: string,
+  props: React.ComponentProps<Tag>,
+) {
+  const { children, className, id, ...rest } = props
+
+  return React.createElement(
+    tag,
+    {
+      ...rest,
+      className: ['group/heading relative', baseClassName, className].filter(Boolean).join(' '),
+      ...(id ? { 'data-doc-search-anchor': id } : {}),
+    },
+    children,
+  )
+}
+
 function renderPageHeading(
   props: React.ComponentProps<'h1'> & { copied: boolean; copyPage: () => void },
 ) {
@@ -680,6 +785,25 @@ function renderPageHeading(
         copied={copied}
         data-doc-mobile-copy-page=""
       />
+    </h1>
+  )
+}
+
+function renderPreviewPageHeading(props: React.ComponentProps<'h1'>) {
+  const { children, className, id, ...rest } = props
+
+  return (
+    <h1
+      {...rest}
+      className={[
+        'min-w-0 scroll-mt-[7rem] text-xl font-bold lg:scroll-mt-0 md:text-2xl',
+        className,
+      ]
+        .filter(Boolean)
+        .join(' ')}
+      {...(id ? { 'data-doc-search-anchor': id } : {})}
+    >
+      {children}
     </h1>
   )
 }
@@ -790,17 +914,7 @@ function DocsTableCell(props: React.ComponentProps<'td'>) {
 
 function Steps(props: React.PropsWithChildren) {
   const { children } = props
-  const stepSlugCounts = new Map<string, number>()
-  const items = React.Children.toArray(children)
-    .filter(
-      (child): child is React.ReactElement<React.PropsWithChildren<{ title?: string }>> =>
-        React.isValidElement(child) && child.type === Step,
-    )
-    .map((child, index) => ({
-      content: child.props.children,
-      id: getStepId(child.props.title?.trim() || `Step ${index + 1}`, stepSlugCounts),
-      title: child.props.title?.trim() || `Step ${index + 1}`,
-    }))
+  const items = getStepItems(children)
 
   if (!items[0]) return <>{children}</>
 
@@ -842,6 +956,46 @@ function Steps(props: React.PropsWithChildren) {
   )
 }
 
+function PreviewSteps(props: React.PropsWithChildren) {
+  const { children } = props
+  const items = getStepItems(children)
+
+  if (!items[0]) return <>{children}</>
+
+  return (
+    <ol className="-ms-1 mt-6 list-none ps-0" data-docs-steps="">
+      {items.map((item, index) => (
+        <li
+          className="grid grid-cols-[2.25rem_minmax(0,1fr)] gap-3 pb-10 last:pb-0 md:grid-cols-[2.5rem_minmax(0,1fr)] md:gap-4"
+          data-docs-step=""
+          key={`${index}-${item.title}`}
+        >
+          <div className="relative -mt-px flex justify-center md:-mt-0.5">
+            <span className="bg-gray-a3 text-gray11 relative z-10 flex size-7 items-center justify-center rounded-full text-sm font-medium md:size-8 md:text-[0.9375rem]">
+              {index + 1}
+            </span>
+            <span
+              aria-hidden
+              className="bg-gray-a3 absolute start-1/2 top-7 bottom-[-2rem] w-px -translate-x-1/2 data-[last]:hidden md:top-8 md:bottom-[-2.25rem]"
+              data-last={index === items.length - 1 ? '' : undefined}
+            />
+          </div>
+
+          <div className="min-w-0">
+            <h3
+              className="text-gray12 scroll-mt-[7rem] text-lg font-bold md:text-xl lg:scroll-mt-5"
+              data-doc-search-anchor={item.id}
+            >
+              {item.title}
+            </h3>
+            <div className="[&>*:first-child]:mt-4 [&>*:last-child]:mb-0">{item.content}</div>
+          </div>
+        </li>
+      ))}
+    </ol>
+  )
+}
+
 function Step(props: React.PropsWithChildren<{ title?: string }>) {
   const { children } = props
   return <>{children}</>
@@ -850,28 +1004,7 @@ function Step(props: React.PropsWithChildren<{ title?: string }>) {
 function CodeGroup(props: React.PropsWithChildren) {
   const { children } = props
   const codeGroupStore = React.useContext(codeGroupStoreContext)
-  const items = React.useMemo(
-    () =>
-      React.Children.toArray(children)
-        .filter(
-          (child): child is React.ReactElement<React.PropsWithChildren<{ label?: string }>> =>
-            React.isValidElement(child) && child.type === CodeGroupItem,
-        )
-        .map((child, index) => {
-          const label =
-            child.props.label?.trim() ||
-            getCodeGroupLanguage(child.props.children) ||
-            `Code ${index + 1}`
-
-          return {
-            content: child.props.children,
-            label,
-            normalizedLabel: normalizeCodeGroupLabel(label),
-            value: String(index),
-          }
-        }),
-    [children],
-  )
+  const items = React.useMemo(() => getCodeGroupItems(children), [children])
   const [value, setValue] = React.useState(items[0]?.value ?? '0')
   const sharedLabel = React.useSyncExternalStore(
     codeGroupStore?.subscribe ?? subscribeToCodeGroupStore,
@@ -953,6 +1086,37 @@ function CodeGroup(props: React.PropsWithChildren) {
   )
 }
 
+function PreviewCodeGroup(props: React.PropsWithChildren) {
+  const items = React.useMemo(() => getCodeGroupItems(props.children), [props.children])
+  if (!items[0]) return <>{props.children}</>
+
+  return (
+    <div
+      className="mt-6 overflow-hidden [background-color:var(--color-docs-surface)]"
+      data-docs-code-group=""
+    >
+      <div className="border-gray-a3 flex flex-wrap gap-2 border-b px-4 py-3">
+        {items.map((item, index) => (
+          <span
+            className="text-gray8 data-[active]:text-gray10 data-[active]:bg-gray-a2 px-2 py-1 text-xs font-medium"
+            data-active={index === 0 ? '' : undefined}
+            key={item.value}
+          >
+            <span className="flex items-center gap-2">
+              <CodeGroupTabIcon label={item.label} />
+              <span>{item.label}</span>
+            </span>
+          </span>
+        ))}
+      </div>
+
+      <div className="[&_[data-docs-code-block]]:mt-0 [&_[data-docs-code-block]_pre]:px-5 [&_pre]:border-0">
+        {items[0].content}
+      </div>
+    </div>
+  )
+}
+
 function CodeGroupItem(props: React.PropsWithChildren<{ label?: string }>) {
   const { children } = props
   return <>{children}</>
@@ -967,8 +1131,8 @@ function CodeGroupTabIcon(props: { label: string }) {
   return <icon.Component aria-hidden className="size-4 shrink-0" />
 }
 
-function DocsCodeBlock(props: React.ComponentProps<'pre'>) {
-  const { children, className, style, title, ...rest } = props
+function DocsCodeBlock(props: React.ComponentProps<'pre'> & { preview?: boolean }) {
+  const { children, className, preview = false, style, title, ...rest } = props
   const copyText = getCodeBlockText(children)
   const backgroundColor =
     typeof style?.backgroundColor === 'string' ? style.backgroundColor : 'var(--color-docs-surface)'
@@ -979,15 +1143,15 @@ function DocsCodeBlock(props: React.ComponentProps<'pre'>) {
   )
   const renderedChildren = React.useMemo(
     () =>
-      promptShellLines
+      promptShellLines && !preview
         ? replaceCodeElement(children, (codeElement) =>
             renderPromptCopyCodeElement(codeElement, promptShellBlock, promptShellLines),
           )
         : children,
-    [children, promptShellBlock, promptShellLines],
+    [children, preview, promptShellBlock, promptShellLines],
   )
   const label = typeof title === 'string' && title.trim() ? title.trim() : undefined
-  const shouldShowCopyButton = Boolean(copyText && !promptShellLines)
+  const shouldShowCopyButton = Boolean(copyText && !preview && !promptShellLines)
   const { copied, copy } = useCopyToClipboard(copyText ? { content: copyText } : {})
 
   return (
@@ -1023,7 +1187,7 @@ function DocsCodeBlock(props: React.ComponentProps<'pre'>) {
         className={[
           '[background-color:var(--docs-code-block-background)] minimal-scrollbar focus-visible:ring-blue8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset mt-0 overflow-x-auto p-4 leading-relaxed',
 
-          label ? 'pt-3' : undefined,
+          label ? 'border-t-0 pt-3' : undefined,
           '[&_code]:bg-transparent [&_code]:p-0 [&_code]:!text-[1em]',
           className,
         ]
@@ -1408,6 +1572,42 @@ function getCodeGroupLanguage(node: React.ReactNode): string | undefined {
   return getCodeElementLanguage(getCodeElement(node))
 }
 
+function getCodeGroupItems(children: React.ReactNode) {
+  return React.Children.toArray(children)
+    .filter(
+      (child): child is React.ReactElement<React.PropsWithChildren<{ label?: string }>> =>
+        React.isValidElement(child) && child.type === CodeGroupItem,
+    )
+    .map((child, index) => {
+      const label =
+        child.props.label?.trim() ||
+        getCodeGroupLanguage(child.props.children) ||
+        `Code ${index + 1}`
+
+      return {
+        content: child.props.children,
+        label,
+        normalizedLabel: normalizeCodeGroupLabel(label),
+        value: String(index),
+      }
+    })
+}
+
+function getStepItems(children: React.ReactNode) {
+  const stepSlugCounts = new Map<string, number>()
+
+  return React.Children.toArray(children)
+    .filter(
+      (child): child is React.ReactElement<React.PropsWithChildren<{ title?: string }>> =>
+        React.isValidElement(child) && child.type === Step,
+    )
+    .map((child, index) => ({
+      content: child.props.children,
+      id: getStepId(child.props.title?.trim() || `Step ${index + 1}`, stepSlugCounts),
+      title: child.props.title?.trim() || `Step ${index + 1}`,
+    }))
+}
+
 function getStepId(title: string, stepSlugCounts: Map<string, number>) {
   const baseSlug = slugifyHeading(title) || 'step'
   const count = stepSlugCounts.get(baseSlug) ?? 0
@@ -1426,7 +1626,140 @@ function splitNumberedHeading(text: string) {
 }
 
 const hashHeadingGracePeriodMs = 250 // 0.25 seconds
+const docSearchPreviewOffsetTopPx = 20 // 20 pixels
 const codeGroupQueryParam = 'codegroup'
+const useBrowserLayoutEffect =
+  typeof window === 'undefined' ? React.useEffect : React.useLayoutEffect
+
+export function getDocSearchPreviewAnchor(container: HTMLElement, hash: string | undefined) {
+  if (hash) {
+    const target = container.querySelector<HTMLElement>(
+      `[data-doc-search-anchor="${CSS.escape(hash)}"]`,
+    )
+    if (target)
+      return (
+        getDocSearchPreviewHighlightAnchor(container, target) ??
+        target.closest<HTMLElement>('[data-docs-step]') ??
+        target
+      )
+  }
+
+  const firstHighlight = container.querySelector<HTMLElement>('mark[data-doc-search-highlight]')
+  if (firstHighlight) return getDocSearchPreviewBlock(firstHighlight)
+
+  if (!hash)
+    return container.querySelector<HTMLElement>(
+      'h1, h2, h3, h4, p, ol, pre, table, ul, [role="note"], [data-docs-code-block], [data-docs-step]',
+    )
+
+  return (
+    container.querySelector<HTMLElement>('[data-docs-step]') ??
+    container.querySelector<HTMLElement>('[data-docs-code-block]') ??
+    container.querySelector<HTMLElement>('[role="note"]') ??
+    container.querySelector<HTMLElement>('h1, h2, h3, h4, p, ol, pre, table, ul')
+  )
+}
+
+function getDocSearchPreviewHighlightAnchor(container: HTMLElement, target: HTMLElement) {
+  const boundary = getDocSearchPreviewSectionBoundary(container, target)
+  const highlights = container.querySelectorAll<HTMLElement>('mark[data-doc-search-highlight]')
+
+  for (const highlight of highlights) {
+    if (!(target.compareDocumentPosition(highlight) & Node.DOCUMENT_POSITION_FOLLOWING)) continue
+    if (
+      boundary &&
+      (highlight === boundary ||
+        Boolean(boundary.compareDocumentPosition(highlight) & Node.DOCUMENT_POSITION_FOLLOWING))
+    )
+      break
+
+    return getDocSearchPreviewBlock(highlight)
+  }
+
+  return undefined
+}
+
+function getDocSearchPreviewSectionBoundary(container: HTMLElement, target: HTMLElement) {
+  const targetLevel = getDocSearchPreviewHeadingLevel(target)
+  const anchors = container.querySelectorAll<HTMLElement>('[data-doc-search-anchor]')
+
+  for (const anchor of anchors) {
+    if (anchor === target) continue
+    if (!(target.compareDocumentPosition(anchor) & Node.DOCUMENT_POSITION_FOLLOWING)) continue
+
+    const anchorLevel = getDocSearchPreviewHeadingLevel(anchor)
+    if (targetLevel === undefined || anchorLevel === undefined || anchorLevel <= targetLevel)
+      return anchor
+  }
+
+  return undefined
+}
+
+function getDocSearchPreviewHeadingLevel(element: HTMLElement) {
+  const match = /^H([1-6])$/u.exec(element.tagName)
+  return match?.[1] ? Number.parseInt(match[1], 10) : undefined
+}
+
+function getDocSearchPreviewBlock(element: HTMLElement) {
+  return (
+    element.closest<HTMLElement>('[data-docs-step], [role="note"], [data-docs-code-block]') ??
+    element.closest<HTMLElement>('table, pre, ol, ul, p, h1, h2, h3, h4') ??
+    element
+  )
+}
+
+function highlightDocSearchPreview(container: HTMLElement, terms: Array<string> | undefined) {
+  const textNodes: Array<Text> = []
+  const textWalker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      if (!(node instanceof Text)) return NodeFilter.FILTER_REJECT
+      if (!node.textContent?.trim()) return NodeFilter.FILTER_REJECT
+      if (node.parentElement?.closest('script, style')) return NodeFilter.FILTER_REJECT
+      return NodeFilter.FILTER_ACCEPT
+    },
+  })
+
+  for (let currentNode = textWalker.nextNode(); currentNode; currentNode = textWalker.nextNode()) {
+    if (currentNode instanceof Text) textNodes.push(currentNode)
+  }
+
+  for (const textNode of textNodes) {
+    const ranges = getDocSearchHighlightRanges(textNode.data, terms)
+    if (!ranges.length) continue
+
+    const fragment = document.createDocumentFragment()
+    let lastIndex = 0
+
+    for (const range of ranges) {
+      if (range.start > lastIndex) fragment.append(textNode.data.slice(lastIndex, range.start))
+
+      const highlight = document.createElement('mark')
+      highlight.className = docSearchHighlightClassName
+      highlight.dataset.docSearchHighlight = ''
+      highlight.textContent = textNode.data.slice(range.start, range.end)
+      fragment.append(highlight)
+      lastIndex = range.end
+    }
+
+    if (lastIndex < textNode.data.length) fragment.append(textNode.data.slice(lastIndex))
+    textNode.parentNode?.replaceChild(fragment, textNode)
+  }
+}
+
+function clearDocSearchPreviewHighlights(container: HTMLElement) {
+  const highlights = container.querySelectorAll('mark[data-doc-search-highlight]')
+  if (!highlights.length) return
+
+  for (const highlight of highlights) {
+    highlight.replaceWith(document.createTextNode(highlight.textContent ?? ''))
+  }
+
+  container.normalize()
+}
+
+function clampNumber(value: number, minimum: number, maximum: number) {
+  return Math.min(maximum, Math.max(minimum, value))
+}
 
 function getCodeGroupTabIcon(label: string) {
   const normalized = label.trim().toLowerCase()

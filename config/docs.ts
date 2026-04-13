@@ -72,12 +72,10 @@ export async function docsMdx() {
       return handleHotUpdateHook?.call(this, ctx)
     },
     async transform(code: string, id: string) {
-      if (id.includes('?raw')) return code
-      return transformHook?.call(
-        this,
-        id.endsWith('.mdx') ? rewriteDocsDirectiveSource(code) : code,
-        id,
-      )
+      const parsedId = parseDocsMdxId(id)
+      if (parsedId?.searchParams.has('raw')) return code
+
+      return transformHook?.call(this, parsedId ? rewriteDocsDirectiveSource(code) : code, id)
     },
   }
 }
@@ -200,6 +198,13 @@ const lastUpdatedCache = new Map<string, string | undefined>()
 const docsDirectoryPath = path.join(process.cwd(), 'docs')
 const docsGeneratedManifestPath = path.join(process.cwd(), 'public/docs/.generated-docs.json')
 const docsPublicDirectoryPath = path.dirname(docsGeneratedManifestPath)
+
+function parseDocsMdxId(id: string) {
+  const [path, query = ''] = id.split('?', 2)
+  if (!path?.endsWith('.mdx')) return
+
+  return { path, searchParams: new URLSearchParams(query) }
+}
 
 function rewriteDocsDirectiveSource(source: string) {
   const lines = source.split('\n')

@@ -3,6 +3,8 @@ import { Menu } from '@base-ui/react/menu'
 import { Link, Outlet, createFileRoute, useNavigate } from '@tanstack/react-router'
 import * as React from 'react'
 import { z } from 'zod/v4'
+import IconMaterialSymbolsDarkMode from '~icons/material-symbols/dark-mode.jsx'
+import IconMaterialSymbolsWbSunny from '~icons/material-symbols/wb-sunny.jsx'
 import IconOcticonFile from '~icons/octicon/file.jsx'
 import IconOcticonSearch16 from '~icons/octicon/search-16.jsx'
 import { Dialog } from '#components/Dialog.tsx'
@@ -11,7 +13,10 @@ import { type Theme, useTheme } from '#hooks/useTheme.ts'
 import { getSessionLogin } from '#server/session.ts'
 import { navbarLinks, type NavbarLink } from '../../../docs/_config.ts'
 import { sidebar, type SidebarItem } from '../../../docs/_sidebar.ts'
-import { searchDocs } from './-docs.ts'
+import { DocSearchPreview } from './-doc.tsx'
+import { findDocPreview, searchDocs } from './-docs.ts'
+import { docSearchHighlightClassName, getDocSearchHighlightRanges } from './-search-highlight.ts'
+import { getNextSearchPreviewCacheState } from './-search-preview-cache.ts'
 import type { DocSearchResult } from './-search.ts'
 import { getThemeIconTheme } from './-theme.ts'
 
@@ -30,10 +35,11 @@ export const Route = createFileRoute('/docs')({
   component: Component,
 })
 
-const docsSearchQueryUrlSyncDelayMs = 150 // 150 milliseconds
+const docsSearchQueryUrlSyncDelayMs = 400 // 0.4 seconds
 const recentDocsSearchResultsLimit = 5
 const recentDocsSearchResultsStorageKey = 'docs-recent-search-results'
 const docsSearchShowDetailsStorageKey = 'docs-search-show-details'
+const emptyCachedPreviewIds = new Set<string>()
 
 function Component() {
   const navigate = useNavigate()
@@ -247,7 +253,7 @@ function Component() {
             className="bg-bg1 border-gray-a3 fixed inset-x-0 top-17 bottom-0 z-40 hidden w-full border-e data-[open]:block md:static md:block md:w-64 md:shrink-0"
             data-open={open ? '' : undefined}
           >
-            <div className="h-full overflow-y-auto py-6 ps-6 pe-6 md:sticky md:top-17 md:h-[calc(100dvh-4.25rem)]">
+            <div className="h-full overflow-y-auto py-6 ps-5 pe-3 md:sticky md:top-17 md:h-[calc(100dvh-4.25rem)] md:ps-6 md:pe-6">
               <div className="flex min-h-full flex-col">
                 <SidebarNav items={sidebar} onNavigate={() => setOpen(false)} />
 
@@ -330,9 +336,10 @@ function Component() {
         }}
       >
         <Dialog.Portal>
-          <Dialog.Popup className="mt-[0.75rem] mb-[0.25rem] max-h-[calc(100dvh-1rem)] min-h-0 max-w-[min(42rem,calc(100vw-1rem))] gap-0 overflow-hidden border-0 p-4 md:p-5">
+          <Dialog.Popup className="mt-[0.75rem] mb-[0.25rem] max-h-[calc(100dvh-1rem)] min-h-0 max-w-[min(42rem,calc(100vw-1rem))] gap-0 overflow-hidden border-0 p-3 md:p-5">
             <DocsSearchDialog
               onClear={() => setSearchQuery('')}
+              onClearRecents={() => setRecentSearchResults([])}
               onClose={() => closeSearch()}
               onNavigate={() => closeSearch({ restoreTriggerFocus: false, syncQueryToUrl: false })}
               onQueryChange={setSearchQuery}
@@ -426,13 +433,13 @@ function getThemeIcon(theme: Theme, resolvedTheme: Exclude<Theme, 'system'>, mou
 
   if (iconTheme === 'system') return <IconLucideMonitor className="size-3.5" />
 
-  if (iconTheme === 'light') return <IconMaterialSymbolsLightMode className="size-3.5" />
+  if (iconTheme === 'light') return <IconMaterialSymbolsWbSunny className="size-3.5" />
   return <IconMaterialSymbolsDarkMode className="size-3.5" />
 }
 
 function SidebarNav(props: { items: Array<SidebarItem>; onNavigate: () => void }) {
   return (
-    <ul className="flex flex-col gap-0.5">
+    <ul className="flex list-none flex-col gap-0.5 ps-0">
       {props.items.map((item) => (
         <SidebarNavItem item={item} key={item.label} onNavigate={props.onNavigate} />
       ))}
@@ -446,10 +453,10 @@ function SidebarNavItem(props: { item: SidebarItem; onNavigate: () => void }) {
   if (item.type === 'group')
     return (
       <li className="mt-6 first:mt-0">
-        <span className="text-gray10 block px-2 text-sm font-medium">
+        <span className="text-gray10 block px-2 py-1.5 text-sm font-medium md:py-0">
           {formatSidebarGroupLabel(item.label)}
         </span>
-        <ul className="mt-1.5 flex flex-col gap-0.5">
+        <ul className="mt-1.5 flex list-none flex-col gap-0.5 ps-0">
           {item.items.map((child) => (
             <SidebarNavItem item={child} key={child.label} onNavigate={onNavigate} />
           ))}
@@ -484,12 +491,12 @@ function SearchTrigger(props: {
   return (
     <button
       aria-label="Search"
-      className="bg-bg2 text-gray8 hover:text-gray10 hover:bg-gray-a2 group me-2 flex h-8 items-center gap-2 ps-2.5 pe-1 text-sm"
+      className="hover:bg-gray-a2 group sm:bg-bg2 sm:text-gray8 sm:hover:text-gray10 flex items-center justify-center p-1.5 text-sm sm:me-2 sm:h-8 sm:w-auto sm:justify-start sm:gap-2 sm:p-0 sm:ps-2.5 sm:pe-1"
       onClick={props.onClick}
       ref={props.triggerRef}
       type="button"
     >
-      <IconOcticonSearch16 aria-hidden="true" className="size-3.5 shrink-0" />
+      <IconOcticonSearch16 aria-hidden="true" className="size-4 shrink-0 sm:size-3.5" />
       <span className="hidden sm:inline">Search</span>
       <span aria-hidden="true" className="hidden sm:inline-flex">
         <kbd className="border-gray-a3 text-gray8 inline-flex h-6 items-center justify-center border bg-transparent px-1.5 font-sans leading-none select-none">
@@ -523,6 +530,7 @@ function NavbarLinkItem(props: { className: string; link: NavbarLink; onClick?: 
 
 function DocsSearchDialog(props: {
   onClear: () => void
+  onClearRecents: () => void
   onClose: () => void
   onNavigate: () => void
   onQueryChange: (value: string) => void
@@ -538,27 +546,93 @@ function DocsSearchDialog(props: {
   const showingRecentResults = !hasSearchQuery && props.recentResults.length > 0
   const displayedResults = hasSearchQuery ? props.results : props.recentResults
   const comboboxOpen = hasSearchQuery || props.recentResults.length > 0
+  const previewCacheScopeKey = `${props.query.trim()}::${displayedResults.map((result) => getSearchResultId(result)).join('|')}`
+  const [cachedPreviewState, setCachedPreviewState] = React.useState<{
+    ids: Set<string>
+    key: string
+  }>({ ids: new Set(), key: previewCacheScopeKey })
+  const [highlightedResultId, setHighlightedResultId] = React.useState<string | undefined>(
+    undefined,
+  )
+  const resultsListRef = React.useRef<HTMLDivElement>(null)
+  const resultItemElementsRef = React.useRef(new Map<string, HTMLDivElement>())
   const navigateToResult = React.useCallback(
     (result: DocSearchResult) => {
       props.onSelectResult(result)
       props.onNavigate()
 
+      const hash = result.kind === 'section' ? result.hash : undefined
+
       if (result.path)
         return navigate({
           params: { _splat: result.path },
           search: (search) => ({ ...search, q: undefined }),
-          ...(result.hash ? { hash: result.hash } : {}),
+          ...(hash ? { hash } : {}),
           to: '/docs/$',
         })
 
       return navigate({
         search: (search) => ({ ...search, q: undefined }),
-        ...(result.hash ? { hash: result.hash } : {}),
+        ...(hash ? { hash } : {}),
         to: '/docs',
       })
     },
     [navigate, props],
   )
+
+  React.useEffect(() => {
+    setCachedPreviewState((current) =>
+      getNextSearchPreviewCacheState(current, { key: previewCacheScopeKey }),
+    )
+  }, [previewCacheScopeKey])
+
+  const cachePreview = React.useCallback(
+    (resultId: string) => {
+      setCachedPreviewState((current) =>
+        getNextSearchPreviewCacheState(current, { cacheId: resultId, key: previewCacheScopeKey }),
+      )
+    },
+    [previewCacheScopeKey],
+  )
+
+  const cachedPreviewIds =
+    cachedPreviewState.key === previewCacheScopeKey ? cachedPreviewState.ids : emptyCachedPreviewIds
+
+  const scrollResultIntoView = React.useCallback((resultId: string | undefined) => {
+    if (!resultId) return
+
+    requestAnimationFrame(() => {
+      const list = resultsListRef.current
+      const element = resultItemElementsRef.current.get(resultId)
+      if (!list || !element) return
+
+      const listRect = list.getBoundingClientRect()
+      const elementRect = element.getBoundingClientRect()
+
+      if (elementRect.top < listRect.top || elementRect.bottom > listRect.bottom)
+        element.scrollIntoView({ block: 'nearest' })
+    })
+  }, [])
+
+  const scrollHighlightedResultIntoView = React.useCallback(
+    (result: DocSearchResult | undefined) => {
+      const resultId = result ? getSearchResultId(result) : undefined
+      setHighlightedResultId(resultId)
+      scrollResultIntoView(resultId)
+    },
+    [scrollResultIntoView],
+  )
+
+  React.useEffect(() => {
+    if (!highlightedResultId) return
+
+    const element = resultItemElementsRef.current.get(highlightedResultId)
+    if (!element) return
+
+    const resizeObserver = new ResizeObserver(() => scrollResultIntoView(highlightedResultId))
+    resizeObserver.observe(element)
+    return () => resizeObserver.disconnect()
+  }, [highlightedResultId, scrollResultIntoView])
 
   return (
     <Combobox.Root
@@ -569,6 +643,7 @@ function DocsSearchDialog(props: {
       inputValue={props.query}
       itemToStringLabel={getSearchResultLabel}
       items={displayedResults}
+      onItemHighlighted={scrollHighlightedResultIntoView}
       onInputValueChange={props.onQueryChange}
       onValueChange={(value) => {
         if (value) void navigateToResult(value)
@@ -618,17 +693,35 @@ function DocsSearchDialog(props: {
             >
               <IconLucideListTree aria-hidden="true" className="size-4" />
             </button>
+            <button
+              aria-label="Close search"
+              className="text-gray8 hover:text-gray10 hover:bg-gray-a2 p-1 md:hidden"
+              onClick={props.onClose}
+              type="button"
+            >
+              <IconOcticonX16 aria-hidden="true" className="size-4" />
+            </button>
           </div>
         </div>
 
         {displayedResults.length ? (
           <>
             {showingRecentResults ? (
-              <p className="text-gray8 mt-3 px-1 text-xs font-medium">Recents</p>
+              <div className="mt-3 flex items-center justify-between gap-3 px-1">
+                <p className="text-gray8 text-xs font-medium">Recents</p>
+                <button
+                  className="text-gray8 hover:text-gray10 hover:bg-gray-a2 px-1 py-0.5 text-xs"
+                  onClick={props.onClearRecents}
+                  type="button"
+                >
+                  Clear
+                </button>
+              </div>
             ) : null}
             <Combobox.List
               className={`${showingRecentResults ? 'mt-2' : 'mt-3'} flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto data-[details]:gap-3`}
               data-details={props.showDetails ? '' : undefined}
+              ref={resultsListRef}
             >
               {(result, index) => (
                 <Combobox.Item
@@ -636,9 +729,23 @@ function DocsSearchDialog(props: {
                   data-details={props.showDetails ? '' : undefined}
                   index={index}
                   key={getSearchResultId(result)}
+                  ref={(element) => {
+                    const resultId = getSearchResultId(result)
+                    if (!element) {
+                      resultItemElementsRef.current.delete(resultId)
+                      return
+                    }
+
+                    resultItemElementsRef.current.set(resultId, element)
+                  }}
                   value={result}
                 >
-                  <SearchResultContent result={result} showDetails={props.showDetails} />
+                  <SearchResultContent
+                    cachedPreviewIds={cachedPreviewIds}
+                    onCachePreview={cachePreview}
+                    result={result}
+                    showDetails={props.showDetails}
+                  />
                 </Combobox.Item>
               )}
             </Combobox.List>
@@ -647,7 +754,7 @@ function DocsSearchDialog(props: {
           <p className="text-gray8 mt-3 px-2 py-2 text-sm">No results for “{props.query.trim()}”</p>
         ) : null}
 
-        <div className="text-gray8 mt-3 flex shrink-0 flex-wrap items-center gap-x-6 gap-y-3 text-xs">
+        <div className="text-gray8 mt-3 hidden shrink-0 flex-wrap items-center gap-x-6 gap-y-3 text-xs md:flex">
           <SearchKeyboardHint label="to navigate">
             <SearchKeycap>↑</SearchKeycap>
             <SearchKeycap>↓</SearchKeycap>
@@ -685,11 +792,16 @@ function SearchKeycap(props: { children: React.ReactNode }) {
   )
 }
 
-function SearchResultContent(props: { result: DocSearchResult; showDetails: boolean }) {
-  const subtitle = props.showDetails
-    ? (props.result.snippet ?? getSearchResultPath(props.result))
-    : undefined
-  const isPageResult = !props.result.sectionPath?.length
+function SearchResultContent(props: {
+  cachedPreviewIds: Set<string>
+  onCachePreview: (resultId: string) => void
+  result: DocSearchResult
+  showDetails: boolean
+}) {
+  const previewFallback = props.result.snippet ?? getSearchResultPath(props.result)
+  const resultId = getSearchResultId(props.result)
+  const isPageResult = props.result.kind === 'page'
+  const docPreview = props.showDetails ? findDocPreview(props.result.path) : undefined
 
   return (
     <>
@@ -705,22 +817,80 @@ function SearchResultContent(props: { result: DocSearchResult; showDetails: bool
           <SearchResultHeading result={props.result} />
         </span>
       </p>
-      {subtitle ? (
+      {props.showDetails && docPreview ? (
+        <SearchResultPreview
+          cacheId={resultId}
+          cached={props.cachedPreviewIds.has(resultId)}
+          doc={docPreview}
+          fallback={<SearchResultSnippet markdown={previewFallback} terms={props.result.terms} />}
+          onCache={props.onCachePreview}
+          {...(props.result.kind === 'section' ? { hash: props.result.hash } : {})}
+          terms={props.result.terms}
+        />
+      ) : props.showDetails ? (
         <div className="mt-1.5 max-h-11 overflow-hidden text-sm">
-          <SearchResultSnippet markdown={subtitle} />
+          <SearchResultSnippet markdown={previewFallback} terms={props.result.terms} />
         </div>
       ) : null}
     </>
   )
 }
 
-function SearchResultSnippet(props: { markdown: string }) {
+function SearchResultPreview(props: {
+  cacheId: string
+  cached: boolean
+  doc: NonNullable<ReturnType<typeof findDocPreview>>
+  fallback: React.ReactNode
+  hash?: string
+  onCache: (resultId: string) => void
+  terms?: Array<string> | undefined
+}) {
+  const containerRef = React.useRef<HTMLDivElement>(null)
+  const [isVisible, setIsVisible] = React.useState(false)
+
+  React.useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0]
+        if (!entry) return
+        if (entry.isIntersecting) {
+          setIsVisible(true)
+          props.onCache(props.cacheId)
+          return
+        }
+
+        if (!props.cached) setIsVisible(false)
+      },
+      { rootMargin: '160px 0px' },
+    )
+
+    observer.observe(container)
+    return () => observer.disconnect()
+  }, [props.cacheId, props.cached, props.onCache])
+
+  return (
+    <div className="mt-2 text-sm" data-search-rich-preview="" ref={containerRef}>
+      {props.cached || isVisible ? (
+        <DocSearchPreview doc={props.doc} hash={props.hash} terms={props.terms} />
+      ) : (
+        <div className="max-h-11 overflow-hidden">{props.fallback}</div>
+      )}
+    </div>
+  )
+}
+
+function SearchResultSnippet(props: { markdown: string; terms?: Array<string> | undefined }) {
   const snippet = normalizeSearchResultSnippet(props.markdown)
 
   if (snippet.kind === 'unordered-list')
     return (
       <ul className="[&>li]:before:text-gray9 list-none ps-0 text-[color-mix(in_oklab,var(--color-gray10)_25%,var(--color-gray9))] [&>li]:relative [&>li]:ps-4 [&>li]:before:absolute [&>li]:before:start-0 [&>li]:before:top-0 [&>li]:before:content-['-']">
-        <li className="leading-relaxed">{renderSearchResultSnippetInline(snippet.value)}</li>
+        <li className="leading-relaxed">
+          {renderSearchResultSnippetInline(snippet.value, props.terms)}
+        </li>
       </ul>
     )
 
@@ -730,13 +900,15 @@ function SearchResultSnippet(props: { markdown: string }) {
         className="list-decimal ps-5 text-[color-mix(in_oklab,var(--color-gray10)_25%,var(--color-gray9))]"
         start={snippet.start}
       >
-        <li className="leading-relaxed">{renderSearchResultSnippetInline(snippet.value)}</li>
+        <li className="leading-relaxed">
+          {renderSearchResultSnippetInline(snippet.value, props.terms)}
+        </li>
       </ol>
     )
 
   return (
     <p className="leading-relaxed break-words text-[color-mix(in_oklab,var(--color-gray10)_25%,var(--color-gray9))]">
-      {renderSearchResultSnippetInline(snippet.value)}
+      {renderSearchResultSnippetInline(snippet.value, props.terms)}
     </p>
   )
 }
@@ -752,18 +924,20 @@ function SearchResultHeading(props: { result: DocSearchResult }) {
           className="text-gray8 relative -top-px mx-1.5 inline size-4"
         />
       ) : null}
-      <span>{segment}</span>
+      <span>
+        {renderHighlightedSearchResultText(segment, props.result.terms, `${segment}-${index}`)}
+      </span>
     </React.Fragment>
   ))
 }
 
 function getSearchResultPath(result: DocSearchResult) {
   const pathname = result.path ? `/docs/${result.path}` : '/docs'
-  return result.hash ? `${pathname}#${result.hash}` : pathname
+  return result.kind === 'section' ? `${pathname}#${result.hash}` : pathname
 }
 
-function getSearchResultId(result: Pick<DocSearchResult, 'hash' | 'path'>) {
-  return `${result.path}#${result.hash ?? ''}`
+function getSearchResultId(result: DocSearchResult) {
+  return `${result.path}#${result.kind === 'section' ? result.hash : ''}`
 }
 
 function getSearchResultLabel(result: DocSearchResult) {
@@ -775,7 +949,7 @@ function getSearchResultHeading(result: DocSearchResult) {
 }
 
 function getSearchResultHeadingSegments(result: DocSearchResult) {
-  if (!result.sectionPath?.length) return [result.title]
+  if (result.kind === 'page') return [result.title]
   if (result.sectionPath[0] === result.title) return result.sectionPath
   return [result.title, ...result.sectionPath]
 }
@@ -802,19 +976,26 @@ function normalizeSearchResultSnippet(markdown: string) {
   return { kind: 'unordered-list' as const, value }
 }
 
-function renderSearchResultSnippetInline(markdown: string) {
+function renderSearchResultSnippetInline(markdown: string, terms: Array<string> | undefined) {
   const nodes: Array<React.ReactNode> = []
   const pattern = /\[([^\]]+)\]\(([^)]+)\)|`([^`]+)`|\*\*([^*]+)\*\*|\*([^*]+)\*|_([^_]+)_/gu
   let lastIndex = 0
 
   for (const match of markdown.matchAll(pattern)) {
     const index = match.index ?? 0
-    if (index > lastIndex) nodes.push(markdown.slice(lastIndex, index))
+    if (index > lastIndex)
+      nodes.push(
+        ...renderHighlightedSearchResultText(
+          markdown.slice(lastIndex, index),
+          terms,
+          `${index}-text`,
+        ),
+      )
 
     if (match[1]) {
       nodes.push(
         <span className="text-blue9 underline-offset-2 hover:underline" key={`${index}-link`}>
-          {match[1]}
+          {renderHighlightedSearchResultText(match[1], terms, `${index}-link`)}
         </span>,
       )
     } else if (match[3]) {
@@ -823,19 +1004,19 @@ function renderSearchResultSnippetInline(markdown: string) {
           className="border-gray-a3 bg-gray-a2 rounded-[2px] border px-1 py-px text-[0.875em]"
           key={`${index}-code`}
         >
-          {match[3]}
+          {renderHighlightedSearchResultText(match[3], terms, `${index}-code`)}
         </code>,
       )
     } else if (match[4]) {
       nodes.push(
         <strong className="font-medium text-current" key={`${index}-strong`}>
-          {match[4]}
+          {renderHighlightedSearchResultText(match[4], terms, `${index}-strong`)}
         </strong>,
       )
     } else if (match[5] || match[6]) {
       nodes.push(
         <em className="italic" key={`${index}-em`}>
-          {match[5] ?? match[6]}
+          {renderHighlightedSearchResultText(match[5] ?? match[6] ?? '', terms, `${index}-em`)}
         </em>,
       )
     }
@@ -843,7 +1024,41 @@ function renderSearchResultSnippetInline(markdown: string) {
     lastIndex = index + match[0].length
   }
 
-  if (lastIndex < markdown.length) nodes.push(markdown.slice(lastIndex))
+  if (lastIndex < markdown.length)
+    nodes.push(
+      ...renderHighlightedSearchResultText(markdown.slice(lastIndex), terms, `${lastIndex}-tail`),
+    )
+
+  return nodes
+}
+
+function renderHighlightedSearchResultText(
+  value: string,
+  terms: Array<string> | undefined,
+  keyPrefix: string,
+) {
+  if (!value) return []
+
+  const ranges = getDocSearchHighlightRanges(value, terms)
+  if (!ranges.length) return [value]
+
+  const nodes: Array<React.ReactNode> = []
+  let lastIndex = 0
+
+  for (const [index, range] of ranges.entries()) {
+    const startIndex = range.start
+    if (startIndex > lastIndex) nodes.push(value.slice(lastIndex, startIndex))
+
+    nodes.push(
+      <mark className={docSearchHighlightClassName} key={`${keyPrefix}-mark-${index}`}>
+        {value.slice(range.start, range.end)}
+      </mark>,
+    )
+    lastIndex = range.end
+  }
+
+  if (!nodes.length) return [value]
+  if (lastIndex < value.length) nodes.push(value.slice(lastIndex))
   return nodes
 }
 

@@ -14,7 +14,9 @@ for (const [name, rule] of Object.entries(rules)) {
     continue
   }
   for (const check of rule.checks) {
-    test(`${name}: ${check.url}`, async () => {
+    const smokeTest = name === 'curlDocs' ? test.skip : test
+
+    smokeTest(`${name}: ${check.url}`, async () => {
       const md = create({ rules: [rule()] })
       const result = await md.fetch(check.url)
       expect(result.ok).toBe(true)

@@ -3,7 +3,7 @@ import { flushSync } from 'react-dom'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, expect, test, vi } from 'vitest'
 import { page } from 'vitest/browser'
-import { DocContent } from './-doc.tsx'
+import { DocContent, DocSearchPreview, getDocSearchPreviewAnchor } from './-doc.tsx'
 import type { Doc, DocPagination } from './-doc.types.ts'
 
 let cleanup: (() => void) | undefined
@@ -438,6 +438,50 @@ test('last updated renders in the browser locale without the word at', async () 
   expect(text).not.toContain(' at ')
 })
 
+test('search preview renders a real docs code block without copy controls', () => {
+  const rendered = renderDocSearchPreview(createSearchPreviewDoc(), 'code-blocks')
+
+  expect(rendered.container.querySelector('[data-doc-search-preview]')).not.toBeNull()
+  expect(rendered.container.querySelector('[data-docs-code-block]')).not.toBeNull()
+  expect(rendered.container.querySelector('[aria-label="Copy code"]')).toBeNull()
+  expect(rendered.container.querySelector('[data-copy-command]')).toBeNull()
+})
+
+test('search preview renders the steps timeline as real docs markup', () => {
+  const rendered = renderDocSearchPreview(createSearchPreviewDoc(), 'install-dependencies')
+
+  expect(rendered.container.querySelector('[data-docs-steps]')).not.toBeNull()
+  expect(
+    rendered.container.querySelector('[data-doc-search-anchor="install-dependencies"]'),
+  ).not.toBeNull()
+  expect(rendered.container.querySelector('[href="#install-dependencies"]')).toBeNull()
+})
+
+test('search preview highlights matching heading and body text', () => {
+  const rendered = renderDocSearchPreview(createSearchPreviewDoc(), 'install-dependencies', [
+    'install',
+    'pnpm',
+  ])
+
+  const highlights = [...rendered.container.querySelectorAll('mark[data-doc-search-highlight]')]
+
+  expect(highlights.length).toBeGreaterThanOrEqual(2)
+  expect(highlights.some((highlight) => highlight.textContent?.toLowerCase() === 'install')).toBe(
+    true,
+  )
+  expect(highlights.some((highlight) => highlight.textContent?.toLowerCase() === 'pnpm')).toBe(true)
+})
+
+test('search preview scrolls section results to the first highlighted body match', () => {
+  const rendered = renderDocSearchPreview(createNoticeSearchPreviewDoc(), 'notices', ['behavior'])
+  const content = rendered.container.querySelector('[data-doc-search-preview] > div')
+  if (!(content instanceof HTMLElement)) throw new Error('Expected preview content to render')
+  const anchor = getDocSearchPreviewAnchor(content, 'notices')
+
+  expect(anchor?.matches('[role="note"][data-type="important"]')).toBe(true)
+  expect(content.querySelector('[role="note"][data-type="important"] mark')).not.toBeNull()
+})
+
 function createDoc(): Doc {
   const sections = [
     { id: 'cli', level: 2, spacerBlockSizePx: 480, tag: 'h2', text: 'CLI' },
@@ -845,6 +889,75 @@ function createFooterDoc(): Doc {
   }
 }
 
+function createSearchPreviewDoc(): Pick<Doc, 'Component' | 'path'> {
+  return {
+    Component: function Component(props: {
+      components?: Record<string, React.ComponentType<any>>
+    }) {
+      const H2 = (props.components?.h2 ?? 'h2') as React.ElementType
+      const P = (props.components?.p ?? 'p') as React.ElementType
+      const Pre = (props.components?.pre ?? 'pre') as React.ElementType
+      const Code = (props.components?.code ?? 'code') as React.ElementType
+      const Step = (props.components?.Step ?? React.Fragment) as React.ElementType
+      const Steps = (props.components?.Steps ?? React.Fragment) as React.ElementType
+
+      return (
+        <>
+          <H2 id="code-blocks">Code Blocks</H2>
+          <Pre>
+            <Code className="language-sh">$ pnpm dev</Code>
+          </Pre>
+
+          <H2 id="steps">Steps</H2>
+          <Steps>
+            <Step title="Install dependencies">
+              <P>Use your preferred package manager to install project dependencies.</P>
+            </Step>
+
+            <Step title="Start the dev server">
+              <Pre>
+                <Code className="language-sh">$ pnpm dev</Code>
+              </Pre>
+            </Step>
+          </Steps>
+        </>
+      )
+    },
+    path: 'reference/kitchen_sink',
+  }
+}
+
+function createNoticeSearchPreviewDoc(): Pick<Doc, 'Component' | 'path'> {
+  return {
+    Component: function Component(props: {
+      components?: Record<string, React.ComponentType<any>>
+    }) {
+      const H2 = (props.components?.h2 ?? 'h2') as React.ElementType
+      const Notice = (props.components?.Notice ?? React.Fragment) as React.ElementType
+      const P = (props.components?.p ?? 'p') as React.ElementType
+
+      return (
+        <>
+          <H2 id="notices">Notices</H2>
+
+          <Notice>
+            <P>Notices without a custom title default to the notice type.</P>
+          </Notice>
+
+          <Notice type="tip">
+            <P>Use titled notices when the label should be more specific than the default.</P>
+          </Notice>
+
+          <Notice type="important">
+            <P>Use important notices for behavior people should not miss.</P>
+          </Notice>
+        </>
+      )
+    },
+    path: 'reference/kitchen_sink',
+  }
+}
+
 function renderDocContent(
   doc: Doc,
   pagination?: DocPagination,
@@ -885,6 +998,33 @@ function renderDocContent(
     content: page.elementLocator(container),
     outline: page.elementLocator(outline),
   }
+}
+
+function renderDocSearchPreview(
+  doc: Pick<Doc, 'Component' | 'path'>,
+  hash?: string,
+  terms?: Array<string>,
+) {
+  document.body.innerHTML = ''
+  document.documentElement.scrollTop = 0
+  document.body.style.margin = '0'
+
+  const container = document.createElement('div')
+  document.body.appendChild(container)
+
+  const root = createRoot(container)
+  flushSync(() => {
+    root.render(<DocSearchPreview doc={doc} hash={hash} terms={terms} />)
+  })
+
+  cleanup = () => {
+    document.documentElement.scrollTop = 0
+    window.scrollTo({ top: 0 })
+    unmountRoot(root)
+    container.remove()
+  }
+
+  return { container }
 }
 
 function unmountRoot(root: Root) {

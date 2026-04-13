@@ -1,7 +1,9 @@
+import type { ComponentType } from 'react'
+
 export type Heading = { id: string; level: number; text: string }
 
 export type Doc = {
-  Component: React.ComponentType<{ components?: Record<string, React.ComponentType> }>
+  Component: ComponentType<{ components?: Record<string, ComponentType> }>
   description: string | undefined
   headings: Array<Heading>
   lastUpdated?: string

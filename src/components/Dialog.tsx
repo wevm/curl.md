@@ -50,7 +50,7 @@ function Popup(props: React.ComponentProps<typeof BaseDialog.Popup>) {
 
   return (
     <div
-      className="fixed inset-0 z-50 overflow-y-auto bg-[color-mix(in_srgb,var(--color-bg1)_80%,transparent)] [scrollbar-gutter:stable] [scrollbar-width:thin] dark:bg-black/80"
+      className="fixed inset-0 z-50 overflow-y-auto bg-[color-mix(in_srgb,var(--color-bg1)_80%,transparent)] [scrollbar-width:thin] dark:bg-black/80"
       onPointerDown={(e) => {
         if (e.target === e.currentTarget) closeRef.current?.click()
       }}

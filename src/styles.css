@@ -224,6 +224,11 @@ input:focus-visible {
   background-color: var(--color-gray-a2);
 }
 
+.docs-search-highlight {
+  background-color: var(--color-amber7);
+  color: var(--color-black);
+}
+
 html {
   background-color: var(--color-bg1);
   color: var(--color-gray10);
@@ -245,6 +250,10 @@ html::-webkit-scrollbar-track {
 html::-webkit-scrollbar-thumb {
   background: var(--color-gray-a3);
   border-radius: 3px;
+}
+
+html {
+  scrollbar-gutter: auto;
 }
 
 @media (min-width: 768px) {

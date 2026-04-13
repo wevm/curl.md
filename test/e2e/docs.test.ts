@@ -59,6 +59,44 @@ test('/docs search query persists in q while typing and after refresh', async ({
   await expect(searchInput).toHaveValue('ki')
 })
 
+test('/docs search preview renders real code blocks and steps from compiled docs excerpts', async ({
+  page,
+}) => {
+  await page.goto('/docs/reference/kitchen_sink')
+  await page.waitForLoadState('networkidle')
+
+  await page.getByRole('button', { name: 'Search' }).click()
+
+  const searchInput = page.getByPlaceholder('Search documentation')
+  await expect(searchInput).toBeVisible()
+
+  await page.getByRole('button', { name: 'Show body previews' }).click()
+  await searchInput.pressSequentially('Code Blocks')
+
+  const codeResultItem = page
+    .locator('.docs-search-result')
+    .filter({ has: page.getByText('Code Blocks', { exact: true }) })
+    .first()
+
+  await expect(codeResultItem).toBeVisible()
+  await expect(
+    codeResultItem
+      .locator('[data-doc-search-preview] [data-docs-code-block]')
+      .filter({ hasText: 'curl.md https://example.com' }),
+  ).toBeVisible()
+
+  await searchInput.fill('')
+  await searchInput.pressSequentially('Install dependencies')
+
+  const stepsResultItem = page
+    .locator('.docs-search-result')
+    .filter({ has: page.getByText('Install dependencies', { exact: true }) })
+    .first()
+
+  await expect(stepsResultItem).toBeVisible()
+  await expect(stepsResultItem.locator('[data-doc-search-preview] [data-docs-steps]')).toBeVisible()
+})
+
 test('/docs search pressing Enter opens the highlighted result', async ({ page }) => {
   await page.goto('/docs')
   await page.waitForLoadState('networkidle')

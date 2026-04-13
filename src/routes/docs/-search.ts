@@ -1,15 +1,24 @@
 import MiniSearch from 'minisearch'
 import type { Heading } from './-doc.types.ts'
 
-export type DocSearchResult = {
-  hash?: string
-  kind: 'page' | 'section'
-  path: string
-  sectionPath?: Array<string>
-  sectionTitle?: string
-  snippet?: string
-  title: string
-}
+export type DocSearchResult =
+  | {
+      kind: 'page'
+      path: string
+      snippet?: string
+      terms?: Array<string>
+      title: string
+    }
+  | {
+      hash: string
+      kind: 'section'
+      path: string
+      sectionPath: Array<string>
+      sectionTitle: string
+      snippet?: string
+      terms?: Array<string>
+      title: string
+    }
 
 export function createDocsSearch(
   docs: Array<{
@@ -39,10 +48,11 @@ export function createDocsSearch(
 
   docsSearch.addAll(
     docs.flatMap((doc) => {
-      const body = stripDocSearchMarkdown(doc.source)
+      const searchSource = stripIgnoredDocSearchCodeGroupTabs(doc.source)
+      const body = stripDocSearchMarkdown(searchSource)
       const description = doc.description ?? ''
       const headingPaths = getHeadingPaths(doc.headings)
-      const sectionBodiesByHeadingId = getDocSearchSectionBodies(doc.source, doc.headings)
+      const sectionBodiesByHeadingId = getDocSearchSectionBodies(searchSource, doc.headings)
       const order = docOrderByPath.get(doc.path) ?? orderedPaths.length
 
       return [
@@ -62,10 +72,11 @@ export function createDocsSearch(
         },
         ...headingPaths.map(({ heading, path }) => {
           const sectionBody = sectionBodiesByHeadingId.get(heading.id) ?? ''
+          const sectionText = stripDocSearchMarkdown(sectionBody)
 
           return {
-            body: sectionBody,
-            details: sectionBody,
+            body: sectionText,
+            details: sectionText,
             description,
             hash: heading.id,
             id: `${doc.path || 'index'}#${heading.id}`,
@@ -90,6 +101,8 @@ export function createDocsSearch(
       return docsSearch
         .search(normalizedQuery, {
           boost: { description: 3, sectionPathText: 7, sectionTitle: 6, title: 8 },
+          fuzzy: (term) => (term.length >= 6 ? 0.34 : term.length >= 5 ? 0.2 : false),
+          maxFuzzy: 2,
           prefix: true,
         })
         .sort((a, b) => b.score - a.score || a.order - b.order)
@@ -111,6 +124,7 @@ export function createDocsSearch(
                 return snippet ? { snippet } : {}
               })()
             : {}),
+          ...(result.terms.length ? { terms: result.terms } : {}),
           title: result.title,
         }))
     },
@@ -343,3 +357,35 @@ function stripDocSearchMarkdown(value: string) {
 function collapseWhitespace(value: string) {
   return value.replace(/\s+/g, ' ').trim()
 }
+
+function stripIgnoredDocSearchCodeGroupTabs(source: string) {
+  const lines = source.split('\n')
+  const output: Array<string> = []
+  let skippedFenceMarker: string | undefined
+
+  for (const line of lines) {
+    const fenceMarker = getDocSearchCodeFenceMarker(line)
+
+    if (skippedFenceMarker) {
+      if (fenceMarker && isMatchingDocSearchFenceMarker(fenceMarker, skippedFenceMarker))
+        skippedFenceMarker = undefined
+      continue
+    }
+
+    if (isIgnoredDocSearchCodeGroupTabFence(line)) {
+      skippedFenceMarker = fenceMarker
+      continue
+    }
+
+    output.push(line)
+  }
+
+  return output.join('\n')
+}
+
+function isIgnoredDocSearchCodeGroupTabFence(line: string) {
+  const title = /^(?: {0,3})(?:`{3,}|~{3,})[^\n]*\btitle=(['"])([^'"]+)\1/u.exec(line)?.[2]
+  return title ? ignoredDocSearchCodeGroupTabLabels.has(title.trim().toLowerCase()) : false
+}
+
+const ignoredDocSearchCodeGroupTabLabels = new Set(['bun', 'npm', 'pnpm'])

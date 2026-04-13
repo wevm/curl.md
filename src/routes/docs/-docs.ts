@@ -53,6 +53,16 @@ export function searchDocs(query: string): Array<DocSearchResult> {
   return docsSearch.search(query)
 }
 
+export function findDocPreview(path: string) {
+  const doc = findDoc(path)
+  if (!doc) return
+
+  return {
+    Component: doc.Component,
+    path: doc.path,
+  }
+}
+
 const orderedDocs = flattenSidebarItems(sidebar)
   .map((item) => findDoc(normalizeSidebarPath(item.path)))
   .filter((doc): doc is Doc => doc !== undefined)
