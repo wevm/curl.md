@@ -115,9 +115,6 @@ importers:
       rehype-remark:
         specifier: ^10.0.1
         version: 10.0.1
-      rehype-slug:
-        specifier: ^6.0.0
-        version: 6.0.0
       remark-gfm:
         specifier: ^4.0.1
         version: 4.0.1
@@ -230,6 +227,9 @@ importers:
       playwright:
         specifier: ^1.58.2
         version: 1.58.2
+      rehype-slug:
+        specifier: ^6.0.0
+        version: 6.0.0
       remark-frontmatter:
         specifier: ^5.0.0
         version: 5.0.0

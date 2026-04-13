@@ -1,6 +1,6 @@
 import path from 'node:path'
 import { cloudflareTest } from '@cloudflare/vitest-pool-workers'
-import viteReact from '@vitejs/plugin-react'
+import react from '@vitejs/plugin-react'
 import { playwright } from '@vitest/browser-playwright'
 import autoImport from 'unplugin-auto-import/vite'
 import iconsResolver from 'unplugin-icons/resolver'
@@ -78,9 +78,6 @@ export default defineConfig({
         },
       },
       {
-        optimizeDeps: {
-          include: ['@base-ui/react/tabs'],
-        },
         plugins: [
           icons({ compiler: 'jsx', jsx: 'react' }),
           autoImport({
@@ -94,7 +91,7 @@ export default defineConfig({
               }),
             ],
           }),
-          viteReact(),
+          react(),
         ],
         test: {
           browser: {

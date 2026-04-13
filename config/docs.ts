@@ -5,9 +5,7 @@ import path from 'node:path'
 import mdx from '@mdx-js/rollup'
 import json from '@shikijs/langs/json'
 import shellscript from '@shikijs/langs/shellscript'
-import toml from '@shikijs/langs/toml'
 import typescript from '@shikijs/langs/typescript'
-import yaml from '@shikijs/langs/yaml'
 import rehypeShikiFromHighlighter from '@shikijs/rehype/core'
 import githubDarkDefault from '@shikijs/themes/github-dark-default'
 import githubLightDefault from '@shikijs/themes/github-light-default'
@@ -96,7 +94,6 @@ const docsCodeHighlightOptions = {
   langAlias: {
     bash: 'sh',
     shell: 'sh',
-    yml: 'yaml',
     zsh: 'sh',
   },
   parseMetaString: parseCodeBlockMetaString,
@@ -733,7 +730,7 @@ function createExportDeclaration(name: string, init: any) {
 function createDocsCodeHighlighter() {
   return createHighlighterCore({
     engine: createOnigurumaEngine(() => import('shiki/wasm')),
-    langs: [json, shellscript, toml, typescript, yaml],
+    langs: [json, shellscript, typescript],
     themes: [githubDarkDefault, githubLightDefault],
   })
 }
