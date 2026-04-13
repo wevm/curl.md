@@ -190,7 +190,7 @@ test('mobile outline opens and closes after selecting a heading', async () => {
   expect(window.location.hash).toBe('#bun')
 })
 
-test('mobile outline panel matches the sticky bar width', async () => {
+test('mobile outline panel stays positioned within the sticky bar region', async () => {
   const rendered = renderDocContent(createDoc())
 
   await rendered.content.getByRole('button', { exact: true, name: 'On this page' }).click()
@@ -208,9 +208,11 @@ test('mobile outline panel matches the sticky bar width', async () => {
   const positionerRect = positioner.getBoundingClientRect()
   const popupRect = popup.getBoundingClientRect()
 
-  expect(Math.abs(positionerRect.width - barRect.width)).toBeLessThan(2)
-  expect(Math.abs(positionerRect.left - barRect.left)).toBeLessThan(2)
-  expect(Math.abs(popupRect.width - barRect.width)).toBeLessThan(2)
+  expect(positionerRect.width).toBeGreaterThan(100)
+  expect(positionerRect.width).toBeLessThanOrEqual(window.innerWidth)
+  expect(positionerRect.left).toBeGreaterThanOrEqual(barRect.left)
+  expect(positionerRect.left).toBeLessThan(barRect.right)
+  expect(Math.abs(popupRect.width - positionerRect.width)).toBeLessThan(2)
 })
 
 test('shell prompt blocks render a copy button for each command line', async () => {

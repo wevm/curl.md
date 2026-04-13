@@ -491,7 +491,7 @@ function SearchTrigger(props: {
   return (
     <button
       aria-label="Search"
-      className="hover:bg-gray-a2 group sm:bg-bg2 sm:text-gray8 sm:hover:text-gray10 flex items-center justify-center p-1.5 text-sm sm:me-2 sm:h-8 sm:w-auto sm:justify-start sm:gap-2 sm:p-0 sm:ps-2.5 sm:pe-1"
+      className="hover:bg-gray-a2 group sm:bg-gray-a2 dark:sm:bg-bg2 sm:text-gray8 sm:hover:text-gray10 flex items-center justify-center p-1.5 text-sm sm:me-2 sm:h-8 sm:w-auto sm:justify-start sm:gap-2 sm:p-0 sm:ps-2.5 sm:pe-1"
       onClick={props.onClick}
       ref={props.triggerRef}
       type="button"

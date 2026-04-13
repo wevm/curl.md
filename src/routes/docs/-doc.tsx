@@ -49,15 +49,9 @@ export function DocContent(props: {
   const [activeHeadingId, setActiveHeadingId] = React.useState<string | undefined>(undefined)
   const [lastUpdatedLabel, setLastUpdatedLabel] = React.useState<string | undefined>(undefined)
   const [mobileOutlineOpen, setMobileOutlineOpen] = React.useState(false)
-  const [mobileOutlinePopupWidth, setMobileOutlinePopupWidth] = React.useState<number | undefined>(
-    undefined,
-  )
-  const [mobileOutlinePopupOffset, setMobileOutlinePopupOffset] = React.useState<
-    number | undefined
-  >(undefined)
-  const honorHashUntilRef = React.useRef(0)
   const mobileOutlineBarRef = React.useRef<HTMLDivElement>(null)
-  const mobileOutlineTriggerRef = React.useRef<HTMLDivElement>(null)
+  const mobileOutlineContentRef = React.useRef<HTMLDivElement>(null)
+  const honorHashUntilRef = React.useRef(0)
   const hasHeadings = doc.headings.length > 0
   const hasPagination = Boolean(pagination.previous || pagination.next)
   const activeHeading = doc.headings.find((heading) => heading.id === activeHeadingId)
@@ -112,33 +106,6 @@ export function DocContent(props: {
 
     window.addEventListener('hashchange', closeMobileOutline)
     return () => window.removeEventListener('hashchange', closeMobileOutline)
-  }, [])
-
-  React.useEffect(() => {
-    const bar = mobileOutlineBarRef.current
-    const trigger = mobileOutlineTriggerRef.current
-    if (!bar || !trigger) return
-
-    const updatePopupWidth = () => {
-      const barRect = bar.getBoundingClientRect()
-      const triggerRect = trigger.getBoundingClientRect()
-      const nextWidth = Number((barRect.width + 0.48).toFixed(2))
-      const nextOffset = Number((-(triggerRect.left - barRect.left) - 0.48).toFixed(2))
-
-      setMobileOutlinePopupWidth((current) => (current === nextWidth ? current : nextWidth))
-      setMobileOutlinePopupOffset((current) => (current === nextOffset ? current : nextOffset))
-    }
-
-    updatePopupWidth()
-
-    const resizeObserver = new ResizeObserver(updatePopupWidth)
-    resizeObserver.observe(bar)
-    resizeObserver.observe(trigger)
-    window.addEventListener('resize', updatePopupWidth)
-    return () => {
-      resizeObserver.disconnect()
-      window.removeEventListener('resize', updatePopupWidth)
-    }
   }, [])
 
   React.useEffect(() => {
@@ -232,14 +199,17 @@ export function DocContent(props: {
             data-mobile-doc-outline-bar=""
             ref={mobileOutlineBarRef}
           >
-            <div className="mx-auto w-full max-w-[76rem] md:mx-0 md:max-w-none">
+            <div
+              className="mx-auto w-full max-w-[76rem] md:mx-0 md:max-w-none"
+              ref={mobileOutlineContentRef}
+            >
               <div className="flex items-center gap-4 px-4 py-2">
                 <Menu.Root
                   modal={false}
                   onOpenChange={setMobileOutlineOpen}
                   open={mobileOutlineOpen}
                 >
-                  <div ref={mobileOutlineTriggerRef}>
+                  <div>
                     <Menu.Trigger
                       className="border-gray-a3 text-gray9 hover:bg-gray-a2 hover:text-gray10 data-[popup-open]:bg-gray-a2 data-[popup-open]:text-gray10 flex shrink-0 items-center gap-2.5 rounded-none border px-2 py-2 text-xs font-medium outline-none"
                       data-mobile-doc-outline-trigger=""
@@ -271,22 +241,15 @@ export function DocContent(props: {
                   <Menu.Portal>
                     <Menu.Positioner
                       align="start"
-                      className="z-40 min-w-[var(--anchor-width)]"
+                      anchor={mobileOutlineContentRef}
+                      className="z-40 ms-4 w-[calc(var(--anchor-width)-2rem)] min-w-0 md:w-fit md:max-w-[min(calc(var(--anchor-width)-2rem),36rem)] md:min-w-96 lg:hidden"
                       collisionAvoidance={{ align: 'none', fallbackAxisSide: 'none', side: 'none' }}
                       collisionPadding={0}
                       data-mobile-doc-outline-positioner=""
                       sideOffset={8}
-                      style={
-                        mobileOutlinePopupWidth && mobileOutlinePopupOffset !== undefined
-                          ? {
-                              inlineSize: `${mobileOutlinePopupWidth}px`,
-                              marginInlineStart: `${mobileOutlinePopupOffset}px`,
-                            }
-                          : undefined
-                      }
                     >
                       <Menu.Popup
-                        className="bg-bg1 border-gray-a3 max-h-[min(24rem,calc(100dvh-9rem))] w-full overflow-x-hidden overflow-y-auto overscroll-contain border p-0 shadow-2xl outline-none"
+                        className="bg-bg1 border-gray-a3 max-h-[min(24rem,calc(100dvh-9rem))] w-full overflow-x-hidden overflow-y-auto overscroll-contain border p-0 shadow-2xl outline-none md:w-auto"
                         data-doc-mobile-outline-panel=""
                         id="docs-mobile-outline"
                       >
@@ -311,30 +274,34 @@ export function DocContent(props: {
                           )}
                         </Menu.Item>
 
-                        <div className="border-gray-a3 border-t" />
+                        <div aria-hidden="true" className="border-gray-a3 border-t" />
 
-                        {doc.headings.map((heading) => (
-                          <Menu.Item
-                            className="text-gray8 data-[active]:text-gray10 data-[highlighted]:bg-gray-a2 data-[highlighted]:text-gray10 focus-visible:ring-blue8 flex items-center gap-3 px-6 py-2.5 text-sm outline-none focus-visible:ring-1 focus-visible:outline-none focus-visible:ring-inset"
-                            closeOnClick
-                            data-active={activeHeadingId === heading.id ? '' : undefined}
-                            key={heading.id}
-                            onClick={() => {
-                              selectOutlineHeading(heading.id)
-                              setMobileOutlineOpen(false)
-                            }}
-                            render={<a href={`#${heading.id}`} />}
-                          >
-                            <span
-                              className="min-w-0 flex-1 text-left"
-                              style={{ paddingInlineStart: `${(heading.level - 2) * 1}rem` }}
-                            >
-                              <OutlineHeadingText text={heading.text} truncate />
-                            </span>
-                            {activeHeadingId === heading.id && (
-                              <IconOcticonCheck16 className="text-blue9 size-4 shrink-0" />
+                        {doc.headings.map((heading, index) => (
+                          <React.Fragment key={heading.id}>
+                            {index > 0 && (
+                              <div aria-hidden="true" className="border-gray-a3 border-t" />
                             )}
-                          </Menu.Item>
+                            <Menu.Item
+                              className="text-gray8 data-[active]:text-gray10 data-[highlighted]:bg-gray-a2 data-[highlighted]:text-gray10 focus-visible:ring-blue8 flex items-center gap-3 px-6 py-2.5 text-sm outline-none focus-visible:ring-1 focus-visible:outline-none focus-visible:ring-inset"
+                              closeOnClick
+                              data-active={activeHeadingId === heading.id ? '' : undefined}
+                              onClick={() => {
+                                selectOutlineHeading(heading.id)
+                                setMobileOutlineOpen(false)
+                              }}
+                              render={<a href={`#${heading.id}`} />}
+                            >
+                              <span
+                                className="min-w-0 flex-1 text-left"
+                                style={{ paddingInlineStart: `${(heading.level - 2) * 1}rem` }}
+                              >
+                                <OutlineHeadingText text={heading.text} truncate />
+                              </span>
+                              {activeHeadingId === heading.id && (
+                                <IconOcticonCheck16 className="text-blue9 size-4 shrink-0" />
+                              )}
+                            </Menu.Item>
+                          </React.Fragment>
                         ))}
                       </Menu.Popup>
                     </Menu.Positioner>
