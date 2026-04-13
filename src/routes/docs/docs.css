@@ -1,0 +1,78 @@
+.shiki {
+  background-color: var(--color-docs-surface) !important;
+  border-color: var(--color-gray-a3);
+  color: var(--shiki-light) !important;
+  font-style: var(--shiki-light-font-style, inherit) !important;
+  font-weight: var(--shiki-light-font-weight, inherit) !important;
+  text-decoration: var(--shiki-light-text-decoration, inherit) !important;
+}
+
+.shiki span {
+  background-color: transparent !important;
+  color: var(--shiki-light) !important;
+  font-style: var(--shiki-light-font-style, inherit) !important;
+  font-weight: var(--shiki-light-font-weight, inherit) !important;
+  text-decoration: var(--shiki-light-text-decoration, inherit) !important;
+}
+
+html[data-theme='dark'] .shiki {
+  background-color: var(--color-docs-surface) !important;
+  border-color: var(--color-gray-a3);
+  color: var(--shiki-dark) !important;
+  font-style: var(--shiki-dark-font-style, inherit) !important;
+  font-weight: var(--shiki-dark-font-weight, inherit) !important;
+  text-decoration: var(--shiki-dark-text-decoration, inherit) !important;
+}
+
+html[data-theme='dark'] .shiki span {
+  background-color: transparent !important;
+  color: var(--shiki-dark) !important;
+  font-style: var(--shiki-dark-font-style, inherit) !important;
+  font-weight: var(--shiki-dark-font-weight, inherit) !important;
+  text-decoration: var(--shiki-dark-text-decoration, inherit) !important;
+}
+
+span[data-shiki-inline-code].shiki {
+  background-color: var(--color-gray-a2) !important;
+  display: inline-flex;
+  max-inline-size: 100%;
+  padding: 0.125rem 0.25rem;
+  vertical-align: baseline;
+}
+
+span[data-shiki-inline-code].shiki code {
+  background-color: transparent !important;
+}
+
+[data-docs-code-block] .shiki,
+[data-docs-code-group],
+[data-docs-code-group] [role='tablist'],
+[data-docs-code-group] [role='tabpanel'] {
+  background-color: var(--color-docs-surface) !important;
+}
+
+[data-docs-code-block] pre > code {
+  background-color: transparent !important;
+}
+
+html {
+  scroll-padding-top: 5rem;
+}
+
+[data-docs-code-group] :is([role='tab'], [role='tabpanel']):focus-visible,
+[data-docs-code-block] :is(button, pre):focus-visible {
+  outline: none;
+}
+
+[data-doc-mobile-outline-panel] [role='menuitem']:focus-visible {
+  outline: none;
+}
+
+.docs-search-result:hover {
+  background-color: var(--color-gray-a2);
+}
+
+.docs-search-highlight {
+  background-color: var(--color-amber7);
+  color: var(--color-black);
+}

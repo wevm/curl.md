@@ -19,12 +19,16 @@ import { docSearchHighlightClassName, getDocSearchHighlightRanges } from './-sea
 import { getNextSearchPreviewCacheState } from './-search-preview-cache.ts'
 import type { DocSearchResult } from './-search.ts'
 import { getThemeIconTheme } from './-theme.ts'
+import docsCssHref from './docs.css?url'
 
 const searchSchema = z.object({
   q: z.string().optional(),
 })
 
 export const Route = createFileRoute('/docs')({
+  head: () => ({
+    links: [{ href: docsCssHref, rel: 'stylesheet' }],
+  }),
   async loader({ location }) {
     return {
       login: await getSessionLogin(),
