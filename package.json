@@ -54,6 +54,7 @@
     "hono": "catalog:",
     "kysely": "^0.28.14",
     "kysely-postgres-js": "^3.0.0",
+    "minisearch": "^7.2.0",
     "nanoid": "^5.1.6",
     "postgres": "^3.4.8",
     "react": "^19.2.0",

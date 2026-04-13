@@ -23,7 +23,7 @@ function Links() {
         <Link
           activeOptions={{ exact: true }}
           activeProps={{ 'data-active': '' }}
-          className="text-gray8 hover:text-gray10 data-[active]:text-gray10 px-2 py-1.5 text-[15px]"
+          className="text-gray8 hover:text-gray10 data-[active]:text-gray10 px-2 py-1.5 text-sm"
           key={link.label}
           {...('hash' in link ? { hash: link.hash } : {})}
           {...('params' in link ? { params: link.params } : {})}
@@ -36,9 +36,9 @@ function Links() {
   )
 }
 
-function Logo() {
+function Logo(props: { to?: '/' | '/docs' }) {
   return (
-    <Link className="font-pixel text-base" to="/">
+    <Link className="font-pixel text-base" to={props.to ?? '/'}>
       curl.md<span className="text-gray8">/&lt;url&gt;</span>
     </Link>
   )

@@ -15,16 +15,19 @@ declare global {
   const IconLucideChevronsUpDown: typeof import('~icons/lucide/chevrons-up-down.jsx').default
   const IconLucideCircleCheck: typeof import('~icons/lucide/circle-check.jsx').default
   const IconLucideCreditCard: typeof import('~icons/lucide/credit-card.jsx').default
+  const IconLucideDelete: typeof import('~icons/lucide/delete.jsx').default
   const IconLucideFingerprint: typeof import('~icons/lucide/fingerprint.jsx').default
   const IconLucideInfo: typeof import('~icons/lucide/info.jsx').default
   const IconLucideKey: typeof import('~icons/lucide/key.jsx').default
   const IconLucideLayoutDashboard: typeof import('~icons/lucide/layout-dashboard.jsx').default
   const IconLucideLightbulb: typeof import('~icons/lucide/lightbulb.jsx').default
+  const IconLucideListTree: typeof import('~icons/lucide/list-tree.jsx').default
   const IconLucideLogOut: typeof import('~icons/lucide/log-out.jsx').default
   const IconLucideMail: typeof import('~icons/lucide/mail.jsx').default
   const IconLucideMonitor: typeof import('~icons/lucide/monitor.jsx').default
   const IconLucideMoon: typeof import('~icons/lucide/moon.jsx').default
   const IconLucideOctagonAlert: typeof import('~icons/lucide/octagon-alert.jsx').default
+  const IconLucideSearch: typeof import('~icons/lucide/search.jsx').default
   const IconLucideSettings: typeof import('~icons/lucide/settings.jsx').default
   const IconLucideShieldAlert: typeof import('~icons/lucide/shield-alert.jsx').default
   const IconLucideSparkles: typeof import('~icons/lucide/sparkles.jsx').default
@@ -52,6 +55,7 @@ declare global {
   const IconOcticonGlobe16: typeof import('~icons/octicon/globe16.jsx').default
   const IconOcticonGoal16: typeof import('~icons/octicon/goal16.jsx').default
   const IconOcticonGraph16: typeof import('~icons/octicon/graph16.jsx').default
+  const IconOcticonHash16: typeof import('~icons/octicon/hash16.jsx').default
   const IconOcticonInfo16: typeof import('~icons/octicon/info16.jsx').default
   const IconOcticonKebabHorizontal16: typeof import('~icons/octicon/kebab-horizontal16.jsx').default
   const IconOcticonKey16: typeof import('~icons/octicon/key16.jsx').default

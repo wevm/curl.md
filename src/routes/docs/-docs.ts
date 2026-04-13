@@ -1,6 +1,7 @@
 import { sidebar, type SidebarItem } from '../../../docs/_sidebar.ts'
 import type { Doc, DocPagination, Heading } from './-doc.types.ts'
 import { getDocHeadings } from './-headings.ts'
+import { createDocsSearch, type DocSearchResult } from './-search.ts'
 import { createDocCopySource } from './-source.ts'
 
 type DocModule = {
@@ -48,9 +49,18 @@ export function findDocPagination(path: string): DocPagination {
   }
 }
 
+export function searchDocs(query: string): Array<DocSearchResult> {
+  return docsSearch.search(query)
+}
+
 const orderedDocs = flattenSidebarItems(sidebar)
   .map((item) => findDoc(normalizeSidebarPath(item.path)))
   .filter((doc): doc is Doc => doc !== undefined)
+
+const docsSearch = createDocsSearch(
+  allDocs,
+  orderedDocs.map((doc) => doc.path),
+)
 
 function flattenSidebarItems(
   items: Array<SidebarItem>,

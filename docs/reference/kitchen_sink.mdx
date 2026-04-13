@@ -104,14 +104,30 @@ $ bun run dev
 
 :::
 
+:::codegroup
+
+```sh [npm]
+$ npm install
+```
+
+```sh [pnpm]
+$ pnpm install
+```
+
+```sh [bun]
+$ bun install
+```
+
+:::
+
 ## Tables
 
-| Runtime | Install Command                                 | Config File                  | Best For                    |
-| ------- | ----------------------------------------------- | ---------------------------- | --------------------------- |
-| Node.js | `pnpm add curl.md`                              | `curl.config.ts`             | Existing TypeScript apps    |
-| Bun     | `bun add curl.md`                               | `bunfig.toml`                | Fast local tooling          |
-| Deno    | `deno add jsr:@wevm/curl-md`                    | `deno.json`                  | URL-first workflows         |
-| CI      | `pnpm dlx curl.md https://example.com/rules.md` | `.github/workflows/docs.yml` | One-off checks in pipelines |
+| Runtime | Install Command                                      | Config File                         | Best For                    |
+| ------- | ---------------------------------------------------- | ----------------------------------- | --------------------------- |
+| Node.js | `pnpm add curl.md{:sh}`                              | `curl.config.ts{:text}`             | Existing TypeScript apps    |
+| Bun     | `bun add curl.md{:sh}`                               | `bunfig.toml{:text}`                | Fast local tooling          |
+| Deno    | `deno add jsr:@wevm/curl-md{:sh}`                    | `deno.json{:text}`                  | URL-first workflows         |
+| CI      | `pnpm dlx curl.md https://example.com/rules.md{:sh}` | `.github/workflows/docs.yml{:text}` | One-off checks in pipelines |
 
 ## Steps
 

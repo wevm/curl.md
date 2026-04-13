@@ -5,10 +5,12 @@ import path from 'node:path'
 import mdx from '@mdx-js/rollup'
 import json from '@shikijs/langs/json'
 import shellscript from '@shikijs/langs/shellscript'
+import toml from '@shikijs/langs/toml'
 import typescript from '@shikijs/langs/typescript'
+import yaml from '@shikijs/langs/yaml'
 import rehypeShikiFromHighlighter from '@shikijs/rehype/core'
-import githubDark from '@shikijs/themes/github-dark'
-import githubLight from '@shikijs/themes/github-light'
+import githubDarkDefault from '@shikijs/themes/github-dark-default'
+import githubLightDefault from '@shikijs/themes/github-light-default'
 import type { Root } from 'hast'
 import rehypeSlug from 'rehype-slug'
 import remarkFrontmatter from 'remark-frontmatter'
@@ -37,7 +39,9 @@ export async function docsMdx() {
     rehypePlugins: [
       rehypeSlug,
       rehypeHeadings(() => isServe),
+      rehypePromptShellBlocks,
       [rehypeShikiFromHighlighter, highlighter, docsCodeHighlightOptions],
+      rehypeInlineShikiCode,
     ],
     remarkPlugins: [remarkFrontmatter, remarkGfm, remarkNoticeBlocks, remarkMdxFrontmatter],
   }) as VitePlugin
@@ -82,17 +86,19 @@ export async function docsMdx() {
 
 type Heading = { id: string; level: number; text: string }
 
-const docsCodeThemeDarkName = 'github-dark'
-const docsCodeThemeLightName = 'github-light'
+const docsCodeThemeDarkName = 'github-dark-default'
+const docsCodeThemeLightName = 'github-light-default'
 
 const docsCodeHighlightOptions = {
   addLanguageClass: true,
   defaultColor: false,
   defaultLanguage: 'text',
   fallbackLanguage: 'text',
+  inline: 'tailing-curly-colon',
   langAlias: {
     bash: 'sh',
     shell: 'sh',
+    yml: 'yaml',
     zsh: 'sh',
   },
   parseMetaString: parseCodeBlockMetaString,
@@ -584,8 +590,98 @@ function getLabelAttribute(label: string | undefined) {
 
 function parseCodeBlockMetaString(metaString: string) {
   const match = /(?:^|\s)title=(?:"([^"]*)"|'([^']*)'|([^\s]+))/u.exec(metaString)
+  const hasShellPrompt = /(?:^|\s)shell-prompt(?:\s|$)/u.test(metaString)
   const title = match?.[1] ?? match?.[2] ?? match?.[3]
-  return title?.trim() ? { title: title.trim() } : undefined
+  if (!hasShellPrompt && !title?.trim()) return undefined
+
+  return {
+    ...(hasShellPrompt ? { 'data-shell-prompt': '' } : {}),
+    ...(title?.trim() ? { title: title.trim() } : {}),
+  }
+}
+
+const shellCodeLanguages = new Set(['bash', 'shell', 'sh', 'zsh'])
+
+const rehypePromptShellBlocks: UnifiedPlugin<[], Root> = () => (tree) => {
+  visit(tree, (node: any) => {
+    if (node.type !== 'element' || node.tagName !== 'pre') return
+
+    const codeNode = node.children?.find(
+      (child: any) => child.type === 'element' && child.tagName === 'code',
+    )
+    if (!codeNode) return
+
+    const language = getCodeLanguageFromClassName(codeNode.properties?.className)
+    if (!language || !shellCodeLanguages.has(language)) return
+
+    const source = nodeToText(codeNode)
+    const lines = source.split('\n')
+    const nonEmptyLines = lines.filter((line) => line.trim() !== '')
+    if (!nonEmptyLines.length || nonEmptyLines.some((line) => !line.startsWith('$ '))) return
+
+    codeNode.children = [{ type: 'text', value: lines.map(stripPromptShellLine).join('\n') }]
+    codeNode.data = {
+      ...codeNode.data,
+      meta: appendMetaString(codeNode.data?.meta, 'shell-prompt'),
+    }
+  })
+}
+
+const rehypeInlineShikiCode: UnifiedPlugin<[], Root> = () => (tree) => {
+  visit(tree, (node: any) => {
+    if (node.type !== 'element' || node.tagName !== 'span') return
+    if (!hasClassName(node.properties, 'shiki')) return
+
+    const codeNode = node.children?.find(
+      (child: any) => child.type === 'element' && child.tagName === 'code',
+    )
+    if (!codeNode) return
+
+    delete node.properties?.tabindex
+    node.properties = {
+      ...node.properties,
+      'data-shiki-inline-code': '',
+    }
+    codeNode.properties = {
+      ...codeNode.properties,
+      'data-shiki-inline-code': '',
+    }
+  })
+}
+
+function appendMetaString(meta: unknown, value: string) {
+  if (typeof meta !== 'string' || !meta.trim()) return value
+  return /(?:^|\s)shell-prompt(?:\s|$)/u.test(meta) ? meta : `${meta} ${value}`
+}
+
+function getCodeLanguageFromClassName(className: unknown) {
+  const value = Array.isArray(className)
+    ? className.filter((item): item is string => typeof item === 'string').join(' ')
+    : typeof className === 'string'
+      ? className
+      : ''
+
+  return /\blanguage-([\w-]+)/.exec(value)?.[1]
+}
+
+function hasClassName(properties: Record<string, unknown> | undefined, className: string) {
+  if (!properties) return false
+
+  const value = [properties.class, properties.className]
+    .flatMap((item) =>
+      Array.isArray(item)
+        ? item.filter((value): value is string => typeof value === 'string')
+        : typeof item === 'string'
+          ? [item]
+          : [],
+    )
+    .join(' ')
+
+  return new RegExp(`(?:^|\\s)${className}(?:\\s|$)`, 'u').test(value)
+}
+
+function stripPromptShellLine(line: string) {
+  return line.startsWith('$ ') ? line.slice(2) : line
 }
 
 function createStepItemRewrite(title: string, body: Array<string>, endIndex: number) {
@@ -632,8 +728,8 @@ function createExportDeclaration(name: string, init: any) {
 function createDocsCodeHighlighter() {
   return createHighlighterCore({
     engine: createOnigurumaEngine(() => import('shiki/wasm')),
-    langs: [json, shellscript, typescript],
-    themes: [githubDark, githubLight],
+    langs: [json, shellscript, toml, typescript, yaml],
+    themes: [githubDarkDefault, githubLightDefault],
   })
 }
 

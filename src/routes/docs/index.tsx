@@ -1,7 +1,14 @@
 import { createFileRoute, notFound } from '@tanstack/react-router'
+import * as React from 'react'
+import { z } from 'zod/v4'
 import { rpc } from '#lib/rpc.ts'
 import { DocContent } from './-doc.tsx'
 import { findDoc, findDocPagination } from './-docs.ts'
+
+const searchSchema = z.object({
+  codegroup: z.string().optional(),
+  q: z.string().optional(),
+})
 
 export const Route = createFileRoute('/docs/')({
   head() {
@@ -29,11 +36,32 @@ export const Route = createFileRoute('/docs/')({
   loader() {
     if (!findDoc('')) throw notFound()
   },
+  validateSearch: searchSchema,
   component: Component,
 })
 
 function Component() {
+  const navigate = Route.useNavigate()
   const doc = findDoc('')
   if (!doc) return null
-  return <DocContent doc={doc} pagination={findDocPagination(doc.path)} />
+
+  const onCodeGroupValueChange = React.useCallback(
+    (value: string) => {
+      navigate({
+        replace: true,
+        resetScroll: false,
+        search: (search) => ({ ...search, codegroup: value }),
+        to: '/docs',
+      })
+    },
+    [navigate],
+  )
+
+  return (
+    <DocContent
+      doc={doc}
+      onCodeGroupValueChange={onCodeGroupValueChange}
+      pagination={findDocPagination(doc.path)}
+    />
+  )
 }

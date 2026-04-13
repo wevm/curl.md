@@ -24,16 +24,33 @@ function CloseX(
 }
 
 function Description(props: React.ComponentProps<typeof BaseDialog.Description>) {
-  return <BaseDialog.Description {...props} className="text-gray9 text-sm" />
+  return (
+    <BaseDialog.Description
+      {...props}
+      className={['text-gray9 text-sm', props.className].filter(Boolean).join(' ')}
+    />
+  )
 }
 
 function Popup(props: React.ComponentProps<typeof BaseDialog.Popup>) {
-  const { children, ...rest } = props
+  const { children, className, ...rest } = props
   const closeRef = React.useRef<HTMLButtonElement>(null)
+  const hasCustomMaxWidth = typeof className === 'string' ? /(^|\s)!?max-w-/.test(className) : false
+  const baseClassName = [
+    'bg-bg1 border-gray-a3 pointer-events-auto relative my-[15dvh] flex w-full flex-col gap-4 border p-6',
+    hasCustomMaxWidth ? undefined : 'max-w-md',
+  ]
+    .filter(Boolean)
+    .join(' ')
+  const mergedClassName =
+    typeof className === 'function'
+      ? (state: Parameters<typeof className>[0]) =>
+          [baseClassName, className(state)].filter(Boolean).join(' ')
+      : [baseClassName, className].filter(Boolean).join(' ')
 
   return (
     <div
-      className="fixed inset-0 z-50 overflow-y-auto bg-black/80 [scrollbar-gutter:stable] [scrollbar-width:thin]"
+      className="fixed inset-0 z-50 overflow-y-auto bg-[color-mix(in_srgb,var(--color-bg1)_80%,transparent)] [scrollbar-gutter:stable] [scrollbar-width:thin] dark:bg-black/80"
       onPointerDown={(e) => {
         if (e.target === e.currentTarget) closeRef.current?.click()
       }}
@@ -45,11 +62,7 @@ function Popup(props: React.ComponentProps<typeof BaseDialog.Popup>) {
           if (e.target === e.currentTarget) closeRef.current?.click()
         }}
       >
-        <BaseDialog.Popup
-          data-dialog-ui
-          {...rest}
-          className="bg-bg1 border-gray-a3 pointer-events-auto relative my-[15dvh] flex w-full max-w-md flex-col gap-4 border p-6"
-        >
+        <BaseDialog.Popup data-dialog-ui {...rest} className={mergedClassName}>
           {children}
         </BaseDialog.Popup>
       </div>
@@ -58,7 +71,12 @@ function Popup(props: React.ComponentProps<typeof BaseDialog.Popup>) {
 }
 
 function Title(props: React.ComponentProps<typeof BaseDialog.Title>) {
-  return <BaseDialog.Title {...props} className="text-base font-bold" />
+  return (
+    <BaseDialog.Title
+      {...props}
+      className={['text-base font-bold', props.className].filter(Boolean).join(' ')}
+    />
+  )
 }
 
 export const Dialog = {

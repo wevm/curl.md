@@ -61,6 +61,53 @@ export const config = {}
   expect(code).toContain('className: "language-ts"')
 })
 
+test('docs mdx strips shell prompts before highlighting prompt-style shell blocks', async () => {
+  const plugin = await docsMdx()
+  const source = `# Example
+
+\`\`\`sh
+$ pnpm test:e2e
+\`\`\`
+`
+
+  const transformed = await plugin.transform?.call(
+    {},
+    source,
+    path.join(process.cwd(), 'docs/reference/kitchen_sink.mdx'),
+  )
+  const code =
+    typeof transformed === 'string'
+      ? transformed
+      : (transformed as { code?: string } | null | undefined)?.code
+
+  expect(code).toContain('"data-shell-prompt": ""')
+  expect(code).toContain('children: "pnpm"')
+  expect(code).not.toContain('children: "$"')
+})
+
+test('docs mdx highlights inline code when the snippet declares a language', async () => {
+  const plugin = await docsMdx()
+  const source = `# Example
+
+Use \`pnpm add curl.md{:sh}\` with \`curl.config.ts{:ts}\`.
+`
+
+  const transformed = await plugin.transform?.call(
+    {},
+    source,
+    path.join(process.cwd(), 'docs/reference/kitchen_sink.mdx'),
+  )
+  const code =
+    typeof transformed === 'string'
+      ? transformed
+      : (transformed as { code?: string } | null | undefined)?.code
+
+  expect(code).toContain('data-shiki-inline-code')
+  expect(code).toContain('children: "pnpm"')
+  expect(code).not.toContain('{:sh}')
+  expect(code).not.toContain('{:ts}')
+})
+
 test('docs mdx leaves raw imports untouched', async () => {
   const plugin = await docsMdx()
   const source = `---

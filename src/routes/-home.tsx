@@ -48,18 +48,23 @@ export function Home(props: { login?: string | null | undefined }) {
 
       <Nav.Root fixed>
         <Nav.Logo />
-        <Nav.Links />
         <Nav.Group>
+          <Link className="text-gray8 hover:text-gray10 px-3 py-1.5 text-sm" to="/docs">
+            Docs
+          </Link>
           {login ? (
             <Link
-              className="bg-gray10 text-bg1 px-3 py-1.5 text-sm"
+              className="bg-gray10 text-bg1 px-3 py-1.5 text-sm transition-opacity hover:opacity-90"
               params={{ login }}
               to="/$login"
             >
               Dashboard
             </Link>
           ) : (
-            <Link className="bg-gray10 text-bg1 px-3 py-1.5 text-sm" to="/login">
+            <Link
+              className="bg-gray10 text-bg1 px-3 py-1.5 text-sm transition-opacity hover:opacity-90"
+              to="/login"
+            >
               Sign in
             </Link>
           )}

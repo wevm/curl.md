@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { flushSync } from 'react-dom'
 import { createRoot, type Root } from 'react-dom/client'
-import { afterEach, expect, test } from 'vitest'
+import { afterEach, expect, test, vi } from 'vitest'
 import { page } from 'vitest/browser'
 import { DocContent } from './-doc.tsx'
 import type { Doc, DocPagination } from './-doc.types.ts'
@@ -12,6 +12,7 @@ const originalClipboard = navigator.clipboard
 afterEach(() => {
   cleanup?.()
   cleanup = undefined
+  window.history.replaceState(null, '', '/')
   Object.defineProperty(navigator, 'clipboard', {
     configurable: true,
     value: originalClipboard,
@@ -189,6 +190,29 @@ test('mobile outline opens and closes after selecting a heading', async () => {
   expect(window.location.hash).toBe('#bun')
 })
 
+test('mobile outline panel matches the sticky bar width', async () => {
+  const rendered = renderDocContent(createDoc())
+
+  await rendered.content.getByRole('button', { exact: true, name: 'On this page' }).click()
+  await waitForAnimationFrame()
+
+  const bar = document.querySelector('[data-mobile-doc-outline-bar]')
+  const positioner = document.querySelector('[data-mobile-doc-outline-positioner]')
+  const popup = document.querySelector('[data-doc-mobile-outline-panel]')
+  if (!(bar instanceof HTMLElement)) throw new Error('Expected mobile outline bar to render')
+  if (!(positioner instanceof HTMLElement))
+    throw new Error('Expected mobile outline positioner to render')
+  if (!(popup instanceof HTMLElement)) throw new Error('Expected mobile outline popup to render')
+
+  const barRect = bar.getBoundingClientRect()
+  const positionerRect = positioner.getBoundingClientRect()
+  const popupRect = popup.getBoundingClientRect()
+
+  expect(Math.abs(positionerRect.width - barRect.width)).toBeLessThan(2)
+  expect(Math.abs(positionerRect.left - barRect.left)).toBeLessThan(2)
+  expect(Math.abs(popupRect.width - barRect.width)).toBeLessThan(2)
+})
+
 test('shell prompt blocks render a copy button for each command line', async () => {
   const rendered = renderDocContent(createPromptShellDoc())
   const firstCommandLine = rendered.container.querySelector('.line')
@@ -200,6 +224,7 @@ test('shell prompt blocks render a copy button for each command line', async () 
     'select-none',
   )
   expect(firstCommandLine?.textContent?.match(/\$/g)?.length ?? 0).toBe(1)
+  expect(firstCommandLine?.querySelector('.token.command')?.textContent).toBe('pnpm')
   expect(firstCommandLine?.querySelector('.token.command')).not.toBeNull()
   expect(rendered.container.querySelector('[aria-label="Copy command: pnpm check"]')).not.toBeNull()
   expect(
@@ -260,11 +285,11 @@ test('copy page button moves into the page heading when the outline uses the sti
   expect(mobileCopyButton?.className).toContain('lg:hidden')
 })
 
-test('code blocks override inline syntax highlighter backgrounds', async () => {
+test('code blocks preserve inline syntax highlighter backgrounds', async () => {
   const rendered = renderDocContent(createStyledCodeBlockDoc())
   const pre = rendered.container.querySelector('[data-docs-code-block] pre')
 
-  expect(pre?.getAttribute('style')).toContain('background-color: var(--color-docs-surface);')
+  expect(pre?.getAttribute('style')).toContain('background-color: rgb(0, 0, 0);')
 })
 
 test('titled code blocks render a codegroup-style title bar with an icon', async () => {
@@ -303,6 +328,62 @@ test('code groups switch the visible panel when tabs are clicked', async () => {
   await expect.element(rendered.content.getByText("console.log('ts')")).toBeVisible()
 })
 
+test('code groups sync matching labels through the query param', async () => {
+  window.history.replaceState(null, '', '/docs/test?codegroup=pnpm')
+  const rendered = renderDocContent(createSyncedCodeGroupDoc())
+  await waitForAnimationFrame()
+  const groups = rendered.container.querySelectorAll('[data-docs-code-group]')
+  const [firstGroup, secondGroup] = groups
+  if (!firstGroup || !secondGroup) throw new Error('Expected two code groups to render')
+
+  expect(getActiveCodeGroupTabLabel(firstGroup)).toBe('pnpm')
+  expect(getActiveCodeGroupTabLabel(secondGroup)).toBe('pnpm')
+
+  await page.elementLocator(firstGroup).getByRole('tab', { exact: true, name: 'npm' }).click()
+
+  expect(getActiveCodeGroupTabLabel(firstGroup)).toBe('npm')
+  expect(getActiveCodeGroupTabLabel(secondGroup)).toBe('npm')
+  expect(new URLSearchParams(window.location.search).get('codegroup')).toBe('npm')
+})
+
+test('synced code groups keep focus on the interacted tab', async () => {
+  window.history.replaceState(null, '', '/docs/test?codegroup=pnpm')
+  const rendered = renderDocContent(createSyncedCodeGroupDoc())
+  await waitForAnimationFrame()
+  const groups = rendered.container.querySelectorAll('[data-docs-code-group]')
+  const [firstGroup, secondGroup] = groups
+  if (!firstGroup || !secondGroup) throw new Error('Expected two code groups to render')
+
+  const firstGroupNpmTab = Array.from(firstGroup.querySelectorAll('[role="tab"]')).find(
+    (tab) => tab.textContent?.trim() === 'npm',
+  )
+  if (!(firstGroupNpmTab instanceof HTMLElement)) throw new Error('Expected npm tab to render')
+
+  await page.elementLocator(firstGroup).getByRole('tab', { exact: true, name: 'npm' }).click()
+  await waitForAnimationFrame()
+
+  expect(document.activeElement).toBe(firstGroupNpmTab)
+  expect(getActiveCodeGroupTabLabel(secondGroup)).toBe('npm')
+  expect(secondGroup.contains(document.activeElement)).toBe(false)
+})
+
+test('code groups delegate url sync through the provided handler', async () => {
+  const onCodeGroupValueChange = vi.fn()
+  const rendered = renderDocContent(createSyncedCodeGroupDoc(), undefined, {
+    onCodeGroupValueChange,
+  })
+  const groups = rendered.container.querySelectorAll('[data-docs-code-group]')
+  const [firstGroup, secondGroup] = groups
+  if (!firstGroup || !secondGroup) throw new Error('Expected two code groups to render')
+
+  await page.elementLocator(secondGroup).getByRole('tab', { exact: true, name: 'pnpm' }).click()
+
+  expect(onCodeGroupValueChange).toHaveBeenCalledWith('pnpm')
+  expect(getActiveCodeGroupTabLabel(firstGroup)).toBe('pnpm')
+  expect(getActiveCodeGroupTabLabel(secondGroup)).toBe('pnpm')
+  expect(window.location.search).toBe('')
+})
+
 test('steps render numbered timeline items', async () => {
   const rendered = renderDocContent(createStepsDoc())
 
@@ -334,6 +415,16 @@ test('tables render inside a horizontal overflow container', async () => {
   expect(table?.className).toContain('min-w-full')
   expect(headerCell?.className).toContain('whitespace-nowrap')
   expect(bodyCell?.className).toContain('whitespace-nowrap')
+})
+
+test('inline shiki code keeps the inner code element unstyled', async () => {
+  const rendered = renderDocContent(createInlineShikiCodeDoc())
+  const inlineCode = rendered.container.querySelector('[data-shiki-inline-code].shiki')
+  const innerCode = inlineCode?.querySelector('code')
+
+  expect(inlineCode).not.toBeNull()
+  expect(innerCode?.className).toContain('bg-transparent')
+  expect(innerCode?.className).not.toContain('bg-gray-a2')
 })
 
 test('last updated renders in the browser locale without the word at', async () => {
@@ -435,6 +526,64 @@ function createCodeGroupDoc(): Doc {
   }
 }
 
+function createSyncedCodeGroupDoc(): Doc {
+  return {
+    Component: function Component(props) {
+      const components = props.components ?? {}
+      const CodeGroup = components.CodeGroup as React.ComponentType<React.PropsWithChildren>
+      const CodeGroupItem = components.CodeGroupItem as React.ComponentType<
+        React.PropsWithChildren<{ label?: string }>
+      >
+
+      return (
+        <>
+          <CodeGroup>
+            <CodeGroupItem label="npm">
+              <pre>
+                <code className="language-sh">npm run dev</code>
+              </pre>
+            </CodeGroupItem>
+            <CodeGroupItem label="pnpm">
+              <pre>
+                <code className="language-sh">pnpm dev</code>
+              </pre>
+            </CodeGroupItem>
+            <CodeGroupItem label="bun">
+              <pre>
+                <code className="language-sh">bun run dev</code>
+              </pre>
+            </CodeGroupItem>
+          </CodeGroup>
+
+          <CodeGroup>
+            <CodeGroupItem label="npm">
+              <pre>
+                <code className="language-sh">npm install</code>
+              </pre>
+            </CodeGroupItem>
+            <CodeGroupItem label="pnpm">
+              <pre>
+                <code className="language-sh">pnpm install</code>
+              </pre>
+            </CodeGroupItem>
+            <CodeGroupItem label="bun">
+              <pre>
+                <code className="language-sh">bun install</code>
+              </pre>
+            </CodeGroupItem>
+          </CodeGroup>
+        </>
+      )
+    },
+    description: undefined,
+    headings: [],
+    path: 'test',
+    source: '# Test\n',
+    sourcePath: 'docs/reference/kitchen_sink.mdx',
+    title: 'Test',
+  }
+}
+
 function createPromptShellDoc(): Doc {
   return {
     Component: function Component(props) {
@@ -444,18 +593,18 @@ function createPromptShellDoc(): Doc {
 
       return React.createElement(
         Pre,
-        undefined,
+        { 'data-shell-prompt': '' },
         React.createElement(
           Code,
           { className: 'language-sh' },
           '\n',
           <span className="line" key="check">
-            <span className="token punctuation">$</span> <span className="token command">pnpm</span>
+            <span className="token command">pnpm</span>
             {' check'}
           </span>,
           '\n',
           <span className="line" key="check-types">
-            <span className="token punctuation">$</span> <span className="token command">pnpm</span>
+            <span className="token command">pnpm</span>
             {' check:types'}
           </span>,
           '\n',
@@ -642,6 +791,45 @@ function createTableDoc(): Doc {
   }
 }
 
+function createInlineShikiCodeDoc(): Doc {
+  return {
+    Component: function Component(props) {
+      const components = props.components ?? {}
+      const Code = (components.code ?? 'code') as React.ElementType
+
+      return (
+        <p>
+          Use{' '}
+          <span
+            className="shiki"
+            data-shiki-inline-code=""
+            style={
+              {
+                '--shiki-dark': '#e6edf3',
+                '--shiki-light': '#1f2328',
+              } as React.CSSProperties
+            }
+          >
+            <Code data-shiki-inline-code="">
+              <span className="line">
+                <span>pnpm</span>
+                {' add curl.md'}
+              </span>
+            </Code>
+          </span>{' '}
+          for the CLI.
+        </p>
+      )
+    },
+    description: undefined,
+    headings: [],
+    path: 'test',
+    source: '# Test\n',
+    sourcePath: 'docs/reference/kitchen_sink.mdx',
+    title: 'Test',
+  }
+}
+
 function createFooterDoc(): Doc {
   return {
     Component: function Component() {
@@ -657,7 +845,11 @@ function createFooterDoc(): Doc {
   }
 }
 
-function renderDocContent(doc: Doc, pagination?: DocPagination) {
+function renderDocContent(
+  doc: Doc,
+  pagination?: DocPagination,
+  options?: { onCodeGroupValueChange?: ((value: string) => void) | undefined },
+) {
   document.body.innerHTML = ''
   document.documentElement.scrollTop = 0
   document.body.style.margin = '0'
@@ -667,7 +859,15 @@ function renderDocContent(doc: Doc, pagination?: DocPagination) {
 
   const root = createRoot(container)
   flushSync(() => {
-    root.render(<DocContent doc={doc} {...(pagination ? { pagination } : {})} />)
+    root.render(
+      <DocContent
+        doc={doc}
+        {...(options?.onCodeGroupValueChange
+          ? { onCodeGroupValueChange: options.onCodeGroupValueChange }
+          : {})}
+        {...(pagination ? { pagination } : {})}
+      />,
+    )
   })
 
   const outline = container.querySelector('aside')
@@ -703,4 +903,8 @@ function waitForTimeout(timeoutMs: number) {
   return new Promise<void>((resolve) => {
     window.setTimeout(() => resolve(), timeoutMs)
   })
+}
+
+function getActiveCodeGroupTabLabel(container: Element) {
+  return container.querySelector('[role="tab"][aria-selected="true"]')?.textContent?.trim()
 }

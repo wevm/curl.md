@@ -38,6 +38,18 @@ html[data-theme='dark'] .shiki span {
   text-decoration: var(--shiki-dark-text-decoration, inherit) !important;
 }
 
+span[data-shiki-inline-code].shiki {
+  background-color: var(--color-gray-a2) !important;
+  display: inline-flex;
+  max-inline-size: 100%;
+  padding: 0.125rem 0.25rem;
+  vertical-align: baseline;
+}
+
+span[data-shiki-inline-code].shiki code {
+  background-color: transparent !important;
+}
+
 [data-docs-code-block] .shiki,
 [data-docs-code-group],
 [data-docs-code-group] [role='tablist'],
@@ -206,6 +218,10 @@ input {
 input:focus-visible {
   outline: none;
   caret-color: var(--color-blue9);
+}
+
+.docs-search-result:hover {
+  background-color: var(--color-gray-a2);
 }
 
 html {

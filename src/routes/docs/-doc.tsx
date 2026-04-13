@@ -24,8 +24,26 @@ import IconVscodeIconsFileTypeYarn from '~icons/vscode-icons/file-type-yarn.jsx'
 import { useCopyToClipboard } from '#hooks/useCopyToClipboard.ts'
 import type { Doc, DocPagination, Heading } from './-doc.types.ts'
 
-export function DocContent(props: { doc: Doc; pagination?: DocPagination }) {
-  const { doc, pagination = { next: undefined, previous: undefined } } = props
+// Share one lightweight store per docs page so tab changes do not rerender the route tree.
+type CodeGroupStore = {
+  getSnapshot: () => string | undefined
+  setValue: (value: string) => void
+  subscribe: (listener: () => void) => () => void
+  syncFromUrl: () => void
+}
+
+const codeGroupStoreContext = React.createContext<CodeGroupStore | undefined>(undefined)
+
+export function DocContent(props: {
+  doc: Doc
+  onCodeGroupValueChange?: ((value: string) => void) | undefined
+  pagination?: DocPagination
+}) {
+  const {
+    doc,
+    onCodeGroupValueChange,
+    pagination = { next: undefined, previous: undefined },
+  } = props
   const { copied, copy } = useCopyToClipboard({ content: doc.source })
   const [activeHeadingId, setActiveHeadingId] = React.useState<string | undefined>(undefined)
   const [lastUpdatedLabel, setLastUpdatedLabel] = React.useState<string | undefined>(undefined)
@@ -48,6 +66,10 @@ export function DocContent(props: { doc: Doc; pagination?: DocPagination }) {
     [copied, copy],
   )
   const reportIssueHref = 'https://github.com/wevm/curl.md/issues/new/choose'
+  const codeGroupStore = React.useMemo(
+    () => createCodeGroupStore(onCodeGroupValueChange),
+    [onCodeGroupValueChange],
+  )
 
   const setHashOverride = React.useCallback(() => {
     honorHashUntilRef.current = window.performance.now() + hashHeadingGracePeriodMs
@@ -69,6 +91,16 @@ export function DocContent(props: { doc: Doc; pagination?: DocPagination }) {
 
     setLastUpdatedLabel(formatLastUpdated(doc.lastUpdated))
   }, [doc.lastUpdated])
+
+  React.useEffect(() => {
+    // Keep the shared tab store aligned with the URL for copied links and back/forward.
+    codeGroupStore.syncFromUrl()
+
+    const syncCodeGroupsFromUrl = () => codeGroupStore.syncFromUrl()
+
+    window.addEventListener('popstate', syncCodeGroupsFromUrl)
+    return () => window.removeEventListener('popstate', syncCodeGroupsFromUrl)
+  }, [codeGroupStore])
 
   React.useEffect(() => {
     setMobileOutlineOpen(false)
@@ -191,53 +223,58 @@ export function DocContent(props: { doc: Doc; pagination?: DocPagination }) {
   }, [doc.path, doc.headings, hasHeadings])
 
   return (
-    <div className="mx-auto grid w-full max-w-[76rem] grid-cols-1 lg:grid-cols-[minmax(0,56rem)_16rem] lg:gap-12">
-      {hasHeadings && (
-        <div
-          className="bg-bg1 border-gray-a3 sticky top-17 z-30 [margin-inline:calc(50%-50vw)] border-b md:[margin-inline:0] md:mx-0 md:[margin-inline-start:-3rem] md:[inline-size:calc(100%+3rem)] lg:hidden"
-          ref={mobileOutlineBarRef}
-        >
-          <div className="mx-auto w-full max-w-[76rem] md:mx-0 md:max-w-none">
-            <div className="flex items-center gap-4 px-4 py-2">
-              <Menu.Root modal={false} onOpenChange={setMobileOutlineOpen} open={mobileOutlineOpen}>
-                <div ref={mobileOutlineTriggerRef}>
-                  <Menu.Trigger
-                    className="border-gray-a5 text-gray9 hover:bg-gray-a2 hover:text-gray10 data-[popup-open]:bg-gray-a2 data-[popup-open]:text-gray10 flex shrink-0 items-center gap-2.5 rounded-none border px-2 py-2 text-xs font-medium outline-none"
-                    data-mobile-doc-outline-trigger=""
-                  >
-                    <span>On this page</span>
-                    <svg
-                      aria-hidden="true"
-                      className={['size-3.5 shrink-0', mobileOutlineOpen ? 'rotate-90' : undefined]
-                        .filter(Boolean)
-                        .join(' ')}
-                      fill="none"
-                      viewBox="0 0 16 16"
-                      xmlns="http://www.w3.org/2000/svg"
+    <codeGroupStoreContext.Provider value={codeGroupStore}>
+      <div className="mx-auto grid w-full max-w-[76rem] grid-cols-1 lg:grid-cols-[minmax(0,56rem)_16rem] lg:gap-12">
+        {hasHeadings && (
+          <div
+            className="bg-bg1 border-gray-a3 sticky top-17 z-30 [margin-inline:calc(50%-50vw)] border-b md:[margin-inline:0] md:mx-0 md:[margin-inline-start:-3rem] md:[inline-size:calc(100%+3rem)] lg:hidden"
+            data-mobile-doc-outline-bar=""
+            ref={mobileOutlineBarRef}
+          >
+            <div className="mx-auto w-full max-w-[76rem] md:mx-0 md:max-w-none">
+              <div className="flex items-center gap-4 px-4 py-2">
+                <Menu.Root
+                  modal={false}
+                  onOpenChange={setMobileOutlineOpen}
+                  open={mobileOutlineOpen}
+                >
+                  <div ref={mobileOutlineTriggerRef}>
+                    <Menu.Trigger
+                      className="border-gray-a5 text-gray9 hover:bg-gray-a2 hover:text-gray10 data-[popup-open]:bg-gray-a2 data-[popup-open]:text-gray10 flex shrink-0 items-center gap-2.5 rounded-none border px-2 py-2 text-xs font-medium outline-none"
+                      data-mobile-doc-outline-trigger=""
                     >
-                      <path
-                        d="m6 4 4 4-4 4"
-                        stroke="currentColor"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="1.5"
-                      />
-                    </svg>
-                  </Menu.Trigger>
-                </div>
+                      <span>On this page</span>
+                      <svg
+                        aria-hidden="true"
+                        className={[
+                          'size-3.5 shrink-0',
+                          mobileOutlineOpen ? 'rotate-90' : undefined,
+                        ]
+                          .filter(Boolean)
+                          .join(' ')}
+                        fill="none"
+                        viewBox="0 0 16 16"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          d="m6 4 4 4-4 4"
+                          stroke="currentColor"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="1.5"
+                        />
+                      </svg>
+                    </Menu.Trigger>
+                  </div>
 
-                <Menu.Portal>
-                  <Menu.Positioner
-                    align="start"
-                    className="z-40 min-w-[var(--anchor-width)]"
-                    collisionAvoidance={{ align: 'none', fallbackAxisSide: 'none', side: 'none' }}
-                    collisionPadding={0}
-                    sideOffset={8}
-                  >
-                    <Menu.Popup
-                      className="bg-bg1 border-gray-a3 max-h-[min(24rem,calc(100dvh-9rem))] overflow-x-hidden overflow-y-auto border p-0 shadow-2xl outline-none"
-                      data-doc-mobile-outline-panel=""
-                      id="docs-mobile-outline"
+                  <Menu.Portal>
+                    <Menu.Positioner
+                      align="start"
+                      className="z-40 min-w-[var(--anchor-width)]"
+                      collisionAvoidance={{ align: 'none', fallbackAxisSide: 'none', side: 'none' }}
+                      collisionPadding={0}
+                      data-mobile-doc-outline-positioner=""
+                      sideOffset={8}
                       style={
                         mobileOutlinePopupWidth && mobileOutlinePopupOffset !== undefined
                           ? {
@@ -247,167 +284,173 @@ export function DocContent(props: { doc: Doc; pagination?: DocPagination }) {
                           : undefined
                       }
                     >
-                      <Menu.Item
-                        className="text-gray8 data-[active]:text-gray10 data-[highlighted]:bg-gray-a2 data-[highlighted]:text-gray10 focus-visible:ring-blue8 flex items-center gap-3 px-6 py-2.5 text-sm outline-none focus-visible:ring-1 focus-visible:outline-none focus-visible:ring-inset"
-                        closeOnClick
-                        data-active={activeHeadingId === undefined ? '' : undefined}
-                        onClick={(event) => {
-                          event.preventDefault()
-                          window.history.pushState(null, '', getDocHref(doc.path))
-                          setActiveHeadingId(undefined)
-                          setMobileOutlineOpen(false)
-                          window.scrollTo({ top: 0 })
-                        }}
-                        render={<a href={getDocHref(doc.path)} />}
+                      <Menu.Popup
+                        className="bg-bg1 border-gray-a3 max-h-[min(24rem,calc(100dvh-9rem))] w-full overflow-x-hidden overflow-y-auto border p-0 shadow-2xl outline-none"
+                        data-doc-mobile-outline-panel=""
+                        id="docs-mobile-outline"
                       >
-                        <span className="min-w-0 flex-1 truncate text-left text-sm font-medium">
-                          Overview
-                        </span>
-                        {activeHeadingId === undefined && (
-                          <IconOcticonCheck16 className="text-blue9 size-4 shrink-0" />
-                        )}
-                      </Menu.Item>
-
-                      <div className="border-gray-a3 border-t" />
-
-                      {doc.headings.map((heading) => (
                         <Menu.Item
                           className="text-gray8 data-[active]:text-gray10 data-[highlighted]:bg-gray-a2 data-[highlighted]:text-gray10 focus-visible:ring-blue8 flex items-center gap-3 px-6 py-2.5 text-sm outline-none focus-visible:ring-1 focus-visible:outline-none focus-visible:ring-inset"
                           closeOnClick
-                          data-active={activeHeadingId === heading.id ? '' : undefined}
-                          key={heading.id}
-                          onClick={() => {
-                            selectOutlineHeading(heading.id)
+                          data-active={activeHeadingId === undefined ? '' : undefined}
+                          onClick={(event) => {
+                            event.preventDefault()
+                            window.history.pushState(null, '', getDocHref(doc.path))
+                            setActiveHeadingId(undefined)
                             setMobileOutlineOpen(false)
+                            window.scrollTo({ top: 0 })
                           }}
-                          render={<a href={`#${heading.id}`} />}
+                          render={<a href={getDocHref(doc.path)} />}
                         >
-                          <span
-                            className="min-w-0 flex-1 text-left"
-                            style={{ paddingInlineStart: `${(heading.level - 2) * 1}rem` }}
-                          >
-                            <OutlineHeadingText text={heading.text} truncate />
+                          <span className="min-w-0 flex-1 truncate text-left text-sm font-medium">
+                            Overview
                           </span>
-                          {activeHeadingId === heading.id && (
+                          {activeHeadingId === undefined && (
                             <IconOcticonCheck16 className="text-blue9 size-4 shrink-0" />
                           )}
                         </Menu.Item>
-                      ))}
-                    </Menu.Popup>
-                  </Menu.Positioner>
-                </Menu.Portal>
-              </Menu.Root>
 
-              <p
-                className="text-gray10 min-w-0 flex-1 truncate text-xs font-medium"
-                data-mobile-doc-outline-current-heading=""
-              >
-                {activeHeading?.text ?? 'Overview'}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
+                        <div className="border-gray-a3 border-t" />
 
-      <article className="min-w-0 px-5 py-8 md:px-12 md:max-lg:-ms-12 md:max-lg:w-[calc(100%+3rem)] md:max-lg:px-8 lg:mx-auto lg:w-full lg:max-w-2xl lg:px-0">
-        <doc.Component components={mdxComponents} />
+                        {doc.headings.map((heading) => (
+                          <Menu.Item
+                            className="text-gray8 data-[active]:text-gray10 data-[highlighted]:bg-gray-a2 data-[highlighted]:text-gray10 focus-visible:ring-blue8 flex items-center gap-3 px-6 py-2.5 text-sm outline-none focus-visible:ring-1 focus-visible:outline-none focus-visible:ring-inset"
+                            closeOnClick
+                            data-active={activeHeadingId === heading.id ? '' : undefined}
+                            key={heading.id}
+                            onClick={() => {
+                              selectOutlineHeading(heading.id)
+                              setMobileOutlineOpen(false)
+                            }}
+                            render={<a href={`#${heading.id}`} />}
+                          >
+                            <span
+                              className="min-w-0 flex-1 text-left"
+                              style={{ paddingInlineStart: `${(heading.level - 2) * 1}rem` }}
+                            >
+                              <OutlineHeadingText text={heading.text} truncate />
+                            </span>
+                            {activeHeadingId === heading.id && (
+                              <IconOcticonCheck16 className="text-blue9 size-4 shrink-0" />
+                            )}
+                          </Menu.Item>
+                        ))}
+                      </Menu.Popup>
+                    </Menu.Positioner>
+                  </Menu.Portal>
+                </Menu.Root>
 
-        {(doc.lastUpdated || hasPagination) && (
-          <div className="mt-14">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <a
-                className="text-gray8 hover:text-gray10 flex items-center gap-2 text-sm font-medium"
-                href={editHref}
-                rel="noopener noreferrer"
-                target="_blank"
-              >
-                <IconOcticonPencil16 className="size-4 shrink-0" />
-                <span>Edit page</span>
-              </a>
-
-              {doc.lastUpdated && (
-                <p className="text-gray8 text-sm">
-                  {lastUpdatedLabel ? `Last updated: ${lastUpdatedLabel}` : ''}
+                <p
+                  className="text-gray10 min-w-0 flex-1 truncate text-xs font-medium"
+                  data-mobile-doc-outline-current-heading=""
+                >
+                  {activeHeading?.text ?? 'Overview'}
                 </p>
-              )}
+              </div>
             </div>
-
-            {hasPagination && (
-              <nav className="border-gray-a3 mt-5 grid gap-4 border-t pt-6 sm:grid-cols-2">
-                {pagination.previous ? (
-                  <DocPaginationLink direction="previous" doc={pagination.previous} />
-                ) : (
-                  <div className="hidden sm:block" />
-                )}
-                {pagination.next && <DocPaginationLink direction="next" doc={pagination.next} />}
-              </nav>
-            )}
           </div>
         )}
-      </article>
 
-      <aside className="border-gray-a3 hidden w-64 border-s lg:block">
-        <div className="sticky top-17 h-[calc(100dvh-4.25rem)] overflow-y-auto py-8 ps-6 pe-6">
-          {hasHeadings && (
-            <>
-              <div className="text-gray8 flex items-center gap-2 text-xs font-medium tracking-wide uppercase">
-                <svg
-                  aria-hidden="true"
-                  className="size-3.5 shrink-0"
-                  fill="none"
-                  viewBox="0 0 16 16"
-                  xmlns="http://www.w3.org/2000/svg"
+        <article className="min-w-0 px-5 py-8 md:px-12 md:max-lg:-ms-12 md:max-lg:w-[calc(100%+3rem)] md:max-lg:px-8 lg:mx-auto lg:w-full lg:max-w-2xl lg:px-0 lg:pt-12">
+          <doc.Component components={mdxComponents} />
+
+          {(doc.lastUpdated || hasPagination) && (
+            <div className="mt-14">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <a
+                  className="text-gray8 hover:text-gray10 flex items-center gap-2 text-sm font-medium select-none"
+                  href={editHref}
+                  rel="noopener noreferrer"
+                  target="_blank"
                 >
-                  <circle cx="3" cy="4" fill="currentColor" r="1.25" />
-                  <circle cx="3" cy="8" fill="currentColor" r="1.25" />
-                  <circle cx="3" cy="12" fill="currentColor" r="1.25" />
-                  <path d="M6 4h7M6 8h7M6 12h7" stroke="currentColor" strokeLinecap="round" />
-                </svg>
-                <p>On this page</p>
+                  <IconOcticonPencil16 className="size-4 shrink-0" />
+                  <span className="select-none">Edit page</span>
+                </a>
+
+                {doc.lastUpdated && (
+                  <p className="text-gray8 text-sm">
+                    {lastUpdatedLabel ? `Last updated: ${lastUpdatedLabel}` : ''}
+                  </p>
+                )}
               </div>
-              <DesktopDocOutline
-                activeHeadingId={activeHeadingId}
-                headings={doc.headings}
-                onHeadingSelect={selectOutlineHeading}
-              />
-            </>
+
+              {hasPagination && (
+                <nav className="border-gray-a3 mt-4 grid gap-4 border-t pt-4 sm:grid-cols-2">
+                  {pagination.previous ? (
+                    <DocPaginationLink direction="previous" doc={pagination.previous} />
+                  ) : (
+                    <div className="hidden sm:block" />
+                  )}
+                  {pagination.next && <DocPaginationLink direction="next" doc={pagination.next} />}
+                </nav>
+              )}
+            </div>
           )}
+        </article>
 
-          <div
-            className="data-[has-headings]:border-gray-a3 data-[has-headings]:mt-4 data-[has-headings]:border-t data-[has-headings]:pt-4"
-            data-has-headings={hasHeadings ? '' : undefined}
-          >
-            <div className="flex flex-col gap-1">
-              <a
-                className="text-gray8 hover:text-gray10 -ms-2 flex items-center gap-2 py-1 ps-2 text-sm"
-                href={editHref}
-                rel="noopener noreferrer"
-                target="_blank"
-              >
-                <IconOcticonPencil16 className="size-4 shrink-0" />
-                <span>Edit page</span>
-              </a>
+        <aside className="border-gray-a3 hidden w-64 border-s lg:block">
+          <div className="sticky top-17 h-[calc(100dvh-4.25rem)] overflow-y-auto py-8 ps-6 pe-6">
+            {hasHeadings && (
+              <>
+                <div className="text-gray8 flex items-center gap-2 text-xs font-medium tracking-wide uppercase">
+                  <svg
+                    aria-hidden="true"
+                    className="size-3.5 shrink-0"
+                    fill="none"
+                    viewBox="0 0 16 16"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <circle cx="3" cy="4" fill="currentColor" r="1.25" />
+                    <circle cx="3" cy="8" fill="currentColor" r="1.25" />
+                    <circle cx="3" cy="12" fill="currentColor" r="1.25" />
+                    <path d="M6 4h7M6 8h7M6 12h7" stroke="currentColor" strokeLinecap="round" />
+                  </svg>
+                  <p>On this page</p>
+                </div>
+                <DesktopDocOutline
+                  activeHeadingId={activeHeadingId}
+                  headings={doc.headings}
+                  onHeadingSelect={selectOutlineHeading}
+                />
+              </>
+            )}
 
-              <a
-                className="text-gray8 hover:text-gray10 -ms-2 flex items-center gap-2 py-1 ps-2 text-sm"
-                href={reportIssueHref}
-                rel="noopener noreferrer"
-                target="_blank"
-              >
-                <IconOcticonMarkGithub16 className="size-4 shrink-0" />
-                <span>Report issue</span>
-              </a>
+            <div
+              className="data-[has-headings]:border-gray-a3 data-[has-headings]:mt-4 data-[has-headings]:border-t data-[has-headings]:pt-4"
+              data-has-headings={hasHeadings ? '' : undefined}
+            >
+              <div className="flex flex-col gap-1">
+                <a
+                  className="text-gray8 hover:text-gray10 -ms-2 flex items-center gap-2.5 py-1 ps-2 text-sm select-none"
+                  href={editHref}
+                  rel="noopener noreferrer"
+                  target="_blank"
+                >
+                  <IconOcticonPencil16 className="size-4 shrink-0" />
+                  <span className="select-none">Edit page</span>
+                </a>
 
-              <CopyPageButton
-                className="text-gray8 hover:text-gray10 -ms-2 hidden py-1 ps-2 text-sm lg:flex"
-                copyPage={copy}
-                copied={copied}
-              />
+                <a
+                  className="text-gray8 hover:text-gray10 -ms-2 flex items-center gap-2.5 py-1 ps-2 text-sm select-none"
+                  href={reportIssueHref}
+                  rel="noopener noreferrer"
+                  target="_blank"
+                >
+                  <IconOcticonMarkGithub16 className="size-4 shrink-0" />
+                  <span>Report issue</span>
+                </a>
+
+                <CopyPageButton
+                  className="text-gray8 hover:text-gray10 -ms-2 hidden py-1 ps-2 text-sm lg:flex"
+                  copyPage={copy}
+                  copied={copied}
+                />
+              </div>
             </div>
           </div>
-        </div>
-      </aside>
-    </div>
+        </aside>
+      </div>
+    </codeGroupStoreContext.Provider>
   )
 }
 
@@ -510,7 +553,9 @@ function CopyPageButton(
   return (
     <button
       {...rest}
-      className={['flex items-center gap-2 text-left', className].filter(Boolean).join(' ')}
+      className={['flex select-none items-center gap-2.5 text-left', className]
+        .filter(Boolean)
+        .join(' ')}
       onClick={() => copyPage()}
       type="button"
     >
@@ -640,10 +685,17 @@ function renderPageHeading(
 }
 
 function DocsInlineCode(props: React.ComponentProps<'code'>) {
+  const isShikiInlineCode = 'data-shiki-inline-code' in props
+
   return (
     <code
       {...props}
-      className={['bg-gray-a2 px-1 py-0.5 text-[0.9375em]', props.className]
+      className={[
+        isShikiInlineCode
+          ? 'bg-transparent p-0 text-[1em]'
+          : 'bg-gray-a2 px-1 py-0.5 text-[0.9375em]',
+        props.className,
+      ]
         .filter(Boolean)
         .join(' ')}
     />
@@ -753,7 +805,7 @@ function Steps(props: React.PropsWithChildren) {
   if (!items[0]) return <>{children}</>
 
   return (
-    <ol className="mt-6 list-none ps-0" data-docs-steps="">
+    <ol className="-ms-1 mt-6 list-none ps-0" data-docs-steps="">
       {items.map((item, index) => (
         <li
           className="grid grid-cols-[2.25rem_minmax(0,1fr)] gap-3 pb-10 last:pb-0 md:grid-cols-[2.5rem_minmax(0,1fr)] md:gap-4"
@@ -797,32 +849,67 @@ function Step(props: React.PropsWithChildren<{ title?: string }>) {
 
 function CodeGroup(props: React.PropsWithChildren) {
   const { children } = props
-  const items = React.Children.toArray(children)
-    .filter(
-      (child): child is React.ReactElement<React.PropsWithChildren<{ label?: string }>> =>
-        React.isValidElement(child) && child.type === CodeGroupItem,
-    )
-    .map((child, index) => ({
-      content: child.props.children,
-      label:
-        child.props.label?.trim() ||
-        getCodeGroupLanguage(child.props.children) ||
-        `Code ${index + 1}`,
-      value: String(index),
-    }))
+  const codeGroupStore = React.useContext(codeGroupStoreContext)
+  const items = React.useMemo(
+    () =>
+      React.Children.toArray(children)
+        .filter(
+          (child): child is React.ReactElement<React.PropsWithChildren<{ label?: string }>> =>
+            React.isValidElement(child) && child.type === CodeGroupItem,
+        )
+        .map((child, index) => {
+          const label =
+            child.props.label?.trim() ||
+            getCodeGroupLanguage(child.props.children) ||
+            `Code ${index + 1}`
+
+          return {
+            content: child.props.children,
+            label,
+            normalizedLabel: normalizeCodeGroupLabel(label),
+            value: String(index),
+          }
+        }),
+    [children],
+  )
   const [value, setValue] = React.useState(items[0]?.value ?? '0')
+  const sharedLabel = React.useSyncExternalStore(
+    codeGroupStore?.subscribe ?? subscribeToCodeGroupStore,
+    codeGroupStore?.getSnapshot ?? getCodeGroupStoreSnapshot,
+    getCodeGroupStoreSnapshot,
+  )
 
   React.useEffect(() => {
-    if (items.some((item) => item.value === value)) return
-    setValue(items[0]?.value ?? '0')
-  }, [items, value])
+    if (sharedLabel) {
+      const nextValue = items.find((item) => item.normalizedLabel === sharedLabel)?.value
+      if (nextValue) {
+        setValue((current) => (current === nextValue ? current : nextValue))
+        return
+      }
+    }
+
+    setValue((current) => {
+      if (items.some((item) => item.value === current)) return current
+      return items[0]?.value ?? '0'
+    })
+  }, [items, sharedLabel])
 
   if (!items[0]) return <>{children}</>
 
   return (
-    <Tabs.Root onValueChange={(nextValue) => setValue(String(nextValue))} value={value}>
+    <Tabs.Root
+      onValueChange={(nextValue) => {
+        const nextValueString = String(nextValue)
+        const nextItem = items.find((item) => item.value === nextValueString)
+        // Update the clicked tab first so focus stays on the interacted control.
+        setValue(nextValueString)
+        if (!nextItem) return
+        codeGroupStore?.setValue(nextItem.normalizedLabel)
+      }}
+      value={value}
+    >
       <div
-        className="border-gray-a3 mt-6 overflow-hidden border [background-color:var(--color-docs-surface)]"
+        className="mt-6 overflow-hidden [background-color:var(--color-docs-surface)]"
         data-docs-code-group=""
       >
         <Tabs.List
@@ -883,25 +970,35 @@ function CodeGroupTabIcon(props: { label: string }) {
 function DocsCodeBlock(props: React.ComponentProps<'pre'>) {
   const { children, className, style, title, ...rest } = props
   const copyText = getCodeBlockText(children)
-  const promptShellLines = React.useMemo(() => getPromptShellLines(children), [children])
+  const backgroundColor =
+    typeof style?.backgroundColor === 'string' ? style.backgroundColor : 'var(--color-docs-surface)'
+  const promptShellBlock = hasPromptShellBlock(children, props)
+  const promptShellLines = React.useMemo(
+    () => getPromptShellLines(children, promptShellBlock),
+    [children, promptShellBlock],
+  )
   const renderedChildren = React.useMemo(
     () =>
       promptShellLines
         ? replaceCodeElement(children, (codeElement) =>
-            renderPromptCopyCodeElement(codeElement, promptShellLines),
+            renderPromptCopyCodeElement(codeElement, promptShellBlock, promptShellLines),
           )
         : children,
-    [children, promptShellLines],
+    [children, promptShellBlock, promptShellLines],
   )
   const label = typeof title === 'string' && title.trim() ? title.trim() : undefined
   const shouldShowCopyButton = Boolean(copyText && !promptShellLines)
   const { copied, copy } = useCopyToClipboard(copyText ? { content: copyText } : {})
 
   return (
-    <div className="group/code relative mt-4" data-docs-code-block="">
+    <div
+      className="group/code relative mt-4"
+      data-docs-code-block=""
+      style={{ '--docs-code-block-background': backgroundColor } as React.CSSProperties}
+    >
       {label && (
         <div
-          className="border-gray-a3 border [background-color:var(--color-docs-surface)]"
+          className="border-gray-a3 border-b [background-color:var(--docs-code-block-background)]"
           data-docs-code-title=""
         >
           <span className="text-gray10 flex min-w-0 items-center gap-2 px-4 py-3 pe-14 text-sm font-medium whitespace-nowrap">
@@ -924,15 +1021,15 @@ function DocsCodeBlock(props: React.ComponentProps<'pre'>) {
       <pre
         {...rest}
         className={[
-          '[background-color:var(--color-docs-surface)] border-gray-a3 minimal-scrollbar focus-visible:ring-blue8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset mt-0 overflow-x-auto border p-4 leading-relaxed',
-          label ? 'border-t-0' : undefined,
+          '[background-color:var(--docs-code-block-background)] minimal-scrollbar focus-visible:ring-blue8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset mt-0 overflow-x-auto p-4 leading-relaxed',
+
           label ? 'pt-3' : undefined,
           '[&_code]:bg-transparent [&_code]:p-0 [&_code]:!text-[1em]',
           className,
         ]
           .filter(Boolean)
           .join(' ')}
-        style={{ ...style, backgroundColor: 'var(--color-docs-surface)' }}
+        style={{ ...style, backgroundColor }}
       >
         {renderedChildren}
       </pre>
@@ -953,7 +1050,7 @@ function CodeBlockCopyButton(props: {
     <button
       aria-label={copied ? 'Code copied' : 'Copy code'}
       className={[
-        'text-gray8 hover:text-gray10 focus-visible:text-gray10 focus-visible:ring-blue8 z-10 p-1.5 [background-color:var(--color-docs-surface)] focus:outline-none focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset data-[copied]:opacity-100',
+        'text-gray8 hover:text-gray10 focus-visible:text-gray10 focus-visible:ring-blue8 z-10 p-1.5 [background-color:var(--docs-code-block-background)] focus:outline-none focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset data-[copied]:opacity-100',
         floating
           ? headerAligned
             ? 'absolute end-3 top-[1.375rem] -translate-y-1/2'
@@ -1096,7 +1193,7 @@ function nodeToString(node: React.ReactNode): string {
   return ''
 }
 
-function getPromptShellLines(node: React.ReactNode) {
+function getPromptShellLines(node: React.ReactNode, hasPromptShellBlock: boolean) {
   const codeElement = getCodeElement(node)
   if (!codeElement) return undefined
 
@@ -1104,6 +1201,9 @@ function getPromptShellLines(node: React.ReactNode) {
   if (!language || !shellCodeLanguages.has(language)) return undefined
 
   const lines = getCodeElementLineElements(codeElement)
+  if (hasPromptShellBlock)
+    return lines.map((line) => ({ childIndex: line.childIndex, text: line.text }))
+
   const nonEmptyLines = lines.filter((line) => line.text.trim() !== '')
   if (!nonEmptyLines.length || nonEmptyLines.some((line) => !line.text.startsWith('$ ')))
     return undefined
@@ -1112,6 +1212,13 @@ function getPromptShellLines(node: React.ReactNode) {
     childIndex: line.childIndex,
     text: line.text.slice(2),
   }))
+}
+
+function hasPromptShellBlock(node: React.ReactNode, props: React.ComponentProps<'pre'>) {
+  if ('data-shell-prompt' in props && props['data-shell-prompt'] !== undefined) return true
+
+  const codeElement = getCodeElement(node)
+  return 'data-shell-prompt' in (codeElement?.props ?? {})
 }
 
 function getCodeElement(node: React.ReactNode): CodeElement | undefined {
@@ -1181,6 +1288,7 @@ function replaceCodeElement(
 
 function renderPromptCopyCodeElement(
   codeElement: CodeElement,
+  promptShellBlock: boolean,
   promptShellLines: Array<{ childIndex: number; text: string }>,
 ) {
   const codeChildren = React.Children.toArray(codeElement.props.children)
@@ -1212,7 +1320,9 @@ function renderPromptCopyCodeElement(
             $
           </span>
           <span className="min-w-0 flex-1">
-            {stripLeadingCharacters(child.props.children, 2).node}
+            {promptShellBlock
+              ? child.props.children
+              : stripLeadingCharacters(child.props.children, 2).node}
           </span>
           <PromptCopyButton text={text} />
         </>,
@@ -1316,6 +1426,7 @@ function splitNumberedHeading(text: string) {
 }
 
 const hashHeadingGracePeriodMs = 250 // 0.25 seconds
+const codeGroupQueryParam = 'codegroup'
 
 function getCodeGroupTabIcon(label: string) {
   const normalized = label.trim().toLowerCase()
@@ -1336,6 +1447,59 @@ function slugifyHeading(value: string) {
     .replace(/[`'".(),/#!?]/g, '')
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
+}
+
+function normalizeCodeGroupLabel(label: string) {
+  return label.trim().toLowerCase()
+}
+
+function createCodeGroupStore(
+  onValueChange?: ((value: string) => void) | undefined,
+): CodeGroupStore {
+  // Defer reading the URL until mount so SSR and hydration start from the same tab state.
+  let value: string | undefined = undefined
+  const listeners = new Set<() => void>()
+
+  return {
+    getSnapshot: () => value,
+    setValue(nextValue) {
+      if (onValueChange) onValueChange(nextValue)
+      else if (typeof window !== 'undefined') {
+        const url = new URL(window.location.href)
+        url.searchParams.set(codeGroupQueryParam, nextValue)
+        if (
+          `${url.pathname}${url.search}${url.hash}` !==
+          window.location.pathname + window.location.search + window.location.hash
+        )
+          window.history.replaceState(window.history.state, '', url)
+      }
+
+      if (value === nextValue) return
+      value = nextValue
+      listeners.forEach((listener) => listener())
+    },
+    subscribe(listener) {
+      listeners.add(listener)
+      return () => listeners.delete(listener)
+    },
+    syncFromUrl() {
+      const nextValue = getCodeGroupStoreSnapshot()
+      if (value === nextValue) return
+      value = nextValue
+      listeners.forEach((listener) => listener())
+    },
+  }
+}
+
+function getCodeGroupStoreSnapshot() {
+  if (typeof window === 'undefined') return
+
+  const queryValue = new URLSearchParams(window.location.search).get(codeGroupQueryParam)
+  return queryValue ? normalizeCodeGroupLabel(queryValue) : undefined
+}
+
+function subscribeToCodeGroupStore(_listener: () => void) {
+  return () => {}
 }
 
 const noticeTitles: Record<string, string> = {
