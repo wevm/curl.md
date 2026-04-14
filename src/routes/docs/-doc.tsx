@@ -66,7 +66,6 @@ export function DocContent(props: {
     () => createMdxComponents({ copied, copyPage: copy }),
     [copied, copy],
   )
-  const reportIssueHref = 'https://github.com/wevm/curl.md/issues/new/choose'
   const codeGroupStore = React.useMemo(
     () => createCodeGroupStore(onCodeGroupValueChange),
     [onCodeGroupValueChange],
@@ -406,7 +405,7 @@ export function DocContent(props: {
 
                 <a
                   className="text-gray8 hover:text-gray10 -ms-2 flex items-center gap-2.5 py-1 ps-2 text-sm select-none"
-                  href={reportIssueHref}
+                  href="https://github.com/wevm/curl.md/issues/new/choose"
                   rel="noopener noreferrer"
                   target="_blank"
                 >

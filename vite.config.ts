@@ -54,7 +54,7 @@ export default defineConfig(async () => ({
         }),
       ],
     }),
-    await docsMdx(),
+    docsMdx(),
     viteReact(),
   ],
   define: {

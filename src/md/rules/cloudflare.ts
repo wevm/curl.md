@@ -19,9 +19,6 @@ export const cloudflare = defineRule({
   },
 })
 
-const cloudflareDocsRepoPrefix =
-  'https://raw.githubusercontent.com/cloudflare/cloudflare-docs/production/src/content/docs'
-
 function asUrl(input: RequestInfo | URL): URL {
   if (input instanceof URL) return input
   if (input instanceof Request) return new URL(input.url)
@@ -32,7 +29,12 @@ function cloudflareRawCandidates(url: URL): URL[] {
   const pathname = getCloudflareSourcePathname(url)
   const trimmed = pathname === '/' ? '' : pathname.replace(/\/$/, '')
   const paths = [`${trimmed || '/index'}.mdx`, `${trimmed || '/index'}/index.mdx`]
-  return [...new Set(paths)].map((path) => new URL(`${cloudflareDocsRepoPrefix}${path}`))
+  return [...new Set(paths)].map(
+    (path) =>
+      new URL(
+        `https://raw.githubusercontent.com/cloudflare/cloudflare-docs/production/src/content/docs${path}`,
+      ),
+  )
 }
 
 function getCloudflareSourcePathname(url: URL): string {

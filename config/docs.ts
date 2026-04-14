@@ -6,7 +6,7 @@ import mdx from '@mdx-js/rollup'
 import json from '@shikijs/langs/json'
 import shellscript from '@shikijs/langs/shellscript'
 import typescript from '@shikijs/langs/typescript'
-import rehypeShikiFromHighlighter from '@shikijs/rehype/core'
+import rehypeShikiFromHighlighter, { type RehypeShikiCoreOptions } from '@shikijs/rehype/core'
 import githubDarkDefault from '@shikijs/themes/github-dark-default'
 import githubLightDefault from '@shikijs/themes/github-light-default'
 import type { Root } from 'hast'
@@ -17,107 +17,113 @@ import remarkMdxFrontmatter from 'remark-mdx-frontmatter'
 import { createHighlighterCore } from 'shiki/core'
 import { createOnigurumaEngine } from 'shiki/engine/oniguruma'
 import type { Plugin as UnifiedPlugin } from 'unified'
-import type { Plugin as VitePlugin, ResolvedConfig } from 'vite'
+import type { HmrContext, HookHandler, Plugin as VitePlugin, ResolvedConfig } from 'vite'
 import { parse as parseYaml } from 'yaml'
 import { sidebar, type SidebarItem } from '../docs/_sidebar.ts'
 import type { Heading } from '../src/routes/docs/-docs-shared.ts'
 import { createDocCopySource } from '../src/routes/docs/-source.ts'
 
-export async function docsMdx() {
+const highlighter = await createHighlighterCore({
+  engine: createOnigurumaEngine(() => import('shiki/wasm')),
+  langs: [json, shellscript, typescript],
+  themes: [githubDarkDefault, githubLightDefault],
+})
+
+export function docsMdx() {
   let isServe = false
-  const highlighter = await docsCodeHighlighterPromise
-  type ConfigResolvedHook = (this: unknown, config: ResolvedConfig) => void | Promise<void>
-  type HandleHotUpdateHook = (this: unknown, ctx: { file: string }) => unknown
-  type TransformHook = (this: unknown, code: string, id: string) => unknown
   const mdxPlugin = mdx({
     rehypePlugins: [
       rehypeSlug,
       rehypeHeadings(() => isServe),
       rehypePromptShellBlocks,
-      [rehypeShikiFromHighlighter, highlighter, docsCodeHighlightOptions],
+      [rehypeShikiFromHighlighter, highlighter, shikiOptions],
       rehypeInlineShikiCode,
     ],
-    remarkPlugins: [remarkFrontmatter, remarkGfm, remarkNoticeBlocks, remarkMdxFrontmatter],
+    remarkPlugins: [
+      remarkFrontmatter,
+      remarkGfm,
+      () => (tree) => {
+        normalizeNoticeBlocks(tree)
+      },
+      remarkMdxFrontmatter,
+    ],
   }) as VitePlugin
-  const configResolvedHook = (
-    typeof mdxPlugin.configResolved === 'function'
-      ? mdxPlugin.configResolved
-      : mdxPlugin.configResolved?.handler
-  ) as ConfigResolvedHook | undefined
-  const transformHook = (
-    typeof mdxPlugin.transform === 'function' ? mdxPlugin.transform : mdxPlugin.transform?.handler
-  ) as TransformHook | undefined
-  const handleHotUpdateHook = (
-    typeof mdxPlugin.handleHotUpdate === 'function'
-      ? mdxPlugin.handleHotUpdate
-      : mdxPlugin.handleHotUpdate?.handler
-  ) as HandleHotUpdateHook | undefined
 
   return {
     ...mdxPlugin,
-    async configResolved(config: ResolvedConfig) {
+    async configResolved(this: unknown, config: ResolvedConfig) {
       isServe = config.command === 'serve'
       await syncDocsStaticAssets()
-      return configResolvedHook?.call(this, config)
+      return (
+        (typeof mdxPlugin.configResolved === 'function'
+          ? mdxPlugin.configResolved
+          : mdxPlugin.configResolved?.handler) as
+          | HookHandler<NonNullable<VitePlugin['configResolved']>>
+          | undefined
+      )?.call(
+        this as ThisParameterType<HookHandler<NonNullable<VitePlugin['configResolved']>>>,
+        config,
+      )
     },
     enforce: 'pre' as const,
-    async handleHotUpdate(ctx: { file: string }) {
-      if (isDocsAssetDependency(ctx.file)) await syncDocsStaticAssets()
-      return handleHotUpdateHook?.call(this, ctx)
+    async handleHotUpdate(this: unknown, ctx: HmrContext) {
+      if (path.resolve(ctx.file).startsWith(`${docsDirectoryPath}${path.sep}`))
+        await syncDocsStaticAssets()
+      return (
+        (typeof mdxPlugin.handleHotUpdate === 'function'
+          ? mdxPlugin.handleHotUpdate
+          : mdxPlugin.handleHotUpdate?.handler) as
+          | HookHandler<NonNullable<VitePlugin['handleHotUpdate']>>
+          | undefined
+      )?.call(
+        this as ThisParameterType<HookHandler<NonNullable<VitePlugin['handleHotUpdate']>>>,
+        ctx,
+      )
     },
-    async transform(code: string, id: string) {
-      const parsedId = parseDocsMdxId(id)
+    async transform(this: unknown, code: string, id: string) {
+      const [filePath, query = ''] = id.split('?', 2)
+      const parsedId = filePath?.endsWith('.mdx')
+        ? { path: filePath, searchParams: new URLSearchParams(query) }
+        : undefined
       if (parsedId?.searchParams.has('raw')) return code
-
-      return transformHook?.call(this, parsedId ? rewriteDocsDirectiveSource(code) : code, id)
+      return (
+        (typeof mdxPlugin.transform === 'function'
+          ? mdxPlugin.transform
+          : mdxPlugin.transform?.handler) as
+          | HookHandler<NonNullable<VitePlugin['transform']>>
+          | undefined
+      )?.call(
+        this as ThisParameterType<HookHandler<NonNullable<VitePlugin['transform']>>>,
+        parsedId ? rewriteDocsDirectiveSource(code) : code,
+        id,
+      )
     },
   }
 }
 
 // --- Internal ---
 
-const docsCodeThemeDarkName = 'github-dark-default'
-const docsCodeThemeLightName = 'github-light-default'
-
-const docsCodeHighlightOptions = {
+const shikiOptions = {
   addLanguageClass: true,
   defaultColor: false,
   defaultLanguage: 'text',
   fallbackLanguage: 'text',
   inline: 'tailing-curly-colon',
-  langAlias: {
-    bash: 'sh',
-    shell: 'sh',
-    zsh: 'sh',
+  parseMetaString(metaString: string) {
+    const match = /(?:^|\s)title=(?:"([^"]*)"|'([^']*)'|([^\s]+))/u.exec(metaString)
+    const hasShellPrompt = /(?:^|\s)shell-prompt(?:\s|$)/u.test(metaString)
+    const title = match?.[1] ?? match?.[2] ?? match?.[3]
+    if (!hasShellPrompt && !title?.trim()) return undefined
+    return {
+      ...(hasShellPrompt ? { 'data-shell-prompt': '' } : {}),
+      ...(title?.trim() ? { title: title.trim() } : {}),
+    }
   },
-  parseMetaString: parseCodeBlockMetaString,
   themes: {
-    dark: docsCodeThemeDarkName,
-    light: docsCodeThemeLightName,
+    dark: 'github-dark-default',
+    light: 'github-light-default',
   },
-} as const
-const docsCodeHighlighterPromise = createDocsCodeHighlighter()
-
-const noticeTypeMap = new Map([
-  ['caution', 'caution'],
-  ['danger', 'caution'],
-  ['hint', 'hint'],
-  ['important', 'important'],
-  ['note', 'note'],
-  ['tip', 'tip'],
-  ['warning', 'warning'],
-])
-const githubNoticeTypeMap = new Map([
-  ['caution', 'caution'],
-  ['important', 'important'],
-  ['note', 'note'],
-  ['tip', 'tip'],
-  ['warning', 'warning'],
-])
-
-const remarkNoticeBlocks: UnifiedPlugin<[], any> = () => (tree) => {
-  normalizeNoticeBlocks(tree)
-}
+} satisfies RehypeShikiCoreOptions
 
 function rehypeHeadings(shouldUseFileModifiedFallback: () => boolean): UnifiedPlugin<[], Root> {
   return () => (tree, file: any) => {
@@ -177,7 +183,12 @@ function rehypeHeadings(shouldUseFileModifiedFallback: () => boolean): UnifiedPl
                 ],
               })),
             }),
-            createExportDeclaration('lastUpdated', toEstreeValue(lastUpdated)),
+            createExportDeclaration(
+              'lastUpdated',
+              lastUpdated === undefined
+                ? { type: 'Identifier', name: 'undefined' }
+                : { type: 'Literal', value: lastUpdated },
+            ),
           ],
         },
       },
@@ -189,13 +200,6 @@ const lastUpdatedCache = new Map<string, string | undefined>()
 const docsDirectoryPath = path.join(process.cwd(), 'docs')
 const docsGeneratedManifestPath = path.join(process.cwd(), 'public/docs/.generated-docs.json')
 const docsPublicDirectoryPath = path.dirname(docsGeneratedManifestPath)
-
-function parseDocsMdxId(id: string) {
-  const [path, query = ''] = id.split('?', 2)
-  if (!path?.endsWith('.mdx')) return
-
-  return { path, searchParams: new URLSearchParams(query) }
-}
 
 function rewriteDocsDirectiveSource(source: string) {
   const lines = source.split('\n')
@@ -255,7 +259,9 @@ function rewriteNoticeDirective(lines: Array<string>, index: number) {
   return {
     endIndex: body.endIndex,
     lines: [
-      `<Notice type=${JSON.stringify(type)}${getTitleAttribute(directive?.[2])}>`,
+      `<Notice type=${JSON.stringify(type)}${
+        directive?.[2]?.trim() ? ` title=${JSON.stringify(directive[2].trim())}` : ''
+      }>`,
       ...(body.body.length > 0 ? ['', ...body.body, ''] : []),
       '</Notice>',
     ],
@@ -339,10 +345,12 @@ function rewriteCodeGroupItem(lines: Array<string>, index: number) {
 
   const marker = fence[1]!
   const { info, label } = splitCodeGroupFenceInfo(fence[2] ?? '')
-  const rewritten = [`<CodeGroupItem${getLabelAttribute(label)}>`]
+  const rewritten = [
+    `<CodeGroupItem${label?.trim() ? ` label=${JSON.stringify(label.trim())}` : ''}>`,
+  ]
 
   rewritten.push('')
-  rewritten.push(getCodeFenceLine(marker, info))
+  rewritten.push(info ? `${marker} ${info}` : marker)
 
   for (let endIndex = index + 1; endIndex < lines.length; endIndex++) {
     const line = lines[endIndex]!
@@ -540,6 +548,13 @@ function stripGithubAlertMarker(node: any) {
     type,
   }
 }
+const githubNoticeTypeMap = new Map([
+  ['caution', 'caution'],
+  ['important', 'important'],
+  ['note', 'note'],
+  ['tip', 'tip'],
+  ['warning', 'warning'],
+])
 
 function hasParagraphContent(children: Array<any>) {
   return children.some((child) => child.type !== 'text' || child.value.trim() !== '')
@@ -572,32 +587,7 @@ function isMatchingFenceMarker(marker: string, other: string) {
   return marker[0] === other[0]
 }
 
-function getCodeFenceLine(marker: string, info: string) {
-  return info ? `${marker} ${info}` : marker
-}
-
-function getTitleAttribute(title: string | undefined) {
-  return title?.trim() ? ` title=${JSON.stringify(title.trim())}` : ''
-}
-
-function getLabelAttribute(label: string | undefined) {
-  return label?.trim() ? ` label=${JSON.stringify(label.trim())}` : ''
-}
-
-function parseCodeBlockMetaString(metaString: string) {
-  const match = /(?:^|\s)title=(?:"([^"]*)"|'([^']*)'|([^\s]+))/u.exec(metaString)
-  const hasShellPrompt = /(?:^|\s)shell-prompt(?:\s|$)/u.test(metaString)
-  const title = match?.[1] ?? match?.[2] ?? match?.[3]
-  if (!hasShellPrompt && !title?.trim()) return undefined
-
-  return {
-    ...(hasShellPrompt ? { 'data-shell-prompt': '' } : {}),
-    ...(title?.trim() ? { title: title.trim() } : {}),
-  }
-}
-
 const shellCodeLanguages = new Set(['bash', 'shell', 'sh', 'zsh'])
-const shellPromptPrefixes = ['$ ', '❯ ']
 
 const rehypePromptShellBlocks: UnifiedPlugin<[], Root> = () => (tree) => {
   visit(tree, (node: any) => {
@@ -616,10 +606,28 @@ const rehypePromptShellBlocks: UnifiedPlugin<[], Root> = () => (tree) => {
     const nonEmptyLines = lines.filter((line) => line.trim() !== '')
     if (!nonEmptyLines.length || nonEmptyLines.some((line) => !getShellPromptPrefix(line))) return
 
-    codeNode.children = [{ type: 'text', value: lines.map(stripPromptShellLine).join('\n') }]
+    codeNode.children = [
+      {
+        type: 'text',
+        value: (() => {
+          // Strip the visible shell prompt from each line so copied commands stay runnable.
+          return lines
+            .map((line) => {
+              const prefix = getShellPromptPrefix(line)
+              return prefix ? line.slice(prefix.length) : line
+            })
+            .join('\n')
+        })(),
+      },
+    ]
     codeNode.data = {
       ...codeNode.data,
-      meta: appendMetaString(codeNode.data?.meta, 'shell-prompt'),
+      meta:
+        typeof codeNode.data?.meta !== 'string' || !codeNode.data.meta.trim()
+          ? 'shell-prompt'
+          : /(?:^|\s)shell-prompt(?:\s|$)/u.test(codeNode.data.meta)
+            ? codeNode.data.meta
+            : `${codeNode.data.meta} shell-prompt`,
     }
   })
 }
@@ -644,11 +652,6 @@ const rehypeInlineShikiCode: UnifiedPlugin<[], Root> = () => (tree) => {
       'data-shiki-inline-code': '',
     }
   })
-}
-
-function appendMetaString(meta: unknown, value: string) {
-  if (typeof meta !== 'string' || !meta.trim()) return value
-  return /(?:^|\s)shell-prompt(?:\s|$)/u.test(meta) ? meta : `${meta} ${value}`
 }
 
 function getCodeLanguageFromClassName(className: unknown) {
@@ -678,12 +681,8 @@ function hasClassName(properties: Record<string, unknown> | undefined, className
 }
 
 function getShellPromptPrefix(line: string) {
+  const shellPromptPrefixes = ['$ ', '> ']
   return shellPromptPrefixes.find((prefix) => line.startsWith(prefix))
-}
-
-function stripPromptShellLine(line: string) {
-  const prefix = getShellPromptPrefix(line)
-  return prefix ? line.slice(prefix.length) : line
 }
 
 function createStepItemRewrite(title: string, body: Array<string>, endIndex: number) {
@@ -708,6 +707,15 @@ function trimBlankLines(lines: Array<string>) {
 function normalizeNoticeType(type: string | undefined) {
   return type ? noticeTypeMap.get(type.toLowerCase()) : undefined
 }
+const noticeTypeMap = new Map([
+  ['caution', 'caution'],
+  ['danger', 'caution'],
+  ['hint', 'hint'],
+  ['important', 'important'],
+  ['note', 'note'],
+  ['tip', 'tip'],
+  ['warning', 'warning'],
+])
 
 function createExportDeclaration(name: string, init: any) {
   return {
@@ -725,14 +733,6 @@ function createExportDeclaration(name: string, init: any) {
       ],
     },
   }
-}
-
-function createDocsCodeHighlighter() {
-  return createHighlighterCore({
-    engine: createOnigurumaEngine(() => import('shiki/wasm')),
-    langs: [json, shellscript, typescript],
-    themes: [githubDarkDefault, githubLightDefault],
-  })
 }
 
 function getLastUpdated(filePath: string | undefined, useFileModifiedFallback: boolean) {
@@ -764,7 +764,15 @@ async function syncDocsStaticAssets() {
   const docs = await readDocsStaticFiles()
   const docsWithRewrittenLinks = docs.map((doc) => ({
     ...doc,
-    source: rewriteGeneratedDocLinks(doc.source),
+    // rewrite generated doc links
+    source: doc.source.replace(
+      /\]\((\/docs(?:\/[^)#?]*)?)(\?[^)#]*)?(#[^)]+)?\)/g,
+      (_match, pathname, search, hash) => {
+        if (pathname === '/docs') return `](/docs/index.md${search ?? ''}${hash ?? ''})`
+        if (pathname.endsWith('.md')) return `](${pathname}${search ?? ''}${hash ?? ''})`
+        return `](${pathname}.md${search ?? ''}${hash ?? ''})`
+      },
+    ),
   }))
   const docsByPath = new Map(docs.map((doc) => [doc.path, doc]))
   const files = [
@@ -777,7 +785,7 @@ async function syncDocsStaticAssets() {
       content: generateDocsLlmsTxt({ sections: getDocsLlmsSections(docsByPath) }),
     },
     ...docsWithRewrittenLinks.map((doc) => ({
-      filePath: path.join(docsPublicDirectoryPath, getDocMarkdownOutputPath(doc.path)),
+      filePath: path.join(docsPublicDirectoryPath, doc.path ? `${doc.path}.md` : 'index.md'),
       content: `${doc.source}\n`,
     })),
   ]
@@ -804,13 +812,6 @@ type DocsLlmsSection = {
   title: string
 }
 
-type DocsLlmsFullDoc = {
-  description: string | undefined
-  path: string
-  source: string
-  title: string
-}
-
 export function generateDocsLlmsTxt(props: { sections: Array<DocsLlmsSection> }) {
   const { sections } = props
   const lines = [
@@ -833,7 +834,14 @@ export function generateDocsLlmsTxt(props: { sections: Array<DocsLlmsSection> })
   return `${lines.join('\n')}\n`
 }
 
-export function generateDocsLlmsFullTxt(props: { docs: Array<DocsLlmsFullDoc> }) {
+export function generateDocsLlmsFullTxt(props: {
+  docs: Array<{
+    description: string | undefined
+    path: string
+    source: string
+    title: string
+  }>
+}) {
   const { docs } = props
   const lines = [
     '# curl.md Docs Full',
@@ -871,7 +879,8 @@ async function readDocsStaticFiles() {
     filePaths.map(async (filePath) => {
       const source = await readFile(filePath, 'utf8')
       const relativePath = path.relative(docsDirectoryPath, filePath)
-      const docPath = getDocPathFromFilePath(relativePath)
+      const normalizedPath = relativePath.replace(/\\/g, '/').replace(/\.mdx$/, '')
+      const docPath = normalizedPath === 'index' ? '' : normalizedPath.replace(/\/index$/, '')
       const frontmatter = parseDocsFrontmatter(source)
 
       return {
@@ -898,17 +907,6 @@ async function findDocsMdxFiles(directoryPath: string): Promise<Array<string>> {
   )
 
   return filePaths.flat()
-}
-
-function getDocPathFromFilePath(filePath: string) {
-  const normalizedPath = filePath.replace(/\\/g, '/').replace(/\.mdx$/, '')
-  if (normalizedPath === 'index') return ''
-  return normalizedPath.replace(/\/index$/, '')
-}
-
-function getDocMarkdownOutputPath(docPath: string) {
-  if (!docPath) return 'index.md'
-  return `${docPath}.md`
 }
 
 function parseDocsFrontmatter(source: string) {
@@ -975,31 +973,10 @@ function normalizeSidebarPath(pathname: string) {
   return pathname.replace(/^\//, '')
 }
 
-function rewriteGeneratedDocLinks(source: string) {
-  return source.replace(
-    /\]\((\/docs(?:\/[^)#?]*)?)(\?[^)#]*)?(#[^)]+)?\)/g,
-    (_match, pathname, search, hash) => {
-      if (pathname === '/docs') return `](/docs/index.md${search ?? ''}${hash ?? ''})`
-      if (pathname.endsWith('.md')) return `](${pathname}${search ?? ''}${hash ?? ''})`
-      return `](${pathname}.md${search ?? ''}${hash ?? ''})`
-    },
-  )
-}
-
-function isDocsAssetDependency(filePath: string) {
-  const normalizedPath = path.resolve(filePath)
-  return normalizedPath.startsWith(`${docsDirectoryPath}${path.sep}`)
-}
-
 function getFileModifiedAt(filePath: string) {
   try {
     return statSync(filePath).mtime.toISOString()
   } catch {
     return undefined
   }
-}
-
-function toEstreeValue(value: string | undefined) {
-  if (value === undefined) return { type: 'Identifier', name: 'undefined' }
-  return { type: 'Literal', value }
 }
