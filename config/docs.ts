@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process'
 import { statSync } from 'node:fs'
-import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises'
+import * as fs from 'node:fs/promises'
 import path from 'node:path'
 import mdx from '@mdx-js/rollup'
 import json from '@shikijs/langs/json'
@@ -17,8 +17,8 @@ import remarkMdxFrontmatter from 'remark-mdx-frontmatter'
 import { createHighlighterCore } from 'shiki/core'
 import { createOnigurumaEngine } from 'shiki/engine/oniguruma'
 import type { Plugin as UnifiedPlugin } from 'unified'
-import type { HmrContext, HookHandler, Plugin as VitePlugin, ResolvedConfig } from 'vite'
-import { parse as parseYaml } from 'yaml'
+import type * as vite from 'vite'
+import * as yaml from 'yaml'
 import { sidebar, type SidebarItem } from '../docs/_sidebar.ts'
 import type { Heading } from '../src/routes/docs/-docs-shared.ts'
 import { createDocCopySource } from '../src/routes/docs/-source.ts'
@@ -47,36 +47,36 @@ export function docsMdx() {
       },
       remarkMdxFrontmatter,
     ],
-  }) as VitePlugin
+  }) as vite.Plugin
 
   return {
     ...mdxPlugin,
-    async configResolved(this: unknown, config: ResolvedConfig) {
+    async configResolved(this: unknown, config: vite.ResolvedConfig) {
       isServe = config.command === 'serve'
       await syncDocsStaticAssets()
       return (
         (typeof mdxPlugin.configResolved === 'function'
           ? mdxPlugin.configResolved
           : mdxPlugin.configResolved?.handler) as
-          | HookHandler<NonNullable<VitePlugin['configResolved']>>
+          | vite.HookHandler<NonNullable<vite.Plugin['configResolved']>>
           | undefined
       )?.call(
-        this as ThisParameterType<HookHandler<NonNullable<VitePlugin['configResolved']>>>,
+        this as ThisParameterType<vite.HookHandler<NonNullable<vite.Plugin['configResolved']>>>,
         config,
       )
     },
     enforce: 'pre' as const,
-    async handleHotUpdate(this: unknown, ctx: HmrContext) {
+    async handleHotUpdate(this: unknown, ctx: vite.HmrContext) {
       if (path.resolve(ctx.file).startsWith(`${docsDirectoryPath}${path.sep}`))
         await syncDocsStaticAssets()
       return (
         (typeof mdxPlugin.handleHotUpdate === 'function'
           ? mdxPlugin.handleHotUpdate
           : mdxPlugin.handleHotUpdate?.handler) as
-          | HookHandler<NonNullable<VitePlugin['handleHotUpdate']>>
+          | vite.HookHandler<NonNullable<vite.Plugin['handleHotUpdate']>>
           | undefined
       )?.call(
-        this as ThisParameterType<HookHandler<NonNullable<VitePlugin['handleHotUpdate']>>>,
+        this as ThisParameterType<vite.HookHandler<NonNullable<vite.Plugin['handleHotUpdate']>>>,
         ctx,
       )
     },
@@ -90,10 +90,10 @@ export function docsMdx() {
         (typeof mdxPlugin.transform === 'function'
           ? mdxPlugin.transform
           : mdxPlugin.transform?.handler) as
-          | HookHandler<NonNullable<VitePlugin['transform']>>
+          | vite.HookHandler<NonNullable<vite.Plugin['transform']>>
           | undefined
       )?.call(
-        this as ThisParameterType<HookHandler<NonNullable<VitePlugin['transform']>>>,
+        this as ThisParameterType<vite.HookHandler<NonNullable<vite.Plugin['transform']>>>,
         parsedId ? rewriteDocsDirectiveSource(code) : code,
         id,
       )
@@ -681,7 +681,7 @@ function hasClassName(properties: Record<string, unknown> | undefined, className
 }
 
 function getShellPromptPrefix(line: string) {
-  const shellPromptPrefixes = ['$ ', '> ']
+  const shellPromptPrefixes = ['$ ', '> ', '\u276f ']
   return shellPromptPrefixes.find((prefix) => line.startsWith(prefix))
 }
 
@@ -764,15 +764,7 @@ async function syncDocsStaticAssets() {
   const docs = await readDocsStaticFiles()
   const docsWithRewrittenLinks = docs.map((doc) => ({
     ...doc,
-    // rewrite generated doc links
-    source: doc.source.replace(
-      /\]\((\/docs(?:\/[^)#?]*)?)(\?[^)#]*)?(#[^)]+)?\)/g,
-      (_match, pathname, search, hash) => {
-        if (pathname === '/docs') return `](/docs/index.md${search ?? ''}${hash ?? ''})`
-        if (pathname.endsWith('.md')) return `](${pathname}${search ?? ''}${hash ?? ''})`
-        return `](${pathname}.md${search ?? ''}${hash ?? ''})`
-      },
-    ),
+    source: rewriteGeneratedDocsLinks(doc.source),
   }))
   const docsByPath = new Map(docs.map((doc) => [doc.path, doc]))
   const files = [
@@ -793,11 +785,11 @@ async function syncDocsStaticAssets() {
   await removeGeneratedDocsStaticAssets()
 
   for (const file of files) {
-    await mkdir(path.dirname(file.filePath), { recursive: true })
-    await writeFile(file.filePath, file.content)
+    await fs.mkdir(path.dirname(file.filePath), { recursive: true })
+    await fs.writeFile(file.filePath, file.content)
   }
 
-  await writeFile(
+  await fs.writeFile(
     docsGeneratedManifestPath,
     JSON.stringify(
       files.map((file) => path.relative(process.cwd(), file.filePath)).sort(),
@@ -810,6 +802,17 @@ async function syncDocsStaticAssets() {
 type DocsLlmsSection = {
   docs: Array<{ description: string | undefined; path: string; title: string }>
   title: string
+}
+
+export function rewriteGeneratedDocsLinks(source: string) {
+  return source.replace(
+    /\]\((\/docs(?:\/[^)#?]*)?)(\?[^)#]*)?(#[^)]+)?\)/g,
+    (_match, pathname, search, hash) => {
+      if (pathname === '/docs') return `](/docs/index.md${search ?? ''}${hash ?? ''})`
+      if (pathname.endsWith('.md')) return `](${pathname}${search ?? ''}${hash ?? ''})`
+      return `](${pathname}.md${search ?? ''}${hash ?? ''})`
+    },
+  )
 }
 
 export function generateDocsLlmsTxt(props: { sections: Array<DocsLlmsSection> }) {
@@ -864,20 +867,21 @@ export function generateDocsLlmsFullTxt(props: {
 
 async function removeGeneratedDocsStaticAssets() {
   try {
-    const rawManifest = await readFile(docsGeneratedManifestPath, 'utf8')
+    const rawManifest = await fs.readFile(docsGeneratedManifestPath, 'utf8')
     const filePaths = JSON.parse(rawManifest) as Array<string>
 
-    for (const filePath of filePaths) await rm(path.join(process.cwd(), filePath), { force: true })
+    for (const filePath of filePaths)
+      await fs.rm(path.join(process.cwd(), filePath), { force: true })
   } catch {}
 
-  await rm(docsGeneratedManifestPath, { force: true })
+  await fs.rm(docsGeneratedManifestPath, { force: true })
 }
 
 async function readDocsStaticFiles() {
   const filePaths = await findDocsMdxFiles(docsDirectoryPath)
   const docs = await Promise.all(
     filePaths.map(async (filePath) => {
-      const source = await readFile(filePath, 'utf8')
+      const source = await fs.readFile(filePath, 'utf8')
       const relativePath = path.relative(docsDirectoryPath, filePath)
       const normalizedPath = relativePath.replace(/\\/g, '/').replace(/\.mdx$/, '')
       const docPath = normalizedPath === 'index' ? '' : normalizedPath.replace(/\/index$/, '')
@@ -896,7 +900,7 @@ async function readDocsStaticFiles() {
 }
 
 async function findDocsMdxFiles(directoryPath: string): Promise<Array<string>> {
-  const entries = await readdir(directoryPath, { withFileTypes: true })
+  const entries = await fs.readdir(directoryPath, { withFileTypes: true })
   const filePaths = await Promise.all(
     entries.map(async (entry) => {
       const entryPath = path.join(directoryPath, entry.name)
@@ -916,7 +920,7 @@ function parseDocsFrontmatter(source: string) {
   if (endIndex === -1) return {}
 
   try {
-    return parseYaml(source.slice(4, endIndex)) as Record<string, unknown>
+    return yaml.parse(source.slice(4, endIndex)) as Record<string, unknown>
   } catch {
     return {}
   }
@@ -927,13 +931,14 @@ function getFrontmatterString(frontmatter: Record<string, unknown>, key: string)
   return typeof value === 'string' ? value : undefined
 }
 
-function getDocsLlmsSections(
+export function getDocsLlmsSections(
   docsByPath: Map<string, { description: string | undefined; path: string; title: string }>,
+  sidebarItems: Array<SidebarItem> = sidebar,
 ) {
   const overviewDocs: Array<DocsLlmsSection['docs'][number]> = []
   const sections: Array<DocsLlmsSection> = []
 
-  for (const item of sidebar) {
+  for (const item of sidebarItems) {
     if (item.type === 'link') {
       const doc = docsByPath.get(normalizeSidebarPath(item.path))
       if (doc) overviewDocs.push(doc)

@@ -1657,7 +1657,7 @@ const hashHeadingGracePeriodMs = 250 // 0.25 seconds
 const docSearchPreviewOffsetTopPx = 20 // 20 pixels
 const codeGroupLegacyQueryParam = 'codegroup'
 const codeGroupQueryParam = 'tab'
-const shellPromptPrefixes = ['$ ', '> ']
+const shellPromptPrefixes = ['$ ', '> ', '\u276f ']
 const useBrowserLayoutEffect =
   typeof window === 'undefined' ? React.useEffect : React.useLayoutEffect
 

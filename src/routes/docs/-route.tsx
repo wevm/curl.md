@@ -1,7 +1,13 @@
 import * as React from 'react'
+import { z } from 'zod/v4'
 import { rpc } from '#lib/rpc.ts'
 import { DocContent } from './-doc.tsx'
 import { findDoc, findDocPagination } from './-docs.ts'
+
+export const validateSearch = z.object({
+  q: z.string().optional(),
+  tab: z.string().optional(),
+})
 
 export function DocsRouteContent(props: {
   docPath: string

@@ -1,5 +1,198 @@
+import path from 'node:path'
 import { expect, test } from 'vitest'
-import { generateDocsLlmsFullTxt, generateDocsLlmsTxt } from './docs.ts'
+import {
+  docsMdx,
+  generateDocsLlmsFullTxt,
+  generateDocsLlmsTxt,
+  getDocsLlmsSections,
+  rewriteGeneratedDocsLinks,
+} from './docs.ts'
+
+test('rewriteGeneratedDocsLinks rewrites docs links to generated markdown paths', () => {
+  expect(
+    rewriteGeneratedDocsLinks(
+      `
+[Introduction](/docs)
+[Installation](/docs/getting_started/installation)
+[Quick Start](/docs/getting_started/quick_start?view=full#cli)
+[Kitchen Sink](/docs/reference/kitchen_sink.md#examples)
+[Guide](/guide)
+[External](https://example.com/docs)
+`.trim(),
+    ),
+  ).toBe(
+    `
+[Introduction](/docs/index.md)
+[Installation](/docs/getting_started/installation.md)
+[Quick Start](/docs/getting_started/quick_start.md?view=full#cli)
+[Kitchen Sink](/docs/reference/kitchen_sink.md#examples)
+[Guide](/guide)
+[External](https://example.com/docs)
+`.trim(),
+  )
+})
+
+test('getDocsLlmsSections follows sidebar order, flattens nested groups, and skips missing docs', () => {
+  const sections = getDocsLlmsSections(
+    new Map([
+      [
+        'development/contributing',
+        {
+          description: 'Set up curl.md locally and run the main contributor workflows.',
+          path: 'development/contributing',
+          title: 'Contributing',
+        },
+      ],
+      [
+        '',
+        {
+          description: 'URL to markdown for agents',
+          path: '',
+          title: 'Introduction',
+        },
+      ],
+      [
+        'getting_started/quick_start',
+        {
+          description: 'Get started with curl.md',
+          path: 'getting_started/quick_start',
+          title: 'Quick Start',
+        },
+      ],
+    ]),
+    [
+      { label: 'Introduction', path: '/', type: 'link' },
+      {
+        items: [
+          { label: 'Installation', path: '/getting_started/installation', type: 'link' },
+          { label: 'Quick Start', path: '/getting_started/quick_start', type: 'link' },
+        ],
+        label: 'Getting Started',
+        type: 'group',
+      },
+      {
+        items: [
+          {
+            items: [{ label: 'Contributing', path: '/development/contributing', type: 'link' }],
+            label: 'Contributor Guide',
+            type: 'group',
+          },
+        ],
+        label: 'Development',
+        type: 'group',
+      },
+      {
+        items: [{ label: 'Missing', path: '/missing', type: 'link' }],
+        label: 'Reference',
+        type: 'group',
+      },
+    ],
+  )
+
+  expect(sections).toEqual([
+    {
+      docs: [{ description: 'URL to markdown for agents', path: '', title: 'Introduction' }],
+      title: 'Overview',
+    },
+    {
+      docs: [
+        {
+          description: 'Get started with curl.md',
+          path: 'getting_started/quick_start',
+          title: 'Quick Start',
+        },
+      ],
+      title: 'Getting Started',
+    },
+    {
+      docs: [
+        {
+          description: 'Set up curl.md locally and run the main contributor workflows.',
+          path: 'development/contributing',
+          title: 'Contributing',
+        },
+      ],
+      title: 'Development',
+    },
+  ])
+})
+
+test('docsMdx does not rewrite directive syntax inside fenced code blocks', async () => {
+  const code = await transformDocs(
+    `
+# Example
+
+\`\`\`
+:::danger Keep this literal
+Danger body
+:::
+\`\`\`
+`.trim(),
+  )
+
+  expect(code).toContain(':::danger Keep this literal')
+  expect(code).not.toContain('type: "caution"')
+})
+
+test('docsMdx normalizes notice aliases when rewriting directives', async () => {
+  const code = await transformDocs(
+    `
+# Example
+
+:::danger Read carefully
+You only need one install path.
+:::
+`.trim(),
+  )
+
+  expect(code).toContain('Notice')
+  expect(code).toContain('type: "caution"')
+  expect(code).toContain('title: "Read carefully"')
+  expect(code).not.toContain(':::danger')
+})
+
+test('docsMdx leaves unterminated directives unchanged', async () => {
+  const code = await transformDocs(
+    `
+# Example
+
+:::steps
+
+### Install dependencies
+
+Run the installer before starting the app.
+`.trim(),
+  )
+
+  expect(code).toContain(':::steps')
+  expect(code).not.toContain('_missingMdxReference("Steps"')
+  expect(code).not.toContain('_missingMdxReference("Step"')
+})
+
+test('docsMdx rewrites steps directives with tilde-fenced code blocks', async () => {
+  const code = await transformDocs(
+    `
+# Example
+
+:::steps
+
+### Start the app
+
+~~~sh
+docker compose up -d
+~~~
+
+:::
+`.trim(),
+    'docs/development/contributing.mdx',
+  )
+
+  expect(code).toContain('Steps')
+  expect(code).toContain('Step')
+  expect(code).toContain('title: "Start the app"')
+  expect(code).toContain('className: "language-sh"')
+  expect(code).not.toContain(':::steps')
+})
 
 test('generateDocsLlmsTxt includes the published docs in sidebar order', () => {
   const llms = generateDocsLlmsTxt({
@@ -100,3 +293,11 @@ test('generateDocsLlmsFullTxt combines the docs into one markdown document', () 
     llmsFull.indexOf('## /docs/getting_started/installation.md'),
   )
 })
+
+async function transformDocs(source: string, filePath = 'docs/reference/kitchen_sink.mdx') {
+  const plugin = docsMdx()
+  const transformed = await plugin.transform?.call({}, source, path.join(process.cwd(), filePath))
+  return typeof transformed === 'string'
+    ? transformed
+    : ((transformed as { code?: string } | null | undefined)?.code ?? '')
+}

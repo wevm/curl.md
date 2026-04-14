@@ -1,4 +1,6 @@
 import * as React from 'react'
+// TODO: Switch to base-ui when released
+// https://x.com/colmtuite/status/2041500238553198800
 import { Bar, BarChart, CartesianGrid, Tooltip, XAxis, YAxis } from 'recharts'
 import { estimateCost, formatDollars } from '#lib/format.ts'
 

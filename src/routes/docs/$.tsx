@@ -1,27 +1,7 @@
 import { createFileRoute, notFound } from '@tanstack/react-router'
-import { z } from 'zod/v4'
+import * as React from 'react'
 import { findDoc } from './-docs.ts'
-import { DocsRouteContent, getDocsHead } from './-route.tsx'
-
-function Component() {
-  const navigate = Route.useNavigate()
-  const { _splat } = Route.useParams()
-
-  return (
-    <DocsRouteContent
-      docPath={_splat ?? ''}
-      onCodeGroupValueChange={(value, docPath) => {
-        navigate({
-          params: { _splat: docPath },
-          replace: true,
-          resetScroll: false,
-          search: (search) => ({ ...search, tab: value }),
-          to: '/docs/$',
-        })
-      }}
-    />
-  )
-}
+import { DocsRouteContent, getDocsHead, validateSearch } from './-route.tsx'
 
 export const Route = createFileRoute('/docs/$')({
   head({ params }) {
@@ -30,9 +10,26 @@ export const Route = createFileRoute('/docs/$')({
   loader({ params }) {
     if (!findDoc(params._splat ?? '')) throw notFound()
   },
-  validateSearch: z.object({
-    q: z.string().optional(),
-    tab: z.string().optional(),
-  }),
+  validateSearch,
   component: Component,
 })
+
+function Component() {
+  const navigate = Route.useNavigate()
+  const { _splat } = Route.useParams()
+  const handleCodeGroupValueChange = React.useCallback(
+    (value: string, docPath: string) => {
+      navigate({
+        params: { _splat: docPath },
+        replace: true,
+        resetScroll: false,
+        search: (search) => ({ ...search, tab: value }),
+        to: '/docs/$',
+      })
+    },
+    [navigate],
+  )
+  return (
+    <DocsRouteContent docPath={_splat ?? ''} onCodeGroupValueChange={handleCodeGroupValueChange} />
+  )
+}
