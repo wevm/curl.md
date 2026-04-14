@@ -65,12 +65,13 @@ test('/docs search preview renders real code blocks and steps from compiled docs
 
   const searchInput = page.getByPlaceholder('Search documentation')
   await expect(searchInput).toBeVisible()
+  const searchResults = page.getByRole('listbox')
 
   await page.getByRole('button', { name: 'Show body previews' }).click()
   await searchInput.pressSequentially('Code Blocks')
 
-  const codeResultItem = page
-    .locator('.docs-search-result')
+  const codeResultItem = searchResults
+    .getByRole('option')
     .filter({ has: page.getByText('Code Blocks', { exact: true }) })
     .first()
 
@@ -84,8 +85,8 @@ test('/docs search preview renders real code blocks and steps from compiled docs
   await searchInput.fill('')
   await searchInput.pressSequentially('Install dependencies')
 
-  const stepsResultItem = page
-    .locator('.docs-search-result')
+  const stepsResultItem = searchResults
+    .getByRole('option')
     .filter({ has: page.getByText('Install dependencies', { exact: true }) })
     .first()
 
@@ -129,7 +130,7 @@ test('/docs recent search results do not highlight previous query terms', async 
 
   await page.getByRole('button', { name: 'Search' }).click()
   await expect(page.getByText('Recents', { exact: true })).toBeVisible()
-  await expect(page.locator('.docs-search-result mark')).toHaveCount(0)
+  await expect(page.getByRole('listbox').getByRole('option').locator('mark')).toHaveCount(0)
 })
 
 test('/docs missing pages render a docs-specific 404 inside the docs layout', async ({ page }) => {
