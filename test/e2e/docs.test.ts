@@ -131,3 +131,27 @@ test('/docs recent search results do not highlight previous query terms', async 
   await expect(page.getByText('Recents', { exact: true })).toBeVisible()
   await expect(page.locator('.docs-search-result mark')).toHaveCount(0)
 })
+
+test('/docs missing pages render a docs-specific 404 inside the docs layout', async ({ page }) => {
+  await page.goto('/docs/does/not/exist')
+  await page.waitForLoadState('networkidle')
+
+  await expect(page.getByRole('button', { name: 'Search' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: 'Page not found' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Back to docs' })).toHaveAttribute('href', '/docs')
+  await expect(page.getByRole('link', { name: 'Go home' })).toHaveAttribute('href', '/')
+})
+
+test('/docs missing pages link signed-in viewers to /home', async ({
+  factory,
+  page,
+  setSession,
+}) => {
+  const account = await factory.account.insert({})
+  await setSession(account.id)
+
+  await page.goto('/docs/does/not/exist')
+  await page.waitForLoadState('networkidle')
+
+  await expect(page.getByRole('link', { name: 'Go home' })).toHaveAttribute('href', '/home')
+})
