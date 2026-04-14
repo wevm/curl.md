@@ -368,7 +368,7 @@ function MobileTopLinks(props: { onNavigate: () => void }) {
 
 function DocsTopLinks() {
   return (
-    <div className="ms-10 hidden items-center gap-0.5 md:flex">
+    <div className="ms-10 mt-0.5 hidden items-center gap-0.5 md:flex">
       {config.navbarLinks.map((link) => (
         <NavbarLinkItem
           className="text-gray8 hover:text-gray10 px-2 py-1.5 text-sm"
@@ -725,7 +725,7 @@ function DocsSearchDialog(props: {
             >
               {(result, index) => (
                 <Combobox.Item
-                  className="docs-search-result border-gray-a3 bg-gray-a1/30 text-gray8 data-[highlighted]:border-blue6 data-[highlighted]:text-gray10 block cursor-default border p-4 outline-none"
+                  className="border-gray-a3 bg-gray-a1/30 text-gray8 hover:bg-gray-a2 data-[highlighted]:border-blue6 data-[highlighted]:text-gray10 block cursor-default border p-4 outline-none"
                   data-details={props.showDetails ? '' : undefined}
                   index={index}
                   key={getSearchResultId(result)}

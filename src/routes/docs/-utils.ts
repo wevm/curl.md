@@ -18,7 +18,7 @@ export type DocPagination = {
   previous: Pick<Doc, 'path' | 'title'> | undefined
 }
 
-export const docSearchHighlightClassName = 'docs-search-highlight'
+export const docSearchHighlightClassName = 'bg-amber7 text-black'
 
 const docSearchHighlightStopwords = new Set([
   'a',

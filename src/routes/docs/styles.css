@@ -67,12 +67,3 @@ html {
 [data-doc-mobile-outline-panel] [role='menuitem']:focus-visible {
   outline: none;
 }
-
-.docs-search-result:hover {
-  background-color: var(--color-gray-a2);
-}
-
-.docs-search-highlight {
-  background-color: var(--color-amber7);
-  color: var(--color-black);
-}
