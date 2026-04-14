@@ -122,6 +122,89 @@ Run docker compose up -d.
   )
 })
 
+test('doc search omits stopwords from preview highlight terms', () => {
+  const docsSearch = createDocsSearch(
+    [
+      {
+        description: undefined,
+        headings: [{ id: 'open-curlmd-locally', level: 3, text: '4. Open curl.md locally' }],
+        path: 'development/contributing',
+        source: `### 4. Open curl.md locally
+
+Open https://curl.local or request a page directly:
+
+\`\`\`sh
+$ curl curl.local/example.com
+\`\`\`
+`,
+        title: 'Contributing',
+      },
+    ],
+    ['development/contributing'],
+  )
+
+  const result = docsSearch
+    .search('request a page directly')
+    .find((entry) => entry.kind === 'section' && entry.hash === 'open-curlmd-locally')
+
+  expect(result).toBeDefined()
+  expect(result?.terms).toEqual(expect.arrayContaining(['directly', 'page', 'request']))
+  expect(result?.terms).not.toContain('a')
+})
+
+test('doc search keeps exact phrase matches so stopwords still highlight in previews', () => {
+  const docsSearch = createDocsSearch(
+    [
+      {
+        description: undefined,
+        headings: [
+          { id: 'copy-the-environment-file', level: 3, text: '2. Copy the environment file' },
+        ],
+        path: 'development/contributing',
+        source: `### 2. Copy the environment file
+
+Copy the environment file before starting the app.
+`,
+        title: 'Contributing',
+      },
+    ],
+    ['development/contributing'],
+  )
+
+  const result = docsSearch
+    .search('copy the environment file')
+    .find((entry) => entry.kind === 'section' && entry.hash === 'copy-the-environment-file')
+
+  expect(result).toBeDefined()
+  expect(result?.terms).toEqual(expect.arrayContaining(['copy the environment file']))
+  expect(result?.terms).not.toContain('the')
+})
+
+test('doc search preserves punctuation query tokens for preview highlights', () => {
+  const docsSearch = createDocsSearch(
+    [
+      {
+        description: undefined,
+        headings: [{ id: 'pi-extension', level: 2, text: 'Pi Extension' }],
+        path: 'plugins/pi',
+        source: `## Pi Extension
+
+Use md_login, md_logout, and md_status inside Pi.
+`,
+        title: 'Pi',
+      },
+    ],
+    ['plugins/pi'],
+  )
+
+  const result = docsSearch
+    .search('md_')
+    .find((entry) => entry.kind === 'section' && entry.hash === 'pi-extension')
+
+  expect(result).toBeDefined()
+  expect(result?.terms).toEqual(expect.arrayContaining(['md_']))
+})
+
 test('doc search strips code fence markers from snippets', () => {
   const docsSearch = createDocsSearch(
     [

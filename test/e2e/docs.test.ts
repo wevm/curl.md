@@ -1,7 +1,7 @@
 import { expect } from '@playwright/test'
 import { test } from '#test/e2e-utils.ts'
 
-test('/docs codegroup tab click keeps scroll position on first sync', async ({ page }) => {
+test('/docs tab click keeps scroll position on first sync', async ({ page }) => {
   await page.goto('/docs/reference/kitchen_sink')
   await page.waitForLoadState('networkidle')
   await expect(page.getByRole('heading', { level: 1, name: 'Kitchen Sink' })).toBeVisible()
@@ -15,23 +15,19 @@ test('/docs codegroup tab click keeps scroll position on first sync', async ({ p
 
   await secondGroup.scrollIntoViewIfNeeded()
 
-  const scrollYBeforeClick = await page
-    .locator('html')
-    .evaluate((element) => element.ownerDocument.defaultView?.scrollY ?? 0)
+  const scrollYBeforeClick = Number(await page.evaluate('window.scrollY'))
   expect(scrollYBeforeClick).toBeGreaterThan(0)
 
   await secondGroupPnpmTab.click()
 
-  await expect(page).toHaveURL(/\?codegroup=pnpm$/)
+  await expect(page).toHaveURL(/\?tab=pnpm$/)
   await expect(secondGroupPnpmTab).toHaveAttribute('aria-selected', 'true')
   await expect(firstGroup.getByRole('tab', { exact: true, name: 'pnpm' })).toHaveAttribute(
     'aria-selected',
     'true',
   )
 
-  const scrollYAfterClick = await page
-    .locator('html')
-    .evaluate((element) => element.ownerDocument.defaultView?.scrollY ?? 0)
+  const scrollYAfterClick = Number(await page.evaluate('window.scrollY'))
   expect(Math.abs(scrollYAfterClick - scrollYBeforeClick)).toBeLessThan(4)
 })
 
@@ -113,4 +109,25 @@ test('/docs search pressing Enter opens the highlighted result', async ({ page }
 
   await expect(page).toHaveURL('/docs/reference/kitchen_sink')
   await expect(page.getByRole('heading', { level: 1, name: 'Kitchen Sink' })).toBeVisible()
+})
+
+test('/docs recent search results do not highlight previous query terms', async ({ page }) => {
+  await page.goto('/docs')
+  await page.waitForLoadState('networkidle')
+
+  await page.getByRole('button', { name: 'Search' }).click()
+
+  const searchInput = page.getByPlaceholder('Search documentation')
+  await expect(searchInput).toBeVisible()
+
+  await searchInput.pressSequentially('Kitchen Sink')
+  await expect(page).toHaveURL(/\/docs\?q=Kitchen(?:\+|%20)Sink$/)
+
+  await searchInput.press('Enter')
+
+  await expect(page).toHaveURL('/docs/reference/kitchen_sink')
+
+  await page.getByRole('button', { name: 'Search' }).click()
+  await expect(page.getByText('Recents', { exact: true })).toBeVisible()
+  await expect(page.locator('.docs-search-result mark')).toHaveCount(0)
 })

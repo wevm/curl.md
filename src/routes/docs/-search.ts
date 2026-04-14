@@ -1,5 +1,11 @@
 import MiniSearch from 'minisearch'
-import type { Heading } from './-doc.tsx'
+import {
+  getCodeFenceMarker,
+  isMatchingFenceMarker,
+  parseMarkdownHeading,
+  trimBlankLines,
+} from './-docs-raw.ts'
+import { normalizeDocSearchHighlightTerms, type Heading } from './-docs-shared.ts'
 
 export type DocSearchResult =
   | {
@@ -97,6 +103,7 @@ export function createDocsSearch(
     search(query: string): Array<DocSearchResult> {
       const normalizedQuery = query.trim()
       if (!normalizedQuery) return []
+      const normalizedQueryPhrase = collapseWhitespace(normalizedQuery)
 
       return docsSearch
         .search(normalizedQuery, {
@@ -107,26 +114,53 @@ export function createDocsSearch(
         })
         .sort((a, b) => b.score - a.score || a.order - b.order)
         .slice(0, 8)
-        .map((result) => ({
-          ...(result.hash ? { hash: result.hash } : {}),
-          kind: result.kind,
-          path: result.path,
-          ...(result.sectionPath?.length ? { sectionPath: result.sectionPath } : {}),
-          ...(result.sectionTitle ? { sectionTitle: result.sectionTitle } : {}),
-          ...(result.details
-            ? (() => {
-                const snippet = getDocSearchSnippet(
-                  result.kind,
-                  result.description,
-                  result.details,
-                  result.terms,
-                )
-                return snippet ? { snippet } : {}
-              })()
-            : {}),
-          ...(result.terms.length ? { terms: result.terms } : {}),
-          title: result.title,
-        }))
+        .map((result) => {
+          const searchableText = collapseWhitespace(
+            [
+              result.description,
+              result.details,
+              result.sectionPath?.join(' > '),
+              result.sectionTitle,
+              result.title,
+            ]
+              .filter(Boolean)
+              .join('\n'),
+          )
+          const terms = normalizeDocSearchHighlightTerms([
+            // Highlight the full phrase, including stopwords, when the result contains it verbatim.
+            ...(searchableText.toLowerCase().includes(normalizedQueryPhrase.toLowerCase())
+              ? [normalizedQueryPhrase]
+              : []),
+            // Keep punctuation-bearing tokens like md_ because MiniSearch drops them from term matches.
+            ...normalizedQuery
+              .split(/\s+/u)
+              .map((term) => term.trim())
+              .filter(Boolean)
+              .filter((term) => /[^a-z0-9]/iu.test(term)),
+            ...(result.terms ?? []),
+          ])
+
+          return {
+            ...(result.hash ? { hash: result.hash } : {}),
+            kind: result.kind,
+            path: result.path,
+            ...(result.sectionPath?.length ? { sectionPath: result.sectionPath } : {}),
+            ...(result.sectionTitle ? { sectionTitle: result.sectionTitle } : {}),
+            ...(result.details
+              ? (() => {
+                  const snippet = getDocSearchSnippet(
+                    result.kind,
+                    result.description,
+                    result.details,
+                    terms,
+                  )
+                  return snippet ? { snippet } : {}
+                })()
+              : {}),
+            ...(terms.length ? { terms } : {}),
+            title: result.title,
+          }
+        })
     },
   }
 }
@@ -248,9 +282,7 @@ function getDocSearchSectionBodies(source: string, headings: Array<Heading>) {
 
     sectionBodiesByHeadingId.set(
       currentSection.heading.id,
-      trimDocSearchBlankLines(lines.slice(currentSection.bodyStartLineIndex, endLineIndex)).join(
-        '\n',
-      ),
+      trimBlankLines(lines.slice(currentSection.bodyStartLineIndex, endLineIndex)).join('\n'),
     )
   }
 
@@ -268,18 +300,17 @@ function getDocSearchSourceSections(lines: Array<string>) {
 
   for (let index = 0; index < lines.length; index++) {
     const line = lines[index] ?? ''
-    const fenceMarker = getDocSearchCodeFenceMarker(line)
+    const fenceMarker = getCodeFenceMarker(line)
 
     if (fenceMarker) {
       if (!codeFenceMarker) codeFenceMarker = fenceMarker
-      else if (isMatchingDocSearchFenceMarker(fenceMarker, codeFenceMarker))
-        codeFenceMarker = undefined
+      else if (isMatchingFenceMarker(fenceMarker, codeFenceMarker)) codeFenceMarker = undefined
       continue
     }
 
     if (codeFenceMarker) continue
 
-    const heading = parseDocSearchHeadingLine(line)
+    const heading = parseMarkdownHeading(line, { maxLevel: 4, minLevel: 2 })
     if (heading) {
       sections.push({
         bodyStartLineIndex: index + 1,
@@ -290,7 +321,8 @@ function getDocSearchSourceSections(lines: Array<string>) {
       continue
     }
 
-    const step = parseDocSearchStepLine(line)
+    // Step headings are emitted as ordered-list lines in the copied markdown source.
+    const step = /^(?: {0,3})(\d+\.\s+.+?)\s*$/u.exec(line)?.[1]?.trim()
     if (!step) continue
 
     sections.push({
@@ -304,41 +336,8 @@ function getDocSearchSourceSections(lines: Array<string>) {
   return sections
 }
 
-function parseDocSearchHeadingLine(line: string) {
-  const match = /^(?: {0,3})(#{2,4})[ \t]+(.+?)\s*$/u.exec(line)
-  if (!match?.[1] || !match[2]) return
-
-  const text = match[2].replace(/[ \t]+#+[ \t]*$/, '').trim()
-  if (!text) return
-
-  return { level: match[1].length, text }
-}
-
-function parseDocSearchStepLine(line: string) {
-  const match = /^(?: {0,3})(\d+\.\s+.+?)\s*$/u.exec(line)
-  return match?.[1]?.trim()
-}
-
-function getDocSearchCodeFenceMarker(line: string) {
-  return /^(?: {0,3})(`{3,}|~{3,})/u.exec(line)?.[1]
-}
-
-function isMatchingDocSearchFenceMarker(marker: string, other: string) {
-  return marker[0] === other[0]
-}
-
 function normalizeDocSearchSectionText(value: string) {
   return collapseWhitespace(stripDocSearchMarkdown(value))
-}
-
-function trimDocSearchBlankLines(lines: Array<string>) {
-  let start = 0
-  let end = lines.length
-
-  while (start < end && !(lines[start] ?? '').trim()) start++
-  while (end > start && !(lines[end - 1] ?? '').trim()) end--
-
-  return lines.slice(start, end)
 }
 
 function stripDocSearchMarkdown(value: string) {
@@ -364,10 +363,10 @@ function stripIgnoredDocSearchCodeGroupTabs(source: string) {
   let skippedFenceMarker: string | undefined
 
   for (const line of lines) {
-    const fenceMarker = getDocSearchCodeFenceMarker(line)
+    const fenceMarker = getCodeFenceMarker(line)
 
     if (skippedFenceMarker) {
-      if (fenceMarker && isMatchingDocSearchFenceMarker(fenceMarker, skippedFenceMarker))
+      if (fenceMarker && isMatchingFenceMarker(fenceMarker, skippedFenceMarker))
         skippedFenceMarker = undefined
       continue
     }

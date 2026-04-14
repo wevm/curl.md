@@ -20,6 +20,7 @@ import type { Plugin as UnifiedPlugin } from 'unified'
 import type { Plugin as VitePlugin, ResolvedConfig } from 'vite'
 import { parse as parseYaml } from 'yaml'
 import { sidebar, type SidebarItem } from '../docs/_sidebar.ts'
+import type { Heading } from '../src/routes/docs/-docs-shared.ts'
 import { createDocCopySource } from '../src/routes/docs/-source.ts'
 
 export async function docsMdx() {
@@ -74,8 +75,6 @@ export async function docsMdx() {
 }
 
 // --- Internal ---
-
-type Heading = { id: string; level: number; text: string }
 
 const docsCodeThemeDarkName = 'github-dark-default'
 const docsCodeThemeLightName = 'github-light-default'
@@ -598,6 +597,7 @@ function parseCodeBlockMetaString(metaString: string) {
 }
 
 const shellCodeLanguages = new Set(['bash', 'shell', 'sh', 'zsh'])
+const shellPromptPrefixes = ['$ ', '❯ ']
 
 const rehypePromptShellBlocks: UnifiedPlugin<[], Root> = () => (tree) => {
   visit(tree, (node: any) => {
@@ -614,7 +614,7 @@ const rehypePromptShellBlocks: UnifiedPlugin<[], Root> = () => (tree) => {
     const source = nodeToText(codeNode)
     const lines = source.split('\n')
     const nonEmptyLines = lines.filter((line) => line.trim() !== '')
-    if (!nonEmptyLines.length || nonEmptyLines.some((line) => !line.startsWith('$ '))) return
+    if (!nonEmptyLines.length || nonEmptyLines.some((line) => !getShellPromptPrefix(line))) return
 
     codeNode.children = [{ type: 'text', value: lines.map(stripPromptShellLine).join('\n') }]
     codeNode.data = {
@@ -677,8 +677,13 @@ function hasClassName(properties: Record<string, unknown> | undefined, className
   return new RegExp(`(?:^|\\s)${className}(?:\\s|$)`, 'u').test(value)
 }
 
+function getShellPromptPrefix(line: string) {
+  return shellPromptPrefixes.find((prefix) => line.startsWith(prefix))
+}
+
 function stripPromptShellLine(line: string) {
-  return line.startsWith('$ ') ? line.slice(2) : line
+  const prefix = getShellPromptPrefix(line)
+  return prefix ? line.slice(prefix.length) : line
 }
 
 function createStepItemRewrite(title: string, body: Array<string>, endIndex: number) {

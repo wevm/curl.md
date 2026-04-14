@@ -13,12 +13,12 @@ import { type Theme, useTheme } from '#hooks/useTheme.ts'
 import { getSessionLogin } from '#server/session.ts'
 import { navbarLinks, type NavbarLink } from '../../../docs/_config.ts'
 import { sidebar, type SidebarItem } from '../../../docs/_sidebar.ts'
+import { DocSearchPreview } from './-doc.tsx'
 import {
   docSearchHighlightClassName,
-  DocSearchPreview,
   getDocSearchHighlightRanges,
   type Doc,
-} from './-doc.tsx'
+} from './-docs-shared.ts'
 import { findDoc, searchDocs } from './-docs.ts'
 import type { DocSearchResult } from './-search.ts'
 import docsCssHref from './docs.css?url'
@@ -219,7 +219,7 @@ function Component() {
               </a>
               {login ? (
                 <Link
-                  className="bg-gray10 text-bg1 px-3 py-1.5 text-sm transition-opacity hover:opacity-90"
+                  className="bg-gray10 text-bg1 px-3 py-1.5 text-sm hover:opacity-90"
                   params={{ login }}
                   to="/$login"
                 >
@@ -227,7 +227,7 @@ function Component() {
                 </Link>
               ) : (
                 <Link
-                  className="bg-gray10 text-bg1 px-3 py-1.5 text-sm transition-opacity hover:opacity-90"
+                  className="bg-gray10 text-bg1 px-3 py-1.5 text-sm hover:opacity-90"
                   search={{ next }}
                   to="/login"
                 >
@@ -293,7 +293,7 @@ function Component() {
                         </a>
                         {login ? (
                           <Link
-                            className="bg-gray10 text-bg1 px-3 py-1.5 text-sm transition-opacity hover:opacity-90"
+                            className="bg-gray10 text-bg1 px-3 py-1.5 text-sm hover:opacity-90"
                             onClick={() => setOpen(false)}
                             params={{ login }}
                             to="/$login"
@@ -302,7 +302,7 @@ function Component() {
                           </Link>
                         ) : (
                           <Link
-                            className="bg-gray10 text-bg1 px-3 py-1.5 text-sm transition-opacity hover:opacity-90"
+                            className="bg-gray10 text-bg1 px-3 py-1.5 text-sm hover:opacity-90"
                             onClick={() => setOpen(false)}
                             search={{ next }}
                             to="/login"
@@ -834,7 +834,7 @@ function SearchResultContent(props: {
           terms={props.result.terms}
         />
       ) : props.showDetails ? (
-        <div className="mt-1.5 max-h-11 overflow-hidden text-sm">
+        <div className="mt-1.5 max-h-11 overflow-hidden text-[0.8125rem]">
           <SearchResultSnippet markdown={previewFallback} terms={props.result.terms} />
         </div>
       ) : null}
@@ -878,7 +878,7 @@ function SearchResultPreview(props: {
   }, [props.cacheId, props.cached, props.onCache])
 
   return (
-    <div className="mt-2 text-sm" data-search-rich-preview="" ref={containerRef}>
+    <div className="mt-2 text-[0.8125rem]" data-search-rich-preview="" ref={containerRef}>
       {props.cached || isVisible ? (
         <DocSearchPreview doc={props.doc} hash={props.hash} terms={props.terms} />
       ) : (
@@ -1064,9 +1064,13 @@ function getNextRecentDocsSearchResults(
   results: Array<DocSearchResult>,
   selectedResult: DocSearchResult,
 ) {
-  const selectedResultId = getSearchResultId(selectedResult)
+  // Recents should not carry stale highlight terms from the previous query.
+  const nextResult = selectedResult.terms?.length
+    ? withoutDocSearchResultTerms(selectedResult)
+    : selectedResult
+  const selectedResultId = getSearchResultId(nextResult)
   return [
-    selectedResult,
+    nextResult,
     ...results.filter((result) => getSearchResultId(result) !== selectedResultId),
   ].slice(0, recentDocsSearchResultsLimit)
 }
@@ -1077,7 +1081,15 @@ function readRecentDocsSearchResults(): Array<DocSearchResult> {
 
   try {
     const parsedResults = JSON.parse(storedResults)
-    return Array.isArray(parsedResults) ? parsedResults : []
+    return Array.isArray(parsedResults)
+      ? parsedResults.map((result) => {
+          const recentResult = result as DocSearchResult
+          // Recents should not carry stale highlight terms from the previous query.
+          return recentResult.terms?.length
+            ? withoutDocSearchResultTerms(recentResult)
+            : recentResult
+        })
+      : []
   } catch {
     return []
   }
@@ -1096,4 +1108,9 @@ function readDocsSearchShowDetails() {
 
 function normalizeDocsSearchQuery(query: string | undefined) {
   return query?.trim() ?? ''
+}
+
+function withoutDocSearchResultTerms(result: DocSearchResult): DocSearchResult {
+  const { terms: _terms, ...resultWithoutTerms } = result
+  return resultWithoutTerms
 }

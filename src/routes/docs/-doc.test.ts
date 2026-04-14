@@ -85,6 +85,30 @@ $ pnpm test:e2e
   expect(code).not.toContain('children: "$"')
 })
 
+test('docs mdx strips authored chevron shell prompts before highlighting', async () => {
+  const plugin = await docsMdx()
+  const source = `# Example
+
+\`\`\`sh
+❯ pnpm test:e2e
+\`\`\`
+`
+
+  const transformed = await plugin.transform?.call(
+    {},
+    source,
+    path.join(process.cwd(), 'docs/reference/kitchen_sink.mdx'),
+  )
+  const code =
+    typeof transformed === 'string'
+      ? transformed
+      : (transformed as { code?: string } | null | undefined)?.code
+
+  expect(code).toContain('"data-shell-prompt": ""')
+  expect(code).toContain('children: "pnpm"')
+  expect(code).not.toContain('children: "❯"')
+})
+
 test('docs mdx highlights inline code when the snippet declares a language', async () => {
   const plugin = await docsMdx()
   const source = `# Example

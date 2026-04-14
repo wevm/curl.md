@@ -44,6 +44,7 @@ declare global {
   const IconOcticonCheck16: typeof import('~icons/octicon/check16.jsx').default
   const IconOcticonChevronDown16: typeof import('~icons/octicon/chevron-down16.jsx').default
   const IconOcticonChevronLeft16: typeof import('~icons/octicon/chevron-left16.jsx').default
+  const IconOcticonChevronRight: typeof import('~icons/octicon/chevron-right.jsx').default
   const IconOcticonChevronRight16: typeof import('~icons/octicon/chevron-right16.jsx').default
   const IconOcticonCircleSlash16: typeof import('~icons/octicon/circle-slash16.jsx').default
   const IconOcticonClippy16: typeof import('~icons/octicon/clippy16.jsx').default

@@ -5,15 +5,13 @@ import { afterEach, expect, test, vi } from 'vitest'
 import { page } from 'vitest/browser'
 import contributingDocSource from '../../../docs/development/contributing.mdx?raw'
 import kitchenSinkDocSource from '../../../docs/reference/kitchen_sink.mdx?raw'
+import { DocContent, DocSearchPreview, getDocSearchPreviewAnchor } from './-doc.tsx'
 import {
-  DocContent,
-  DocSearchPreview,
   getDocHeadings,
   getDocSearchHighlightRanges,
-  getDocSearchPreviewAnchor,
   type Doc,
   type DocPagination,
-} from './-doc.tsx'
+} from './-docs-shared.ts'
 
 let cleanup: (() => void) | undefined
 const originalClipboard = navigator.clipboard
@@ -227,6 +225,7 @@ test('mobile outline panel stays positioned within the sticky bar region', async
 test('shell prompt blocks render a copy button for each command line', async () => {
   const rendered = renderDocContent(createPromptShellDoc())
   const firstCommandLine = rendered.container.querySelector('.line')
+  const firstPrompt = rendered.container.querySelector('[data-command-prompt]')
 
   expect(rendered.container.querySelector('[aria-label="Copy code"]')).toBeNull()
   expect(rendered.container.querySelectorAll('[data-copy-command]').length).toBe(2)
@@ -234,6 +233,7 @@ test('shell prompt blocks render a copy button for each command line', async () 
   expect(rendered.container.querySelector('[data-command-prompt]')?.className).toContain(
     'select-none',
   )
+  expect(firstPrompt?.textContent).toBe('$')
   expect(firstCommandLine?.textContent?.match(/\$/g)?.length ?? 0).toBe(1)
   expect(firstCommandLine?.querySelector('.token.command')?.textContent).toBe('pnpm')
   expect(firstCommandLine?.querySelector('.token.command')).not.toBeNull()
@@ -243,7 +243,7 @@ test('shell prompt blocks render a copy button for each command line', async () 
   ).not.toBeNull()
 })
 
-test('shell prompt line copy strips the leading dollar prompt', async () => {
+test('shell prompt line copy strips the leading shell prompt', async () => {
   const rendered = renderDocContent(createPromptShellDoc())
   let copied = ''
 
@@ -259,6 +259,28 @@ test('shell prompt line copy strips the leading dollar prompt', async () => {
   await rendered.content
     .getByRole('button', { exact: true, name: 'Copy command: pnpm check' })
     .click()
+
+  expect(copied).toBe('pnpm check')
+})
+
+test('single-line shell prompt blocks keep the normal copy code button', async () => {
+  const rendered = renderDocContent(createSingleLinePromptShellDoc())
+  let copied = ''
+
+  Object.defineProperty(navigator, 'clipboard', {
+    configurable: true,
+    value: {
+      writeText: async (value: string) => {
+        copied = value
+      },
+    },
+  })
+
+  expect(rendered.container.querySelectorAll('[data-command-prompt]').length).toBe(1)
+  expect(rendered.container.querySelector('[data-copy-command]')).toBeNull()
+  expect(rendered.container.querySelector('[aria-label="Copy code"]')).not.toBeNull()
+
+  await rendered.content.getByRole('button', { exact: true, name: 'Copy code' }).click()
 
   expect(copied).toBe('pnpm check')
 })
@@ -485,9 +507,13 @@ test('search preview highlights matching heading and body text', () => {
     'install',
     'pnpm',
   ])
+  const content = rendered.container.querySelector('[data-doc-search-preview] > div')
+  if (!(content instanceof HTMLElement)) throw new Error('Expected preview content to render')
+  const anchor = getDocSearchPreviewAnchor(content, 'install-dependencies')
 
   const highlights = [...rendered.container.querySelectorAll('mark[data-doc-search-highlight]')]
 
+  expect(anchor?.matches('[data-doc-search-anchor="install-dependencies"]')).toBe(true)
   expect(highlights.length).toBeGreaterThanOrEqual(2)
   expect(highlights.some((highlight) => highlight.textContent?.toLowerCase() === 'install')).toBe(
     true,
@@ -499,6 +525,10 @@ test('search highlight ranges merge matches separated only by whitespace', () =>
   expect(getDocSearchHighlightRanges('Level 3 Heading', ['level', '3'])).toEqual([
     { end: 7, start: 0 },
   ])
+})
+
+test('search highlight ranges merge matches separated by underscores', () => {
+  expect(getDocSearchHighlightRanges('md_login', ['md', 'login'])).toEqual([{ end: 8, start: 0 }])
 })
 
 test('search highlight ranges keep non-whitespace-separated matches distinct', () => {
@@ -577,6 +607,15 @@ test('search preview scrolls section results to the first highlighted body match
 
   expect(anchor?.matches('[role="note"][data-type="important"]')).toBe(true)
   expect(content.querySelector('[role="note"][data-type="important"] mark')).not.toBeNull()
+})
+
+test('search preview skips repeated section headings when body content follows', () => {
+  const rendered = renderDocSearchPreview(createSearchPreviewDoc(), 'code-blocks')
+  const content = rendered.container.querySelector('[data-doc-search-preview] > div')
+  if (!(content instanceof HTMLElement)) throw new Error('Expected preview content to render')
+  const anchor = getDocSearchPreviewAnchor(content, 'code-blocks')
+
+  expect(anchor?.matches('[data-docs-code-block]')).toBe(true)
 })
 
 function createDoc(): Doc {
@@ -747,6 +786,37 @@ function createPromptShellDoc(): Doc {
           <span className="line" key="check-types">
             <span className="token command">pnpm</span>
             {' check:types'}
+          </span>,
+          '\n',
+        ),
+      )
+    },
+    description: undefined,
+    headings: [],
+    path: 'test',
+    source: '# Test\n',
+    sourcePath: 'docs/development/contributing.mdx',
+    title: 'Test',
+  }
+}
+
+function createSingleLinePromptShellDoc(): Doc {
+  return {
+    Component: function Component(props) {
+      const components = props.components ?? {}
+      const Pre = (components.pre ?? 'pre') as React.ElementType
+      const Code = (components.code ?? 'code') as React.ElementType
+
+      return React.createElement(
+        Pre,
+        { 'data-shell-prompt': '' },
+        React.createElement(
+          Code,
+          { className: 'language-sh' },
+          '\n',
+          <span className="line" key="check">
+            <span className="token command">pnpm</span>
+            {' check'}
           </span>,
           '\n',
         ),

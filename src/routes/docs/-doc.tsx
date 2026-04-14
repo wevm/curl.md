@@ -22,24 +22,14 @@ import IconVscodeIconsFileTypeTypescript from '~icons/vscode-icons/file-type-typ
 import IconVscodeIconsFileTypeYaml from '~icons/vscode-icons/file-type-yaml.jsx'
 import IconVscodeIconsFileTypeYarn from '~icons/vscode-icons/file-type-yarn.jsx'
 import { useCopyToClipboard } from '#hooks/useCopyToClipboard.ts'
-
-export type Heading = { id: string; level: number; text: string }
-
-export type Doc = {
-  Component: React.ComponentType<{ components?: Record<string, React.ComponentType> }>
-  description: string | undefined
-  headings: Array<Heading>
-  lastUpdated?: string
-  path: string
-  source: string
-  sourcePath: string
-  title: string
-}
-
-export type DocPagination = {
-  next: Pick<Doc, 'path' | 'title'> | undefined
-  previous: Pick<Doc, 'path' | 'title'> | undefined
-}
+import {
+  docSearchHighlightClassName,
+  getDocSearchHighlightRanges,
+  getStepId,
+  type Doc,
+  type DocPagination,
+  type Heading,
+} from './-docs-shared.ts'
 
 // Share one lightweight store per docs page so tab changes do not rerender the route tree.
 type CodeGroupStore = {
@@ -487,7 +477,7 @@ export function DocSearchPreview(props: {
       ref={viewportRef}
     >
       <div
-        className="pointer-events-none select-none [&_[data-docs-code-block]]:mt-3 [&_[data-docs-step]:first-child]:pt-0 [&_[data-docs-steps]]:mt-3 [&>*:first-child]:mt-0"
+        className="pointer-events-none select-none [&_[data-docs-code-block]]:mt-2.5 [&_[data-docs-step]:first-child]:pt-0 [&_[data-docs-steps]]:mt-2.5 [&>*:first-child]:mt-0"
         ref={contentRef}
         style={offsetTop ? { transform: `translateY(-${offsetTop}px)` } : undefined}
       >
@@ -538,7 +528,14 @@ export function createMdxComponents(props: {
     },
     blockquote: (blockquoteProps: React.ComponentProps<'blockquote'>) => (
       <blockquote
-        className="border-gray-a4 mt-4 border-s-4 [background-color:var(--color-docs-surface)] px-5 py-4 text-[color-mix(in_oklab,var(--color-gray10)_25%,var(--color-gray9))] [&>p]:mt-0 [&>p]:leading-relaxed [&>p+p]:mt-3"
+        className={[
+          'border-gray-a4 border-s-4 [background-color:var(--color-docs-surface)] text-[color-mix(in_oklab,var(--color-gray10)_25%,var(--color-gray9))] [&>p]:mt-0',
+          preview
+            ? 'mt-3 px-4 py-3 [&>p]:leading-[1.45] [&>p+p]:mt-2.5'
+            : 'mt-4 px-5 py-4 [&>p]:leading-relaxed [&>p+p]:mt-3',
+        ]
+          .filter(Boolean)
+          .join(' ')}
         {...blockquoteProps}
       />
     ),
@@ -551,7 +548,7 @@ export function createMdxComponents(props: {
       preview
         ? renderPreviewHeading(
             'h2',
-            'mt-10 scroll-mt-[7rem] text-lg font-bold md:text-xl lg:scroll-mt-4',
+            'mt-6 scroll-mt-[7rem] text-base font-bold md:text-lg lg:scroll-mt-4',
             headingProps,
           )
         : renderHeading(
@@ -563,7 +560,7 @@ export function createMdxComponents(props: {
       preview
         ? renderPreviewHeading(
             'h3',
-            'mt-8 scroll-mt-[7rem] text-base font-bold md:text-lg lg:scroll-mt-5',
+            'mt-5 scroll-mt-[7rem] text-[0.9375rem] font-bold md:text-base lg:scroll-mt-5',
             headingProps,
           )
         : renderHeading(
@@ -575,7 +572,7 @@ export function createMdxComponents(props: {
       preview
         ? renderPreviewHeading(
             'h4',
-            'mt-7 scroll-mt-[7rem] text-sm font-bold md:text-base lg:scroll-mt-4',
+            'mt-4 scroll-mt-[7rem] text-[0.8125rem] font-bold md:text-sm lg:scroll-mt-4',
             headingProps,
           )
         : renderHeading(
@@ -586,25 +583,45 @@ export function createMdxComponents(props: {
     hr: () => <hr className="border-gray-a3 my-8" />,
     li: (listItemProps: React.ComponentProps<'li'>) => (
       <li
-        className="leading-relaxed text-[color-mix(in_oklab,var(--color-gray10)_25%,var(--color-gray9))]"
+        className={[
+          'text-[color-mix(in_oklab,var(--color-gray10)_25%,var(--color-gray9))]',
+          preview ? 'leading-[1.45]' : 'leading-relaxed',
+        ]
+          .filter(Boolean)
+          .join(' ')}
         {...listItemProps}
       />
     ),
     ol: (listProps: React.ComponentProps<'ol'>) => (
       <ol
-        className="mt-4 list-decimal space-y-1 ps-6 text-[color-mix(in_oklab,var(--color-gray10)_25%,var(--color-gray9))]"
+        className={[
+          'list-decimal text-[color-mix(in_oklab,var(--color-gray10)_25%,var(--color-gray9))]',
+          preview ? 'mt-3 space-y-0.5 ps-5' : 'mt-4 space-y-1 ps-6',
+        ]
+          .filter(Boolean)
+          .join(' ')}
         {...listProps}
       />
     ),
     p: (paragraphProps: React.ComponentProps<'p'>) => (
       <p
-        className="mt-4 leading-relaxed text-[color-mix(in_oklab,var(--color-gray10)_25%,var(--color-gray9))]"
+        className={[
+          'text-[color-mix(in_oklab,var(--color-gray10)_25%,var(--color-gray9))]',
+          preview ? 'mt-3 leading-[1.45]' : 'mt-4 leading-relaxed',
+        ]
+          .filter(Boolean)
+          .join(' ')}
         {...paragraphProps}
       />
     ),
     ul: (listProps: React.ComponentProps<'ul'>) => (
       <ul
-        className="[&>li]:before:text-gray9 mt-4 list-none space-y-3 ps-0 text-[color-mix(in_oklab,var(--color-gray10)_25%,var(--color-gray9))] [&>li]:relative [&>li]:ps-6 [&>li]:before:absolute [&>li]:before:start-0 [&>li]:before:top-0 [&>li]:before:content-['-']"
+        className={[
+          "[&>li]:before:text-gray9 list-none ps-0 text-[color-mix(in_oklab,var(--color-gray10)_25%,var(--color-gray9))] [&>li]:relative [&>li]:before:absolute [&>li]:before:content-['-'] [&>li]:before:start-0 [&>li]:before:top-0",
+          preview ? 'mt-3 space-y-2 [&>li]:ps-5' : 'mt-4 space-y-3 [&>li]:ps-6',
+        ]
+          .filter(Boolean)
+          .join(' ')}
         {...listProps}
       />
     ),
@@ -778,10 +795,7 @@ function renderPreviewPageHeading(props: React.ComponentProps<'h1'>) {
   return (
     <h1
       {...rest}
-      className={[
-        'min-w-0 scroll-mt-[7rem] text-xl font-bold lg:scroll-mt-0 md:text-2xl',
-        className,
-      ]
+      className={['min-w-0 scroll-mt-[7rem] text-lg font-bold lg:scroll-mt-0 md:text-xl', className]
         .filter(Boolean)
         .join(' ')}
       {...(id ? { 'data-doc-search-anchor': id } : {})}
@@ -905,28 +919,28 @@ function Steps(props: React.PropsWithChildren) {
     <ol className="-ms-1 mt-6 list-none ps-0" data-docs-steps="">
       {items.map((item, index) => (
         <li
-          className="grid grid-cols-[2.25rem_minmax(0,1fr)] gap-3 pb-10 last:pb-0 md:grid-cols-[2.5rem_minmax(0,1fr)] md:gap-4"
+          className="grid grid-cols-[2rem_minmax(0,1fr)] gap-3 pb-10 last:pb-0 md:grid-cols-[2.25rem_minmax(0,1fr)] md:gap-4"
           data-docs-step=""
           key={`${index}-${item.title}`}
         >
           <div className="relative -mt-px flex justify-center md:-mt-0.5">
             <a
               aria-label={`Link to step: ${item.title}`}
-              className="bg-gray-a3 text-gray11 hover:bg-gray-a4 hover:text-gray12 focus-visible:ring-blue8 relative z-10 flex size-7 items-center justify-center rounded-full text-sm font-medium no-underline transition-[background-color,color] outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-bg1)] md:size-8 md:text-[0.9375rem]"
+              className="bg-gray-a3 text-gray11 hover:bg-gray-a4 hover:text-gray12 focus-visible:ring-blue8 relative z-10 flex size-6 items-center justify-center rounded-full text-[0.875rem] font-medium no-underline outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-bg1)] md:size-7 md:text-sm"
               href={`#${item.id}`}
             >
               {index + 1}
             </a>
             <span
               aria-hidden
-              className="bg-gray-a3 absolute start-1/2 top-7 bottom-[-2rem] w-px -translate-x-1/2 data-[last]:hidden md:top-8 md:bottom-[-2.25rem]"
+              className="bg-gray-a3 absolute start-1/2 top-6 bottom-[-2rem] w-px -translate-x-1/2 data-[last]:bottom-[-1rem] md:top-7 md:bottom-[-2.25rem] md:data-[last]:bottom-[-1.125rem]"
               data-last={index === items.length - 1 ? '' : undefined}
             />
           </div>
 
           <div className="min-w-0">
             <h3
-              className="text-gray12 scroll-mt-[7rem] text-lg font-bold md:text-xl lg:scroll-mt-5"
+              className="text-gray12 scroll-mt-[7rem] text-base leading-tight font-bold md:text-lg lg:scroll-mt-5"
               id={item.id}
             >
               {item.title}
@@ -946,32 +960,32 @@ function PreviewSteps(props: React.PropsWithChildren) {
   if (!items[0]) return <>{children}</>
 
   return (
-    <ol className="-ms-1 mt-6 list-none ps-0" data-docs-steps="">
+    <ol className="-ms-1 mt-4 list-none ps-0" data-docs-steps="">
       {items.map((item, index) => (
         <li
-          className="grid grid-cols-[2.25rem_minmax(0,1fr)] gap-3 pb-10 last:pb-0 md:grid-cols-[2.5rem_minmax(0,1fr)] md:gap-4"
+          className="grid grid-cols-[1.75rem_minmax(0,1fr)] gap-2.5 pb-6 last:pb-0 md:grid-cols-[2rem_minmax(0,1fr)] md:gap-3"
           data-docs-step=""
           key={`${index}-${item.title}`}
         >
           <div className="relative -mt-px flex justify-center md:-mt-0.5">
-            <span className="bg-gray-a3 text-gray11 relative z-10 flex size-7 items-center justify-center rounded-full text-sm font-medium md:size-8 md:text-[0.9375rem]">
+            <span className="bg-gray-a3 text-gray11 relative z-10 flex size-5 items-center justify-center rounded-full text-[0.75rem] font-medium md:size-6 md:text-[0.8125rem]">
               {index + 1}
             </span>
             <span
               aria-hidden
-              className="bg-gray-a3 absolute start-1/2 top-7 bottom-[-2rem] w-px -translate-x-1/2 data-[last]:hidden md:top-8 md:bottom-[-2.25rem]"
+              className="bg-gray-a3 absolute start-1/2 top-5 bottom-[-1rem] w-px -translate-x-1/2 data-[last]:bottom-[-0.5rem] md:top-6 md:bottom-[-1rem] md:data-[last]:bottom-[-0.625rem]"
               data-last={index === items.length - 1 ? '' : undefined}
             />
           </div>
 
           <div className="min-w-0">
             <h3
-              className="text-gray12 scroll-mt-[7rem] text-lg font-bold md:text-xl lg:scroll-mt-5"
+              className="text-gray12 scroll-mt-[7rem] text-[0.9375rem] leading-tight font-bold md:text-base lg:scroll-mt-5"
               data-doc-search-anchor={item.id}
             >
               {item.title}
             </h3>
-            <div className="[&>*:first-child]:mt-4 [&>*:last-child]:mb-0">{item.content}</div>
+            <div className="[&>*:first-child]:mt-3 [&>*:last-child]:mb-0">{item.content}</div>
           </div>
         </li>
       ))}
@@ -1075,13 +1089,13 @@ function PreviewCodeGroup(props: React.PropsWithChildren) {
 
   return (
     <div
-      className="mt-6 overflow-hidden [background-color:var(--color-docs-surface)]"
+      className="mt-4 overflow-hidden [background-color:var(--color-docs-surface)]"
       data-docs-code-group=""
     >
-      <div className="border-gray-a3 flex flex-wrap gap-2 border-b px-4 py-3">
+      <div className="border-gray-a3 flex flex-wrap gap-1.5 border-b px-3 py-2">
         {items.map((item, index) => (
           <span
-            className="text-gray8 data-[active]:text-gray10 data-[active]:bg-gray-a2 px-2 py-1 text-xs font-medium"
+            className="text-gray8 data-[active]:text-gray10 data-[active]:bg-gray-a2 px-1.5 py-0.5 text-[0.6875rem] font-medium"
             data-active={index === 0 ? '' : undefined}
             key={item.value}
           >
@@ -1093,7 +1107,7 @@ function PreviewCodeGroup(props: React.PropsWithChildren) {
         ))}
       </div>
 
-      <div className="[&_[data-docs-code-block]]:mt-0 [&_[data-docs-code-block]_pre]:px-5 [&_pre]:border-0">
+      <div className="[&_[data-docs-code-block]]:mt-0 [&_[data-docs-code-block]_pre]:px-4 [&_pre]:border-0">
         {items[0].content}
       </div>
     </div>
@@ -1116,7 +1130,6 @@ function CodeGroupTabIcon(props: { label: string }) {
 
 function DocsCodeBlock(props: React.ComponentProps<'pre'> & { preview?: boolean }) {
   const { children, className, preview = false, style, title, ...rest } = props
-  const copyText = getCodeBlockText(children)
   const backgroundColor =
     typeof style?.backgroundColor === 'string' ? style.backgroundColor : 'var(--color-docs-surface)'
   const promptShellBlock = hasPromptShellBlock(children, props)
@@ -1124,22 +1137,39 @@ function DocsCodeBlock(props: React.ComponentProps<'pre'> & { preview?: boolean 
     () => getPromptShellLines(children, promptShellBlock),
     [children, promptShellBlock],
   )
+  const promptShellCommandLines = React.useMemo(
+    () => (promptShellLines ?? []).filter((line) => line.text.trim() !== ''),
+    [promptShellLines],
+  )
+  const shouldShowPromptCopyButtons = !preview && promptShellCommandLines.length > 1
+  const copyText = React.useMemo(
+    () =>
+      promptShellCommandLines.length === 1
+        ? promptShellCommandLines[0]?.text
+        : getCodeBlockText(children),
+    [children, promptShellCommandLines],
+  )
   const renderedChildren = React.useMemo(
     () =>
       promptShellLines && !preview
         ? replaceCodeElement(children, (codeElement) =>
-            renderPromptCopyCodeElement(codeElement, promptShellBlock, promptShellLines),
+            renderPromptCopyCodeElement(
+              codeElement,
+              promptShellBlock,
+              promptShellLines,
+              shouldShowPromptCopyButtons,
+            ),
           )
         : children,
-    [children, preview, promptShellBlock, promptShellLines],
+    [children, preview, promptShellBlock, promptShellLines, shouldShowPromptCopyButtons],
   )
   const label = typeof title === 'string' && title.trim() ? title.trim() : undefined
-  const shouldShowCopyButton = Boolean(copyText && !preview && !promptShellLines)
+  const shouldShowCopyButton = Boolean(copyText && !preview && !shouldShowPromptCopyButtons)
   const { copied, copy } = useCopyToClipboard(copyText ? { content: copyText } : {})
 
   return (
     <div
-      className="group/code relative mt-4"
+      className={['group/code relative', preview ? 'mt-3' : 'mt-4'].filter(Boolean).join(' ')}
       data-docs-code-block=""
       style={{ '--docs-code-block-background': backgroundColor } as React.CSSProperties}
     >
@@ -1148,7 +1178,14 @@ function DocsCodeBlock(props: React.ComponentProps<'pre'> & { preview?: boolean 
           className="border-gray-a3 border-b [background-color:var(--docs-code-block-background)]"
           data-docs-code-title=""
         >
-          <span className="text-gray10 flex min-w-0 items-center gap-2 px-4 py-3 pe-14 text-sm font-medium whitespace-nowrap">
+          <span
+            className={[
+              'text-gray10 flex min-w-0 items-center gap-2 font-medium whitespace-nowrap',
+              preview ? 'px-3 py-2 pe-12 text-[0.8125rem]' : 'px-4 py-3 pe-14 text-sm',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+          >
             <CodeGroupTabIcon label={label} />
             <span className="truncate">{label}</span>
           </span>
@@ -1168,9 +1205,9 @@ function DocsCodeBlock(props: React.ComponentProps<'pre'> & { preview?: boolean 
       <pre
         {...rest}
         className={[
-          '[background-color:var(--docs-code-block-background)] minimal-scrollbar focus-visible:ring-blue8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset mt-0 overflow-x-auto p-4 leading-relaxed',
-
-          label ? 'border-t-0 pt-3' : undefined,
+          '[background-color:var(--docs-code-block-background)] minimal-scrollbar focus-visible:ring-blue8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset mt-0 overflow-x-auto',
+          preview ? 'p-3 leading-[1.45]' : 'p-4 leading-relaxed',
+          label ? (preview ? 'border-t-0 pt-2.5' : 'border-t-0 pt-3') : undefined,
           '[&_code]:bg-transparent [&_code]:p-0 [&_code]:!text-[1em]',
           className,
         ]
@@ -1258,7 +1295,7 @@ function DocPaginationLink(props: {
 
   return (
     <Link
-      className="border-gray-a3 hover:bg-gray-a1/50 flex flex-col gap-1 border px-5 py-4 text-left transition-colors data-[direction=next]:items-end data-[direction=next]:text-right"
+      className="border-gray-a3 hover:bg-gray-a1/50 flex flex-col gap-1 border px-5 py-4 text-left data-[direction=next]:items-end data-[direction=next]:text-right"
       data-direction={direction}
       to={getDocHref(doc.path)}
     >
@@ -1349,15 +1386,16 @@ function getPromptShellLines(node: React.ReactNode, hasPromptShellBlock: boolean
 
   const lines = getCodeElementLineElements(codeElement)
   if (hasPromptShellBlock)
-    return lines.map((line) => ({ childIndex: line.childIndex, text: line.text }))
+    return lines.map((line) => ({ childIndex: line.childIndex, promptLength: 0, text: line.text }))
 
   const nonEmptyLines = lines.filter((line) => line.text.trim() !== '')
-  if (!nonEmptyLines.length || nonEmptyLines.some((line) => !line.text.startsWith('$ ')))
+  if (!nonEmptyLines.length || nonEmptyLines.some((line) => !getShellPromptPrefix(line.text)))
     return undefined
 
   return lines.map((line) => ({
     childIndex: line.childIndex,
-    text: line.text.slice(2),
+    promptLength: getShellPromptPrefix(line.text)?.length ?? 0,
+    text: stripPromptShellLine(line.text),
   }))
 }
 
@@ -1436,10 +1474,11 @@ function replaceCodeElement(
 function renderPromptCopyCodeElement(
   codeElement: CodeElement,
   promptShellBlock: boolean,
-  promptShellLines: Array<{ childIndex: number; text: string }>,
+  promptShellLines: Array<{ childIndex: number; promptLength: number; text: string }>,
+  showPromptCopyButtons: boolean,
 ) {
   const codeChildren = React.Children.toArray(codeElement.props.children)
-  const promptLineMap = new Map(promptShellLines.map((line) => [line.childIndex, line.text]))
+  const promptLineMap = new Map(promptShellLines.map((line) => [line.childIndex, line]))
 
   return React.cloneElement(
     codeElement,
@@ -1448,20 +1487,25 @@ function renderPromptCopyCodeElement(
       if (typeof child === 'string' && child.trim() === '') return []
       if (!isCodeLineElement(child)) return [child]
 
-      const text = promptLineMap.get(childIndex)
-      if (!text) return [child]
+      const promptLine = promptLineMap.get(childIndex)
+      if (!promptLine) return [child]
 
       return React.cloneElement(
         child,
         {
-          className: [child.props.className, 'group/command flex w-full items-center gap-3']
+          className: [
+            child.props.className,
+            'flex w-full items-center gap-3',
+            showPromptCopyButtons ? 'group/command' : undefined,
+          ]
             .filter(Boolean)
             .join(' '),
         },
         <>
+          {/* Render a single visual prompt even when authored prefixes differ. */}
           <span
             aria-hidden
-            className="text-gray8 shrink-0 opacity-70 select-none"
+            className="[&[data-command-prompt]]:!text-gray10 shrink-0 select-none"
             data-command-prompt=""
           >
             $
@@ -1469,13 +1513,22 @@ function renderPromptCopyCodeElement(
           <span className="min-w-0 flex-1">
             {promptShellBlock
               ? child.props.children
-              : stripLeadingCharacters(child.props.children, 2).node}
+              : stripLeadingCharacters(child.props.children, promptLine.promptLength).node}
           </span>
-          <PromptCopyButton text={text} />
+          {showPromptCopyButtons ? <PromptCopyButton text={promptLine.text} /> : null}
         </>,
       )
     }),
   )
+}
+
+function getShellPromptPrefix(line: string) {
+  return shellPromptPrefixes.find((prefix) => line.startsWith(prefix))
+}
+
+function stripPromptShellLine(line: string) {
+  const prefix = getShellPromptPrefix(line)
+  return prefix ? line.slice(prefix.length) : line
 }
 
 function PromptCopyButton(props: { text: string }) {
@@ -1591,173 +1644,6 @@ function getStepItems(children: React.ReactNode) {
     }))
 }
 
-function getStepId(title: string, stepSlugCounts: Map<string, number>) {
-  const baseSlug = slugifyHeading(title) || 'step'
-  const count = stepSlugCounts.get(baseSlug) ?? 0
-  stepSlugCounts.set(baseSlug, count + 1)
-  return count === 0 ? baseSlug : `${baseSlug}-${count + 1}`
-}
-
-export function getDocHeadings(rawSource: unknown, renderedHeadings: Array<Heading>) {
-  const sourceOutline = getSourceOutline(rawSource)
-  const renderedHeadingCount = sourceOutline.filter((entry) => entry.type === 'rendered').length
-  if (renderedHeadingCount !== renderedHeadings.length) return renderedHeadings
-
-  const headings: Array<Heading> = []
-  let renderedHeadingIndex = 0
-
-  for (const entry of sourceOutline) {
-    if (entry.type === 'rendered') {
-      const heading = renderedHeadings[renderedHeadingIndex]
-      if (heading) headings.push(heading)
-      renderedHeadingIndex++
-      continue
-    }
-
-    headings.push(entry.heading)
-  }
-
-  return headings
-}
-
-function getSourceOutline(rawSource: unknown) {
-  const lines = stripFrontmatter(getRawDocSource(rawSource)).split('\n')
-  const outline: Array<{ type: 'rendered' } | { heading: Heading; type: 'step' }> = []
-  let codeFenceMarker: string | undefined
-
-  for (let index = 0; index < lines.length; index++) {
-    const line = lines[index]!
-    const fenceMarker = getCodeFenceMarker(line)
-
-    if (fenceMarker) {
-      if (!codeFenceMarker) codeFenceMarker = fenceMarker
-      else if (isMatchingFenceMarker(fenceMarker, codeFenceMarker)) codeFenceMarker = undefined
-      continue
-    }
-
-    if (codeFenceMarker) continue
-
-    const stepHeadings = getStepHeadings(lines, index)
-    if (stepHeadings) {
-      outline.push(...stepHeadings)
-      const body = collectDirectiveBody(lines, index)
-      if (body) index = body.endIndex
-      continue
-    }
-
-    if (parseRenderedHeading(line)) outline.push({ type: 'rendered' })
-  }
-
-  return outline
-}
-
-function getStepHeadings(lines: Array<string>, index: number) {
-  if (!/^:::\s*steps\s*$/iu.test(lines[index]!)) return
-
-  const body = collectDirectiveBody(lines, index)
-  if (!body) return []
-
-  const stepSlugCounts = new Map<string, number>()
-  const headings: Array<{ heading: Heading; type: 'step' }> = []
-  let codeFenceMarker: string | undefined
-  let stepNumber = 1
-
-  for (const line of body.body) {
-    const fenceMarker = getCodeFenceMarker(line)
-
-    if (fenceMarker) {
-      if (!codeFenceMarker) codeFenceMarker = fenceMarker
-      else if (isMatchingFenceMarker(fenceMarker, codeFenceMarker)) codeFenceMarker = undefined
-      continue
-    }
-
-    if (codeFenceMarker) continue
-
-    const heading = parseStepHeading(line)
-    if (!heading) continue
-
-    headings.push({
-      heading: {
-        id: getStepId(heading.title, stepSlugCounts),
-        level: 3,
-        text: `${stepNumber}. ${heading.title}`,
-      },
-      type: 'step',
-    })
-    stepNumber++
-  }
-
-  return headings
-}
-
-function getRawDocSource(rawSource: unknown) {
-  if (typeof rawSource === 'string') return rawSource
-  if (
-    rawSource &&
-    typeof rawSource === 'object' &&
-    'default' in rawSource &&
-    typeof rawSource.default === 'string'
-  )
-    return rawSource.default
-  return ''
-}
-
-function stripFrontmatter(markdown: string) {
-  if (!markdown.startsWith('---\n')) return markdown
-  const end = markdown.indexOf('\n---\n', 4)
-  if (end === -1) return markdown
-  return markdown.slice(end + 5).replace(/^\n+/, '')
-}
-
-function collectDirectiveBody(lines: Array<string>, index: number) {
-  const body: Array<string> = []
-  let codeFenceMarker: string | undefined
-
-  for (let endIndex = index + 1; endIndex < lines.length; endIndex++) {
-    const line = lines[endIndex]!
-    const fenceMarker = getCodeFenceMarker(line)
-
-    if (fenceMarker) {
-      if (!codeFenceMarker) codeFenceMarker = fenceMarker
-      else if (isMatchingFenceMarker(fenceMarker, codeFenceMarker)) codeFenceMarker = undefined
-      body.push(line)
-      continue
-    }
-
-    if (!codeFenceMarker && /^:::\s*$/u.test(line)) return { body, endIndex }
-    body.push(line)
-  }
-}
-
-function parseRenderedHeading(line: string) {
-  const match = /^(?: {0,3})(#{2,4})[ \t]+(.+?)\s*$/u.exec(line)
-  if (!match) return
-
-  const levelMarker = match[1]
-  const rawTitle = match[2]?.trim()
-  if (!levelMarker || !rawTitle) return
-
-  const title = rawTitle.replace(/[ \t]+#+[ \t]*$/, '').trim()
-  return title ? { level: levelMarker.length, title } : undefined
-}
-
-function parseStepHeading(line: string) {
-  const match = /^(?: {0,3})#{2,6}[ \t]+(.+?)\s*$/u.exec(line)
-  const rawTitle = match?.[1]?.trim()
-  if (!rawTitle) return
-
-  const title = rawTitle.replace(/[ \t]+#+[ \t]*$/, '').trim()
-  return title ? { title } : undefined
-}
-
-function getCodeFenceMarker(line: string) {
-  return /^(?: {0,3})(`{3,}|~{3,})/u.exec(line)?.[1]
-}
-
-function isMatchingFenceMarker(marker: string, other: string) {
-  return marker[0] === other[0]
-}
-
 function splitNumberedHeading(text: string) {
   const match = /^(\d+\.)(?:\s+)(.+)$/u.exec(text.trim())
   if (!match) return
@@ -1772,6 +1658,7 @@ const hashHeadingGracePeriodMs = 250 // 0.25 seconds
 const docSearchPreviewOffsetTopPx = 20 // 20 pixels
 const codeGroupLegacyQueryParam = 'codegroup'
 const codeGroupQueryParam = 'tab'
+const shellPromptPrefixes = ['$ ', '> ']
 const useBrowserLayoutEffect =
   typeof window === 'undefined' ? React.useEffect : React.useLayoutEffect
 
@@ -1780,10 +1667,14 @@ export function getDocSearchPreviewAnchor(container: HTMLElement, hash: string |
     const target = container.querySelector<HTMLElement>(
       `[data-doc-search-anchor="${CSS.escape(hash)}"]`,
     )
+    const targetHasHighlight = target ? doesDocSearchPreviewElementContainHighlight(target) : false
     if (target)
       return (
         getDocSearchPreviewHighlightAnchor(container, target) ??
         target.closest<HTMLElement>('[data-docs-step]') ??
+        (!targetHasHighlight
+          ? getDocSearchPreviewFollowingContentAnchor(container, target)
+          : undefined) ??
         target
       )
   }
@@ -1807,6 +1698,10 @@ export function getDocSearchPreviewAnchor(container: HTMLElement, hash: string |
 function getDocSearchPreviewHighlightAnchor(container: HTMLElement, target: HTMLElement) {
   const boundary = getDocSearchPreviewSectionBoundary(container, target)
   const highlights = container.querySelectorAll<HTMLElement>('mark[data-doc-search-highlight]')
+  const targetIsHeading = getDocSearchPreviewHeadingLevel(target) !== undefined
+  const targetHasHighlight = doesDocSearchPreviewElementContainHighlight(target)
+
+  if (targetIsHeading && targetHasHighlight) return target
 
   for (const highlight of highlights) {
     if (!(target.compareDocumentPosition(highlight) & Node.DOCUMENT_POSITION_FOLLOWING)) continue
@@ -1817,7 +1712,36 @@ function getDocSearchPreviewHighlightAnchor(container: HTMLElement, target: HTML
     )
       break
 
-    return getDocSearchPreviewBlock(highlight)
+    const block = getDocSearchPreviewBlock(highlight)
+    if (targetIsHeading && block === target) continue
+    return block
+  }
+
+  return undefined
+}
+
+function doesDocSearchPreviewElementContainHighlight(element: HTMLElement) {
+  return Boolean(
+    element.matches('mark[data-doc-search-highlight]') ||
+    element.querySelector('mark[data-doc-search-highlight]'),
+  )
+}
+
+function getDocSearchPreviewFollowingContentAnchor(container: HTMLElement, target: HTMLElement) {
+  const boundary = getDocSearchPreviewSectionBoundary(container, target)
+  const contentBlocks = container.querySelectorAll<HTMLElement>(
+    'p, ol, pre, table, ul, [role="note"], [data-docs-code-block], [data-docs-step]',
+  )
+
+  for (const contentBlock of contentBlocks) {
+    if (!(target.compareDocumentPosition(contentBlock) & Node.DOCUMENT_POSITION_FOLLOWING)) continue
+    if (
+      boundary &&
+      Boolean(boundary.compareDocumentPosition(contentBlock) & Node.DOCUMENT_POSITION_FOLLOWING)
+    )
+      break
+
+    return getDocSearchPreviewBlock(contentBlock)
   }
 
   return undefined
@@ -1850,35 +1774,6 @@ function getDocSearchPreviewBlock(element: HTMLElement) {
     element.closest<HTMLElement>('table, pre, ol, ul, p, h1, h2, h3, h4') ??
     element
   )
-}
-
-export const docSearchHighlightClassName = 'docs-search-highlight'
-
-export function getDocSearchHighlightRanges(value: string, terms: Array<string> | undefined) {
-  if (!value) return []
-
-  const pattern = createDocSearchHighlightRegExp(terms)
-  if (!pattern) return []
-
-  const ranges: Array<{ end: number; start: number }> = []
-
-  for (const match of value.matchAll(pattern)) {
-    const start = match.index ?? 0
-    const end = start + match[0].length
-    const previousRange = ranges.at(-1)
-
-    if (
-      previousRange &&
-      (start <= previousRange.end || !value.slice(previousRange.end, start).trim())
-    ) {
-      previousRange.end = end
-      continue
-    }
-
-    ranges.push({ end, start })
-  }
-
-  return ranges
 }
 
 function highlightDocSearchPreview(container: HTMLElement, terms: Array<string> | undefined) {
@@ -1934,13 +1829,6 @@ function clampNumber(value: number, minimum: number, maximum: number) {
   return Math.min(maximum, Math.max(minimum, value))
 }
 
-function createDocSearchHighlightRegExp(terms: Array<string> | undefined) {
-  const normalizedTerms = normalizeDocSearchHighlightTerms(terms)
-  if (!normalizedTerms.length) return undefined
-
-  return new RegExp(`(${normalizedTerms.map((term) => escapeRegExp(term)).join('|')})`, 'giu')
-}
-
 function getCodeGroupTabIcon(label: string) {
   const normalized = label.trim().toLowerCase()
   if (normalized in codeGroupTabIcons)
@@ -1953,23 +1841,8 @@ function getCodeGroupTabIcon(label: string) {
   return undefined
 }
 
-function slugifyHeading(value: string) {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[`'".(),/#!?]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-}
-
 function normalizeCodeGroupLabel(label: string) {
   return label.trim().toLowerCase()
-}
-
-function normalizeDocSearchHighlightTerms(terms: Array<string> | undefined) {
-  return [...new Set((terms ?? []).map((term) => term.trim()).filter(Boolean))].sort(
-    (a, b) => b.length - a.length || a.localeCompare(b),
-  )
 }
 
 function createCodeGroupStore(
@@ -2023,11 +1896,6 @@ function getCodeGroupStoreSnapshot() {
 function subscribeToCodeGroupStore(_listener: () => void) {
   return () => {}
 }
-
-function escapeRegExp(value: string) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-}
-
 const noticeTitles: Record<string, string> = {
   caution: 'Danger',
   hint: 'Hint',

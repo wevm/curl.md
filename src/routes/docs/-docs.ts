@@ -1,5 +1,5 @@
 import { sidebar, type SidebarItem } from '../../../docs/_sidebar.ts'
-import { getDocHeadings, type Doc, type DocPagination, type Heading } from './-doc.tsx'
+import { getDocHeadings, type Doc, type DocPagination, type Heading } from './-docs-shared.ts'
 import { createDocsSearch, type DocSearchResult } from './-search.ts'
 import { createDocCopySource } from './-source.ts'
 

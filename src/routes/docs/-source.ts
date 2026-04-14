@@ -1,3 +1,13 @@
+import {
+  collectDirectiveBody,
+  getCodeFenceMarker,
+  getRawDocSource,
+  isMatchingFenceMarker,
+  parseMarkdownHeading,
+  stripFrontmatter,
+  trimBlankLines,
+} from './-docs-raw.ts'
+
 export function createDocCopySource(rawSource: unknown) {
   const lines = stripFrontmatter(getRawDocSource(rawSource)).split('\n')
   const output: Array<string> = []
@@ -61,25 +71,6 @@ const noticeTypeMap = new Map([
   ['warning', 'WARNING'],
 ])
 
-function getRawDocSource(rawSource: unknown) {
-  if (typeof rawSource === 'string') return rawSource
-  if (
-    rawSource &&
-    typeof rawSource === 'object' &&
-    'default' in rawSource &&
-    typeof rawSource.default === 'string'
-  )
-    return rawSource.default
-  return ''
-}
-
-function stripFrontmatter(markdown: string) {
-  if (!markdown.startsWith('---\n')) return markdown
-  const end = markdown.indexOf('\n---\n', 4)
-  if (end === -1) return markdown
-  return markdown.slice(end + 5).replace(/^\n+/, '')
-}
-
 function rewriteNoticeDirective(lines: Array<string>, index: number) {
   const directive = /^:::\s*([a-z]+)(?:\s+(.*?))?\s*$/u.exec(lines[index]!)
   const type = directive?.[1] ? noticeTypeMap.get(directive[1].toLowerCase()) : undefined
@@ -132,26 +123,6 @@ function rewriteStepsDirective(lines: Array<string>, index: number) {
   return {
     endIndex: body.endIndex,
     lines: rewrittenBody,
-  }
-}
-
-function collectDirectiveBody(lines: Array<string>, index: number) {
-  const body: Array<string> = []
-  let codeFenceMarker: string | undefined
-
-  for (let endIndex = index + 1; endIndex < lines.length; endIndex++) {
-    const line = lines[endIndex]!
-    const fenceMarker = getCodeFenceMarker(line)
-
-    if (fenceMarker) {
-      if (!codeFenceMarker) codeFenceMarker = fenceMarker
-      else if (isMatchingFenceMarker(fenceMarker, codeFenceMarker)) codeFenceMarker = undefined
-      body.push(line)
-      continue
-    }
-
-    if (!codeFenceMarker && /^:::\s*$/u.test(line)) return { body, endIndex }
-    body.push(line)
   }
 }
 
@@ -221,7 +192,7 @@ function rewriteStepsItem(lines: Array<string>, index: number, stepNumber: numbe
   const line = lines[index]
   if (!line) return
 
-  const heading = parseStepHeading(line)
+  const heading = parseMarkdownHeading(line, { maxLevel: 6, minLevel: 2 })
   if (!heading) return
 
   const body: Array<string> = []
@@ -238,13 +209,13 @@ function rewriteStepsItem(lines: Array<string>, index: number, stepNumber: numbe
       continue
     }
 
-    if (!codeFenceMarker && parseStepHeading(line))
-      return createStepItemRewrite(heading.title, trimBlankLines(body), endIndex - 1, stepNumber)
+    if (!codeFenceMarker && parseMarkdownHeading(line, { maxLevel: 6, minLevel: 2 }))
+      return createStepItemRewrite(heading.text, trimBlankLines(body), endIndex - 1, stepNumber)
 
     body.push(line)
   }
 
-  return createStepItemRewrite(heading.title, trimBlankLines(body), lines.length - 1, stepNumber)
+  return createStepItemRewrite(heading.text, trimBlankLines(body), lines.length - 1, stepNumber)
 }
 
 function splitCodeGroupFenceInfo(info: string) {
@@ -258,28 +229,11 @@ function splitCodeGroupFenceInfo(info: string) {
   }
 }
 
-function parseStepHeading(line: string) {
-  const match = /^(?: {0,3})#{2,6}[ \t]+(.+?)\s*$/u.exec(line)
-  const rawTitle = match?.[1]?.trim()
-  if (!rawTitle) return
-
-  const title = rawTitle.replace(/[ \t]+#+[ \t]*$/, '').trim()
-  return title ? { title } : undefined
-}
-
-function getCodeFenceMarker(line: string) {
-  return /^(?: {0,3})(`{3,}|~{3,})/u.exec(line)?.[1]
-}
-
 function isClosingCodeFence(line: string, marker: string) {
   const fenceMarker = /^(?: {0,3})(`{3,}|~{3,})\s*$/u.exec(line)?.[1]
   return fenceMarker
     ? isMatchingFenceMarker(fenceMarker, marker) && fenceMarker.length >= marker.length
     : false
-}
-
-function isMatchingFenceMarker(marker: string, other: string) {
-  return marker[0] === other[0]
 }
 
 function getCodeFenceLine(marker: string, info: string, label: string | undefined) {
@@ -307,14 +261,4 @@ function createStepItemRewrite(
     endIndex,
     lines,
   }
-}
-
-function trimBlankLines(lines: Array<string>) {
-  let start = 0
-  let end = lines.length
-
-  while (start < end && !lines[start]!.trim()) start++
-  while (end > start && !lines[end - 1]!.trim()) end--
-
-  return lines.slice(start, end)
 }
