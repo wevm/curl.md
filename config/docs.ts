@@ -19,9 +19,8 @@ import { createOnigurumaEngine } from 'shiki/engine/oniguruma'
 import type { Plugin as UnifiedPlugin } from 'unified'
 import type * as vite from 'vite'
 import * as yaml from 'yaml'
-import { sidebar, type SidebarItem } from '../docs/_sidebar.ts'
-import type { Heading } from '../src/routes/docs/-docs-shared.ts'
-import { createDocCopySource } from '../src/routes/docs/-source.ts'
+import { sidebar, type SidebarItem } from '#docs/_sidebar.ts'
+import { createDocCopySource, type Heading } from '../src/routes/docs/-utils.ts'
 
 const highlighter = await createHighlighterCore({
   engine: createOnigurumaEngine(() => import('shiki/wasm')),
@@ -29,7 +28,7 @@ const highlighter = await createHighlighterCore({
   themes: [githubDarkDefault, githubLightDefault],
 })
 
-export function docsMdx() {
+export function docs() {
   let isServe = false
   const mdxPlugin = mdx({
     rehypePlugins: [

@@ -3,15 +3,15 @@ import { flushSync } from 'react-dom'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, expect, test, vi } from 'vitest'
 import { page } from 'vitest/browser'
-import contributingDocSource from '../../../docs/development/contributing.mdx?raw'
-import kitchenSinkDocSource from '../../../docs/reference/kitchen_sink.mdx?raw'
+import contributingDocSource from '#docs/development/contributing.mdx?raw'
+import kitchenSinkDocSource from '#docs/reference/kitchen_sink.mdx?raw'
 import { DocContent, DocSearchPreview, getDocSearchPreviewAnchor } from './-doc.tsx'
 import {
   getDocHeadings,
   getDocSearchHighlightRanges,
   type Doc,
   type DocPagination,
-} from './-docs-shared.ts'
+} from './-utils.ts'
 
 let cleanup: (() => void) | undefined
 const originalClipboard = navigator.clipboard

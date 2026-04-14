@@ -2,25 +2,8 @@ import { Menu } from '@base-ui/react/menu'
 import { Tabs } from '@base-ui/react/tabs'
 import { Link } from '@tanstack/react-router'
 import * as React from 'react'
-import IconOcticonAlert16 from '~icons/octicon/alert16.jsx'
-import IconOcticonInfo16 from '~icons/octicon/info16.jsx'
-import IconOcticonLightBulb16 from '~icons/octicon/light-bulb16.jsx'
-import IconOcticonPencil16 from '~icons/octicon/pencil-16.jsx'
-import IconOcticonReport16 from '~icons/octicon/report16.jsx'
-import IconOcticonStop16 from '~icons/octicon/stop16.jsx'
-import IconVscodeIconsFileTypeBun from '~icons/vscode-icons/file-type-bun.jsx'
-import IconVscodeIconsFileTypeDeno from '~icons/vscode-icons/file-type-deno.jsx'
-import IconVscodeIconsFileTypeJs from '~icons/vscode-icons/file-type-js.jsx'
-import IconVscodeIconsFileTypeJson from '~icons/vscode-icons/file-type-json.jsx'
-import IconVscodeIconsFileTypeLightPnpm from '~icons/vscode-icons/file-type-light-pnpm.jsx'
-import IconVscodeIconsFileTypeMarkdown from '~icons/vscode-icons/file-type-markdown.jsx'
-import IconVscodeIconsFileTypeNpm from '~icons/vscode-icons/file-type-npm.jsx'
-import IconVscodeIconsFileTypePnpm from '~icons/vscode-icons/file-type-pnpm.jsx'
-import IconVscodeIconsFileTypePowershell from '~icons/vscode-icons/file-type-powershell.jsx'
-import IconVscodeIconsFileTypeShell from '~icons/vscode-icons/file-type-shell.jsx'
-import IconVscodeIconsFileTypeTypescript from '~icons/vscode-icons/file-type-typescript.jsx'
-import IconVscodeIconsFileTypeYaml from '~icons/vscode-icons/file-type-yaml.jsx'
-import IconVscodeIconsFileTypeYarn from '~icons/vscode-icons/file-type-yarn.jsx'
+import { config } from '#docs/_config.ts'
+import { useBrowserLayoutEffect } from '#hooks/useBrowserLayoutEffect.ts'
 import { useCopyToClipboard } from '#hooks/useCopyToClipboard.ts'
 import {
   docSearchHighlightClassName,
@@ -29,17 +12,7 @@ import {
   type Doc,
   type DocPagination,
   type Heading,
-} from './-docs-shared.ts'
-
-// Share one lightweight store per docs page so tab changes do not rerender the route tree.
-type CodeGroupStore = {
-  getSnapshot: () => string | undefined
-  setValue: (value: string) => void
-  subscribe: (listener: () => void) => () => void
-  syncFromUrl: () => void
-}
-
-const codeGroupStoreContext = React.createContext<CodeGroupStore | undefined>(undefined)
+} from './-utils.ts'
 
 export function DocContent(props: {
   doc: Doc
@@ -53,15 +26,14 @@ export function DocContent(props: {
   } = props
   const { copied, copy } = useCopyToClipboard({ content: doc.source })
   const [activeHeadingId, setActiveHeadingId] = React.useState<string | undefined>(undefined)
-  const [lastUpdatedLabel, setLastUpdatedLabel] = React.useState<string | undefined>(undefined)
   const [mobileOutlineOpen, setMobileOutlineOpen] = React.useState(false)
-  const mobileOutlineBarRef = React.useRef<HTMLDivElement>(null)
   const mobileOutlineContentRef = React.useRef<HTMLDivElement>(null)
   const honorHashUntilRef = React.useRef(0)
   const hasHeadings = doc.headings.length > 0
   const hasPagination = Boolean(pagination.previous || pagination.next)
   const activeHeading = doc.headings.find((heading) => heading.id === activeHeadingId)
-  const editHref = `https://github.com/wevm/curl.md/edit/main/${doc.sourcePath}`
+  const editHref = `${config.repoBaseUrl}/edit/main/${doc.sourcePath}`
+  const lastUpdatedLabel = doc.lastUpdated ? formatLastUpdated(doc.lastUpdated) : undefined
   const mdxComponents = React.useMemo(
     () => createMdxComponents({ copied, copyPage: copy }),
     [copied, copy],
@@ -82,15 +54,6 @@ export function DocContent(props: {
     },
     [setHashOverride],
   )
-
-  React.useEffect(() => {
-    if (!doc.lastUpdated) {
-      setLastUpdatedLabel(undefined)
-      return
-    }
-
-    setLastUpdatedLabel(formatLastUpdated(doc.lastUpdated))
-  }, [doc.lastUpdated])
 
   React.useEffect(() => {
     // Keep the shared tab store aligned with the URL for copied links and back/forward.
@@ -202,7 +165,6 @@ export function DocContent(props: {
           <div
             className="bg-bg1 border-gray-a3 sticky top-17 z-30 w-full border-b md:[margin-inline:0] md:mx-0 md:[margin-inline-start:-3rem] md:[inline-size:calc(100%+3rem)] lg:hidden"
             data-mobile-doc-outline-bar=""
-            ref={mobileOutlineBarRef}
           >
             <div
               className="mx-auto w-full max-w-[76rem] md:mx-0 md:max-w-none"
@@ -405,7 +367,7 @@ export function DocContent(props: {
 
                 <a
                   className="text-gray8 hover:text-gray10 -ms-2 flex items-center gap-2.5 py-1 ps-2 text-sm select-none"
-                  href="https://github.com/wevm/curl.md/issues/new/choose"
+                  href={`${config.repoBaseUrl}/issues/new/choose`}
                   rel="noopener noreferrer"
                   target="_blank"
                 >
@@ -456,7 +418,10 @@ export function DocSearchPreview(props: {
       }
 
       const maxOffset = Math.max(0, content.scrollHeight - viewport.clientHeight)
-      const nextOffset = clampNumber(anchor.offsetTop - docSearchPreviewOffsetTopPx, 0, maxOffset)
+      const nextOffset = Math.min(
+        maxOffset,
+        Math.max(0, anchor.offsetTop - docSearchPreviewOffsetTopPx),
+      )
       setOffsetTop((current) => (current === nextOffset ? current : nextOffset))
     }
 
@@ -488,11 +453,7 @@ export function DocSearchPreview(props: {
 
 // --- Internal ---
 
-export function createMdxComponents(props: {
-  copied: boolean
-  copyPage: () => void
-  preview?: boolean
-}) {
+function createMdxComponents(props: { copied: boolean; copyPage: () => void; preview?: boolean }) {
   const { copied, copyPage, preview = false } = props
 
   return {
@@ -997,14 +958,26 @@ function Step(props: React.PropsWithChildren<{ title?: string }>) {
   return <>{children}</>
 }
 
+// Share one lightweight store per docs page so tab changes do not rerender the route tree.
+type CodeGroupStore = {
+  getSnapshot: () => string | undefined
+  setValue: (value: string) => void
+  subscribe: (listener: () => void) => () => void
+  syncFromUrl: () => void
+}
+
+const codeGroupStoreContext = React.createContext<CodeGroupStore | undefined>(undefined)
+
 function CodeGroup(props: React.PropsWithChildren) {
   const { children } = props
   const codeGroupStore = React.useContext(codeGroupStoreContext)
+  if (!codeGroupStore) throw new Error('CodeGroup must be rendered within DocContent')
+
   const items = React.useMemo(() => getCodeGroupItems(children), [children])
   const [value, setValue] = React.useState(items[0]?.value ?? '0')
   const sharedLabel = React.useSyncExternalStore(
-    codeGroupStore?.subscribe ?? subscribeToCodeGroupStore,
-    codeGroupStore?.getSnapshot ?? getCodeGroupStoreSnapshot,
+    codeGroupStore.subscribe,
+    codeGroupStore.getSnapshot,
     getCodeGroupStoreSnapshot,
   )
 
@@ -1033,7 +1006,7 @@ function CodeGroup(props: React.PropsWithChildren) {
         // Update the clicked tab first so focus stays on the interacted control.
         setValue(nextValueString)
         if (!nextItem) return
-        codeGroupStore?.setValue(nextItem.normalizedLabel)
+        codeGroupStore.setValue(nextItem.normalizedLabel)
       }}
       value={value}
     >
@@ -1381,6 +1354,7 @@ function getPromptShellLines(node: React.ReactNode, hasPromptShellBlock: boolean
   if (!codeElement) return undefined
 
   const language = getCodeElementLanguage(codeElement)
+  const shellCodeLanguages = new Set(['bash', 'shell', 'sh', 'zsh'])
   if (!language || !shellCodeLanguages.has(language)) return undefined
 
   const lines = getCodeElementLineElements(codeElement)
@@ -1622,7 +1596,7 @@ function getCodeGroupItems(children: React.ReactNode) {
       return {
         content: child.props.children,
         label,
-        normalizedLabel: normalizeCodeGroupLabel(label),
+        normalizedLabel: label.trim().toLowerCase(),
         value: String(index),
       }
     })
@@ -1658,8 +1632,6 @@ const docSearchPreviewOffsetTopPx = 20 // 20 pixels
 const codeGroupLegacyQueryParam = 'codegroup'
 const codeGroupQueryParam = 'tab'
 const shellPromptPrefixes = ['$ ', '> ', '\u276f ']
-const useBrowserLayoutEffect =
-  typeof window === 'undefined' ? React.useEffect : React.useLayoutEffect
 
 export function getDocSearchPreviewAnchor(container: HTMLElement, hash: string | undefined) {
   if (hash) {
@@ -1824,10 +1796,6 @@ function clearDocSearchPreviewHighlights(container: HTMLElement) {
   container.normalize()
 }
 
-function clampNumber(value: number, minimum: number, maximum: number) {
-  return Math.min(maximum, Math.max(minimum, value))
-}
-
 function getCodeGroupTabIcon(label: string) {
   const normalized = label.trim().toLowerCase()
   if (normalized in codeGroupTabIcons)
@@ -1840,9 +1808,41 @@ function getCodeGroupTabIcon(label: string) {
   return undefined
 }
 
-function normalizeCodeGroupLabel(label: string) {
-  return label.trim().toLowerCase()
-}
+const codeGroupTabIcons = {
+  bash: { Component: IconVscodeIconsFileTypeShell },
+  bun: { Component: IconVscodeIconsFileTypeBun },
+  deno: { Component: IconVscodeIconsFileTypeDeno },
+  javascript: { Component: IconVscodeIconsFileTypeJs },
+  json: { Component: IconVscodeIconsFileTypeJson },
+  markdown: { Component: IconVscodeIconsFileTypeMarkdown },
+  npm: { Component: IconVscodeIconsFileTypeNpm },
+  pnpm: { Component: IconVscodeIconsFileTypePnpm },
+  powershell: { Component: IconVscodeIconsFileTypePowershell },
+  shell: { Component: IconVscodeIconsFileTypeShell },
+  sh: { Component: IconVscodeIconsFileTypeShell },
+  ts: { Component: IconVscodeIconsFileTypeTypescript },
+  typescript: { Component: IconVscodeIconsFileTypeTypescript },
+  yaml: { Component: IconVscodeIconsFileTypeYaml },
+  yarn: { Component: IconVscodeIconsFileTypeYarn },
+} as const
+
+const codeGroupExtensionIcons = {
+  bash: codeGroupTabIcons.bash,
+  cjs: codeGroupTabIcons.javascript,
+  js: codeGroupTabIcons.javascript,
+  json: codeGroupTabIcons.json,
+  jsonc: codeGroupTabIcons.json,
+  md: codeGroupTabIcons.markdown,
+  mdx: codeGroupTabIcons.markdown,
+  mjs: codeGroupTabIcons.javascript,
+  ps1: codeGroupTabIcons.powershell,
+  sh: codeGroupTabIcons.sh,
+  ts: codeGroupTabIcons.typescript,
+  tsx: codeGroupTabIcons.typescript,
+  yaml: codeGroupTabIcons.yaml,
+  yml: codeGroupTabIcons.yaml,
+  zsh: codeGroupTabIcons.sh,
+} as const
 
 function createCodeGroupStore(
   onValueChange?: ((value: string) => void) | undefined,
@@ -1889,12 +1889,9 @@ function getCodeGroupStoreSnapshot() {
   const searchParams = new URLSearchParams(window.location.search)
   const queryValue =
     searchParams.get(codeGroupQueryParam) ?? searchParams.get(codeGroupLegacyQueryParam)
-  return queryValue ? normalizeCodeGroupLabel(queryValue) : undefined
+  return queryValue ? queryValue.trim().toLowerCase() : undefined
 }
 
-function subscribeToCodeGroupStore(_listener: () => void) {
-  return () => {}
-}
 const noticeTitles: Record<string, string> = {
   caution: 'Danger',
   hint: 'Hint',
@@ -1903,44 +1900,6 @@ const noticeTitles: Record<string, string> = {
   tip: 'Tip',
   warning: 'Warning',
 }
-
-const codeGroupTabIcons = {
-  bash: { Component: IconVscodeIconsFileTypeShell },
-  bun: { Component: IconVscodeIconsFileTypeBun },
-  deno: { Component: IconVscodeIconsFileTypeDeno },
-  javascript: { Component: IconVscodeIconsFileTypeJs },
-  json: { Component: IconVscodeIconsFileTypeJson },
-  markdown: { Component: IconVscodeIconsFileTypeMarkdown },
-  npm: { Component: IconVscodeIconsFileTypeNpm },
-  pnpm: { Component: IconVscodeIconsFileTypePnpm },
-  powershell: { Component: IconVscodeIconsFileTypePowershell },
-  shell: { Component: IconVscodeIconsFileTypeShell },
-  sh: { Component: IconVscodeIconsFileTypeShell },
-  ts: { Component: IconVscodeIconsFileTypeTypescript },
-  typescript: { Component: IconVscodeIconsFileTypeTypescript },
-  yaml: { Component: IconVscodeIconsFileTypeYaml },
-  yarn: { Component: IconVscodeIconsFileTypeYarn },
-} as const
-
-const codeGroupExtensionIcons = {
-  bash: codeGroupTabIcons.bash,
-  cjs: codeGroupTabIcons.javascript,
-  js: codeGroupTabIcons.javascript,
-  json: codeGroupTabIcons.json,
-  jsonc: codeGroupTabIcons.json,
-  md: codeGroupTabIcons.markdown,
-  mdx: codeGroupTabIcons.markdown,
-  mjs: codeGroupTabIcons.javascript,
-  ps1: codeGroupTabIcons.powershell,
-  sh: codeGroupTabIcons.sh,
-  ts: codeGroupTabIcons.typescript,
-  tsx: codeGroupTabIcons.typescript,
-  yaml: codeGroupTabIcons.yaml,
-  yml: codeGroupTabIcons.yaml,
-  zsh: codeGroupTabIcons.sh,
-} as const
-
-const shellCodeLanguages = new Set(['bash', 'shell', 'sh', 'zsh'])
 
 type CodeElement = React.ReactElement<{ children?: React.ReactNode; className?: string }>
 type CodeLineElement = React.ReactElement<{ children?: React.ReactNode; className?: string }>

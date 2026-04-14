@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { createDocCopySource } from './-source.ts'
+import { createDocCopySource } from './-utils.ts'
 
 const fence = '`'.repeat(3)
 

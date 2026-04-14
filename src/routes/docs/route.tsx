@@ -9,18 +9,14 @@ import IconOcticonFile from '~icons/octicon/file.jsx'
 import IconOcticonSearch16 from '~icons/octicon/search-16.jsx'
 import { Dialog } from '#components/Dialog.tsx'
 import { Nav } from '#components/Nav.tsx'
+import { config, type Config } from '#docs/_config.ts'
+import { sidebar, type SidebarItem } from '#docs/_sidebar.ts'
 import { type Theme, useTheme } from '#hooks/useTheme.ts'
 import { getSessionLogin } from '#server/session.ts'
-import { navbarLinks, type NavbarLink } from '../../../docs/_config.ts'
-import { sidebar, type SidebarItem } from '../../../docs/_sidebar.ts'
 import { DocSearchPreview } from './-doc.tsx'
-import {
-  docSearchHighlightClassName,
-  getDocSearchHighlightRanges,
-  type Doc,
-} from './-docs-shared.ts'
 import { findDoc, searchDocs } from './-docs.ts'
 import type { DocSearchResult } from './-search.ts'
+import { docSearchHighlightClassName, getDocSearchHighlightRanges, type Doc } from './-utils.ts'
 import docsCssHref from './docs.css?url'
 
 export const Route = createFileRoute('/docs')({
@@ -202,7 +198,7 @@ function Component() {
               <a
                 aria-label="GitHub"
                 className="text-gray8 hover:text-gray10 p-1.5"
-                href="https://github.com/wevm/curl.md"
+                href={config.repoBaseUrl}
                 rel="noopener noreferrer"
                 target="_blank"
               >
@@ -276,7 +272,7 @@ function Component() {
                         <a
                           aria-label="GitHub"
                           className="text-gray8 hover:text-gray10 p-1.5"
-                          href="https://github.com/wevm/curl.md"
+                          href={config.repoBaseUrl}
                           rel="noopener noreferrer"
                           target="_blank"
                         >
@@ -364,7 +360,7 @@ function Component() {
 function MobileTopLinks(props: { onNavigate: () => void }) {
   return (
     <div className="flex flex-col gap-1">
-      {navbarLinks.map((link) => (
+      {config.navbarLinks.map((link) => (
         <NavbarLinkItem
           className="text-gray8 hover:text-gray10 hover:bg-gray-a2 block px-2 py-1.5 text-sm"
           key={link.label}
@@ -379,7 +375,7 @@ function MobileTopLinks(props: { onNavigate: () => void }) {
 function DocsTopLinks() {
   return (
     <div className="ms-10 hidden items-center gap-0.5 md:flex">
-      {navbarLinks.map((link) => (
+      {config.navbarLinks.map((link) => (
         <NavbarLinkItem
           className="text-gray8 hover:text-gray10 px-2 py-1.5 text-sm"
           key={link.label}
@@ -508,7 +504,11 @@ function SearchTrigger(props: {
   )
 }
 
-function NavbarLinkItem(props: { className: string; link: NavbarLink; onClick?: () => void }) {
+function NavbarLinkItem(props: {
+  className: string
+  link: Config['navbarLinks'][number]
+  onClick?: () => void
+}) {
   const { className, link, onClick } = props
 
   return (

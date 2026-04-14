@@ -60,13 +60,16 @@ declare global {
   const IconOcticonInfo16: typeof import('~icons/octicon/info16.jsx').default
   const IconOcticonKebabHorizontal16: typeof import('~icons/octicon/kebab-horizontal16.jsx').default
   const IconOcticonKey16: typeof import('~icons/octicon/key16.jsx').default
+  const IconOcticonLightBulb16: typeof import('~icons/octicon/light-bulb16.jsx').default
   const IconOcticonLinkExternal16: typeof import('~icons/octicon/link-external16.jsx').default
   const IconOcticonMarkGithub16: typeof import('~icons/octicon/mark-github16.jsx').default
   const IconOcticonMarkdown16: typeof import('~icons/octicon/markdown16.jsx').default
   const IconOcticonMeter16: typeof import('~icons/octicon/meter16.jsx').default
   const IconOcticonPaintbrush16: typeof import('~icons/octicon/paintbrush16.jsx').default
+  const IconOcticonPencil16: typeof import('~icons/octicon/pencil16.jsx').default
   const IconOcticonPeople16: typeof import('~icons/octicon/people16.jsx').default
   const IconOcticonPlus16: typeof import('~icons/octicon/plus16.jsx').default
+  const IconOcticonReport16: typeof import('~icons/octicon/report16.jsx').default
   const IconOcticonSignOut16: typeof import('~icons/octicon/sign-out16.jsx').default
   const IconOcticonStop16: typeof import('~icons/octicon/stop16.jsx').default
   const IconOcticonSync16: typeof import('~icons/octicon/sync16.jsx').default
@@ -85,4 +88,17 @@ declare global {
   const IconSimpleIconsMastercard: typeof import('~icons/simple-icons/mastercard.jsx').default
   const IconSimpleIconsVisa: typeof import('~icons/simple-icons/visa.jsx').default
   const IconSimpleIconsX: typeof import('~icons/simple-icons/x.jsx').default
+  const IconVscodeIconsFileTypeBun: typeof import('~icons/vscode-icons/file-type-bun.jsx').default
+  const IconVscodeIconsFileTypeDeno: typeof import('~icons/vscode-icons/file-type-deno.jsx').default
+  const IconVscodeIconsFileTypeJs: typeof import('~icons/vscode-icons/file-type-js.jsx').default
+  const IconVscodeIconsFileTypeJson: typeof import('~icons/vscode-icons/file-type-json.jsx').default
+  const IconVscodeIconsFileTypeLightPnpm: typeof import('~icons/vscode-icons/file-type-light-pnpm.jsx').default
+  const IconVscodeIconsFileTypeMarkdown: typeof import('~icons/vscode-icons/file-type-markdown.jsx').default
+  const IconVscodeIconsFileTypeNpm: typeof import('~icons/vscode-icons/file-type-npm.jsx').default
+  const IconVscodeIconsFileTypePnpm: typeof import('~icons/vscode-icons/file-type-pnpm.jsx').default
+  const IconVscodeIconsFileTypePowershell: typeof import('~icons/vscode-icons/file-type-powershell.jsx').default
+  const IconVscodeIconsFileTypeShell: typeof import('~icons/vscode-icons/file-type-shell.jsx').default
+  const IconVscodeIconsFileTypeTypescript: typeof import('~icons/vscode-icons/file-type-typescript.jsx').default
+  const IconVscodeIconsFileTypeYaml: typeof import('~icons/vscode-icons/file-type-yaml.jsx').default
+  const IconVscodeIconsFileTypeYarn: typeof import('~icons/vscode-icons/file-type-yarn.jsx').default
 }

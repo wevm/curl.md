@@ -2,10 +2,11 @@ import MiniSearch from 'minisearch'
 import {
   getCodeFenceMarker,
   isMatchingFenceMarker,
+  normalizeDocSearchHighlightTerms,
   parseMarkdownHeading,
   trimBlankLines,
-} from './-docs-raw.ts'
-import { normalizeDocSearchHighlightTerms, type Heading } from './-docs-shared.ts'
+  type Heading,
+} from './-utils.ts'
 
 export type DocSearchResult =
   | {

@@ -1,7 +1,12 @@
-import { sidebar, type SidebarItem } from '../../../docs/_sidebar.ts'
-import { getDocHeadings, type Doc, type DocPagination, type Heading } from './-docs-shared.ts'
+import { sidebar, type SidebarItem } from '#docs/_sidebar.ts'
 import { createDocsSearch, type DocSearchResult } from './-search.ts'
-import { createDocCopySource } from './-source.ts'
+import {
+  createDocCopySource,
+  getDocHeadings,
+  type Doc,
+  type DocPagination,
+  type Heading,
+} from './-utils.ts'
 
 type DocModule = {
   default: React.ComponentType<{ components?: Record<string, React.ComponentType> }>
