@@ -803,6 +803,13 @@ type DocsLlmsSection = {
   title: string
 }
 
+type DocsStaticFile = {
+  description: string | undefined
+  path: string
+  source: string
+  title: string
+}
+
 export function rewriteGeneratedDocsLinks(source: string) {
   return source.replace(
     /\]\((\/docs(?:\/[^)#?]*)?)(\?[^)#]*)?(#[^)]+)?\)/g,
@@ -878,9 +885,19 @@ async function removeGeneratedDocsStaticAssets() {
 
 async function readDocsStaticFiles() {
   const filePaths = await findDocsMdxFiles(docsDirectoryPath)
-  const docs = await Promise.all(
-    filePaths.map(async (filePath) => {
-      const source = await fs.readFile(filePath, 'utf8')
+  return getPublishedDocsStaticFiles(
+    await Promise.all(
+      filePaths.map(async (filePath) => ({
+        filePath,
+        source: await fs.readFile(filePath, 'utf8'),
+      })),
+    ),
+  )
+}
+
+export function getPublishedDocsStaticFiles(files: Array<{ filePath: string; source: string }>) {
+  return files
+    .map(({ filePath, source }) => {
       const relativePath = path.relative(docsDirectoryPath, filePath)
       const normalizedPath = relativePath.replace(/\\/g, '/').replace(/\.mdx$/, '')
       const docPath = normalizedPath === 'index' ? '' : normalizedPath.replace(/\/index$/, '')
@@ -891,11 +908,9 @@ async function readDocsStaticFiles() {
         path: docPath,
         source: createDocCopySource(source),
         title: getFrontmatterString(frontmatter, 'title') ?? (docPath || 'index'),
-      }
-    }),
-  )
-
-  return docs.sort((a, b) => a.path.localeCompare(b.path))
+      } satisfies DocsStaticFile
+    })
+    .sort((a, b) => a.path.localeCompare(b.path))
 }
 
 async function findDocsMdxFiles(directoryPath: string): Promise<Array<string>> {

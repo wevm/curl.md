@@ -1,6 +1,6 @@
 import { createFileRoute, notFound } from '@tanstack/react-router'
 import * as React from 'react'
-import { findDoc } from './-docs.ts'
+import { findDoc } from './-catalog.ts'
 import { DocsRouteContent, getDocsHead, validateSearch } from './-route.tsx'
 
 export const Route = createFileRoute('/docs/$')({

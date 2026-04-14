@@ -1,26 +1,19 @@
-export type Config = {
-  navbarLinks: Array<
-    | { label: string; to: '/docs' | '/playground' }
-    | {
-        hash: string
-        label: string
-        params: { _splat: string }
-        to: '/docs/$'
-      }
-  >
-  repoBaseUrl: string
-}
+import { linkOptions } from '@tanstack/react-router'
 
 export const config = {
   navbarLinks: [
-    { label: 'Guides', to: '/docs' as const },
-    { label: 'API', to: '/playground' as const },
+    { label: 'Guides', ...linkOptions({ to: '/docs' }) },
+    { label: 'API', ...linkOptions({ to: '/playground' }) },
     {
-      hash: 'cli',
       label: 'CLI',
-      params: { _splat: 'getting_started/installation' },
-      to: '/docs/$' as const,
+      ...linkOptions({
+        hash: 'cli',
+        params: { _splat: 'getting_started/installation' },
+        to: '/docs/$',
+      }),
     },
   ],
   repoBaseUrl: 'https://github.com/wevm/curl.md',
-} satisfies Config
+}
+
+export type Config = typeof config

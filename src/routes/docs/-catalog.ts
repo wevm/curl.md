@@ -40,7 +40,7 @@ const allDocs: Array<Doc> = Object.entries(modules).map(([filePath, mod]) => {
   }
 })
 
-export function findDoc(path: string) {
+export function findDoc(path: string): Doc | undefined {
   return allDocs.find((d) => d.path === path)
 }
 

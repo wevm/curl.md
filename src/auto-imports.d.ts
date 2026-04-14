@@ -50,6 +50,7 @@ declare global {
   const IconOcticonClippy16: typeof import('~icons/octicon/clippy16.jsx').default
   const IconOcticonCopy16: typeof import('~icons/octicon/copy16.jsx').default
   const IconOcticonCreditCard16: typeof import('~icons/octicon/credit-card16.jsx').default
+  const IconOcticonFile: typeof import('~icons/octicon/file.jsx').default
   const IconOcticonGear16: typeof import('~icons/octicon/gear16.jsx').default
   const IconOcticonGitCommit16: typeof import('~icons/octicon/git-commit16.jsx').default
   const IconOcticonGitPullRequest16: typeof import('~icons/octicon/git-pull-request16.jsx').default
@@ -62,6 +63,7 @@ declare global {
   const IconOcticonKey16: typeof import('~icons/octicon/key16.jsx').default
   const IconOcticonLightBulb16: typeof import('~icons/octicon/light-bulb16.jsx').default
   const IconOcticonLinkExternal16: typeof import('~icons/octicon/link-external16.jsx').default
+  const IconOcticonListUnordered24: typeof import('~icons/octicon/list-unordered24.jsx').default
   const IconOcticonMarkGithub16: typeof import('~icons/octicon/mark-github16.jsx').default
   const IconOcticonMarkdown16: typeof import('~icons/octicon/markdown16.jsx').default
   const IconOcticonMeter16: typeof import('~icons/octicon/meter16.jsx').default
@@ -70,6 +72,7 @@ declare global {
   const IconOcticonPeople16: typeof import('~icons/octicon/people16.jsx').default
   const IconOcticonPlus16: typeof import('~icons/octicon/plus16.jsx').default
   const IconOcticonReport16: typeof import('~icons/octicon/report16.jsx').default
+  const IconOcticonSearch16: typeof import('~icons/octicon/search16.jsx').default
   const IconOcticonSignOut16: typeof import('~icons/octicon/sign-out16.jsx').default
   const IconOcticonStop16: typeof import('~icons/octicon/stop16.jsx').default
   const IconOcticonSync16: typeof import('~icons/octicon/sync16.jsx').default

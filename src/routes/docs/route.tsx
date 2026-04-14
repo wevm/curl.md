@@ -2,26 +2,22 @@ import { Combobox } from '@base-ui/react/combobox'
 import { Menu } from '@base-ui/react/menu'
 import { Link, Outlet, createFileRoute, useNavigate } from '@tanstack/react-router'
 import * as React from 'react'
-import { z } from 'zod/v4'
-import IconMaterialSymbolsDarkMode from '~icons/material-symbols/dark-mode.jsx'
-import IconMaterialSymbolsWbSunny from '~icons/material-symbols/wb-sunny.jsx'
-import IconOcticonFile from '~icons/octicon/file.jsx'
-import IconOcticonSearch16 from '~icons/octicon/search-16.jsx'
 import { Dialog } from '#components/Dialog.tsx'
 import { Nav } from '#components/Nav.tsx'
 import { config, type Config } from '#docs/_config.ts'
 import { sidebar, type SidebarItem } from '#docs/_sidebar.ts'
 import { type Theme, useTheme } from '#hooks/useTheme.ts'
 import { getSessionLogin } from '#server/session.ts'
-import { DocSearchPreview } from './-doc.tsx'
-import { findDoc, searchDocs } from './-docs.ts'
+import { findDoc, searchDocs } from './-catalog.ts'
+import { DocSearchPreview } from './-render.tsx'
+import { validateSearch } from './-route.tsx'
 import type { DocSearchResult } from './-search.ts'
 import { docSearchHighlightClassName, getDocSearchHighlightRanges, type Doc } from './-utils.ts'
-import docsCssHref from './docs.css?url'
+import stylesCssHref from './styles.css?url'
 
 export const Route = createFileRoute('/docs')({
   head: () => ({
-    links: [{ href: docsCssHref, rel: 'stylesheet' }],
+    links: [{ href: stylesCssHref, rel: 'stylesheet' }],
   }),
   async loader({ location }) {
     return {
@@ -29,9 +25,7 @@ export const Route = createFileRoute('/docs')({
       next: location.publicHref ?? location.pathname,
     }
   },
-  validateSearch: z.object({
-    q: z.string().optional(),
-  }),
+  validateSearch,
   component: Component,
 })
 

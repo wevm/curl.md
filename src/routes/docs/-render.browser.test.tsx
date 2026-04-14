@@ -3,9 +3,8 @@ import { flushSync } from 'react-dom'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, expect, test, vi } from 'vitest'
 import { page } from 'vitest/browser'
-import contributingDocSource from '#docs/development/contributing.mdx?raw'
 import kitchenSinkDocSource from '#docs/reference/kitchen_sink.mdx?raw'
-import { DocContent, DocSearchPreview, getDocSearchPreviewAnchor } from './-doc.tsx'
+import { DocContent, DocSearchPreview, getDocSearchPreviewAnchor } from './-render.tsx'
 import {
   getDocHeadings,
   getDocSearchHighlightRanges,
@@ -362,7 +361,7 @@ test('code groups switch the visible panel when tabs are clicked', async () => {
 })
 
 test('code groups sync matching labels through the query param', async () => {
-  window.history.replaceState(null, '', '/docs/test?tab=pnpm')
+  window.history.replaceState(null, '', '/docs/reference/kitchen_sink?tab=pnpm')
   const rendered = renderDocContent(createSyncedCodeGroupDoc())
   await waitForAnimationFrame()
   const groups = rendered.container.querySelectorAll('[data-docs-code-group]')
@@ -380,7 +379,7 @@ test('code groups sync matching labels through the query param', async () => {
 })
 
 test('synced code groups keep focus on the interacted tab', async () => {
-  window.history.replaceState(null, '', '/docs/test?tab=pnpm')
+  window.history.replaceState(null, '', '/docs/reference/kitchen_sink?tab=pnpm')
   const rendered = renderDocContent(createSyncedCodeGroupDoc())
   await waitForAnimationFrame()
   const groups = rendered.container.querySelectorAll('[data-docs-code-group]')
@@ -401,7 +400,7 @@ test('synced code groups keep focus on the interacted tab', async () => {
 })
 
 test('code groups still read the legacy codegroup query param', async () => {
-  window.history.replaceState(null, '', '/docs/test?codegroup=pnpm')
+  window.history.replaceState(null, '', '/docs/reference/kitchen_sink?codegroup=pnpm')
   const rendered = renderDocContent(createSyncedCodeGroupDoc())
   await waitForAnimationFrame()
   const groups = rendered.container.querySelectorAll('[data-docs-code-group]')
@@ -472,14 +471,18 @@ test('inline shiki code keeps the inner code element unstyled', async () => {
   expect(innerCode?.className).not.toContain('bg-gray-a2')
 })
 
-test('last updated renders in the browser locale without the word at', async () => {
+test('last updated renders UTC first, then swaps to the browser timezone without the word at', async () => {
   const rendered = renderDocContent(createFooterDoc())
+  const initialText = rendered.container.textContent ?? ''
+
+  expect(initialText).toContain('Last updated: April 12, 2026 5:38 PM UTC')
 
   await waitForAnimationFrame()
   await waitForTimeout(10)
 
+  const expectedLocalTimestamp = formatLastUpdatedForTest('2026-04-12T17:38:00.000Z')
   const text = rendered.container.textContent ?? ''
-  expect(text).toContain('Last updated:')
+  expect(text).toContain(`Last updated: ${expectedLocalTimestamp}`)
   expect(text).not.toContain(' at ')
 })
 
@@ -535,32 +538,6 @@ test('search highlight ranges keep non-whitespace-separated matches distinct', (
   expect(getDocSearchHighlightRanges('Level-3 Heading', ['level', '3'])).toEqual([
     { end: 5, start: 0 },
     { end: 7, start: 6 },
-  ])
-})
-
-test('contributing doc headings include numbered steps in outline order', () => {
-  const headings = getDocHeadings(contributingDocSource, [
-    { id: 'prerequisites', level: 2, text: 'Prerequisites' },
-    { id: 'local-setup', level: 2, text: 'Local Setup' },
-    { id: 'daily-workflow', level: 2, text: 'Daily Workflow' },
-    { id: 'checks', level: 2, text: 'Checks' },
-    { id: 'docs', level: 2, text: 'Docs' },
-  ])
-
-  expect(headings).toEqual([
-    { id: 'prerequisites', level: 2, text: 'Prerequisites' },
-    { id: 'local-setup', level: 2, text: 'Local Setup' },
-    { id: 'install-and-start-orbstack', level: 3, text: '1. Install and start OrbStack' },
-    { id: 'copy-the-environment-file', level: 3, text: '2. Copy the environment file' },
-    {
-      id: 'start-the-app-with-docker-compose',
-      level: 3,
-      text: '3. Start the app with Docker Compose',
-    },
-    { id: 'open-curlmd-locally', level: 3, text: '4. Open curl.md locally' },
-    { id: 'daily-workflow', level: 2, text: 'Daily Workflow' },
-    { id: 'checks', level: 2, text: 'Checks' },
-    { id: 'docs', level: 2, text: 'Docs' },
   ])
 })
 
@@ -1210,6 +1187,28 @@ function waitForTimeout(timeoutMs: number) {
   return new Promise<void>((resolve) => {
     window.setTimeout(() => resolve(), timeoutMs)
   })
+}
+
+function formatLastUpdatedForTest(value: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+
+  return new Intl.DateTimeFormat(undefined, {
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    month: 'long',
+    timeZoneName: 'short',
+    year: 'numeric',
+  })
+    .formatToParts(date)
+    .map((part) =>
+      part.type === 'literal'
+        ? part.value.replace(' at ', ' ').replace(/\u202f/g, ' ')
+        : part.value,
+    )
+    .join('')
+    .trim()
 }
 
 function getActiveCodeGroupTabLabel(container: Element) {

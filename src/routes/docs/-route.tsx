@@ -1,8 +1,8 @@
 import * as React from 'react'
 import { z } from 'zod/v4'
 import { rpc } from '#lib/rpc.ts'
-import { DocContent } from './-doc.tsx'
-import { findDoc, findDocPagination } from './-docs.ts'
+import { findDoc, findDocPagination } from './-catalog.ts'
+import { DocContent } from './-render.tsx'
 
 export const validateSearch = z.object({
   q: z.string().optional(),

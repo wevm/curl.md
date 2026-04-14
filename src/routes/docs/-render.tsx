@@ -26,6 +26,7 @@ export function DocContent(props: {
   } = props
   const { copied, copy } = useCopyToClipboard({ content: doc.source })
   const [activeHeadingId, setActiveHeadingId] = React.useState<string | undefined>(undefined)
+  const [hydrated, setHydrated] = React.useState(false)
   const [mobileOutlineOpen, setMobileOutlineOpen] = React.useState(false)
   const mobileOutlineContentRef = React.useRef<HTMLDivElement>(null)
   const honorHashUntilRef = React.useRef(0)
@@ -33,7 +34,12 @@ export function DocContent(props: {
   const hasPagination = Boolean(pagination.previous || pagination.next)
   const activeHeading = doc.headings.find((heading) => heading.id === activeHeadingId)
   const editHref = `${config.repoBaseUrl}/edit/main/${doc.sourcePath}`
-  const lastUpdatedLabel = doc.lastUpdated ? formatLastUpdated(doc.lastUpdated) : undefined
+  const lastUpdatedLabel = doc.lastUpdated
+    ? formatLastUpdated(
+        doc.lastUpdated,
+        hydrated ? undefined : { locale: 'en-US', timeZone: 'UTC' },
+      )
+    : undefined
   const mdxComponents = React.useMemo(
     () => createMdxComponents({ copied, copyPage: copy }),
     [copied, copy],
@@ -54,6 +60,10 @@ export function DocContent(props: {
     },
     [setHashOverride],
   )
+
+  React.useEffect(() => {
+    setHydrated(true)
+  }, [])
 
   React.useEffect(() => {
     // Keep the shared tab store aligned with the URL for copied links and back/forward.
@@ -163,7 +173,7 @@ export function DocContent(props: {
       <div className="mx-auto grid w-full max-w-[76rem] grid-cols-1 lg:grid-cols-[minmax(0,56rem)_16rem] lg:gap-12">
         {hasHeadings && (
           <div
-            className="bg-bg1 border-gray-a3 sticky top-17 z-30 w-full border-b md:[margin-inline:0] md:mx-0 md:[margin-inline-start:-3rem] md:[inline-size:calc(100%+3rem)] lg:hidden"
+            className="bg-bg1 border-gray-a3 sticky top-17 z-30 w-full border-b md:[margin-inline:0] md:[margin-inline-start:-3rem] md:[inline-size:calc(100%+3rem)] lg:hidden"
             data-mobile-doc-outline-bar=""
           >
             <div
@@ -182,26 +192,15 @@ export function DocContent(props: {
                       data-mobile-doc-outline-trigger=""
                     >
                       <span>On this page</span>
-                      <svg
-                        aria-hidden="true"
+                      <IconOcticonChevronRight16
+                        aria-hidden
                         className={[
                           'size-3.5 shrink-0',
                           mobileOutlineOpen ? 'rotate-90' : undefined,
                         ]
                           .filter(Boolean)
                           .join(' ')}
-                        fill="none"
-                        viewBox="0 0 16 16"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <path
-                          d="m6 4 4 4-4 4"
-                          stroke="currentColor"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="1.5"
-                        />
-                      </svg>
+                      />
                     </Menu.Trigger>
                   </div>
 
@@ -328,18 +327,7 @@ export function DocContent(props: {
             {hasHeadings && (
               <>
                 <div className="text-gray8 flex items-center gap-2 text-xs font-medium tracking-wide uppercase">
-                  <svg
-                    aria-hidden="true"
-                    className="size-3.5 shrink-0"
-                    fill="none"
-                    viewBox="0 0 16 16"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <circle cx="3" cy="4" fill="currentColor" r="1.25" />
-                    <circle cx="3" cy="8" fill="currentColor" r="1.25" />
-                    <circle cx="3" cy="12" fill="currentColor" r="1.25" />
-                    <path d="M6 4h7M6 8h7M6 12h7" stroke="currentColor" strokeLinecap="round" />
-                  </svg>
+                  <IconOcticonListUnordered24 aria-hidden className="size-4 shrink-0" />
                   <p>On this page</p>
                 </div>
                 <DesktopDocOutline
@@ -1307,19 +1295,25 @@ function getDocHref(path: string) {
   return path ? `/docs/${path}` : '/docs'
 }
 
-function formatLastUpdated(value: string) {
+function formatLastUpdated(value: string, options?: { locale?: string; timeZone?: string }) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value
 
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat(options?.locale, {
     day: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
     month: 'long',
+    timeZoneName: 'short',
+    ...(options?.timeZone ? { timeZone: options.timeZone } : {}),
     year: 'numeric',
   })
     .formatToParts(date)
-    .map((part) => (part.type === 'literal' ? part.value.replace(' at ', ' ') : part.value))
+    .map((part) =>
+      part.type === 'literal'
+        ? part.value.replace(' at ', ' ').replace(/\u202f/g, ' ')
+        : part.value,
+    )
     .join('')
     .trim()
 }
