@@ -1,5 +1,11 @@
 # curl.md
 
+## 0.0.16
+
+### Patch Changes
+
+- Added `request list` and `request view` commands ([`98f62c7`](https://github.com/wevm/curl.md/commit/98f62c7304c930b76962e6d3320c554baec62818))
+
 ## 0.0.15
 
 ### Patch Changes

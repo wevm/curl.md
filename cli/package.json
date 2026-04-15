@@ -1,6 +1,6 @@
 {
   "name": "curl.md",
-  "version": "0.0.15",
+  "version": "0.0.16",
   "description": "URL to markdown for agents",
   "contributors": [
     "awkweb.eth <t@wevm.dev>",

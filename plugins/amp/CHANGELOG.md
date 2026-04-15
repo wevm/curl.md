@@ -1,5 +1,12 @@
 # @curl.md/amp
 
+## 0.0.4
+
+### Patch Changes
+
+- Updated dependencies [[`98f62c7`](https://github.com/wevm/curl.md/commit/98f62c7304c930b76962e6d3320c554baec62818)]:
+  - curl.md@0.0.16
+
 ## 0.0.3
 
 ### Patch Changes

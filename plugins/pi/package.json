@@ -1,6 +1,6 @@
 {
   "name": "@curl.md/pi",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "curl.md Pi extension",
   "contributors": [
     "awkweb.eth <t@wevm.dev>",
