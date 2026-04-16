@@ -1,5 +1,14 @@
 # @curl.md/amp
 
+## 0.0.6
+
+### Patch Changes
+
+- Updated README ([`7f593b2`](https://github.com/wevm/curl.md/commit/7f593b27b0e9563581e23209c12d6f3d04a58776))
+
+- Updated dependencies [[`7f593b2`](https://github.com/wevm/curl.md/commit/7f593b27b0e9563581e23209c12d6f3d04a58776)]:
+  - curl.md@0.0.18
+
 ## 0.0.5
 
 ### Patch Changes
