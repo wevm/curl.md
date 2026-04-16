@@ -25,6 +25,7 @@
     "gen:fixtures:md:rules": "node --experimental-strip-types scripts/updateMdRulesFixtures.ts",
     "gen:types": "cp -n .env.example .env 2>/dev/null; wrangler types src/worker-configuration.d.ts && node --experimental-strip-types scripts/updateWranglerTypes.ts && pnpm --filter curl.md gen:types",
     "md": "CURLMD_BASE_URL=https://curl.local NODE_TLS_REJECT_UNAUTHORIZED=0 node --experimental-strip-types --no-warnings cli/src/bin.ts",
+    "opencode": "node --experimental-strip-types --no-warnings scripts/opencode.ts",
     "pi": "CURLMD_BASE_URL=https://curl.local NODE_TLS_REJECT_UNAUTHORIZED=0 pi -e plugins/pi/extensions/index.ts",
     "preconstruct": "node --experimental-strip-types scripts/preconstruct.ts",
     "preinstall": "pnpx only-allow pnpm",

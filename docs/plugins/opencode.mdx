@@ -5,10 +5,55 @@ description: Install and use curl.md with OpenCode
 
 # OpenCode
 
-:::important Work in progress
-There is no first-party OpenCode integration yet. For now, use the [CLI](/docs/guide/cli) or [API & SDK](/docs/guide/api) alongside OpenCode, and follow progress in the [GitHub repo](https://github.com/wevm/curl.md).
-:::
+Experimental first-party [OpenCode](https://opencode.ai) plugin scaffold for `curl.md`.
 
-:::tip Current workaround
-Install the [CLI](/docs/guide/cli), then tell OpenCode to use `curl.md` or `md` to fetch and narrow web pages before continuing.
-:::
+It exposes a native `md_fetch` tool and rewrites OpenCode's built-in `webfetch` tool description to steer the model toward `md_fetch`, which uses `curl.md`'s lower-token markdown output.
+
+## Local development
+
+Run the local launcher from this repo:
+
+```sh
+$ pnpm opencode
+```
+
+That script writes a project-local plugin shim to `.opencode/plugins/curlmd.ts`, points it at [`plugins/opencode/plugin.ts`](https://github.com/wevm/curl.md/tree/main/plugins/opencode), and launches `opencode` with the local `https://curl.local` development defaults.
+
+## What the plugin looks like
+
+OpenCode plugins export a `server` function that returns hooks. The `curl.md` scaffold registers `md_fetch` and redirects built-in `webfetch` usage toward it:
+
+```ts
+import { type Plugin, tool } from '@opencode-ai/plugin'
+
+export const server: Plugin = async () => ({
+  'tool.definition': async (input, output) => {
+    if (input.toolID !== 'webfetch') return
+    output.description = 'Deprecated in this project. Use md_fetch instead.'
+  },
+  tool: {
+    md_fetch: tool({
+      description: 'Fetch a page via curl.md and return markdown optimized for coding agents.',
+      args: {
+        url: tool.schema.string(),
+      },
+      async execute(args) {
+        return '...'
+      },
+    }),
+  },
+})
+```
+
+## Usage
+
+Once OpenCode is running with the plugin loaded, `webfetch` prompts should be steered toward `md_fetch`. You can still call it explicitly:
+
+```text
+Use md_fetch to read the curl.md OpenCode plugin docs and summarize how it works.
+https://curl.md/docs/plugins/opencode
+```
+
+## Source
+
+https://github.com/wevm/curl.md/tree/main/plugins/opencode

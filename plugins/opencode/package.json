@@ -1,0 +1,39 @@
+{
+  "name": "@curl.md/opencode",
+  "version": "0.0.0",
+  "description": "curl.md plugin for OpenCode",
+  "contributors": [
+    "awkweb.eth <t@wevm.dev>",
+    "jxom.eth <j@wevm.dev>"
+  ],
+  "funding": "https://github.com/sponsors/wevm",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wevm/curl.md.git",
+    "directory": "plugins/opencode"
+  },
+  "keywords": [
+    "curl.md",
+    "markdown",
+    "opencode"
+  ],
+  "exports": {
+    ".": {
+      "types": "./plugin.ts",
+      "default": "./plugin.ts"
+    }
+  },
+  "files": [
+    "README.md",
+    "plugin.ts"
+  ],
+  "type": "module",
+  "scripts": {
+    "check:types": "tsgo --noEmit"
+  },
+  "dependencies": {
+    "@opencode-ai/plugin": "1.4.6",
+    "curl.md": "workspace:*"
+  }
+}

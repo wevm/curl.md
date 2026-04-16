@@ -136,6 +136,13 @@ export default defineConfig({
       },
       {
         test: {
+          name: 'plugins:opencode',
+          include: ['plugins/opencode/**/*.test.ts'],
+          root,
+        },
+      },
+      {
+        test: {
           name: 'plugins:pi',
           include: ['plugins/pi/**/*.test.ts'],
           root,

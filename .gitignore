@@ -1,4 +1,5 @@
 /.amp
+/.opencode
 .env*
 .vite
 !.env.example

@@ -62,11 +62,13 @@ Use these scripts to exercise the shipped CLI and plugin entrypoints against you
 
 ```sh
 $ pnpm md example.com
+$ pnpm opencode
 $ pnpm pi
 $ pnpm amp
 ```
 
 - `pnpm md` runs the local CLI against `https://curl.local`
+- `pnpm opencode` writes a local OpenCode plugin shim into `.opencode/plugins/curlmd.ts` and launches OpenCode from the repo root
 - `pnpm pi` starts Pi with the local extension entrypoint in `plugins/pi/extensions/index.ts`
 - `pnpm amp` symlinks the local Amp plugin into `.amp/plugins/curlmd.ts` and launches Amp with `PLUGINS=all`
 
@@ -76,6 +78,7 @@ Use scoped Vitest projects while iterating, then run the broader set that matche
 
 ```sh
 $ pnpm test --project cli
+$ pnpm test --project plugins:opencode
 $ pnpm test --project plugins:pi
 $ pnpm test --project plugins:amp
 $ pnpm test --project app --project md --project workers
@@ -123,7 +126,7 @@ If your change affects a published package or release notes, add a changeset.
 $ pnpm changeset
 ```
 
-That creates a markdown file in `.changeset/` where you select the package and bump type. In this repo, that commonly means `curl.md`, `@curl.md/pi`, or `@curl.md/amp`.
+That creates a markdown file in `.changeset/` where you select the package and bump type. In this repo, that commonly means `curl.md`, `@curl.md/amp`, `@curl.md/opencode`, or `@curl.md/pi`.
 
 Docs-only or purely local dev changes usually do not need a changeset.
 
