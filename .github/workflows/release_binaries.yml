@@ -66,6 +66,14 @@ jobs:
           codesign --remove-signature "${{ matrix.artifact }}" || true
           codesign -s - "${{ matrix.artifact }}"
 
+      - name: Verify macOS signature
+        if: startsWith(matrix.target, 'bun-darwin-')
+        run: codesign --verify --verbose=4 "${{ matrix.artifact }}"
+
+      - name: Verify binary runs
+        if: matrix.os != 'ubuntu-latest' || !endsWith(matrix.artifact, '.exe')
+        run: ./"${{ matrix.artifact }}" --version
+
       - name: Generate checksum
         run: shasum -a 256 "${{ matrix.artifact }}" | cut -d' ' -f1 > "${{ matrix.artifact }}.sha256"
 

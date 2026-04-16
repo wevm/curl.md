@@ -19,6 +19,7 @@ execFileSync('amp', process.argv.slice(2), {
   cwd: root,
   env: {
     ...process.env,
+    AI_AGENT: process.env.AI_AGENT || 'amp',
     CURLMD_BASE_URL: process.env.CURLMD_BASE_URL || 'https://curl.local',
     NODE_TLS_REJECT_UNAUTHORIZED: process.env.NODE_TLS_REJECT_UNAUTHORIZED || '0',
     PLUGINS: process.env.PLUGINS || 'all',

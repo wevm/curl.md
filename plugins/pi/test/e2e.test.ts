@@ -5,8 +5,24 @@ import path from 'node:path'
 import { discoverAndLoadExtensions } from '@mariozechner/pi-coding-agent'
 import { defaultBaseUrl } from 'curl.md'
 import { HttpResponse, http, passthrough } from 'msw'
-import { expect, test } from 'vitest'
+import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { server } from './server.ts'
+
+let defaultHomeDir: string
+
+beforeEach(() => {
+  defaultHomeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'curlmd-pi-e2e-'))
+  vi.stubEnv('CURLMD_API_KEY', '')
+  vi.stubEnv('CURLMD_BASE_URL', '')
+  vi.stubEnv('HOME', defaultHomeDir)
+  vi.stubEnv('XDG_CONFIG_HOME', path.join(defaultHomeDir, '.config'))
+  vi.stubEnv('XDG_DATA_HOME', path.join(defaultHomeDir, '.local', 'share'))
+})
+
+afterEach(() => {
+  vi.unstubAllEnvs()
+  fs.rmSync(defaultHomeDir, { force: true, recursive: true })
+})
 
 test('loads the md Pi extension package in RPC mode', async () => {
   const rpc = startPiRpc({

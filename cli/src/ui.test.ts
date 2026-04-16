@@ -64,6 +64,25 @@ test('table: ANSI-styled cells do not break alignment', () => {
   Object.defineProperty(process.stdout, 'isTTY', { value: originalIsTTY, writable: true })
 })
 
+test('table: alignEnd right-aligns a specified column', () => {
+  Object.defineProperty(process.stdout, 'isTTY', { value: true, writable: true })
+  const result = strip(
+    table(
+      ['Item', 'Cost Saved'],
+      [
+        ['foo', '$1'],
+        ['bar', '$12.34'],
+      ],
+      { alignEnd: [1] },
+    ),
+  )
+  const lines = result.split('\n')
+  expect(lines[0]).toBe('ITEM  COST SAVED')
+  expect(lines[1]).toBe('foo           $1')
+  expect(lines[2]).toBe('bar       $12.34')
+  Object.defineProperty(process.stdout, 'isTTY', { value: originalIsTTY, writable: true })
+})
+
 test('table: truncates columns to fit terminal width', () => {
   Object.defineProperty(process.stdout, 'isTTY', { value: true, writable: true })
   const original = process.stdout.columns

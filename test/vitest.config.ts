@@ -2,6 +2,7 @@ import path from 'node:path'
 import { cloudflareTest } from '@cloudflare/vitest-pool-workers'
 import react from '@vitejs/plugin-react'
 import { playwright } from '@vitest/browser-playwright'
+import { isAgent } from 'std-env'
 import autoImport from 'unplugin-auto-import/vite'
 import { FileSystemIconLoader } from 'unplugin-icons/loaders'
 import iconsResolver from 'unplugin-icons/resolver'
@@ -10,11 +11,13 @@ import { defineConfig } from 'vitest/config'
 import { Env } from './env.ts'
 
 const root = path.resolve(import.meta.dirname, '..')
-const brandIconsDir = path.resolve(root, 'config/icons/brand')
+
+const reporters = [isAgent ? 'agent' : 'default']
+if (process.env.GITHUB_ACTIONS === 'true') reporters.push('github-actions')
 
 export default defineConfig({
   test: {
-    reporters: process.env.CI ? ['default', 'github-actions'] : ['default'],
+    reporters,
     projects: [
       {
         test: {
@@ -83,7 +86,9 @@ export default defineConfig({
         plugins: [
           icons({
             compiler: 'jsx',
-            customCollections: { brand: FileSystemIconLoader(brandIconsDir) },
+            customCollections: {
+              brand: FileSystemIconLoader(path.resolve(root, 'config/icons/brand')),
+            },
             jsx: 'react',
           }),
           autoImport({

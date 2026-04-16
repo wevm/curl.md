@@ -108,6 +108,7 @@
     "remark-mdx-frontmatter": "^5.2.0",
     "shiki": "^4.0.2",
     "simple-git-hooks": "^2.13.1",
+    "std-env": "^4.0.0",
     "tailwindcss": "^4.2.2",
     "testcontainers": "^11.13.0",
     "tiny-jsonc": "^1.0.2",

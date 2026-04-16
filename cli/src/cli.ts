@@ -1793,12 +1793,6 @@ const request = Cli.create('request', {
 
       const costSavedValues = json.requests.map((req) => `$${formatCost(req.tokens_saved, 3)}`)
       const savedValues = json.requests.map((req) => req.tokens_saved.toLocaleString())
-      const costSavedWidth = process.stdout.isTTY
-        ? Math.max(...costSavedValues.map((value) => value.length))
-        : 0
-      const savedWidth = process.stdout.isTTY
-        ? Math.max(...savedValues.map((value) => value.length))
-        : 0
 
       const rows = json.requests.map((req, index) => [
         pc.green(req.id),
@@ -1812,18 +1806,15 @@ const request = Cli.create('request', {
           ].filter(Boolean)
           return flags.length ? flags.join(' ') : pc.dim('-')
         })(),
-        pc.dim(
-          process.stdout.isTTY ? savedValues[index]!.padStart(savedWidth) : savedValues[index]!,
-        ),
-        pc.dim(
-          process.stdout.isTTY
-            ? costSavedValues[index]!.padStart(costSavedWidth)
-            : costSavedValues[index]!,
-        ),
+        pc.dim(savedValues[index]!),
+        pc.dim(costSavedValues[index]!),
       ])
 
       return c.ok(
-        UI.table(['id', 'time', 'url', 'flags', 'saved', 'cost saved'], rows, { noTruncate: [0] }),
+        UI.table(['id', 'time', 'url', 'flags', 'saved', 'cost saved'], rows, {
+          alignEnd: [4, 5],
+          noTruncate: [0],
+        }),
       )
     },
   })

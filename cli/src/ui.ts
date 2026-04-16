@@ -25,7 +25,7 @@ export function wrapAnsiValue(value: string, width: number, indent: number) {
 export function table(
   headers: string[],
   rows: string[][],
-  options?: { noTruncate?: number[] },
+  options?: { alignEnd?: number[]; noTruncate?: number[] },
 ): string {
   if (!process.stdout.isTTY) return rows.map((row) => row.map(stripAnsi).join('\t')).join('\n')
 
@@ -42,6 +42,7 @@ export function table(
   let availableWidth = termWidth - totalGaps
 
   const noTruncate = new Set(options?.noTruncate ?? [])
+  const alignEnd = new Set(options?.alignEnd ?? [])
   const locked = new Set<number>()
 
   // Pass 1 — Lock noTruncate columns
@@ -135,9 +136,11 @@ export function table(
       if (stripAnsi(collapsed).length <= maxW) fitted = collapsed
       else fitted = truncateAnsi(cell, maxW - 3) + '\x1b[0m...'
     }
-    if (isLast) return fitted
     const pad = maxW - stripAnsi(fitted).length
-    return fitted + ' '.repeat(Math.max(0, pad))
+    const padding = ' '.repeat(Math.max(0, pad))
+    if (alignEnd.has(i)) return `${padding}${fitted}`
+    if (isLast) return fitted
+    return fitted + padding
   }
 
   const headerLine = headers
