@@ -1,5 +1,11 @@
 # curl.md
 
+## 0.0.17
+
+### Patch Changes
+
+- Fixed internal dependency issue. ([`fdab94b`](https://github.com/wevm/curl.md/commit/fdab94b92591539ae649e50aeead43f49aab3622))
+
 ## 0.0.16
 
 ### Patch Changes
