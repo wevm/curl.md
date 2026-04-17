@@ -1,5 +1,11 @@
 # @curl.md/pi
 
+## 0.0.5
+
+### Patch Changes
+
+- Updated internals ([#53](https://github.com/wevm/curl.md/pull/53))
+
 ## 0.0.4
 
 ### Patch Changes

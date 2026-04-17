@@ -1,6 +1,6 @@
 {
   "name": "@curl.md/opencode",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "curl.md plugin for OpenCode",
   "contributors": [
     "awkweb.eth <t@wevm.dev>",

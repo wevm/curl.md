@@ -1,5 +1,11 @@
 # @curl.md/amp
 
+## 0.0.7
+
+### Patch Changes
+
+- Updated internals ([#53](https://github.com/wevm/curl.md/pull/53))
+
 ## 0.0.6
 
 ### Patch Changes
