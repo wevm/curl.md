@@ -62,15 +62,15 @@ Use these scripts to exercise the shipped CLI and plugin entrypoints against you
 
 ```sh
 $ pnpm md example.com
+$ pnpm amp
 $ pnpm opencode
 $ pnpm pi
-$ pnpm amp
 ```
 
 - `pnpm md` runs the local CLI against `https://curl.local`
+- `pnpm amp` symlinks the local Amp plugin into `.amp/plugins/curlmd.ts` and launches Amp with `PLUGINS=all`
 - `pnpm opencode` writes a local OpenCode plugin shim into `.opencode/plugins/curlmd.ts` and launches OpenCode from the repo root
 - `pnpm pi` starts Pi with the local extension entrypoint in `plugins/pi/extensions/index.ts`
-- `pnpm amp` symlinks the local Amp plugin into `.amp/plugins/curlmd.ts` and launches Amp with `PLUGINS=all`
 
 ## Testing
 
