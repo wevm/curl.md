@@ -1270,19 +1270,27 @@ function CodeGroupItem(props: React.PropsWithChildren<{ label?: string }>) {
   return <>{children}</>
 }
 
-function CodeGroupTabIcon(props: { label: string }) {
-  const icon = getCodeGroupTabIcon(props.label)
+function CodeGroupTabIcon(props: { label: string; language?: string | undefined }) {
+  const icon = getCodeGroupTabIcon(props.label, props.language)
   if (!icon) return null
 
   if (icon === codeGroupTabIcons.pnpm) return <CodeGroupPnpmIcon />
 
-  return <icon.Component aria-hidden className="size-4 shrink-0" />
+  return (
+    <icon.Component
+      aria-hidden
+      className={['size-4 shrink-0', 'className' in icon ? icon.className : undefined]
+        .filter(Boolean)
+        .join(' ')}
+    />
+  )
 }
 
 function DocsCodeBlock(props: React.ComponentProps<'pre'> & { preview?: boolean }) {
   const { children, className, preview = false, style, title, ...rest } = props
   const backgroundColor =
     typeof style?.backgroundColor === 'string' ? style.backgroundColor : 'var(--color-docs-surface)'
+  const language = React.useMemo(() => getCodeElementLanguage(getCodeElement(children)), [children])
   const promptShellBlock = hasPromptShellBlock(children, props)
   const promptShellLines = React.useMemo(
     () => getPromptShellLines(children, promptShellBlock),
@@ -1337,7 +1345,7 @@ function DocsCodeBlock(props: React.ComponentProps<'pre'> & { preview?: boolean 
               .filter(Boolean)
               .join(' ')}
           >
-            <CodeGroupTabIcon label={label} />
+            <CodeGroupTabIcon label={label} language={language} />
             <span className="truncate">{label}</span>
           </span>
         </div>
@@ -2004,8 +2012,16 @@ function clearDocSearchPreviewHighlights(container: HTMLElement) {
   container.normalize()
 }
 
-function getCodeGroupTabIcon(label: string) {
+function getCodeGroupTabIcon(label: string, language?: string) {
   const normalized = label.trim().toLowerCase()
+  if (language === 'json' && normalized.endsWith('/.pi/agent/settings.json')) return piCodeIcon
+
+  if (
+    (language === 'json' || language === 'jsonc') &&
+    (normalized.endsWith('opencode.json') || normalized.endsWith('opencode.jsonc'))
+  )
+    return opencodeCodeIcon
+
   if (normalized in codeGroupTabIcons)
     return codeGroupTabIcons[normalized as keyof typeof codeGroupTabIcons]
 
@@ -2015,6 +2031,9 @@ function getCodeGroupTabIcon(label: string) {
 
   return undefined
 }
+
+const opencodeCodeIcon = { className: 'scale-90', Component: IconBrandOpencode } as const
+const piCodeIcon = { className: 'scale-125', Component: IconBrandPi } as const
 
 function getDocsCardIcon(icon: string | undefined) {
   if (!icon) return undefined

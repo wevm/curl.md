@@ -5,9 +5,7 @@ description: Install and use curl.md with OpenCode
 
 # OpenCode
 
-Experimental first-party [OpenCode](https://opencode.ai) plugin scaffold that adds `curl_md` tool support.
-
-By default it registers a native `curl_md` tool that fetches pages through `curl.md` and returns lower-token markdown optimized for coding agents. If you opt in with `webfetch: true`, it also overrides OpenCode's built-in `webfetch` tool.
+First-party [OpenCode](https://opencode.ai) plugin that adds curl.md support to the built-in `webfetch` tool as well as a specific `curl_md` tool.
 
 ## Quick Start
 
@@ -23,9 +21,11 @@ Install the [`@curl.md/opencode`](https://www.npmjs.com/package/@curl.md/opencod
 $ opencode plugin @curl.md/opencode
 ```
 
-This adds `@curl.md/opencode` to your OpenCode config so OpenCode installs it automatically with Bun at startup.
+This adds `@curl.md/opencode` to your OpenCode config so OpenCode installs it automatically at startup.
 
 ### Start OpenCode
+
+Run OpenCode just like you normally do.
 
 ```sh
 $ opencode
@@ -33,15 +33,18 @@ $ opencode
 
 ### Use OpenCode
 
-Now that OpenCode is running with the curl.md plugin, all you need to do is use OpenCode.
-
-To confirm everything is set up correctly, try this out:
+Now that OpenCode is running with the curl.md plugin, all you need to do is use OpenCode. To confirm everything is set up correctly, try this out:
 
 ```text
-Use curl_md to read the curl.md OpenCode plugin docs and summarize how it works.
+Read the curl.md OpenCode plugin docs and summarize how it works.
 https://curl.md/docs/plugins/opencode
 ```
 
+OpenCode will automatically use curl.md to turn URLs (you give it or it decides to fetch on its own) into markdown.
+
+:::tip
+Optionally, [authenticate](#authenticate) with the [curl.md CLI](/docs/guide/cli) to unlock higher usage limits and features, like [objective extraction](#TODO).
+:::
 ::::
 
 ## Install
@@ -58,46 +61,53 @@ If you want to install it in your global OpenCode config instead of the current 
 $ opencode plugin @curl.md/opencode --global
 ```
 
-OpenCode installs npm plugins automatically using Bun at startup.
+If you prefer to edit config manually, add the package to your `opencode.json`:
 
-If you prefer to edit config manually, add the package to `opencode.json`:
-
-```json
+```json title="~/.config/opencode/opencode.json"
 {
   "$schema": "https://opencode.ai/config.json",
   "plugin": ["@curl.md/opencode"]
 }
 ```
 
-To also override OpenCode's built-in `webfetch`, pass a plugin option:
+## Configuration
 
-```json
+| Option     | Type      | Default | Description                                                |
+| ---------- | --------- | ------- | ---------------------------------------------------------- |
+| `webfetch` | `boolean` | `true`  | Override built-in `webfetch` so it routes through curl.md. |
+
+:::note
+By default, the plugin overrides the built-in `webfetch` tool to ensure maximum curl.md usage. If you want to keep `curl_md`, but disable the built-in `webfetch` override, pass a plugin option:
+
+```json title="~/.config/opencode/opencode.json"
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugin": [["@curl.md/opencode", { "webfetch": true }]]
+  "plugin": [["@curl.md/opencode", { "webfetch": false }]]
 }
 ```
 
+:::
+
 ## Usage
 
-Ask for a page directly, paste links, or explicitly tell OpenCode to call `curl_md`.
+Ask for a page, paste links, or let OpenCode figure out what it needs to fetch.
 
 ### Prompting
 
 Inside OpenCode, prompt like you normally would, for example:
 
 ```text
-Use curl_md to read the Cloudflare Agents docs and summarize the core concepts.
+Read the Cloudflare Agents docs and summarize the core concepts.
 https://developers.cloudflare.com/agents
 ```
 
-In this example, OpenCode will use curl.md to fetch the page and return markdown optimized for coding agents.
+In this example, OpenCode will use curl.md to fetch the page and return markdown optimized for agents.
 
-If you enable `webfetch: true`, you can also prompt with `webfetch` and let the plugin override OpenCode's built-in tool.
+You can also tell OpenCode to use a specific [objective](#TODO), [keywords](#TODO), or let it decide what to use on its own (it’s really good at this).
 
 ### Authentication
 
-The plugin uses the same auth model as the [CLI](/docs/guide/cli).
+The plugin uses the same auth model as the [CLI](/docs/guide/cli). Log in to connect the plugin to your curl.md account or organization.
 
 ```sh
 $ curl.md auth login
@@ -105,68 +115,15 @@ $ curl.md auth login
 
 If you prefer non-interactive auth, set `CURLMD_API_KEY` before starting OpenCode.
 
-### Status & Debugging
+### Tools
 
-Use:
+The plugin registers the following tools:
 
-```sh
-$ opencode debug config
-```
-
-to confirm that OpenCode is loading `@curl.md/opencode` from your resolved config.
-
-### Tool
-
-After launching, OpenCode gets this tool by default:
-
-| Tool      | Description                                                                    |
-| --------- | ------------------------------------------------------------------------------ |
-| `curl_md` | Fetches URLs through curl.md and returns markdown optimized for coding agents. |
-
-If `webfetch` is `true`, the plugin also registers `webfetch` and overrides OpenCode's built-in tool.
-
-### Current Limitations
-
-- The OpenCode UI still renders this as a generic custom tool rather than the built-in `webfetch` presentation.
-- Built-in `webfetch` compatibility args like `format` and `timeout` are accepted, but curl.md always returns markdown and manages fetch timing itself.
-
-## What The Plugin Looks Like
-
-OpenCode plugins export a `server` function that returns hooks. The `curl.md` scaffold always registers `curl_md` and only overrides `webfetch` when `webfetch: true` is enabled:
-
-```ts
-import { type Plugin, tool } from '@opencode-ai/plugin'
-
-export const server: Plugin = async (_input, options) => ({
-  tool: {
-    curl_md: tool({
-      description: 'Fetch a page via curl.md and return markdown optimized for coding agents.',
-      args: {
-        options: tool.schema
-          .object({
-            fresh: tool.schema.boolean().optional(),
-            keywords: tool.schema.array(tool.schema.string()).optional(),
-            mode: tool.schema.enum(['rush', 'smart']).optional(),
-            objective: tool.schema.string().optional(),
-          })
-          .optional(),
-        url: tool.schema.string(),
-      },
-      async execute(args) {
-        return {
-          metadata: { url: args.url },
-          output: '...',
-          title: args.url,
-        }
-      },
-    }),
-    ...(options?.webfetch
-      ? { webfetch: tool({ description: 'Override OpenCode built-in webfetch.' }) }
-      : {}),
-  },
-})
-```
+| Tool       | Description                                                             |
+| ---------- | ----------------------------------------------------------------------- |
+| `curl_md`  | Fetches URLs through curl.md and returns markdown optimized for agents. |
+| `webfetch` | Overrides built-in `webfetch` so it returns curl.md markdown output.    |
 
 ## Contributing
 
-https://github.com/wevm/curl.md/tree/main/plugins/opencode
+We welcome contributions to make the OpenCode plugin better. Feel free to create issues or pull requests [on GitHub](https://github.com/wevm/curl.md) if there are issues or something could be better.

@@ -36,7 +36,7 @@ test('registers tool.call hook and fallback tool', () => {
 
   expect(handlers).toHaveLength(1)
   expect(handlers[0]!.event).toBe('tool.call')
-  expect(tools.map((t) => t.name)).toEqual(['md_fetch'])
+  expect(tools.map((t) => t.name)).toEqual(['curl_md'])
 })
 
 test('tool.call hook allows non-read_web_page tools', async () => {

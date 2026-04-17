@@ -33,13 +33,13 @@ afterEach(() => {
 test('registers curl_md by default', async () => {
   const hooks = await loadPlugin()
 
-  expect(Object.keys(hooks.tool || {})).toEqual(['curl_md'])
+  expect(Object.keys(hooks.tool || {})).toEqual(['curl_md', 'webfetch'])
 })
 
-test('can enable webfetch override with plugin options', async () => {
-  const hooks = await loadPlugin({ webfetch: true })
+test('can disable webfetch override with plugin options', async () => {
+  const hooks = await loadPlugin({ webfetch: false })
 
-  expect(Object.keys(hooks.tool || {})).toEqual(['curl_md', 'webfetch'])
+  expect(Object.keys(hooks.tool || {})).toEqual(['curl_md'])
 })
 
 test('returns markdown and tool metadata for curl_md by default', async () => {

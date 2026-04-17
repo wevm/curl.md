@@ -34,17 +34,17 @@ test('registers curl.md Pi tool and commands', async () => {
   const { commands, tools } = loadExtension()
 
   expect(commands.map((command) => command.name)).toEqual([
-    'md_login',
-    'md_logout',
-    'md_org',
-    'md_status',
+    'curl_md_login',
+    'curl_md_logout',
+    'curl_md_org',
+    'curl_md_status',
   ])
-  expect(tools.map((tool) => tool.name)).toEqual(['read_web_page', 'md_fetch'])
+  expect(tools.map((tool) => tool.name)).toEqual(['read_web_page', 'curl_md'])
 
   await commands[3]!.handler('', { ui: { notify } })
 
   expect(notify).toHaveBeenCalledWith(
-    `${extensionHeader}\nAuth: Not authenticated. Run md_login or set CURLMD_API_KEY.\nTool: read_web_page (alias: md_fetch)\nCLI: not installed`,
+    `${extensionHeader}\nAuth: Not authenticated. Run curl_md_login or set CURLMD_API_KEY.\nTool: read_web_page (alias: curl_md)\nCLI: not installed`,
     'info',
   )
 
@@ -233,7 +233,7 @@ test('status command verifies API key auth state', async () => {
     authorization: 'Bearer curlmd_test_token',
   })
   expect(notify).toHaveBeenCalledWith(
-    `${extensionHeader}\nAuth: api_key (tmm)\nOrganization: none\nTool: read_web_page (alias: md_fetch)\nCLI: ${mockCliPath}`,
+    `${extensionHeader}\nAuth: api_key (tmm)\nOrganization: none\nTool: read_web_page (alias: curl_md)\nCLI: ${mockCliPath}`,
     'info',
   )
 })
@@ -257,7 +257,7 @@ test('status command shows unauthenticated api key state', async () => {
   await commands[3]!.handler('', { ui: { notify } })
 
   expect(notify).toHaveBeenCalledWith(
-    `${extensionHeader}\nAuth: api_key not authenticated. Refresh CURLMD_API_KEY.\nTool: read_web_page (alias: md_fetch)\nCLI: ${mockCliPath}`,
+    `${extensionHeader}\nAuth: api_key not authenticated. Refresh CURLMD_API_KEY.\nTool: read_web_page (alias: curl_md)\nCLI: ${mockCliPath}`,
     'info',
   )
 })
@@ -281,7 +281,7 @@ test('status command shows verification error', async () => {
   await commands[3]!.handler('', { ui: { notify } })
 
   expect(notify).toHaveBeenCalledWith(
-    `${extensionHeader}\nAuth: api_key verification failed. (REQUEST_FAILED) Boom\nTool: read_web_page (alias: md_fetch)\nCLI: ${mockCliPath}`,
+    `${extensionHeader}\nAuth: api_key verification failed. (REQUEST_FAILED) Boom\nTool: read_web_page (alias: curl_md)\nCLI: ${mockCliPath}`,
     'info',
   )
 })
@@ -319,7 +319,7 @@ test('status command shows session verification error', async () => {
   await commands[3]!.handler('', { ui: { notify } })
 
   expect(notify).toHaveBeenCalledWith(
-    `${extensionHeader}\nAuth: session verification failed. (REQUEST_FAILED) Boom\nTool: read_web_page (alias: md_fetch)\nCLI: ${mockCliPath}`,
+    `${extensionHeader}\nAuth: session verification failed. (REQUEST_FAILED) Boom\nTool: read_web_page (alias: curl_md)\nCLI: ${mockCliPath}`,
     'info',
   )
 
@@ -369,7 +369,7 @@ test('status command shows active session organization', async () => {
   await commands[3]!.handler('', { ui: { notify } })
 
   expect(notify).toHaveBeenCalledWith(
-    `${extensionHeader}\nAuth: session (tmm)\nOrganization: wevm\nTool: read_web_page (alias: md_fetch)\nCLI: ${mockCliPath}`,
+    `${extensionHeader}\nAuth: session (tmm)\nOrganization: wevm\nTool: read_web_page (alias: curl_md)\nCLI: ${mockCliPath}`,
     'info',
   )
 
@@ -387,7 +387,7 @@ test('status command shortens cli path under home directory', async () => {
   await commands[3]!.handler('', { ui: { notify } })
 
   expect(notify).toHaveBeenCalledWith(
-    `${extensionHeader}\nAuth: Not authenticated. Run md_login or set CURLMD_API_KEY.\nTool: read_web_page (alias: md_fetch)\nCLI: ~/.local/state/fnm_multishells/test/bin/curl.md`,
+    `${extensionHeader}\nAuth: Not authenticated. Run curl_md_login or set CURLMD_API_KEY.\nTool: read_web_page (alias: curl_md)\nCLI: ~/.local/state/fnm_multishells/test/bin/curl.md`,
     'info',
   )
 
@@ -503,7 +503,7 @@ test('org command requires authentication', async () => {
   await commands[2]!.handler('', { ui: { notify } })
 
   expect(notify).toHaveBeenCalledWith(
-    'Not authenticated with curl.md. Run md_login first.',
+    'Not authenticated with curl.md. Run curl_md_login first.',
     'error',
   )
 
@@ -1086,7 +1086,7 @@ test('throws a helpful rate limit error for anon requests', async () => {
   const { tools } = loadExtension()
 
   await expect(tools[0]!.execute('call_1', { url: 'https://example.com' })).rejects.toThrow(
-    'Rate limit exceeded. Try again in 12s. Set CURLMD_API_KEY or run md_login for higher limits.',
+    'Rate limit exceeded. Try again in 12s. Set CURLMD_API_KEY or run curl_md_login for higher limits.',
   )
 
   fs.rmSync(tmpDir, { force: true, recursive: true })

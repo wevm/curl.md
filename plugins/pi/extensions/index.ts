@@ -19,7 +19,7 @@ export default function (pi: ExtensionAPI) {
   const apiKey = process.env.CURLMD_API_KEY
   const resolver = Auth.createResolver(baseUrl, apiKey)
 
-  pi.registerCommand('md_login', {
+  pi.registerCommand('curl_md_login', {
     description: 'Log in to curl.md',
     async handler(_args, ctx) {
       const start = await Auth.startLogin(baseUrl)
@@ -95,7 +95,7 @@ export default function (pi: ExtensionAPI) {
     },
   })
 
-  pi.registerCommand('md_logout', {
+  pi.registerCommand('curl_md_logout', {
     description: 'Log out of curl.md',
     async handler(_args, ctx) {
       if (!Session.read(baseUrl)) {
@@ -114,12 +114,12 @@ export default function (pi: ExtensionAPI) {
     },
   })
 
-  pi.registerCommand('md_org', {
+  pi.registerCommand('curl_md_org', {
     description: 'Switch active curl.md organization',
     async handler(args, ctx) {
       const authHeaders = await resolver()
       if (!authHeaders) {
-        ctx.ui.notify('Not authenticated with curl.md. Run md_login first.', 'error')
+        ctx.ui.notify('Not authenticated with curl.md. Run curl_md_login first.', 'error')
         return
       }
 
@@ -222,7 +222,7 @@ export default function (pi: ExtensionAPI) {
     },
   })
 
-  pi.registerCommand('md_status', {
+  pi.registerCommand('curl_md_status', {
     description: 'Show curl.md status',
     async handler(_args, ctx) {
       const lines = [`${packageJson.name} v${packageJson.version}`]
@@ -242,8 +242,8 @@ export default function (pi: ExtensionAPI) {
 
       const authHeaders = await resolver()
       if (!authHeaders) {
-        lines.push('Auth: Not authenticated. Run md_login or set CURLMD_API_KEY.')
-        lines.push('Tool: read_web_page (alias: md_fetch)')
+        lines.push('Auth: Not authenticated. Run curl_md_login or set CURLMD_API_KEY.')
+        lines.push('Tool: read_web_page (alias: curl_md)')
         lines.push(`CLI: ${cliDisplay}`)
         if (baseUrl !== defaultBaseUrl) lines.push(`Base URL: ${baseUrl}`)
         ctx.ui.notify(lines.join('\n'), 'info')
@@ -296,12 +296,12 @@ export default function (pi: ExtensionAPI) {
         lines.push(
           authType === 'api_key'
             ? 'Auth: api_key not authenticated. Refresh CURLMD_API_KEY.'
-            : 'Auth: session not authenticated. Run md_login or set CURLMD_API_KEY.',
+            : 'Auth: session not authenticated. Run curl_md_login or set CURLMD_API_KEY.',
         )
       } else {
         lines.push(`Auth: ${authType} verification failed. ${status.message}`)
       }
-      lines.push('Tool: read_web_page (alias: md_fetch)')
+      lines.push('Tool: read_web_page (alias: curl_md)')
       lines.push(`CLI: ${cliDisplay}`)
       if (baseUrl !== defaultBaseUrl) lines.push(`Base URL: ${baseUrl}`)
       ctx.ui.notify(lines.join('\n'), 'info')
@@ -490,15 +490,15 @@ export default function (pi: ExtensionAPI) {
         if (authType === 'api_key')
           throw new Error('curl.md authentication failed. Fix CURLMD_API_KEY.')
         if (authType === 'session')
-          throw new Error('curl.md authentication failed. Run md_login again.')
-        throw new Error('curl.md authentication required. Set CURLMD_API_KEY or run md_login.')
+          throw new Error('curl.md authentication failed. Run curl_md_login again.')
+        throw new Error('curl.md authentication required. Set CURLMD_API_KEY or run curl_md_login.')
       }
 
       if (res.status === 403) {
         const json = await res.json()
         Session.write({ organization_id: undefined }, baseUrl)
         if (authType === 'api_key') throw new Error(`${json.message}. Check CURLMD_API_KEY access.`)
-        throw new Error(`${json.message}. Run md_login or set CURLMD_API_KEY.`)
+        throw new Error(`${json.message}. Run curl_md_login or set CURLMD_API_KEY.`)
       }
 
       if (res.status === 429) {
@@ -507,7 +507,7 @@ export default function (pi: ExtensionAPI) {
         const message = retryAfter ? `${json.message}. Try again in ${retryAfter}s` : json.message
 
         if (authType === 'anon')
-          throw new Error(`${message}. Set CURLMD_API_KEY or run md_login for higher limits.`)
+          throw new Error(`${message}. Set CURLMD_API_KEY or run curl_md_login for higher limits.`)
 
         throw new Error(`${message}. Add credits with \`curl.md credits add\` if needed.`)
       }
@@ -550,8 +550,8 @@ export default function (pi: ExtensionAPI) {
       ...readWebPageTool,
       description: 'Alias for read_web_page.',
       label: 'curl.md Fetch (alias)',
-      name: 'md_fetch',
-      promptGuidelines: ['Prefer read_web_page. md_fetch is a compatibility alias.'],
+      name: 'curl_md',
+      promptGuidelines: ['Prefer read_web_page. curl_md is a compatibility alias.'],
       promptSnippet: 'Alias for read_web_page.',
     }),
   )

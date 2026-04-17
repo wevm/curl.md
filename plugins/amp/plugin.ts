@@ -30,7 +30,7 @@ export default function (amp: PluginAPI) {
   })
 
   amp.registerTool({
-    name: 'md_fetch',
+    name: 'curl_md',
     description:
       'Read the contents of a web page at a given URL via curl.md and return markdown optimized for coding agents. Fallback for read_web_page interception.',
     inputSchema: {

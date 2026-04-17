@@ -5,15 +5,15 @@ description: Install and use curl.md with Pi
 
 # Pi
 
-First-party [Pi](https://pi.dev) extension that adds `curl.md` auth commands plus `read_web_page` and `md_fetch` tool support.
+First-party [Pi](https://pi.dev) extension that adds `curl.md` auth and management commands plus `read_web_page` and `curl_md` tools.
 
 ## Quick Start
 
-Install the plugin, launch Pi, and start curling.
+Install the extension, launch Pi, and start curling.
 
 ::::steps
 
-### Install plugin
+### Install extension
 
 Install the [`@curl.md/pi`](https://www.npmjs.com/package/@curl.md/pi) package with Pi:
 
@@ -23,20 +23,26 @@ $ pi install @curl.md/pi
 
 ### Start Pi
 
+Run Pi just like you normally do.
+
 ```sh
 $ pi
 ```
 
 ### Use Pi
 
-Now that Pi is running with the curl.md plugin, all you need to do is use Pi! Whenever Pi reads a web page, it will use curl.md.
-
-To confirm everything is set up correctly, try this out:
+Now that Pi is running with the curl.md extension, all you need to do is use Pi. To confirm everything is set up correctly, try this out:
 
 ```text
-Read the curl.md Pi extension docs and check that we set up everything correctly
+Read the curl.md Pi extension docs and summarize how it works.
 https://curl.md/docs/plugins/pi
 ```
+
+Pi will automatically use curl.md to turn URLs (you give it or it decides to fetch on its own) into markdown.
+
+:::tip
+Optionally, [authenticate](#authenticate) with the [`curl_md_login`](#TODO) command to unlock higher usage limits and features, like [objective extraction](#TODO).
+:::
 
 ::::
 
@@ -48,7 +54,23 @@ Install the [`@curl.md/pi`](https://www.npmjs.com/package/@curl.md/pi) npm packa
 $ pi install @curl.md/pi
 ```
 
+:::note
 When the `@curl.md/pi` package is updated, Pi will ask if you want to update to the latest version.
+:::
+
+If you prefer to edit config manually, add the extension to your Pi settings:
+
+```json title="~/.pi/agent/settings.json"
+{
+  "packages": ["npm:@curl.md/pi"]
+}
+```
+
+Test without installing:
+
+```sh
+$ pi -e npm:@curl.md/pi
+```
 
 ## Usage
 
@@ -59,22 +81,23 @@ Ask for a page, paste links, or let Pi figure out what it needs to fetch.
 Inside Pi, prompt like you normally would, for example:
 
 ```text
-Read the Stripe webhook docs and extract the signing header requirements.
+Read the Cloudflare Agents docs and summarize the core concepts.
+https://developers.cloudflare.com/agents
 ```
 
-In this example, Pi will use curl.md to explore the Stripe docs while executing your prompt.
+In this example, Pi will use curl.md to fetch the page and return markdown optimized for agents.
 
-You can also tell Pi to use a specific [objective](#TODO), [keywords](#TODO), and [other options](#TODO) or let it decide what to use on its own.
+You can also tell Pi to use a specific [objective](#TODO), [keywords](#TODO), or let it decide what to use on its own (it’s really good at this).
 
 ### Authentication
 
-Authenticate inside Pi with:
+Authenticate inside Pi to connect the extension to your curl.md account or organization:
 
 ```text
-/md_login
+/curl_md_login
 ```
 
-The plugin also uses the same auth model as the [CLI](/docs/guide/cli).
+The extension uses the same auth model as the [CLI](/docs/guide/cli) so you can also use the `auth login` command.
 
 ```sh
 $ curl.md auth login
@@ -82,34 +105,34 @@ $ curl.md auth login
 
 If you prefer non-interactive auth, set `CURLMD_API_KEY` before starting Pi.
 
-### Status & Debugging
+### Commands
 
-Use:
+After installing, Pi registers the following commands:
+
+| Command          | Description                                                                  |
+| ---------------- | ---------------------------------------------------------------------------- |
+| `curl_md_login`  | Starts browser-based curl.md login flow and stores resulting session.        |
+| `curl_md_logout` | Logs out current curl.md session.                                            |
+| `curl_md_org`    | Switches the active curl.md account or organization Pi should use.           |
+| `curl_md_status` | Shows curl.md auth status, registered tool info, `curl.md` CLI availability. |
+
+### Tools
+
+The plugin also registers the following tools:
+
+| Tool            | Description                                                             |
+| --------------- | ----------------------------------------------------------------------- |
+| `read_web_page` | Fetches URLs through curl.md and returns markdown optimized for agents. |
+| `curl_md`       | Compatibility alias for `read_web_page`.                                |
+
+### Status/Debugging
+
+Use the `curl_md_status` command to confirm auth state, tool registration, and `curl.md` CLI availability.
 
 ```text
-/md_status
+/curl_md_status
 ```
-
-to confirm auth state, tool registration, and whether the `curl.md` CLI is available on your machine.
-
-### Commands & Tools
-
-After installing, Pi gets these commands:
-
-| Command     | Description                                                                                  |
-| ----------- | -------------------------------------------------------------------------------------------- |
-| `md_login`  | Starts the browser-based curl.md login flow and stores the resulting session for Pi.         |
-| `md_logout` | Logs out of the current curl.md session in Pi.                                               |
-| `md_org`    | Switches the active curl.md account or organization Pi should use.                           |
-| `md_status` | Shows curl.md auth status, registered tool info, and whether the `curl.md` CLI is installed. |
-
-It also exposes these tools:
-
-| Tool            | Description                                                                     |
-| --------------- | ------------------------------------------------------------------------------- |
-| `read_web_page` | Fetches a URL through curl.md and returns markdown optimized for coding agents. |
-| `md_fetch`      | Compatibility alias for `read_web_page`.                                        |
 
 ## Contributing
 
-https://github.com/wevm/curl.md/tree/main/plugins/pi
+We welcome contributions to make the Pi extension better. Feel free to create issues or pull requests [on GitHub](https://github.com/wevm/curl.md) if there are issues or something could be better.

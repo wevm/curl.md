@@ -361,6 +361,38 @@ test('titled code blocks render a codegroup-style title bar with an icon', async
   expect(button?.className).toContain('top-[1.375rem]')
 })
 
+test('json code blocks titled opencode.json and opencode.jsonc use the opencode icon', async () => {
+  const rendered = renderDocContent(createOpencodeJsonCodeBlockDoc())
+  const titles = Array.from(rendered.container.querySelectorAll('[data-docs-code-title]'))
+  const opencodeTitle = titles.find((title) => title.textContent?.includes('opencode.json'))
+  const opencodeJsoncTitle = titles.find((title) => title.textContent?.includes('opencode.jsonc'))
+  const jsonTitle = titles.find((title) => title.textContent?.includes('config.json'))
+  const docsCardIcon = rendered.container.querySelector('[data-docs-card-icon] svg')
+  const opencodeIcon = opencodeTitle?.querySelector('svg')
+  const opencodeJsoncIcon = opencodeJsoncTitle?.querySelector('svg')
+  const jsonIcon = jsonTitle?.querySelector('svg')
+
+  expect(opencodeIcon).not.toBeNull()
+  expect(opencodeIcon?.innerHTML).toBe(docsCardIcon?.innerHTML)
+  expect(opencodeJsoncIcon).not.toBeNull()
+  expect(opencodeJsoncIcon?.innerHTML).toBe(docsCardIcon?.innerHTML)
+  expect(opencodeIcon?.innerHTML).not.toBe(jsonIcon?.innerHTML)
+})
+
+test('json code blocks titled ~/.pi/agent/settings.json use the pi icon', async () => {
+  const rendered = renderDocContent(createPiJsonCodeBlockDoc())
+  const titles = Array.from(rendered.container.querySelectorAll('[data-docs-code-title]'))
+  const piTitle = titles.find((title) => title.textContent?.includes('~/.pi/agent/settings.json'))
+  const jsonTitle = titles.find((title) => title.textContent?.includes('config.json'))
+  const docsCardIcon = rendered.container.querySelector('[data-docs-card-icon] svg')
+  const piIcon = piTitle?.querySelector('svg')
+  const jsonIcon = jsonTitle?.querySelector('svg')
+
+  expect(piIcon).not.toBeNull()
+  expect(piIcon?.innerHTML).toBe(docsCardIcon?.innerHTML)
+  expect(piIcon?.innerHTML).not.toBe(jsonIcon?.innerHTML)
+})
+
 test('untitled code blocks keep the copy button hover-only', async () => {
   const rendered = renderDocContent(createStyledCodeBlockDoc())
   const button = rendered.container.querySelector('[aria-label="Copy code"]')
@@ -926,6 +958,71 @@ function createTitledCodeBlockDoc(): Doc {
     path: 'test',
     source: '# Test\n',
     sourcePath: 'docs/dev/kitchen-sink.mdx',
+    title: 'Test',
+  }
+}
+
+function createOpencodeJsonCodeBlockDoc(): Doc {
+  return {
+    Component: function Component(props) {
+      const components = props.components ?? {}
+      const Card = (components.Card ?? 'div') as React.ElementType
+      const Pre = (components.pre ?? 'pre') as React.ElementType
+      const Code = (components.code ?? 'code') as React.ElementType
+
+      return (
+        <>
+          <Card href="/docs/plugins/opencode" icon="opencode" title="OpenCode">
+            OpenCode card icon reference.
+          </Card>
+          <Pre title="opencode.json">
+            <Code className="language-json">{'{"plugin": ["@curl.md/opencode"]}'}</Code>
+          </Pre>
+          <Pre title="opencode.jsonc">
+            <Code className="language-jsonc">{'{"plugin": ["@curl.md/opencode"]}'}</Code>
+          </Pre>
+          <Pre title="config.json">
+            <Code className="language-json">{'{"plugin": []}'}</Code>
+          </Pre>
+        </>
+      )
+    },
+    description: undefined,
+    headings: [],
+    path: 'test',
+    source: '# Test\n',
+    sourcePath: 'docs/plugins/opencode.mdx',
+    title: 'Test',
+  }
+}
+
+function createPiJsonCodeBlockDoc(): Doc {
+  return {
+    Component: function Component(props) {
+      const components = props.components ?? {}
+      const Card = (components.Card ?? 'div') as React.ElementType
+      const Pre = (components.pre ?? 'pre') as React.ElementType
+      const Code = (components.code ?? 'code') as React.ElementType
+
+      return (
+        <>
+          <Card href="/docs/plugins/pi" icon="pi" title="Pi">
+            Pi card icon reference.
+          </Card>
+          <Pre title="~/.pi/agent/settings.json">
+            <Code className="language-json">{'{"packages": ["npm:@curl.md/pi"]}'}</Code>
+          </Pre>
+          <Pre title="config.json">
+            <Code className="language-json">{'{"packages": []}'}</Code>
+          </Pre>
+        </>
+      )
+    },
+    description: undefined,
+    headings: [],
+    path: 'test',
+    source: '# Test\n',
+    sourcePath: 'docs/plugins/pi.mdx',
     title: 'Test',
   }
 }

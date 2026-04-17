@@ -6,7 +6,7 @@ export const plugin: Plugin = async (_input, options) => {
   const baseUrl = process.env.CURLMD_BASE_URL || defaultBaseUrl
   const apiKey = process.env.CURLMD_API_KEY
   const resolver = Auth.createResolver(baseUrl, apiKey)
-  const webfetch = typeof options?.webfetch === 'boolean' ? options.webfetch : false
+  const webfetch = typeof options?.webfetch === 'boolean' ? options.webfetch : true
 
   return {
     tool: {
