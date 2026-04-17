@@ -9,7 +9,7 @@
   <br>
 </p>
 
-### Pi extension for curl.md.
+# @curl.md/pi
 
 Turn websites into **optimized, low token output** inside **Pi**.
 

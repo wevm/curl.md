@@ -9,7 +9,7 @@
   <br>
 </p>
 
-### Amp plugin for curl.md.
+# @curl.md/amp
 
 Turn websites into **optimized, low token output** inside **Amp**.
 
@@ -17,12 +17,6 @@ Turn websites into **optimized, low token output** inside **Amp**.
 
 ```sh
 npx @curl.md/amp install
-```
-
-## Usage
-
-```sh
-PLUGINS=all amp
 ```
 
 ## Documentation

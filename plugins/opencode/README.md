@@ -9,7 +9,7 @@
   <br>
 </p>
 
-### OpenCode plugin for curl.md.
+# @curl.md/opencode
 
 Turn websites into **optimized, low token output** inside **OpenCode**.
 
