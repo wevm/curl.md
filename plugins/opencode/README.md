@@ -13,10 +13,10 @@
 
 Turn websites into **optimized, low token output** inside **OpenCode**.
 
-## Local development
+## Install
 
 ```sh
-pnpm opencode
+opencode plugin @curl.md/opencode
 ```
 
 ## Documentation

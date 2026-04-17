@@ -5,21 +5,122 @@ description: Install and use curl.md with OpenCode
 
 # OpenCode
 
-Experimental first-party [OpenCode](https://opencode.ai) plugin scaffold for `curl.md`.
+Experimental first-party [OpenCode](https://opencode.ai) plugin scaffold that adds `curlmd` tool support.
 
 It exposes a native `curlmd` tool and rewrites OpenCode's built-in `webfetch` tool description to steer the model toward `curlmd`, which uses `curl.md`'s lower-token markdown output.
 
-## Local development
+## Quick Start
 
-Run the local launcher from this repo:
+Install the plugin, launch OpenCode, and start curling.
+
+::::steps
+
+### Install plugin
+
+Install the [`@curl.md/opencode`](https://www.npmjs.com/package/@curl.md/opencode) package with OpenCode:
 
 ```sh
-$ pnpm opencode
+$ opencode plugin @curl.md/opencode
 ```
 
-That script writes a project-local plugin shim to `.opencode/plugins/curlmd.ts`, points it at [`plugins/opencode/plugin.ts`](https://github.com/wevm/curl.md/tree/main/plugins/opencode), and launches `opencode` with the local `https://curl.local` development defaults.
+This adds `@curl.md/opencode` to your OpenCode config so OpenCode installs it automatically with Bun at startup.
 
-## What the plugin looks like
+### Start OpenCode
+
+```sh
+$ opencode
+```
+
+### Use OpenCode
+
+Now that OpenCode is running with the curl.md plugin, all you need to do is use OpenCode.
+
+To confirm everything is set up correctly, try this out:
+
+```text
+Use curlmd to read the curl.md OpenCode plugin docs and summarize how it works.
+https://curl.md/docs/plugins/opencode
+```
+
+::::
+
+## Install
+
+Install the [`@curl.md/opencode`](https://www.npmjs.com/package/@curl.md/opencode) npm package with OpenCode:
+
+```sh
+$ opencode plugin @curl.md/opencode
+```
+
+If you want to install it in your global OpenCode config instead of the current project, use:
+
+```sh
+$ opencode plugin @curl.md/opencode --global
+```
+
+OpenCode installs npm plugins automatically using Bun at startup.
+
+If you prefer to edit config manually, add the package to `opencode.json`:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugin": ["@curl.md/opencode"]
+}
+```
+
+## Usage
+
+Ask for a page directly, paste links, or explicitly tell OpenCode to call `curlmd`.
+
+### Prompting
+
+Inside OpenCode, prompt like you normally would, for example:
+
+```text
+Use curlmd to read the Cloudflare Agents docs and summarize the core concepts.
+https://developers.cloudflare.com/agents
+```
+
+In this example, OpenCode will use curl.md to fetch the page and return markdown optimized for coding agents.
+
+You can also prompt more generally and let the rewritten `webfetch` description steer OpenCode toward `curlmd`, but explicit `curlmd` prompts are the most reliable today.
+
+### Authentication
+
+The plugin uses the same auth model as the [CLI](/docs/guide/cli).
+
+```sh
+$ curl.md auth login
+```
+
+If you prefer non-interactive auth, set `CURLMD_API_KEY` before starting OpenCode.
+
+### Status & Debugging
+
+Use:
+
+```sh
+$ opencode debug config
+```
+
+to confirm that OpenCode is loading `@curl.md/opencode` from your resolved config.
+
+### Tool
+
+After launching, OpenCode gets this tool:
+
+| Tool     | Description                                                                     |
+| -------- | ------------------------------------------------------------------------------- |
+| `curlmd` | Fetches a URL through curl.md and returns markdown optimized for coding agents. |
+
+### Current Limitations
+
+- This scaffold does not hard-replace OpenCode's built-in `webfetch` executor.
+- The plugin nudges `webfetch` toward `curlmd`, but explicit `curlmd` prompts are still the safest path.
+- The OpenCode UI still renders this as a generic custom tool rather than the built-in `webfetch` presentation.
+
+## What The Plugin Looks Like
 
 OpenCode plugins export a `server` function that returns hooks. The `curl.md` scaffold registers `curlmd` and redirects built-in `webfetch` usage toward it:
 
@@ -45,15 +146,6 @@ export const server: Plugin = async () => ({
 })
 ```
 
-## Usage
-
-Once OpenCode is running with the plugin loaded, `webfetch` prompts should be steered toward `curlmd`. You can still call it explicitly:
-
-```text
-Use curlmd to read the curl.md OpenCode plugin docs and summarize how it works.
-https://curl.md/docs/plugins/opencode
-```
-
-## Source
+## Contributing
 
 https://github.com/wevm/curl.md/tree/main/plugins/opencode
