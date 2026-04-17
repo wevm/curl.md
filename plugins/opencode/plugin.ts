@@ -11,56 +11,28 @@ export const server: Plugin = async () => {
     'tool.definition': async (input, output) => {
       if (input.toolID !== 'webfetch') return
       output.description =
-        'Deprecated in this project. Use md_fetch instead because it fetches pages through curl.md and returns lower-token markdown optimized for coding agents.'
+        'Deprecated in this project. Use curlmd instead because it fetches pages through curl.md and returns lower-token markdown optimized for coding agents.'
     },
     tool: {
-      md_fetch: tool({
+      curlmd: tool({
         description:
-          'Preferred replacement for OpenCode webfetch in this project. Read a web page through curl.md and return markdown optimized for coding agents.',
+          'Fetch a web page through curl.md and return markdown optimized for coding agents.',
         args: {
           url: tool.schema
             .string()
             .describe(
               'HTTP(S) URL or bare domain to fetch via curl.md. Prefer the canonical docs or article URL you want summarized.',
             ),
-          objective: tool.schema
-            .string()
-            .describe(
-              'Specific question or goal to answer from the page. Prefer concrete objectives like "compare pricing tiers" or "find auth header requirements".',
-            )
-            .optional(),
-          keywords: tool.schema
-            .array(tool.schema.string())
-            .describe(
-              'Keywords to pre-filter sections by. Prefer 2-5 distinct terms when only part of a long page matters.',
-            )
-            .optional(),
-          mode: tool.schema
-            .enum(['rush', 'smart'])
-            .describe(
-              'rush: lower-latency, best when you already know the section. smart: higher-quality narrowing for long or noisy pages.',
-            )
-            .optional(),
-          fresh: tool.schema
-            .boolean()
-            .describe(
-              'Bypass curl.md cache when freshness matters, such as changelogs, release notes, or recently updated docs.',
-            )
-            .optional(),
         },
         async execute(args, ctx) {
           const result = await fetchPage({
             baseUrl,
-            fresh: args.fresh,
-            keywords: args.keywords,
-            mode: args.mode,
-            objective: args.objective,
             resolver,
             url: args.url,
           })
 
           ctx.metadata({
-            title: `md_fetch ${result.url}`,
+            title: `curlmd ${result.url}`,
             metadata: {
               auth: result.auth,
               cache: result.cache,

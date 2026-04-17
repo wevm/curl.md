@@ -7,7 +7,7 @@ description: Install and use curl.md with OpenCode
 
 Experimental first-party [OpenCode](https://opencode.ai) plugin scaffold for `curl.md`.
 
-It exposes a native `md_fetch` tool and rewrites OpenCode's built-in `webfetch` tool description to steer the model toward `md_fetch`, which uses `curl.md`'s lower-token markdown output.
+It exposes a native `curlmd` tool and rewrites OpenCode's built-in `webfetch` tool description to steer the model toward `curlmd`, which uses `curl.md`'s lower-token markdown output.
 
 ## Local development
 
@@ -21,7 +21,7 @@ That script writes a project-local plugin shim to `.opencode/plugins/curlmd.ts`,
 
 ## What the plugin looks like
 
-OpenCode plugins export a `server` function that returns hooks. The `curl.md` scaffold registers `md_fetch` and redirects built-in `webfetch` usage toward it:
+OpenCode plugins export a `server` function that returns hooks. The `curl.md` scaffold registers `curlmd` and redirects built-in `webfetch` usage toward it:
 
 ```ts
 import { type Plugin, tool } from '@opencode-ai/plugin'
@@ -29,10 +29,10 @@ import { type Plugin, tool } from '@opencode-ai/plugin'
 export const server: Plugin = async () => ({
   'tool.definition': async (input, output) => {
     if (input.toolID !== 'webfetch') return
-    output.description = 'Deprecated in this project. Use md_fetch instead.'
+    output.description = 'Deprecated in this project. Use curlmd instead.'
   },
   tool: {
-    md_fetch: tool({
+    curlmd: tool({
       description: 'Fetch a page via curl.md and return markdown optimized for coding agents.',
       args: {
         url: tool.schema.string(),
@@ -47,10 +47,10 @@ export const server: Plugin = async () => ({
 
 ## Usage
 
-Once OpenCode is running with the plugin loaded, `webfetch` prompts should be steered toward `md_fetch`. You can still call it explicitly:
+Once OpenCode is running with the plugin loaded, `webfetch` prompts should be steered toward `curlmd`. You can still call it explicitly:
 
 ```text
-Use md_fetch to read the curl.md OpenCode plugin docs and summarize how it works.
+Use curlmd to read the curl.md OpenCode plugin docs and summarize how it works.
 https://curl.md/docs/plugins/opencode
 ```
 

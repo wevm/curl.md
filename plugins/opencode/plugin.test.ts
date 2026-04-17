@@ -29,14 +29,14 @@ afterEach(() => {
   fs.rmSync(defaultXdgDataHome, { force: true, recursive: true })
 })
 
-test('registers md_fetch tool and redirects webfetch definition', async () => {
+test('registers curlmd tool and redirects webfetch definition', async () => {
   const hooks = await loadPlugin()
 
-  expect(Object.keys(hooks.tool || {})).toEqual(['md_fetch'])
+  expect(Object.keys(hooks.tool || {})).toEqual(['curlmd'])
 
   const output = { description: 'Fetch web content.' }
   await hooks['tool.definition']?.({ toolID: 'webfetch' } as never, output as never)
-  expect(output.description).toContain('Use md_fetch instead')
+  expect(output.description).toContain('Use curlmd instead')
 })
 
 test('returns markdown and tool metadata', async () => {
@@ -53,8 +53,8 @@ test('returns markdown and tool metadata', async () => {
 
   const hooks = await loadPlugin()
   const metadata = vi.fn()
-  const result = await hooks.tool!.md_fetch.execute(
-    { url: 'https://example.com', mode: 'rush', objective: 'test' },
+  const result = await hooks.tool!.curlmd.execute(
+    { url: 'https://example.com' },
     createToolContext(metadata),
   )
 
@@ -65,7 +65,7 @@ test('returns markdown and tool metadata', async () => {
       cache: 'HIT',
       url: 'https://example.com/',
     },
-    title: 'md_fetch https://example.com/',
+    title: 'curlmd https://example.com/',
   })
 })
 
@@ -83,7 +83,7 @@ test('uses CURLMD_API_KEY when provided', async () => {
   vi.stubEnv('CURLMD_API_KEY', 'curlmd_test_token')
 
   const hooks = await loadPlugin()
-  await hooks.tool!.md_fetch.execute({ url: 'https://example.com' }, createToolContext(vi.fn()))
+  await hooks.tool!.curlmd.execute({ url: 'https://example.com' }, createToolContext(vi.fn()))
 
   expect(requests[0]?.headers).toEqual({
     accept: 'application/json',
@@ -102,7 +102,7 @@ test('surfaces authentication guidance for anonymous 401s', async () => {
 
   const hooks = await loadPlugin()
   await expect(
-    hooks.tool!.md_fetch.execute({ url: 'https://example.com' }, createToolContext(vi.fn())),
+    hooks.tool!.curlmd.execute({ url: 'https://example.com' }, createToolContext(vi.fn())),
   ).rejects.toThrow(
     'curl.md authentication required. Set CURLMD_API_KEY or run `curl.md auth login`.',
   )
