@@ -4,6 +4,7 @@ import { githubBlob, githubIssue, githubPr, githubRepo } from './rules/github.ts
 import {
   acceptMarkdown,
   appendMd,
+  appendMdWithoutHtml,
   appendMdWithIndex,
   prefixedWithIndex,
   repo,
@@ -127,12 +128,12 @@ export const turbo = appendMd({
     { url: 'https://turbo.build/repo/docs/getting-started/installation', contains: ['Turborepo'] },
   ],
 })
-export const vite = appendMd({
+export const vite = appendMdWithoutHtml({
   key: 'vite',
   patterns: [new URLPattern({ hostname: 'vite.dev' })],
   checks: [{ url: 'https://vite.dev/guide', contains: ['Vite'] }],
 })
-export const vitest = appendMd({
+export const vitest = appendMdWithoutHtml({
   key: 'vitest',
   patterns: [new URLPattern({ hostname: 'vitest.dev' })],
   checks: [{ url: 'https://vitest.dev/guide', contains: ['Vitest'] }],

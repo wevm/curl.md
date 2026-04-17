@@ -14,6 +14,17 @@ export function appendMd(options: Options) {
   })
 }
 
+export function appendMdWithoutHtml(options: Options) {
+  return defineRule({
+    ...options,
+    rewrite(url) {
+      const mdUrl = new URL(url.href)
+      mdUrl.pathname = `${mdUrl.pathname.replace(/\.html$/, '')}.md`
+      return mdUrl
+    },
+  })
+}
+
 export function appendMdWithIndex(options: Options) {
   return defineRule({
     ...options,

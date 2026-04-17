@@ -26,14 +26,27 @@ test.each([
   rules.shadcn,
   rules.stripe,
   rules.turbo,
-  rules.vite,
-  rules.vitest,
   rules.vue,
 ])('appendMd: $key rewrites to .md', (factory) => {
   const url = checkUrl(factory)
   expect(patternsMatch(factory(), url)).toBe(true)
   expect(rewrite(factory, url)?.href).toBe(`${url}.md`)
 })
+
+test.each([
+  [rules.vite, 'https://vite.dev/guide/why.html', 'https://vite.dev/guide/why.md'],
+  [
+    rules.vitest,
+    'https://vitest.dev/guide/browser/aria-snapshots.html',
+    'https://vitest.dev/guide/browser/aria-snapshots.md',
+  ],
+] as const)(
+  'appendMdWithoutHtml: %s strips trailing .html before appending .md',
+  (factory, url, expected) => {
+    expect(patternsMatch(factory(), url)).toBe(true)
+    expect(rewrite(factory, url)?.href).toBe(expected)
+  },
+)
 
 test.each([rules.astral, rules.openclaw, rules.rspack, rules.tempo, rules.viem, rules.wagmi])(
   'appendMdWithIndex: $key rewrites path to .md',
