@@ -202,6 +202,12 @@ export function createDocCopySource(rawSource: unknown) {
       continue
     }
 
+    const pluginLinks = rewritePluginLinksComponent(line)
+    if (pluginLinks) {
+      output.push(...pluginLinks)
+      continue
+    }
+
     output.push(line)
   }
 
@@ -453,6 +459,18 @@ function rewriteStepsDirective(lines: Array<string>, index: number) {
   }
 }
 
+function rewritePluginLinksComponent(line: string) {
+  const propsMatch = /^\s*<PluginLinks\s+([^>]*?)\s*\/?>\s*$/u.exec(line)
+  const props = propsMatch?.[1]
+  if (!props) return
+
+  const npm = /(?:^|\s)npm=(['"])(.*?)\1/u.exec(props)?.[2]
+  const source = /(?:^|\s)source=(['"])(.*?)\1/u.exec(props)?.[2]
+  if (!npm || !source) return
+
+  return [`- [${npm}](${getNpmPackageHref(npm)})`, `- [Source code](${source})`]
+}
+
 function rewriteCodeGroupItems(lines: Array<string>) {
   const rewritten: Array<string> = []
   let itemCount = 0
@@ -543,6 +561,10 @@ function rewriteStepsItem(lines: Array<string>, index: number, stepNumber: numbe
   }
 
   return createStepItemRewrite(heading.text, trimBlankLines(body), lines.length - 1, stepNumber)
+}
+
+function getNpmPackageHref(name: string) {
+  return `https://www.npmjs.com/package/${name}`
 }
 
 function splitCodeGroupFenceInfo(info: string) {

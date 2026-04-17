@@ -120,6 +120,18 @@ You only need one installation path.
 > You only need one installation path.`)
 })
 
+test('createDocCopySource rewrites PluginLinks into markdown links', () => {
+  const source = `# Amp
+
+<PluginLinks npm="@curl.md/amp" source="https://github.com/wevm/curl.md/tree/main/plugins/amp" />
+`
+
+  expect(createDocCopySource(source)).toBe(`# Amp
+
+- [@curl.md/amp](https://www.npmjs.com/package/@curl.md/amp)
+- [Source code](https://github.com/wevm/curl.md/tree/main/plugins/amp)`)
+})
+
 test('getDocHeadings includes numbered step headings from nested variable-length steps fences', () => {
   const source = `## Quick Start
 

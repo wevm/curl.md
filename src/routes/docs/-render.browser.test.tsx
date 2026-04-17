@@ -522,6 +522,28 @@ test('cards render as a responsive grid of clickable items', async () => {
   await expect.element(rendered.content.getByText('Amp plugin')).toBeVisible()
 })
 
+test('plugin links render below the intro paragraph as top-level docs CTAs', async () => {
+  const rendered = renderDocContent(createPluginLinksDoc())
+  const buttonLinks = rendered.container.querySelectorAll('[data-docs-button-link]')
+  const intro = rendered.content.getByText('Intro paragraph.')
+  const buttonLinksContainer = rendered.container.querySelector('[data-docs-button-links]')
+  const npmIcon = buttonLinks[0]?.querySelector('span > svg')?.parentElement
+
+  expect(buttonLinksContainer).not.toBeNull()
+  expect(buttonLinks).toHaveLength(2)
+  expect(buttonLinks[0]?.className).toContain('h-9')
+  expect(npmIcon?.className).toContain('text-[#cb3837]')
+  expect(buttonLinksContainer?.compareDocumentPosition(intro.element())).toBe(
+    Node.DOCUMENT_POSITION_PRECEDING,
+  )
+  await expect
+    .element(rendered.content.getByRole('link', { exact: true, name: '@curl.md/amp' }))
+    .toHaveAttribute('href', 'https://www.npmjs.com/package/@curl.md/amp')
+  await expect
+    .element(rendered.content.getByRole('link', { exact: true, name: 'Source code' }))
+    .toHaveAttribute('href', 'https://github.com/wevm/curl.md/tree/main/plugins/amp')
+})
+
 test('tables render inside a horizontal overflow container', async () => {
   const rendered = renderDocContent(createTableDoc())
   const tableContainer = rendered.container.querySelector('[data-docs-table]')
@@ -1109,6 +1131,35 @@ function createCardsDoc(): Doc {
     path: 'test',
     source: '# Test\n',
     sourcePath: 'docs/dev/kitchen-sink.mdx',
+    title: 'Test',
+  }
+}
+
+function createPluginLinksDoc(): Doc {
+  return {
+    Component: function Component(props) {
+      const components = props.components ?? {}
+      const PluginLinks = components.PluginLinks as React.ComponentType<{
+        npm: string
+        source: string
+      }>
+
+      return (
+        <>
+          <h1>Amp</h1>
+          <p>Intro paragraph.</p>
+          <PluginLinks
+            npm="@curl.md/amp"
+            source="https://github.com/wevm/curl.md/tree/main/plugins/amp"
+          />
+        </>
+      )
+    },
+    description: undefined,
+    headings: [],
+    path: 'test',
+    source: '# Test\n',
+    sourcePath: 'docs/plugins/amp.mdx',
     title: 'Test',
   }
 }
