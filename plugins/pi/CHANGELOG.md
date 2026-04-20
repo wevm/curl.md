@@ -1,5 +1,11 @@
 # @curl.md/pi
 
+## 0.0.6
+
+### Patch Changes
+
+- Updated tool row rendering ([`93ac492`](https://github.com/wevm/curl.md/commit/93ac492a307b2f5481e88ba86bbba1672c3f6f9b))
+
 ## 0.0.5
 
 ### Patch Changes
