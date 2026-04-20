@@ -1,5 +1,11 @@
 # curl.md
 
+## 0.0.19
+
+### Patch Changes
+
+- Updated internals ([`f9f9b5c`](https://github.com/wevm/curl.md/commit/f9f9b5c88d40dd0324d65c82a81912b4aa84aa07))
+
 ## 0.0.18
 
 ### Patch Changes
