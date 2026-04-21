@@ -1,5 +1,11 @@
 # @curl.md/opencode
 
+## 0.0.4
+
+### Patch Changes
+
+- Bumped included package files. ([`b80c34d`](https://github.com/wevm/curl.md/commit/b80c34df7c399e6359ee25a45c4f95c5028dff70))
+
 ## 0.0.3
 
 ### Patch Changes
