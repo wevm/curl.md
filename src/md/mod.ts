@@ -90,7 +90,7 @@ export function create(options: create.Options = {}): create.ReturnType {
       let sourceTokensMethod: DB.request['source_tokens_method'] = usesShortcut
         ? 'estimated'
         : 'markdown'
-      let profile: Profile<Record<string, unknown>> | undefined
+      let profile: DetectedProfile | undefined
 
       const result = await (async () => {
         if (matched?.rule?.extract) {
@@ -114,7 +114,7 @@ export function create(options: create.Options = {}): create.ReturnType {
         sourceTokens = estimateTokenCount(text)
         sourceTokensMethod = 'html'
         profile = detectPageProfile(text, inputURL, profiles)
-        const markdownRequest = getProfileValue<MarkdownRequest>(profile, 'markdownRequest')
+        const markdownRequest = profile?.markdownRequest
         if (markdownRequest) {
           const markdownResult = await tryMarkdownRequest(
             markdownRequest,
@@ -131,7 +131,7 @@ export function create(options: create.Options = {}): create.ReturnType {
           baseUrl: inputURL.href,
           profile,
         })
-        const markdownUrl = getProfileValue<string>(profile, 'markdownUrl')
+        const markdownUrl = profile?.markdownUrl
         if (shouldRetryMarkdownUrl(markdownUrl, htmlResult.content)) {
           try {
             const url = new URL(markdownUrl)
@@ -292,7 +292,7 @@ export function defineProfile<values extends Record<string, unknown> = Record<st
       ...(generator && config.detect.generator.test(generator)
         ? [`meta:generator=${generator}`]
         : []),
-      ...(includesAny(html, config.detect.includesAny.needles)
+      ...(config.detect.includesAny.needles.some((needle) => html.includes(needle))
         ? [config.detect.includesAny.marker]
         : []),
     ]
@@ -348,18 +348,17 @@ export function detectPageProfile(
   html: string,
   url: URL,
   profiles: ReadonlyArray<ProfileDetector> | Record<string, ProfileDetector>,
-): Profile<Record<string, unknown>> | undefined {
+): DetectedProfile | undefined {
   for (const profile of Array.isArray(profiles) ? profiles : Object.values(profiles)) {
     const detected = profile(html, url)
-    if (detected) return detected
+    if (detected) return detected as DetectedProfile
   }
 }
 
-export function getProfileValue<value>(
-  profile: Profile<Record<string, unknown>> | undefined,
-  key: string,
-): value | undefined {
-  return profile?.[key] as value | undefined
+type DetectedProfile = Profile<Record<string, unknown>> & {
+  markdownRequest?: MarkdownRequest | undefined
+  markdownUrl?: string | undefined
+  normalize?: ((content: string) => string) | undefined
 }
 
 type ProfileDetector = defineProfile.ReturnType<Record<string, unknown>>
@@ -398,10 +397,6 @@ function getMetaContent(html: string, name: string): string | undefined {
     const match = html.match(pattern)
     if (match?.[1]) return match[1]
   }
-}
-
-function includesAny(html: string, needles: string[]): boolean {
-  return needles.some((needle) => html.includes(needle))
 }
 
 function splitFrontmatter(markdown: string): {
@@ -540,13 +535,8 @@ function isLikelyMarkdownResponse(response: Response, text: string, url: URL): b
   )
 }
 
-function normalizeMarkdown(
-  content: string,
-  origin?: string,
-  profile?: Profile<Record<string, unknown>>,
-): string {
-  const normalized =
-    getProfileValue<(content: string) => string>(profile, 'normalize')?.(content) ?? content
+function normalizeMarkdown(content: string, origin?: string, profile?: DetectedProfile): string {
+  const normalized = profile?.normalize?.(content) ?? content
   return (
     normalized
       // Remove links with no text (e.g. `[](/)`)

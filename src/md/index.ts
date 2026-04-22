@@ -1,10 +1,8 @@
 export {
   create,
   defineRule,
-  detectPageProfile,
   defineTransport,
   type FetchContext,
-  getProfileValue,
   type Meta,
   type Profile,
   type Rule,
