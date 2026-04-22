@@ -36,6 +36,11 @@ test.each([
 test.each([
   [rules.vite, 'https://vite.dev/guide/why.html', 'https://vite.dev/guide/why.md'],
   [
+    rules.vitepress,
+    'https://vitepress.dev/guide/what-is-vitepress.html',
+    'https://vitepress.dev/guide/what-is-vitepress.md',
+  ],
+  [
     rules.vitest,
     'https://vitest.dev/guide/browser/aria-snapshots.html',
     'https://vitest.dev/guide/browser/aria-snapshots.md',
@@ -156,19 +161,44 @@ test('tanstack does not match blog paths', () => {
   )
 })
 
-test('tanstack requests markdown for docs paths', async () => {
+test.each([
+  [rules.hexdocs, 'https://hexdocs.pm/ex_doc'],
+  [rules.tanstack, 'https://tanstack.com/start/latest/docs/framework/react/overview'],
+] as const)('%s requests markdown', async (factory, url) => {
   const fetch = vi.fn(() => Promise.resolve(new Response('ok')))
-  await rules
-    .tanstack()
-    .fetch?.(
-      new URL('https://tanstack.com/start/latest/docs/framework/react/overview'),
-      undefined,
-      { fetch },
-    )
+  await factory().fetch?.(new URL(url), undefined, { fetch })
   expect(fetch).toHaveBeenCalledWith(
-    new URL('https://tanstack.com/start/latest/docs/framework/react/overview'),
+    new URL(url),
     expect.objectContaining({ headers: { Accept: 'text/markdown' } }),
   )
+})
+
+test('hexdocs falls back to html when markdown is unavailable', async () => {
+  const requests: Array<{ accept: string | null; url: string }> = []
+  const md = create({
+    rules: [rules.hexdocs()],
+    fetch: async (input, init) => {
+      const url = input instanceof URL ? input.href : input instanceof Request ? input.url : input
+      const headers = new Headers(init?.headers)
+      requests.push({ accept: headers.get('accept'), url })
+
+      return new Response(
+        '<!doctype html><html><head><meta name="generator" content="ExDoc v0.40.1"><title>Phoenix</title></head><body><main><h1>Phoenix</h1><p>HTML fallback body.</p></main></body></html>',
+        { headers: { 'content-type': 'text/html; charset=utf-8' }, status: 200 },
+      )
+    },
+  })
+
+  const result = await md.fetch('https://hexdocs.pm/phoenix/Phoenix.html')
+  expect(result.ok).toBe(true)
+  if (!result.ok) return
+
+  expect(requests).toEqual([
+    { accept: 'text/markdown', url: 'https://hexdocs.pm/phoenix/Phoenix.html' },
+  ])
+  expect(result.content).toContain('Phoenix')
+  expect(result.content).toContain('HTML fallback body.')
+  expect(result.extras.source_tokens_method).toBe('html')
 })
 
 test('repo: deno rewrites to raw.githubusercontent.com', () => {

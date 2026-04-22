@@ -5,6 +5,7 @@ import remarkGfm from 'remark-gfm'
 import remarkStringify from 'remark-stringify'
 import { unified } from 'unified'
 import type { VFile } from 'vfile'
+import type { Profile } from './mod.ts'
 
 export async function fromHtml(
   html: string,
@@ -13,7 +14,7 @@ export async function fromHtml(
   const file = await unified()
     .use(rehypeParse)
     .use(rehypeExtractMeta, options?.baseUrl)
-    .use(rehypeStripNoise)
+    .use(rehypeStripNoise, options?.profile)
     .use(rehypeResolveLinks, options?.baseUrl)
     .use(rehypeStripEmpty)
     .use(rehypePreNewlines)
@@ -40,7 +41,7 @@ export async function fromHtml(
 }
 
 export namespace fromHtml {
-  export type Options = { baseUrl?: string }
+  export type Options = { baseUrl?: string; profile?: Profile<Record<string, unknown>> | undefined }
   export type ReturnType = { content: string; meta: Record<string, string> }
 }
 
@@ -49,6 +50,7 @@ export function filterFrontmatterKeys(meta: Record<string, unknown>): Record<str
   const allowedFrontmatterKeys = new Set([
     'author',
     'description',
+    'generator',
     'publish_date',
     'site',
     'title',
@@ -66,6 +68,7 @@ const metaPropertyMap: Record<string, string> = {
   author: 'author',
   date: 'publish_date',
   description: 'description',
+  generator: 'generator',
   'og:description': 'description',
   'og:site_name': 'site',
   pubdate: 'publish_date',
@@ -146,19 +149,24 @@ const noiseClassIdTokens = new Set([
 
 const linkDensityBlockTags = new Set(['div', 'ol', 'section', 'ul'])
 
-function rehypeStripNoise() {
+function rehypeStripNoise(profile?: Profile<Record<string, unknown>>) {
   return (tree: Root) => {
-    strip(tree)
+    strip(tree, false, profile)
   }
 }
 
 const sectioningTags = new Set(['article', 'main', 'section'])
 
-function strip(node: Element | Root, inSectioning = false) {
+function strip(
+  node: Element | Root,
+  inSectioning = false,
+  profile?: Profile<Record<string, unknown>>,
+) {
   if (!node.children) return
   node.children = node.children.filter((child) => {
     if (child.type === 'comment') return false
     if (child.type !== 'element') return true
+    const knownContentRoot = isKnownContentRoot(child, profile)
 
     if (strippedTagNames.has(child.tagName)) return false
 
@@ -170,12 +178,29 @@ function strip(node: Element | Root, inSectioning = false) {
 
     if (isHidden(child)) return false
     if (isSkipLink(child)) return false
-    if (matchesNoiseClassId(child)) return false
-    if (isHighLinkDensity(child)) return false
+    if (!knownContentRoot && matchesNoiseClassId(child)) return false
+    if (!knownContentRoot && isHighLinkDensity(child)) return false
 
-    strip(child, inSectioning || sectioningTags.has(child.tagName))
+    strip(child, inSectioning || sectioningTags.has(child.tagName), profile)
     return true
   })
+}
+
+function isKnownContentRoot(node: Element, profile?: Profile<Record<string, unknown>>): boolean {
+  if (!profile) return false
+  return profile.contentRootSelectors.some((selector) => matchesSelector(node, selector))
+}
+
+function matchesSelector(node: Element, selector: string): boolean {
+  if (selector.startsWith('#')) return node.properties?.id === selector.slice(1)
+  if (!selector.startsWith('.')) return false
+  const className = node.properties?.className
+  const classes = Array.isArray(className)
+    ? className.map(String)
+    : typeof className === 'string'
+      ? className.split(/\s+/).filter(Boolean)
+      : []
+  return classes.includes(selector.slice(1))
 }
 
 function isSkipLink(node: Element): boolean {
@@ -203,6 +228,7 @@ function matchesNoiseClassId(node: Element): boolean {
     // Skip Tailwind utility classes / CSS custom properties that contain
     // noise-like substrings (e.g. `md:[--fd-sidebar-width:268px]`)
     if (/[[\]():]|^--/.test(str)) continue
+    if (/^(has|is)-/.test(str)) continue
     const parts = str.toLowerCase().split(/[^a-z0-9]+/)
     if (parts.some((p) => noiseClassIdTokens.has(p))) return true
   }

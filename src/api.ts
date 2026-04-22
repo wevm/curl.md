@@ -1990,6 +1990,7 @@ export const api = new Hono<{
         headers: {
           'User-Agent': `Mozilla/5.0 (compatible; ${c.env.HOST}/1.0; +https://${c.env.HOST})`,
         },
+        profiles: Md.profiles,
         rules: {
           ...Md.rules,
           [Md.rules.curlDocs.key]: Md.rules.curlDocs({

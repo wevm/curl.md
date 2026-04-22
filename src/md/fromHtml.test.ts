@@ -36,6 +36,16 @@ describe('fromHtml', () => {
     expect(meta.description).toBe('A description')
   })
 
+  test('extracts generator', async () => {
+    const { meta } = await fromHtml(
+      html({
+        head: '<meta name="generator" content="VitePress v2.0.0-alpha.17">',
+        body: '<p>content</p>',
+      }),
+    )
+    expect(meta.generator).toBe('VitePress v2.0.0-alpha.17')
+  })
+
   test('extracts og:description as fallback', async () => {
     const { meta } = await fromHtml(
       html({
@@ -128,6 +138,7 @@ describe('fromHtml', () => {
           '<title>Full Page</title>',
           '<meta name="author" content="Jane">',
           '<meta name="description" content="Full description">',
+          '<meta name="generator" content="Mintlify">',
           '<meta property="og:site_name" content="Full Site">',
           '<link rel="canonical" href="https://example.com/full">',
         ].join(''),
@@ -138,6 +149,7 @@ describe('fromHtml', () => {
     expect(meta.title).toBe('Full Page')
     expect(meta.author).toBe('Jane')
     expect(meta.description).toBe('Full description')
+    expect(meta.generator).toBe('Mintlify')
     expect(meta.site).toBe('Full Site')
     expect(meta.url).toBe('https://example.com/full')
     expect(content).toContain('# Welcome')
@@ -435,6 +447,57 @@ describe('strips form elements', () => {
         body: '<main class="flex md:[--fd-sidebar-width:268px] pe-(--fd-layout-offset)"><p>Content</p></main>',
       }),
     )
+    expect(result).toContain('Content')
+  })
+
+  test('preserves content wrappers with state classes like has-sidebar', async () => {
+    const { content: result } = await fromHtml(
+      html({
+        body: '<div class="VPContent has-sidebar"><div class="content-container"><main><h1>Title</h1><p>Content</p></main></div></div>',
+      }),
+    )
+    expect(result).toContain('# Title')
+    expect(result).toContain('Content')
+  })
+
+  test('preserves vitepress content roots even when generic noise classes match', async () => {
+    const { content: result } = await fromHtml(
+      html({
+        body: '<div id="VPContent" class="sidebar"><main><h1>Title</h1><p>Content</p></main></div>',
+      }),
+      {
+        profile: {
+          contentRootSelectors: ['#VPContent', '.VPContent', '.VPDoc', '.vp-doc'],
+          generator: 'VitePress',
+          key: 'vitepress',
+          markdownUrl: 'https://vitepress.dev/guide/what-is-vitepress.md',
+          markers: ['meta:generator=VitePress'],
+        },
+      },
+    )
+    expect(result).toContain('# Title')
+    expect(result).toContain('Content')
+  })
+
+  test('preserves mintlify content roots even when generic noise classes match', async () => {
+    const { content: result } = await fromHtml(
+      html({
+        body: '<div id="content-area" class="sidebar"><main><h1>Title</h1><p>Content</p></main></div>',
+      }),
+      {
+        profile: {
+          contentRootSelectors: ['#content-container', '#content-area'],
+          generator: 'Mintlify',
+          key: 'mintlify',
+          markdownRequest: {
+            headers: { Accept: 'text/markdown' },
+            url: 'https://mintlify.com/docs',
+          },
+          markers: ['meta:generator=Mintlify'],
+        },
+      },
+    )
+    expect(result).toContain('# Title')
     expect(result).toContain('Content')
   })
 

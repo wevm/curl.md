@@ -1,5 +1,6 @@
 import { defineRule } from './mod.ts'
 import { cloudflare } from './rules/cloudflare.ts'
+import { curlDocs, curlMd } from './rules/curl.ts'
 import { githubBlob, githubIssue, githubPr, githubPrChanges, githubRepo } from './rules/github.ts'
 import {
   acceptMarkdown,
@@ -12,47 +13,11 @@ import {
 
 export { githubBlob, githubIssue, githubPr, githubPrChanges, githubRepo }
 export { cloudflare }
+export { curlDocs, curlMd }
 export { githubDocs } from './rules/github-docs.ts'
 export { mdn } from './rules/mdn.ts'
 export { tailwind } from './rules/tailwind.ts'
 export { zero } from './rules/zero.ts'
-
-export const curlDocs = defineRule<{ fetch?: typeof globalThis.fetch }>({
-  key: 'curlDocs',
-  patterns: [
-    new URLPattern({ hostname: 'curl.:tld(md|local)', pathname: '/docs' }),
-    new URLPattern({ hostname: 'curl.:tld(md|local)', pathname: '/docs/:path+' }),
-    new URLPattern({ hostname: '*.curl.:tld(md|local)', pathname: '/docs' }),
-    new URLPattern({ hostname: '*.curl.:tld(md|local)', pathname: '/docs/:path+' }),
-  ],
-  checks: [
-    {
-      url: 'https://curl.md/docs/install',
-      contains: ['# Installation', '## Plugins', 'curl -fsSL https://curl.md/install.sh | bash'],
-    },
-  ],
-  rewrite(url) {
-    if (url.pathname.endsWith('.md')) return url
-
-    const path = url.pathname.replace(/^\/docs/, '')
-    const pathname = path === '' || path === '/' ? '/index' : path.replace(/\/$/, '')
-    return new URL(`https://${url.hostname}/docs${pathname}.md`)
-  },
-  async fetch(input, init, context) {
-    return (context.options?.fetch ?? context.fetch)(input, init)
-  },
-})
-
-export const curlMd = defineRule<{ fetch?: typeof globalThis.fetch }>({
-  key: 'curlMd',
-  patterns: [
-    new URLPattern({ hostname: 'curl.:tld(md|local)' }),
-    new URLPattern({ hostname: '*.curl.:tld(md|local)' }),
-  ],
-  async fetch(_, _init, context) {
-    return (context.options?.fetch ?? context.fetch)('https://curl.md/llms.txt')
-  },
-})
 
 export const aiSdk = appendMd({
   key: 'aiSdk',
@@ -133,6 +98,11 @@ export const vite = appendMdWithoutHtml({
   patterns: [new URLPattern({ hostname: 'vite.dev' })],
   checks: [{ url: 'https://vite.dev/guide', contains: ['Vite'] }],
 })
+export const vitepress = appendMdWithoutHtml({
+  key: 'vitepress',
+  patterns: [new URLPattern({ hostname: 'vitepress.dev' })],
+  checks: [{ url: 'https://vitepress.dev/guide/what-is-vitepress', contains: ['VitePress'] }],
+})
 export const vitest = appendMdWithoutHtml({
   key: 'vitest',
   patterns: [new URLPattern({ hostname: 'vitest.dev' })],
@@ -195,6 +165,17 @@ export const deno = repo({
     {
       url: 'https://docs.deno.com/runtime/getting_started/first_project',
       contains: ['Deno'],
+    },
+  ],
+})
+// https://x.com/josevalim/status/2042581154067337280
+export const hexdocs = acceptMarkdown({
+  key: 'hexdocs',
+  patterns: [new URLPattern({ hostname: 'hexdocs.pm' })],
+  checks: [
+    {
+      url: 'https://hexdocs.pm/ex_doc',
+      contains: ['ExDoc is a documentation generation tool for Elixir'],
     },
   ],
 })
@@ -306,24 +287,22 @@ function asUrl(input: RequestInfo | URL): URL {
 }
 
 function vitePlusRawCandidates(url: URL): URL[] {
-  const pathname = getVitePlusSourcePathname(url)
+  const pathname = (() => {
+    if (url.hostname === 'viteplus.dev') return url.pathname || '/'
+
+    const prefix = '/voidzero-dev/vite-plus/main/docs'
+    if (url.hostname !== 'raw.githubusercontent.com' || !url.pathname.startsWith(prefix))
+      return url.pathname || '/'
+
+    const relative = url.pathname.slice(prefix.length) || '/'
+    if (relative === '/index.md') return '/'
+    if (relative.endsWith('/index.md')) return relative.slice(0, -'/index.md'.length) || '/'
+    if (relative.endsWith('.md')) return relative.slice(0, -'.md'.length) || '/'
+    return relative
+  })()
   const trimmed = pathname === '/' ? '' : pathname.replace(/\/$/, '')
   const paths = [`${trimmed || '/index'}.md`, `${trimmed || '/index'}/index.md`]
   return [...new Set(paths)].map(
     (path) => new URL(`https://raw.githubusercontent.com/voidzero-dev/vite-plus/main/docs${path}`),
   )
-}
-
-function getVitePlusSourcePathname(url: URL): string {
-  if (url.hostname === 'viteplus.dev') return url.pathname || '/'
-
-  const prefix = '/voidzero-dev/vite-plus/main/docs'
-  if (url.hostname !== 'raw.githubusercontent.com' || !url.pathname.startsWith(prefix))
-    return url.pathname || '/'
-
-  const relative = url.pathname.slice(prefix.length) || '/'
-  if (relative === '/index.md') return '/'
-  if (relative.endsWith('/index.md')) return relative.slice(0, -'/index.md'.length) || '/'
-  if (relative.endsWith('.md')) return relative.slice(0, -'.md'.length) || '/'
-  return relative
 }

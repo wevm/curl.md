@@ -8,6 +8,11 @@ export function create(options: create.Options = {}): create.ReturnType {
     if (Array.isArray(options.rules)) return options.rules
     return Object.values(options.rules).map((r) => (typeof r === 'function' ? r() : r))
   })()
+  const profiles = (() => {
+    if (!options.profiles) return []
+    if (Array.isArray(options.profiles)) return [...options.profiles]
+    return Object.values(options.profiles)
+  })()
 
   return {
     async fetch(input, init) {
@@ -38,18 +43,35 @@ export function create(options: create.Options = {}): create.ReturnType {
       const context = {
         fetch: options.fetch ?? globalThis.fetch.bind(globalThis),
       } satisfies FetchContext
-
-      let response: Response
-      try {
-        if (matched?.rule?.fetch)
-          response = await matched.rule.fetch(rewrittenUrl, requestInit, context)
-        else if (options.transport) {
-          const result = await options.transport(rewrittenUrl, requestInit, {
+      const fetchResponse = async (
+        url: URL,
+        ruleFetch?: Rule['fetch'] | undefined,
+        overrideInit?: RequestInit | undefined,
+      ): Promise<Response> => {
+        const nextInit = overrideInit
+          ? {
+              ...requestInit,
+              ...overrideInit,
+              headers: {
+                ...requestInit.headers,
+                ...overrideInit.headers,
+              },
+            }
+          : requestInit
+        if (ruleFetch) return ruleFetch(url, nextInit, context)
+        if (options.transport) {
+          const result = await options.transport(url, nextInit, {
             ...context,
             previous: undefined,
           })
-          response = result ?? new Response(null, { status: 500 })
-        } else response = await context.fetch(rewrittenUrl, requestInit)
+          return result ?? new Response(null, { status: 500 })
+        }
+        return context.fetch(url, nextInit)
+      }
+
+      let response: Response
+      try {
+        response = await fetchResponse(rewrittenUrl, matched?.rule?.fetch)
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
         return { ok: false as const, status: 502, error: message }
@@ -68,6 +90,7 @@ export function create(options: create.Options = {}): create.ReturnType {
       let sourceTokensMethod: DB.request['source_tokens_method'] = usesShortcut
         ? 'estimated'
         : 'markdown'
+      let profile: Profile<Record<string, unknown>> | undefined
 
       const result = await (async () => {
         if (matched?.rule?.extract) {
@@ -90,7 +113,44 @@ export function create(options: create.Options = {}): create.ReturnType {
 
         sourceTokens = estimateTokenCount(text)
         sourceTokensMethod = 'html'
-        return fromHtml(text, { baseUrl: inputURL.href })
+        profile = detectPageProfile(text, inputURL, profiles)
+        const markdownRequest = getProfileValue<MarkdownRequest>(profile, 'markdownRequest')
+        if (markdownRequest) {
+          const markdownResult = await tryMarkdownRequest(
+            markdownRequest,
+            fetchResponse,
+            profile?.generator,
+          )
+          if (markdownResult) {
+            sourceTokens = undefined
+            sourceTokensMethod = 'markdown'
+            return markdownResult
+          }
+        }
+        const htmlResult = await fromHtml(text, {
+          baseUrl: inputURL.href,
+          profile,
+        })
+        const markdownUrl = getProfileValue<string>(profile, 'markdownUrl')
+        if (shouldRetryMarkdownUrl(markdownUrl, htmlResult.content)) {
+          try {
+            const url = new URL(markdownUrl)
+            const markdownResponse = await fetchResponse(url)
+            if (markdownResponse.ok) {
+              const markdownResult = await extractMarkdownResponse(
+                markdownResponse,
+                url,
+                profile?.generator,
+              )
+              if (markdownResult) {
+                sourceTokens = undefined
+                sourceTokensMethod = 'markdown'
+                return markdownResult
+              }
+            }
+          } catch {}
+        }
+        return htmlResult
       })()
 
       result.meta ??= {}
@@ -100,7 +160,7 @@ export function create(options: create.Options = {}): create.ReturnType {
       return {
         ok: true as const,
         status: response.status,
-        content: normalizeMarkdown(result.content, inputURL.origin),
+        content: normalizeMarkdown(result.content, inputURL.origin, profile),
         meta: sortMeta(result.meta),
         extras: {
           source_tokens: sourceTokens,
@@ -116,6 +176,7 @@ export namespace create {
     fetch?: typeof globalThis.fetch | undefined
     transport?: Transport | undefined
     headers?: HeadersInit | undefined
+    profiles?: ReadonlyArray<ProfileDetector> | Record<string, ProfileDetector> | undefined
     rules?: Rule[] | Record<string, Rule | (() => Rule)> | undefined
   }
 
@@ -222,6 +283,87 @@ export function defineTransport<options = void>(
       handler(url, init, { ...context, options: options as options })
 }
 
+export function defineProfile<values extends Record<string, unknown> = Record<string, never>>(
+  config: defineProfile.Config<values>,
+): defineProfile.ReturnType<values> {
+  function detector(html: string, url: URL): defineProfile.Profile<values> | undefined {
+    const generator = getMetaContent(html, 'generator')
+    const markers = [
+      ...(generator && config.detect.generator.test(generator)
+        ? [`meta:generator=${generator}`]
+        : []),
+      ...(includesAny(html, config.detect.includesAny.needles)
+        ? [config.detect.includesAny.marker]
+        : []),
+    ]
+    if (markers.length === 0) return
+
+    return Object.assign(
+      {
+        contentRootSelectors: config.contentRootSelectors,
+        generator,
+        key: config.key,
+        markers,
+      },
+      config.resolve?.(url),
+    ) as defineProfile.Profile<values>
+  }
+
+  return Object.assign(detector, { key: config.key })
+}
+
+export namespace defineProfile {
+  export type Profile<values extends Record<string, unknown> = Record<string, never>> = {
+    contentRootSelectors: string[]
+    generator?: string | undefined
+    key: string
+    markers: string[]
+  } & values
+
+  export type Config<values extends Record<string, unknown> = Record<string, never>> = {
+    contentRootSelectors: string[]
+    detect: {
+      generator: RegExp
+      includesAny: {
+        marker: string
+        needles: string[]
+      }
+    }
+    key: string
+    resolve?: ((url: URL) => values) | undefined
+  }
+
+  export type ReturnType<values extends Record<string, unknown> = Record<string, never>> = ((
+    html: string,
+    url: URL,
+  ) => Profile<values> | undefined) & {
+    key: string
+  }
+}
+
+export type Profile<values extends Record<string, unknown> = Record<string, never>> =
+  defineProfile.Profile<values>
+
+export function detectPageProfile(
+  html: string,
+  url: URL,
+  profiles: ReadonlyArray<ProfileDetector> | Record<string, ProfileDetector>,
+): Profile<Record<string, unknown>> | undefined {
+  for (const profile of Array.isArray(profiles) ? profiles : Object.values(profiles)) {
+    const detected = profile(html, url)
+    if (detected) return detected
+  }
+}
+
+export function getProfileValue<value>(
+  profile: Profile<Record<string, unknown>> | undefined,
+  key: string,
+): value | undefined {
+  return profile?.[key] as value | undefined
+}
+
+type ProfileDetector = defineProfile.ReturnType<Record<string, unknown>>
+
 export type FetchContext = { fetch: typeof globalThis.fetch }
 
 export type Meta = Record<string, YamlValue>
@@ -233,8 +375,9 @@ const metaKeyPriority: Record<string, number> = {
   description: 2,
   url: 3,
   site: 4,
-  author: 5,
-  publish_date: 6,
+  generator: 5,
+  author: 6,
+  publish_date: 7,
 }
 
 function sortMeta(meta: Meta): Meta {
@@ -243,6 +386,22 @@ function sortMeta(meta: Meta): Meta {
       ([a], [b]) => (metaKeyPriority[a] ?? 99) - (metaKeyPriority[b] ?? 99),
     ),
   )
+}
+
+function getMetaContent(html: string, name: string): string | undefined {
+  const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const patterns = [
+    new RegExp(`<meta[^>]*name=["']${escapedName}["'][^>]*content=["']([^"']+)["'][^>]*>`, 'i'),
+    new RegExp(`<meta[^>]*content=["']([^"']+)["'][^>]*name=["']${escapedName}["'][^>]*>`, 'i'),
+  ]
+  for (const pattern of patterns) {
+    const match = html.match(pattern)
+    if (match?.[1]) return match[1]
+  }
+}
+
+function includesAny(html: string, needles: string[]): boolean {
+  return needles.some((needle) => html.includes(needle))
 }
 
 function splitFrontmatter(markdown: string): {
@@ -325,9 +484,71 @@ function normalizeFencedCodeBlockIndentation(content: string): string {
     .join('\n')
 }
 
-function normalizeMarkdown(content: string, origin?: string): string {
+function shouldRetryMarkdownUrl(
+  markdownUrl: string | undefined,
+  content: string,
+): markdownUrl is string {
+  if (!markdownUrl) return false
+  const trimmed = content.trim()
+  if (trimmed === '') return true
+  const lines = trimmed.split('\n').filter(Boolean)
+  return trimmed.length < 120 && lines.length <= 3
+}
+
+async function extractMarkdownResponse(
+  response: Response,
+  url: URL,
+  generator?: string | undefined,
+): Promise<{ content: string; meta: Meta } | undefined> {
+  const text = await response.text()
+  if (!isLikelyMarkdownResponse(response, text, url)) return
+  const split = splitFrontmatter(text)
+  const meta = filterFrontmatterKeys(split.meta)
+  if (!meta.generator && generator) meta.generator = generator
+  return {
+    content: url.pathname.endsWith('.mdx') ? normalizeMdx(split.body) : split.body,
+    meta,
+  }
+}
+
+async function tryMarkdownRequest(
+  markdownRequest: MarkdownRequest,
+  fetchResponse: (
+    url: URL,
+    ruleFetch?: Rule['fetch'],
+    overrideInit?: RequestInit,
+  ) => Promise<Response>,
+  generator?: string | undefined,
+): Promise<{ content: string; meta: Meta } | undefined> {
+  const url = new URL(markdownRequest.url)
+  const response = await fetchResponse(url, undefined, { headers: markdownRequest.headers })
+  if (!response.ok) return
+  return extractMarkdownResponse(response, url, generator)
+}
+
+type MarkdownRequest = { headers: Record<string, string>; url: string }
+
+function isLikelyMarkdownResponse(response: Response, text: string, url: URL): boolean {
+  const contentType = (response.headers.get('content-type') ?? '').toLowerCase()
+  if (contentType.includes('text/html') || contentType.includes('application/xhtml+xml'))
+    return false
+  if (/^\s*<!doctype html/i.test(text) || /^\s*<html[\s>]/i.test(text)) return false
   return (
-    content
+    contentType.includes('text/markdown') ||
+    contentType.includes('text/plain') ||
+    /\.mdx?$/i.test(url.pathname)
+  )
+}
+
+function normalizeMarkdown(
+  content: string,
+  origin?: string,
+  profile?: Profile<Record<string, unknown>>,
+): string {
+  const normalized =
+    getProfileValue<(content: string) => string>(profile, 'normalize')?.(content) ?? content
+  return (
+    normalized
       // Remove links with no text (e.g. `[](/)`)
       .replace(/\[]\([^)]*\) */g, '')
       // Relativize same-origin absolute URLs in markdown links/images
@@ -356,8 +577,6 @@ function normalizeMarkdown(content: string, origin?: string): string {
           return match
         }
       })
-      // Strip "Built with [Mintlify](...)" lines
-      .replace(/\n*Built with \[Mintlify\]\([^)]*\)\.?\n*/g, '\n')
       // Normalize GFM table separator rows to use `| --- |`
       .replace(/^(\| *:?)-+([ :]*\|(?:[ :]*-+[ :]*\|)*)\s*$/gm, (match) =>
         match.replace(/\| *(:?)-+(:?) */g, '| $1---$2 '),
