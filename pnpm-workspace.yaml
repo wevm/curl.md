@@ -34,6 +34,7 @@ overrides:
   # Force emulate's transitive @hono/node-server to the patched release for GHSA-92pp-h63x-v22m.
   '@hono/node-server': 1.19.13
   basic-ftp@<=5.2.2: 5.3.0
+  fast-xml-parser@<5.7.0: 5.7.0
   brace-expansion@>=2.0.0 <2.0.3: 2.0.3
   defu@<=6.1.4: 6.1.5
   h3: 2.0.1-rc.18
@@ -46,6 +47,7 @@ overrides:
   path-to-regexp@>=8.0.0 <8.4.0: 8.4.0
   picomatch@>=4.0.0 <4.0.4: 4.0.4
   protobufjs@<7.5.5: 7.5.5
+  uuid@<14.0.0: 14.0.0
 
 # TODO: Remove once fix is in
 # https://github.com/TanStack/router/pull/7115
