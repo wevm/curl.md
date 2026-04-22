@@ -1,5 +1,30 @@
 import { defineProfile } from './mod.ts'
 
+export const gitbook = defineProfile<{
+  markdownRequest: { headers: Record<string, string>; url: string }
+  normalize: (content: string) => string
+}>({
+  checks: [{ url: 'https://gitbook.com/docs/getting-started/quickstart' }],
+  contentRootSelectors: ['.page-has-toc'],
+  detect: {
+    generator: /^gitbook\b/i,
+    includesAny: {
+      marker: 'dom:text-markdown-alternate',
+      needles: ['type="text/markdown"', "type='text/markdown'"],
+    },
+  },
+  key: 'gitbook',
+  resolve: (url) => ({
+    markdownRequest: { headers: { Accept: 'text/markdown' }, url: url.href },
+    normalize(content) {
+      return content.replace(
+        /\n*---\r?\n\r?\n# Agent Instructions: Querying This Documentation[\s\S]*$/,
+        '\n',
+      )
+    },
+  }),
+})
+
 export const mintlify = defineProfile<{
   markdownRequest: { headers: Record<string, string>; url: string }
   normalize: (content: string) => string
@@ -17,7 +42,9 @@ export const mintlify = defineProfile<{
   resolve: (url) => ({
     markdownRequest: { headers: { Accept: 'text/markdown' }, url: url.href },
     normalize(content) {
-      return content.replace(/\n*Built with \[Mintlify\]\([^)]*\)\.?\n*/g, '\n')
+      return content
+        .replace(/\n*<AgentInstructions>\s*[\s\S]*?\s*<\/AgentInstructions>\n*/g, '\n')
+        .replace(/\n*Built with \[Mintlify\]\([^)]*\)\.?\n*/g, '\n')
     },
   }),
 })

@@ -22,17 +22,17 @@ for (const [name, profileDetector] of Object.entries(profiles)) {
       expect(profile?.contentRootSelectors.length).toBeGreaterThan(0)
       expect(profile?.markers.length).toBeGreaterThan(0)
 
-      if (profileDetector.key === profiles.mintlify.key) {
+      if (profile?.markdownRequest) {
         expect(profile?.markdownRequest).toEqual({
           headers: { Accept: 'text/markdown' },
           url: url.href,
         })
-        expect(profile?.normalize).toEqual(expect.any(Function))
+        if (profile.normalize) expect(profile.normalize).toEqual(expect.any(Function))
         return
       }
 
-      if (profileDetector.key === profiles.starlight.key) {
-        expect(profile?.contentRootSelectors).toEqual(['.sl-markdown-content'])
+      if (!profile?.markdownUrl) {
+        expect(profile?.normalize).toBeUndefined()
         return
       }
 

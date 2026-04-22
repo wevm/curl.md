@@ -121,11 +121,7 @@ export function create(options: create.Options = {}): create.ReturnType {
             fetchResponse,
             profile?.generator,
           )
-          if (markdownResult) {
-            sourceTokens = undefined
-            sourceTokensMethod = 'markdown'
-            return markdownResult
-          }
+          if (markdownResult) return markdownResult
         }
 
         const htmlResult = await fromHtml(text, {
@@ -142,11 +138,7 @@ export function create(options: create.Options = {}): create.ReturnType {
                 url,
                 profile?.generator,
               )
-              if (markdownResult) {
-                sourceTokens = undefined
-                sourceTokensMethod = 'markdown'
-                return markdownResult
-              }
+              if (markdownResult) return markdownResult
             }
           } catch {}
         }
