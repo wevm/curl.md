@@ -122,7 +122,7 @@ export default defineConfig({
         test: {
           name: 'md',
           include: ['src/md/**/*.test.ts'],
-          exclude: ['**/smoke.test.ts'],
+          exclude: ['**/*.smoke.test.ts'],
           root,
         },
       },

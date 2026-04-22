@@ -309,7 +309,10 @@ export function defineProfile<values extends Record<string, unknown> = Record<st
     ) as defineProfile.Profile<values>
   }
 
-  return Object.assign(detector, { key: config.key })
+  return Object.assign(detector, {
+    key: config.key,
+    ...(config.checks && { checks: config.checks }),
+  })
 }
 
 export namespace defineProfile {
@@ -321,6 +324,7 @@ export namespace defineProfile {
   } & values
 
   export type Config<values extends Record<string, unknown> = Record<string, never>> = {
+    checks?: CheckCase[]
     contentRootSelectors: string[]
     detect: {
       generator: RegExp
@@ -338,6 +342,7 @@ export namespace defineProfile {
     url: URL,
   ) => Profile<values> | undefined) & {
     key: string
+    checks?: CheckCase[]
   }
 }
 

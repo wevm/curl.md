@@ -501,6 +501,24 @@ describe('strips form elements', () => {
     expect(result).toContain('Content')
   })
 
+  test('preserves starlight content roots even when generic noise classes match', async () => {
+    const { content: result } = await fromHtml(
+      html({
+        body: '<div class="sl-markdown-content sidebar"><main><h1>Title</h1><p>Content</p></main></div>',
+      }),
+      {
+        profile: {
+          contentRootSelectors: ['.sl-markdown-content'],
+          generator: undefined,
+          key: 'starlight',
+          markers: ['dom:starlight__sidebar'],
+        },
+      },
+    )
+    expect(result).toContain('# Title')
+    expect(result).toContain('Content')
+  })
+
   test('strips elements with noise id', async () => {
     const { content: result } = await fromHtml(
       html({

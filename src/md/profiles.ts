@@ -4,6 +4,7 @@ export const mintlify = defineProfile<{
   markdownRequest: { headers: Record<string, string>; url: string }
   normalize: (content: string) => string
 }>({
+  checks: [{ url: 'https://mintlify.com/docs' }],
   contentRootSelectors: ['#content-container', '#content-area'],
   detect: {
     generator: /^mintlify$/i,
@@ -22,6 +23,7 @@ export const mintlify = defineProfile<{
 })
 
 export const vitepress = defineProfile<{ markdownUrl: string }>({
+  checks: [{ url: 'https://vitepress.dev/guide/what-is-vitepress' }],
   contentRootSelectors: ['#VPContent', '.VPContent', '.VPDoc', '.vp-doc'],
   detect: {
     generator: /^vitepress\b/i,
@@ -37,4 +39,17 @@ export const vitepress = defineProfile<{ markdownUrl: string }>({
     markdownUrl.search = ''
     return { markdownUrl: markdownUrl.href }
   },
+})
+
+export const starlight = defineProfile({
+  checks: [{ url: 'https://starlight.astro.build/getting-started' }],
+  contentRootSelectors: ['.sl-markdown-content'],
+  detect: {
+    generator: /^starlight\b/i,
+    includesAny: {
+      marker: 'dom:starlight__sidebar',
+      needles: ['id="starlight__sidebar"', 'class="sl-markdown-content"', '<starlight-tabs'],
+    },
+  },
+  key: 'starlight',
 })

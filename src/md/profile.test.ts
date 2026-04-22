@@ -38,6 +38,21 @@ test('detects mintlify profile from generator and dom markers', () => {
   expect(result?.normalize).toEqual(expect.any(Function))
 })
 
+test('detects starlight profile from dom markers', () => {
+  const result = detectPageProfile(
+    '<!doctype html><html><head><title>Docs</title></head><body><nav><div id="starlight__sidebar"></div></nav><main><div class="sl-markdown-content"><h1>Docs</h1></div></main></body></html>',
+    new URL('https://starlight.astro.build/getting-started'),
+    profiles,
+  )
+
+  expect(result).toEqual({
+    contentRootSelectors: ['.sl-markdown-content'],
+    generator: undefined,
+    key: 'starlight',
+    markers: ['dom:starlight__sidebar'],
+  })
+})
+
 test('returns undefined for pages without supported framework markers', () => {
   expect(
     detectPageProfile(
