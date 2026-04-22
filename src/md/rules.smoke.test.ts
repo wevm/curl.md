@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
-import { create } from '../mod.ts'
-import * as rules from '../rules.ts'
+import { create } from './mod.ts'
+import * as rules from './rules.ts'
 
 // Smoke tests that fetch live sources and verify extraction doesn't blow up.
 // These do NOT assert exact content — only structural invariants.

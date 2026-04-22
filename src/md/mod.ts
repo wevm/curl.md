@@ -23,12 +23,11 @@ export function create(options: create.Options = {}): create.ReturnType {
       })()
 
       const matched = (() => {
-        for (const rule of rules) {
+        for (const rule of rules)
           for (const pattern of rule.patterns) {
             const match = pattern.exec(inputURL)
             if (match) return { rule, match }
           }
-        }
       })()
 
       const rewrittenUrl = matched?.rule?.rewrite?.(inputURL, matched.match) ?? inputURL
@@ -43,6 +42,7 @@ export function create(options: create.Options = {}): create.ReturnType {
       const context = {
         fetch: options.fetch ?? globalThis.fetch.bind(globalThis),
       } satisfies FetchContext
+
       const fetchResponse = async (
         url: URL,
         ruleFetch?: Rule['fetch'] | undefined,
@@ -114,10 +114,10 @@ export function create(options: create.Options = {}): create.ReturnType {
         sourceTokens = estimateTokenCount(text)
         sourceTokensMethod = 'html'
         profile = detectPageProfile(text, inputURL, profiles)
-        const markdownRequest = profile?.markdownRequest
-        if (markdownRequest) {
+
+        if (profile?.markdownRequest) {
           const markdownResult = await tryMarkdownRequest(
-            markdownRequest,
+            profile.markdownRequest,
             fetchResponse,
             profile?.generator,
           )
@@ -127,14 +127,14 @@ export function create(options: create.Options = {}): create.ReturnType {
             return markdownResult
           }
         }
+
         const htmlResult = await fromHtml(text, {
           baseUrl: inputURL.href,
           profile,
         })
-        const markdownUrl = profile?.markdownUrl
-        if (shouldRetryMarkdownUrl(markdownUrl, htmlResult.content)) {
+        if (shouldRetryMarkdownUrl(profile?.markdownUrl, htmlResult.content)) {
           try {
-            const url = new URL(markdownUrl)
+            const url = new URL(profile.markdownUrl)
             const markdownResponse = await fetchResponse(url)
             if (markdownResponse.ok) {
               const markdownResult = await extractMarkdownResponse(

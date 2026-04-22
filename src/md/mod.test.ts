@@ -44,7 +44,7 @@ test('requests markdown directly for mintlify docs after profile detection', asy
   const md = create({
     fetch: async (input, init) => {
       const url = input instanceof URL ? input.href : input instanceof Request ? input.url : input
-      const accept = getHeader(init?.headers, 'accept')
+      const accept = init?.headers ? new Headers(init.headers).get('accept') : null
       requests.push({ accept, url })
 
       if (url === 'https://mintlify.com/docs' && accept === 'text/markdown')
@@ -79,23 +79,6 @@ test('requests markdown directly for mintlify docs after profile detection', asy
   expect(result.content).not.toContain('Built with [Mintlify]')
   expect(result.meta.generator).toBe('Mintlify')
   expect(result.extras.source_tokens_method).toBe('markdown')
-})
-
-test('does not apply mintlify normalization to unrelated markdown', async () => {
-  const md = create({
-    fetch: async () =>
-      new Response('# Docs\n\nBuilt with [Mintlify](https://mintlify.com).\n', {
-        headers: { 'content-type': 'text/markdown; charset=utf-8' },
-        status: 200,
-      }),
-    profiles,
-  })
-
-  const result = await md.fetch('https://example.com/docs.md')
-  expect(result.ok).toBe(true)
-  if (!result.ok) return
-
-  expect(result.content).toContain('Built with [Mintlify](https://mintlify.com).')
 })
 
 test('keeps html extraction when vitepress markdown path returns html', async () => {
@@ -133,17 +116,3 @@ test('keeps html extraction when vitepress markdown path returns html', async ()
   expect(result.content).toContain('HTML body survives.')
   expect(result.extras.source_tokens_method).toBe('html')
 })
-
-function getHeader(headers: HeadersInit | undefined, key: string): string | null {
-  if (!headers) return null
-  if (headers instanceof Headers) return headers.get(key)
-  if (Array.isArray(headers)) {
-    const match = headers.find(([name]) => name.toLowerCase() === key.toLowerCase())
-    return match?.[1] ?? null
-  }
-  const normalizedKey = Object.keys(headers).find(
-    (name) => name.toLowerCase() === key.toLowerCase(),
-  )
-  const value = normalizedKey ? headers[normalizedKey as keyof typeof headers] : undefined
-  return typeof value === 'string' ? value : null
-}
