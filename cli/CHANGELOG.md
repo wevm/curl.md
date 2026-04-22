@@ -1,5 +1,11 @@
 # curl.md
 
+## 0.0.20
+
+### Patch Changes
+
+- Bumped internals ([`d831438`](https://github.com/wevm/curl.md/commit/d83143836fd6462a4dd249f01616abe66096bb04))
+
 ## 0.0.19
 
 ### Patch Changes
