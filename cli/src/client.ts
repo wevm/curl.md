@@ -24,16 +24,18 @@ export function createClient(url: string = defaultBaseUrl, options?: ClientReque
     get(target, prop, receiver) {
       if (prop === 'fetch') {
         return (targetUrl: string, fetchOptions?: FetchOptions | undefined) => {
+          const normalizedTargetUrl = normalizeTargetUrl(targetUrl)
           const { options, token, ...queryOptions } = fetchOptions ?? {}
           const query = {
+            anchor: normalizedTargetUrl.anchor,
             ...queryOptions,
             fresh: queryOptions.fresh ? '' : undefined,
             keywords: queryOptions.keywords?.join(','),
-          } satisfies FetchQuery
+          } satisfies InternalFetchQuery
 
           return target.api[':url{.+}'].$get(
             {
-              param: { url: targetUrl },
+              param: { url: normalizedTargetUrl.url },
               query,
             },
             token ? withAuthorizationHeader(options, token) : options,
@@ -54,11 +56,14 @@ type RpcClient = ReturnType<typeof hc<typeof api>>
 type Api = RpcClient['api']
 type PublicApi = Omit<Api, 'og.png' | 'sentry' | 'stats' | 'stripe'>
 type Fetch = RpcClient['api'][':url{.+}']['$get']
-type FetchQuery = Pick<
+type PublicFetchQuery = Pick<
   NonNullable<NonNullable<Parameters<Fetch>[0]>['query']>,
   'fresh' | 'keywords' | 'mode' | 'objective'
 >
-type FetchOptions = Partial<Omit<FetchQuery, 'fresh' | 'keywords'>> & {
+type InternalFetchQuery = PublicFetchQuery & {
+  anchor?: string | undefined
+}
+type FetchOptions = Partial<Omit<PublicFetchQuery, 'fresh' | 'keywords'>> & {
   fresh?: boolean | undefined
   keywords?: string[] | undefined
   options?: NonNullable<Parameters<Fetch>[1]> | undefined
@@ -87,4 +92,21 @@ function withTokenHeader(headers: Record<string, string> | undefined, token: str
   }
   nextHeaders.Authorization = `Bearer ${token}`
   return nextHeaders
+}
+
+function normalizeTargetUrl(targetUrl: string) {
+  const hashIndex = targetUrl.indexOf('#')
+  const url = hashIndex === -1 ? targetUrl : targetUrl.slice(0, hashIndex)
+  const searchIndex = url.indexOf('?')
+  const encodedUrl =
+    searchIndex === -1
+      ? url
+      : `${url.slice(0, searchIndex)}${encodeURIComponent(url.slice(searchIndex))}`
+  if (hashIndex === -1) return { anchor: undefined, url: encodedUrl }
+
+  const anchor = targetUrl.slice(hashIndex + 1) || undefined
+  return {
+    anchor,
+    url: encodedUrl,
+  }
 }

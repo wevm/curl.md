@@ -54,10 +54,14 @@ test('fetch types', () => {
   // @ts-expect-error single-letter query aliases are not part of the public API
   const invalidAlias: WrapperFetchOptions = { k: ['foo'] }
 
+  // @ts-expect-error anchor is derived from the target URL, not a public option
+  const invalidAnchor: WrapperFetchOptions = { anchor: 'section' }
+
   // @ts-expect-error old Hono-style request shape is not part of the public API
   const invalidOptions: WrapperFetchOptions = { param: { url: 'https://example.com' } }
   expectTypeOf(invalidHeaders).toEqualTypeOf<WrapperFetchOptions>()
   expectTypeOf(invalidAlias).toEqualTypeOf<WrapperFetchOptions>()
+  expectTypeOf(invalidAnchor).toEqualTypeOf<WrapperFetchOptions>()
   expectTypeOf(invalidOptions).toEqualTypeOf<WrapperFetchOptions>()
 })
 

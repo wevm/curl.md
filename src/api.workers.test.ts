@@ -2614,6 +2614,51 @@ test('GET /api/:url supports query param aliases', async () => {
   expect(kText).not.toContain('World')
 })
 
+test('GET /api/:url accepts explicit anchor query params without changing content', async () => {
+  server.use(
+    http.get(
+      'https://anchor-query.example.com/',
+      () =>
+        new HttpResponse('<html><body><h2>Intro</h2><p>Hello</p></body></html>', {
+          headers: { 'content-type': 'text/html' },
+        }),
+    ),
+  )
+
+  const res = await client.api[':url{.+}'].$get({
+    param: { url: 'anchor-query.example.com' },
+    query: { anchor: 'intro' },
+  })
+
+  expect(res.status).toBe(200)
+  await expect(res.text()).resolves.toContain('Hello')
+})
+
+test('GET /api/:url strips encoded target hashes for page cache lookups', async () => {
+  await env.KV.put(
+    'page:https://anchor-cache.example.com/docs?tab=api',
+    JSON.stringify({
+      content: '# Cached',
+      extras: {},
+      meta: {
+        site: 'anchor-cache.example.com',
+        url: 'https://anchor-cache.example.com/docs?tab=api',
+      },
+    }),
+  )
+
+  const res = await api.request(
+    '/api/anchor-cache.example.com/docs%3Ftab%3Dapi%23install',
+    { headers: { 'cf-connecting-ip': '10.0.0.51' } },
+    env,
+    executionCtx,
+  )
+
+  expect(res.status).toBe(200)
+  expect(res.headers.get('x-cache')).toBe('HIT')
+  await expect(res.text()).resolves.toContain('# Cached')
+})
+
 test('GET /api/:url returns fetch rate limit headers', async () => {
   server.use(
     http.get(

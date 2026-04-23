@@ -277,8 +277,11 @@ test('shell prompt blocks render a copy button for each command line', async () 
   expect(promptCopySpacers).toHaveLength(2)
   expect(copyOverlay).not.toBeNull()
   expect(pre).not.toBeNull()
+  expect(pre?.className).toContain('pe-16')
   expect(firstCopyButton?.getAttribute('data-active')).toBeNull()
   expect(secondCopyButton?.getAttribute('data-active')).toBeNull()
+  expect(firstCopyButton?.className).toContain('p-1.5')
+  expect(firstCopyButton?.className).not.toContain('-me-1')
   expect(firstPrompt?.textContent).toBe('$')
   expect(firstCommandLine?.textContent?.match(/\$/g)?.length ?? 0).toBe(1)
   expect(firstCommandLine?.querySelector('.token.command')?.textContent).toBe('pnpm')
@@ -323,8 +326,35 @@ test('shell prompt line copy strips the leading shell prompt', async () => {
   expect(copied).toBe('pnpm check')
 })
 
-test('single-line shell prompt blocks keep the normal copy code button', async () => {
+test('shell prompt block copy strips authored prompt prefixes', async () => {
+  const rendered = renderDocContent(createPrefixedPromptShellDoc())
+  const firstCommandLine = rendered.container.querySelector('.line')
+  let copied = ''
+
+  Object.defineProperty(navigator, 'clipboard', {
+    configurable: true,
+    value: {
+      writeText: async (value: string) => {
+        copied = value
+      },
+    },
+  })
+
+  if (!(firstCommandLine instanceof HTMLElement))
+    throw new Error('Expected first command line to render')
+
+  await page.elementLocator(firstCommandLine).hover()
+
+  await rendered.content
+    .getByRole('button', { exact: true, name: 'Copy command: pnpm check' })
+    .click()
+
+  expect(copied).toBe('pnpm check')
+})
+
+test('single-line shell prompt blocks render a single per-line copy button', async () => {
   const rendered = renderDocContent(createSingleLinePromptShellDoc())
+  const firstCommandLine = rendered.container.querySelector('.line')
   let copied = ''
 
   Object.defineProperty(navigator, 'clipboard', {
@@ -337,10 +367,17 @@ test('single-line shell prompt blocks keep the normal copy code button', async (
   })
 
   expect(rendered.container.querySelectorAll('[data-command-prompt]').length).toBe(1)
-  expect(rendered.container.querySelector('[data-copy-command]')).toBeNull()
-  expect(rendered.container.querySelector('[aria-label="Copy code"]')).not.toBeNull()
+  expect(rendered.container.querySelectorAll('[data-copy-command]')).toHaveLength(1)
+  expect(rendered.container.querySelector('[aria-label="Copy code"]')).toBeNull()
 
-  await rendered.content.getByRole('button', { exact: true, name: 'Copy code' }).click()
+  if (!(firstCommandLine instanceof HTMLElement))
+    throw new Error('Expected first command line to render')
+
+  await page.elementLocator(firstCommandLine).hover()
+
+  await rendered.content
+    .getByRole('button', { exact: true, name: 'Copy command: pnpm check' })
+    .click()
 
   expect(copied).toBe('pnpm check')
 })
@@ -1161,6 +1198,42 @@ function createSingleLinePromptShellDoc(): Doc {
           <span className="line" key="check">
             <span className="token command">pnpm</span>
             {' check'}
+          </span>,
+          '\n',
+        ),
+      )
+    },
+    description: undefined,
+    headings: [],
+    path: 'test',
+    source: '# Test\n',
+    sourcePath: 'docs/dev/develop.mdx',
+    title: 'Test',
+  }
+}
+
+function createPrefixedPromptShellDoc(): Doc {
+  return {
+    Component: function Component(props) {
+      const components = props.components ?? {}
+      const Pre = (components.pre ?? 'pre') as React.ElementType
+      const Code = (components.code ?? 'code') as React.ElementType
+
+      return React.createElement(
+        Pre,
+        undefined,
+        React.createElement(
+          Code,
+          { className: 'language-sh' },
+          '\n',
+          <span className="line" key="check">
+            $ <span className="token command">pnpm</span>
+            {' check'}
+          </span>,
+          '\n',
+          <span className="line" key="check-types">
+            $ <span className="token command">pnpm</span>
+            {' check:types'}
           </span>,
           '\n',
         ),
