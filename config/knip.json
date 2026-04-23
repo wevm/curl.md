@@ -15,6 +15,12 @@
       "entry": ["src/install.ts"],
       "ignore": ["**/*.test.ts"]
     },
+    "plugins/claude": {
+      "entry": ["src/server.ts"]
+    },
+    "plugins/opencode": {
+      "ignore": ["**/*.test.ts"]
+    },
     "plugins/pi": {
       "ignore": ["**/*.test.ts", "test/**"]
     }
