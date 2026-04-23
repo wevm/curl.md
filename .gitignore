@@ -1,4 +1,5 @@
 /.amp
+/.claude
 /.opencode
 .env*
 .vite

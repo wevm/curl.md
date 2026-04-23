@@ -1,16 +1,161 @@
 ---
-title: Claude
-description: Install and use curl.md with Claude
+title: Claude Code
+description: Install and use curl.md with Claude Code
 ---
+
+import packageJson from '../../plugins/claude/package.json'
 
 # Claude
 
-:::important[Work in progress]
-curl.md doesn't have a first-party Claude plugin yet. In the meantime, we recommend adding the [curl.md skills](/docs/skills) to your agent instead.
+First-party [Claude Code](https://code.claude.com) plugin that adds a `curl_md` MCP tool and `/curl-md:fetch` slash skill.
+
+<PackageLinks
+  npm="@curl.md/claude"
+  source="https://github.com/wevm/curl.md/tree/main/plugins/claude"
+  version={packageJson.version}
+/>
+
+## Quick Start
+
+Add the marketplace and plugin, launch Claude Code, and start curling.
+
+::::steps
+
+### Add marketplace
+
+Add the curl.md [plugin marketplace](https://code.claude.com/docs/en/plugin-marketplaces#plugin-marketplace-add) to Claude Code.
+
+```sh
+$ claude plugin marketplace add https://curl.md/claude.json
+```
+
+### Install plugin
+
+Install the `curl-md` plugin from the marketplace you just added:
+
+```sh
+$ claude plugin install curl-md@curl-md
+```
+
+:::tip
+If Claude is already running, use the `/reload-plugins` command.
 :::
 
-:::tip[Contributions welcome]
-If you use Claude and would like to contribute the curl.md Claude plugin, check out the [Contributing guide](/docs/dev/develop) and open a [pull request](https://github.com/wevm/curl.md).
+### Use Claude
 
-If it meets the quality bar (please no slop) and is merged, we will give you **$100 in curl.md credits**. That's _a lot_ of requests.
+Now that Claude is running with the curl.md plugin, all you need to do is use Claude. To confirm everything is set up, try this out:
+
+```text
+Read the curl.md Claude plugin docs and summarize how it works.
+https://curl.md/docs/plugins/claude
+```
+
+Claude will automatically use curl.md to turn URLs you paste, or URLs it decides to fetch on its own, into markdown.
+
+:::tip
+Optionally, [authenticate](#authentication) with `curl.md auth login` or `CURLMD_API_KEY` to unlock higher usage limits.
 :::
+
+::::
+
+## Install
+
+Claude installs plugins through marketplaces, so the public install path is the hosted marketplace manifest at [`https://curl.md/claude.json`](https://curl.md/claude.json).
+
+From your terminal:
+
+```sh
+$ claude plugin marketplace add https://curl.md/claude.json
+$ claude plugin install curl-md@curl-md
+```
+
+Or inside Claude:
+
+```sh
+/plugin marketplace add https://curl.md/claude.json
+/plugin install curl-md@curl-md
+/reload-plugins
+```
+
+To update when a new version is available, refresh the marketplace, then reinstall the plugin:
+
+```sh
+$ claude plugin marketplace update curl-md
+$ claude plugin install curl-md@curl-md
+```
+
+Or inside Claude:
+
+```sh
+/plugin marketplace update curl-md
+/plugin install curl-md@curl-md
+/reload-plugins
+```
+
+## Usage
+
+Ask for a page, paste links, or let Claude figure out what it needs to fetch.
+
+### Prompting
+
+Inside Claude, prompt like you normally would, for example:
+
+```text
+Read the Cloudflare Agents docs and summarize the core concepts.
+https://developers.cloudflare.com/agents
+```
+
+In this example, Claude will use curl.md to fetch the page and return markdown optimized for agents.
+
+You can also tell Pi to use a specific [objective](#TODO), [keywords](#TODO), or let it decide what to use on its own (it’s really good at this).
+
+### Authentication
+
+The plugin uses the same auth model as the [CLI](/docs/guide/cli#authentication). Log in to connect the plugin to your curl.md account or organization:
+
+```sh
+$ curl.md auth login
+```
+
+For non-interactive environments, set [`CURLMD_API_KEY`](/docs/guide/cli#environment-variables).
+
+### Skills
+
+After installing, Claude registers the following slash skill:
+
+| Skill            | Description                                                        |
+| ---------------- | ------------------------------------------------------------------ |
+| `/curl-md:fetch` | Explicitly tells Claude to use the `curl_md` tool for a URL fetch. |
+
+### Tools
+
+The plugin also registers the following tool:
+
+| Tool      | Description                                                             |
+| --------- | ----------------------------------------------------------------------- |
+| `curl_md` | Fetches URLs through curl.md and returns markdown optimized for agents. |
+
+The `curl_md` tool accepts the following inputs:
+
+| Input        | Type             | Description                                                                      |
+| ------------ | ---------------- | -------------------------------------------------------------------------------- |
+| `url`        | `string`         | HTTP(S) URL or bare domain to fetch through curl.md.                             |
+| `objective?` | `string`         | Ask a specific question about the page instead of fetching everything.           |
+| `keywords?`  | `string[]`       | Focus extraction on a few specific terms or sections.                            |
+| `mode?`      | `rush` / `smart` | Use `rush` for speed or `smart` for better section selection on long pages.      |
+| `fresh?`     | `boolean`        | Bypass curl.md cache for recently updated pages like release notes or changelogs |
+
+### Status/Debugging
+
+If you want to confirm Claude loaded the plugin correctly:
+
+```sh
+/mcp
+/skills
+```
+
+You should see the `curl_md` MCP server/tool and the `/curl-md:fetch` skill.
+
+## Contributing
+
+We welcome improvements to make the Claude plugin better. Feel free to create issues or pull requests [on GitHub](https://github.com/wevm/curl.md) if there are issues or something could be improved.

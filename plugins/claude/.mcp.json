@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "curl_md": {
+      "command": "sh",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/start.sh"]
+    }
+  }
+}

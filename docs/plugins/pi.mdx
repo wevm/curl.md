@@ -39,7 +39,7 @@ $ pi
 
 ### Use Pi
 
-Now that Pi is running with the curl.md extension, all you need to do is use Pi. To confirm everything is set up correctly, try this out:
+Now that Pi is running with the curl.md extension, all you need to do is use Pi. To confirm everything is set up, try this out:
 
 ```text
 Read the curl.md Pi extension docs and summarize how it works.
@@ -138,6 +138,16 @@ The plugin also registers the following tools:
 | --------------- | ----------------------------------------------------------------------- |
 | `curl_md`       | Compatibility alias for `read_web_page`.                                |
 | `read_web_page` | Fetches URLs through curl.md and returns markdown optimized for agents. |
+
+Both `read_web_page` and the `curl_md` alias accept the following inputs:
+
+| Input        | Type             | Description                                                                      |
+| ------------ | ---------------- | -------------------------------------------------------------------------------- |
+| `url`        | `string`         | HTTP(S) URL or bare domain to fetch through curl.md.                             |
+| `objective?` | `string`         | Ask a specific question about the page instead of fetching everything.           |
+| `keywords?`  | `string[]`       | Focus extraction on a few specific terms or sections.                            |
+| `mode?`      | `rush` / `smart` | Use `rush` for speed or `smart` for better section selection on long pages.      |
+| `fresh?`     | `boolean`        | Bypass curl.md cache for recently updated pages like release notes or changelogs |
 
 ### Status/Debugging
 

@@ -49,7 +49,7 @@ const botPaths = [
 ]
 
 const excludePrefixes = ['/assets/', '/.well-known/']
-const excludePaths = ['/api/og.png', '/dark.svg', '/favicon.svg', '/light.svg']
+const excludePaths = ['/api/og.png', '/claude.json', '/dark.svg', '/favicon.svg', '/light.svg']
 
 const expression = [
   `(${[

@@ -34,6 +34,9 @@ md example.com
 opencode plugin @curl.md/opencode
 pi install @curl.md/pi
 npx @curl.md/amp install
+# Claude marketplace: URL is `claude.json`, install name is `curl-md`
+claude plugin marketplace add https://curl.md/claude.json
+claude plugin install curl-md@curl-md
 
 # Add skills
 npx skills add https://curl.md --yes

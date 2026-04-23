@@ -1,0 +1,11 @@
+{
+  "name": "curl-md",
+  "description": "Use curl.md inside Claude Code for low-token web fetches.",
+  "version": "0.0.1",
+  "author": {
+    "name": "curl.md"
+  },
+  "homepage": "https://curl.md/docs/plugins/claude",
+  "repository": "https://github.com/wevm/curl.md/tree/main/plugins/claude",
+  "license": "MIT"
+}

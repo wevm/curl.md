@@ -41,7 +41,7 @@ $ opencode
 
 ### Use OpenCode
 
-Now that OpenCode is running with the curl.md plugin, all you need to do is use OpenCode. To confirm everything is set up correctly, try this out:
+Now that OpenCode is running with the curl.md plugin, all you need to do is use OpenCode. To confirm everything is set up, try this out:
 
 ```text
 Read the curl.md OpenCode plugin docs and summarize how it works.
@@ -154,6 +154,22 @@ The plugin registers the following tools:
 | ---------- | ----------------------------------------------------------------------- |
 | `curl_md`  | Fetches URLs through curl.md and returns markdown optimized for agents. |
 | `webfetch` | Overrides built-in `webfetch` so it returns curl.md markdown output.    |
+
+The `curl_md` tool accepts the following inputs:
+
+| Input      | Type     | Description                                                           |
+| ---------- | -------- | --------------------------------------------------------------------- |
+| `url`      | `string` | HTTP(S) URL or bare domain to fetch through curl.md.                  |
+| `options?` | `object` | Optional fetch settings for `fresh`, `keywords`, `mode`, `objective`. |
+
+The `options` object accepts the following inputs:
+
+| Input        | Type             | Description                                                                      |
+| ------------ | ---------------- | -------------------------------------------------------------------------------- |
+| `objective?` | `string`         | Ask a specific question about the page instead of fetching everything.           |
+| `keywords?`  | `string[]`       | Focus extraction on a few specific terms or sections.                            |
+| `mode?`      | `rush` / `smart` | Use `rush` for speed or `smart` for better section selection on long pages.      |
+| `fresh?`     | `boolean`        | Bypass curl.md cache for recently updated pages like release notes or changelogs |
 
 ### Status/Debugging
 
