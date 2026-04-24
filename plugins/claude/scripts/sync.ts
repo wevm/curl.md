@@ -3,9 +3,12 @@ import path from 'node:path'
 
 console.log('Syncing Claude plugin manifests.')
 
-const packageJsonPath = path.join(process.cwd(), 'plugins/claude/package.json')
-const pluginJsonPath = path.join(process.cwd(), 'plugins/claude/.claude-plugin/plugin.json')
-const marketplaceJsonPath = path.join(process.cwd(), 'public/claude.json')
+const pluginRoot = path.resolve(import.meta.dirname, '..')
+const repoRoot = path.resolve(pluginRoot, '../..')
+
+const packageJsonPath = path.join(pluginRoot, 'package.json')
+const pluginJsonPath = path.join(pluginRoot, '.claude-plugin', 'plugin.json')
+const marketplaceJsonPath = path.join(repoRoot, 'public/claude.json')
 
 const packageJson = JSON.parse(await fs.readFile(packageJsonPath, 'utf8')) as {
   name: string

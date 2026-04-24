@@ -653,12 +653,13 @@ test('fetches markdown from curl.md anonymously', async () => {
     keywords: ['pricing', 'billing'],
     mode: 'rush',
     objective: 'compare plans',
-    url: 'example.com/docs?q=1',
+    url: 'example.com/docs?q=1#plans',
   })
   const result = await tools[0]!.execute('call_1', params)
 
   expect(requests).toHaveLength(1)
   expect(requests[0]?.url).toContain(`${defaultBaseUrl}/api/https://example.com/docs%3Fq%3D1`)
+  expect(requests[0]?.url).toContain('anchor=plans')
   expect(requests[0]?.url).toContain('fresh=')
   expect(requests[0]?.url).toContain('keywords=pricing%2Cbilling')
   expect(requests[0]?.url).toContain('mode=rush')
@@ -680,7 +681,7 @@ test('fetches markdown from curl.md anonymously', async () => {
       request_id: 'req_123',
       tokens_count: 42,
       tokens_saved: 128,
-      url: 'https://example.com/docs?q=1',
+      url: 'https://example.com/docs?q=1#plans',
     },
   })
 

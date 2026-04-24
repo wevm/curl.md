@@ -128,7 +128,7 @@ export default function (pi: ExtensionAPI) {
         client.api.orgs.$get(),
         client.api.auth.me.$get(),
       ])
-      if (!orgsRes.ok || !meRes.ok) {
+      if (orgsRes.status !== 200 || meRes.status !== 200) {
         ctx.ui.notify('Failed to fetch curl.md organizations.', 'error')
         return
       }
@@ -158,10 +158,10 @@ export default function (pi: ExtensionAPI) {
       }
 
       const choices = [
-        ...orgsJson.organizations.map((o) => ({
-          id: o.id,
+        ...orgsJson.organizations.map((organization) => ({
+          id: organization.id,
           kind: 'organization' as const,
-          label: o.login,
+          label: organization.login,
         })),
         {
           id: undefined,
@@ -187,6 +187,7 @@ export default function (pi: ExtensionAPI) {
                 emptyText: '  No matching organizations',
                 footerText: '(escape/ctrl+c to cancel)',
                 formatItem: (choice, props) => {
+                  if (!choice) return ''
                   const { isSelected, theme } = props
                   const prefix = isSelected ? theme.fg('accent', '→ ') : '  '
                   const label = isSelected ? theme.fg('accent', choice.label) : choice.label
@@ -195,7 +196,7 @@ export default function (pi: ExtensionAPI) {
                   return `${prefix}${label}${badge}${check}`
                 },
                 placeholder: 'Type to filter. Use arrows to move, enter to select.',
-                searchText: (choice) => `${choice.label} ${choice.kind}`,
+                searchText: (choice) => (choice ? `${choice.label} ${choice.kind}` : ''),
                 title: 'Switch curl.md organization',
               },
               done,
@@ -261,8 +262,8 @@ export default function (pi: ExtensionAPI) {
             }),
           })
           const res = await client.api.auth.me.$get()
-          if (!res.ok) {
-            const json = await res.json().catch((_error) => undefined)
+          if (res.status !== 200) {
+            const json = await res.json().catch(() => undefined)
             const error = parseApiError(json)
             return {
               message: error ? formatApiError(error) : `status ${res.status}`,
@@ -490,7 +491,7 @@ export default function (pi: ExtensionAPI) {
         const json = await res
           .clone()
           .json()
-          .catch((_error) => undefined)
+          .catch(() => undefined)
         const error = parseApiError(json)
         if (error) throw new Error(formatApiError(error))
 

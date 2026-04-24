@@ -120,7 +120,7 @@ export default function (amp: PluginAPI) {
     let res = await client.fetch(url, { ...fetchParams, token: apiKey })
 
     if (res.status === 401 && authType === 'session') {
-      authHeaders = await resolver()
+      authHeaders = await resolver({ forceRefresh: true })
       if (!authHeaders) authType = 'anon'
       const retryClient = createClient(baseUrl, {
         headers: apiKey ? createHeaders(null) : createHeaders(authHeaders),

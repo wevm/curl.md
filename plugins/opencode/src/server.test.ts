@@ -75,12 +75,13 @@ test('returns markdown and tool metadata for curl_md by default', async () => {
         objective: 'Summarize the docs',
         timeout: 30,
       },
-      url: 'https://example.com',
+      url: 'https://example.com/docs#intro',
     },
     createToolContext(metadata),
   )
 
-  expect(requests[0]?.url).toContain(`${defaultBaseUrl}/api/https://example.com/`)
+  expect(requests[0]?.url).toContain(`${defaultBaseUrl}/api/https://example.com/docs`)
+  expect(requests[0]?.url).toContain('anchor=intro')
   expect(requests[0]?.url).toContain('fresh=')
   expect(requests[0]?.url).toContain('keywords=plugin')
   expect(requests[0]?.url).toContain('mode=smart')
@@ -93,9 +94,9 @@ test('returns markdown and tool metadata for curl_md by default', async () => {
       fresh: true,
       request_id: 'req_123',
       tokens_saved: 128,
-      url: 'https://example.com/',
+      url: 'https://example.com/docs#intro',
     },
-    title: 'https://example.com/',
+    title: 'https://example.com/docs#intro',
   })
 })
 

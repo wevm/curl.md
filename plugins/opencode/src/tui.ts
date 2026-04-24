@@ -165,7 +165,7 @@ export const tuiPlugin: opencodePluginTui.TuiPluginModule = {
             client.api.auth.me.$get(),
           ])
 
-          if (!orgsRes.ok || !meRes.ok) {
+          if (orgsRes.status !== 200 || meRes.status !== 200) {
             api.ui.dialog.clear()
             api.ui.toast({
               message: 'Failed to fetch curl.md organizations.',
@@ -389,7 +389,7 @@ async function readStatus(baseUrl: string, authorization: string, organizationId
       }),
     })
     const res = await client.api.auth.me.$get()
-    if (!res.ok) {
+    if (res.status !== 200) {
       const json = await res.json().catch(() => undefined)
       const error = parseApiError(json)
       return {

@@ -34,16 +34,8 @@ const vars = z.object({
   session: z.custom<Session.Data | null>(),
 })
 
-const cli = Cli.create('curl.md', {
-  aliases,
-  description: 'URL to markdown for agents',
-  version: pkg.version,
-  env,
-  vars,
-  usage: [{ suffix: '<url> [options]' }],
-  args: z.object({
-    url: z.string().describe('URL to fetch'),
-  }),
+const root = {
+  args: z.object({ url: z.string().describe('URL to fetch') }),
   options: z.object({
     fresh: z.boolean().optional().describe('Force fresh fetch (bypass cache)'),
     keywords: z.array(z.string()).optional().describe('Pre-filter by keywords (comma-separated)'),
@@ -55,7 +47,7 @@ const cli = Cli.create('curl.md', {
     objective: z.string().optional().describe('Narrow content to a specific objective'),
     token: z.string().optional().describe('API token for authentication (env: CURLMD_API_KEY)'),
   }),
-  alias: { fresh: 'f', keywords: 'k', mode: 'm', objective: 'o', token: 't' },
+  output: z.string().describe('Page content as markdown'),
   examples: [
     { args: { url: 'example.com' } },
     {
@@ -98,179 +90,19 @@ const cli = Cli.create('curl.md', {
       },
     },
   ],
-  output: z.string().describe('Page content as markdown'),
-  format: 'md',
-  async run(c) {
-    const result = z.safeParse(
-      z
-        .string()
-        .transform((arg) => (arg.includes('://') ? arg : `https://${arg}`))
-        .pipe(
-          z.url({
-            hostname: z.regexes.domain,
-            normalize: true,
-            protocol: /^https?$/,
-          }),
-        ),
-      c.args.url,
-    )
-    if (!result.success)
-      return c.error({
-        code: 'INVALID_URL',
-        message: `Invalid URL: ${c.args.url}`,
-        cta: {
-          description: 'URL must be valid HTTP(S) address:',
-          commands: [
-            {
-              command: c.displayName,
-              args: { url: 'example.com' },
-              description: 'domain without protocol',
-            },
-            {
-              command: c.displayName,
-              args: { url: 'https://example.com/path' },
-              description: 'full URL with protocol',
-            },
-            ...c.var.commands,
-          ],
-        },
-      })
+  alias: { fresh: 'f', keywords: 'k', mode: 'm', objective: 'o', token: 't' } as const,
+  format: 'md' as const,
+  run,
+}
 
-    const keywords = c.options.keywords?.flatMap((k: string) => k.split(','))
-    const token = c.options.token ?? c.var.apiKey
-    const spinner = UI.createSpinner('')
-    const res = await c.var.client.fetch(result.data, {
-      fresh: c.options.fresh,
-      keywords,
-      mode: c.options.mode,
-      objective: c.options.objective,
-      token,
-    })
-
-    spinner.stop()
-
-    if (res.status === 400) {
-      const json = await res.json()
-      return c.error({
-        code: json.code.toUpperCase(),
-        message: formatValidationError(json),
-      })
-    }
-
-    if (res.status === 401) {
-      const json = await res.json()
-      return c.error({
-        code: json.code.toUpperCase(),
-        message: json.message,
-        cta: {
-          description: 'Create API token:',
-          commands: [
-            {
-              command: `${c.displayName} token create <name>`,
-              description: 'create API token',
-            },
-            ...c.var.commands,
-          ],
-        },
-      })
-    }
-
-    if (res.status === 403) {
-      const json = await res.json()
-      Session.write({ organization_id: undefined }, c.var.baseUrl)
-      return c.error({
-        code: json.code.toUpperCase(),
-        message: json.message,
-        cta: {
-          description: 'Switch organization:',
-          commands: [
-            {
-              command: `${c.displayName} org switch`,
-              description: 'switch organization',
-            },
-            ...c.var.commands,
-          ],
-        },
-      })
-    }
-
-    if (res.status === 429) {
-      const json = await res.json()
-      const retryAfter = res.headers.get('retry-after')
-      const activeSession = c.var.apiKey ? null : Session.read(c.var.baseUrl)
-      return c.error({
-        code: json.code.toUpperCase(),
-        message: retryAfter ? `${json.message}. Try again in ${retryAfter}s` : json.message,
-        cta: {
-          description: activeSession
-            ? 'Add credits to remove rate limits:'
-            : 'Authenticate for higher limits:',
-          commands: [
-            ...(activeSession
-              ? [
-                  {
-                    command: `${c.displayName} credits add`,
-                    description: 'add credits',
-                  },
-                ]
-              : [
-                  {
-                    command: `${c.displayName} auth login`,
-                    description: 'log in for higher rate limits',
-                  },
-                ]),
-            ...c.var.commands,
-          ],
-        },
-      })
-    }
-
-    if (res.status === 502) {
-      const json = await res.json()
-      return c.error({ code: json.code.toUpperCase(), message: json.message })
-    }
-
-    const text = await res.text()
-    if (!res.ok) {
-      let json: unknown
-      try {
-        json = JSON.parse(text)
-      } catch {}
-      const error = (() => {
-        if (json && typeof json === 'object' && 'code' in json && 'message' in json) {
-          const obj = json as { code: string; message: string }
-          return { code: obj.code.toUpperCase(), message: obj.message }
-        }
-        return { code: 'FETCH_FAILED', message: text }
-      })()
-      return c.error(error)
-    }
-
-    if (!c.options.objective && text.length > 10_000)
-      return c.ok(text, {
-        cta: {
-          description: 'Narrow results with objective:',
-          commands: [
-            {
-              command: c.displayName,
-              args: { url: result.data },
-              options: { objective: true },
-              description: 'focus on a specific topic',
-            },
-            ...c.var.commands,
-          ],
-        },
-      })
-
-    if (!c.options.objective)
-      return c.ok(text, {
-        cta: { commands: c.var.commands },
-      })
-
-    return c.ok(text, {
-      cta: { commands: c.var.commands },
-    })
-  },
+const cli = Cli.create('curl.md', {
+  aliases,
+  description: 'URL to markdown for agents',
+  env,
+  usage: [{ suffix: '<url> [options]' }],
+  vars,
+  version: pkg.version,
+  ...root,
 })
 
 cli.use(async (c, next) => {
@@ -329,7 +161,7 @@ const requireAuth = middleware<typeof vars>((c, next) => {
   return next()
 })
 
-type Command = { command: string; description?: string }
+type Command = Cli.Cta
 type AuthContext = Pick<MiddlewareContext, 'displayName' | 'error'> & {
   var: { apiKey?: string | undefined; baseUrl: string; commands: Command[] }
 }
@@ -1936,9 +1768,200 @@ const request = Cli.create('request', {
 
 cli.command(auth)
 cli.command(credits)
+cli.command(
+  Cli.create('fetch', {
+    description: 'Fetch URL as markdown',
+    vars,
+    ...root,
+  }),
+)
 cli.command(org.command(invite).command(member))
 cli.command(request)
 cli.command(token)
 cli.command(update)
 
 export default cli
+
+async function run(
+  c: Parameters<
+    NonNullable<
+      Cli.create.Options<
+        typeof root.args,
+        undefined,
+        typeof root.options,
+        typeof root.output,
+        typeof vars
+      >['run']
+    >
+  >[0],
+) {
+  const result = z.safeParse(
+    z
+      .string()
+      .transform((arg) => (arg.includes('://') ? arg : `https://${arg}`))
+      .pipe(
+        z.url({
+          hostname: z.regexes.domain,
+          normalize: true,
+          protocol: /^https?$/,
+        }),
+      ),
+    c.args.url,
+  )
+  if (!result.success)
+    return c.error({
+      code: 'INVALID_URL',
+      message: `Invalid URL: ${c.args.url}`,
+      cta: {
+        description: 'URL must be valid HTTP(S) address:',
+        commands: [
+          {
+            command: c.displayName,
+            args: { url: 'example.com' },
+            description: 'domain without protocol',
+          },
+          {
+            command: c.displayName,
+            args: { url: 'https://example.com/path' },
+            description: 'full URL with protocol',
+          },
+          ...c.var.commands,
+        ],
+      },
+    })
+
+  const keywords = c.options.keywords?.flatMap((k: string) => k.split(','))
+  const token = c.options.token ?? c.var.apiKey
+  const spinner = UI.createSpinner('')
+  const res = await c.var.client.fetch(result.data, {
+    fresh: c.options.fresh,
+    keywords,
+    mode: c.options.mode,
+    objective: c.options.objective,
+    token,
+  })
+
+  spinner.stop()
+
+  if (res.status === 400) {
+    const json = await res.json()
+    return c.error({
+      code: json.code.toUpperCase(),
+      message: formatValidationError(json),
+    })
+  }
+
+  if (res.status === 401) {
+    const json = await res.json()
+    return c.error({
+      code: json.code.toUpperCase(),
+      message: json.message,
+      cta: {
+        description: 'Create API token:',
+        commands: [
+          {
+            command: `${c.displayName} token create <name>`,
+            description: 'create API token',
+          },
+          ...c.var.commands,
+        ],
+      },
+    })
+  }
+
+  if (res.status === 403) {
+    const json = await res.json()
+    Session.write({ organization_id: undefined }, c.var.baseUrl)
+    return c.error({
+      code: json.code.toUpperCase(),
+      message: json.message,
+      cta: {
+        description: 'Switch organization:',
+        commands: [
+          {
+            command: `${c.displayName} org switch`,
+            description: 'switch organization',
+          },
+          ...c.var.commands,
+        ],
+      },
+    })
+  }
+
+  if (res.status === 429) {
+    const json = await res.json()
+    const retryAfter = res.headers.get('retry-after')
+    const activeSession = c.var.apiKey ? null : Session.read(c.var.baseUrl)
+    return c.error({
+      code: json.code.toUpperCase(),
+      message: retryAfter ? `${json.message}. Try again in ${retryAfter}s` : json.message,
+      cta: {
+        description: activeSession
+          ? 'Add credits to remove rate limits:'
+          : 'Authenticate for higher limits:',
+        commands: [
+          ...(activeSession
+            ? [
+                {
+                  command: `${c.displayName} credits add`,
+                  description: 'add credits',
+                },
+              ]
+            : [
+                {
+                  command: `${c.displayName} auth login`,
+                  description: 'log in for higher rate limits',
+                },
+              ]),
+          ...c.var.commands,
+        ],
+      },
+    })
+  }
+
+  if (res.status === 502) {
+    const json = await res.json()
+    return c.error({ code: json.code.toUpperCase(), message: json.message })
+  }
+
+  const text = await res.text()
+  if (!res.ok) {
+    let json: unknown
+    try {
+      json = JSON.parse(text)
+    } catch {}
+    const error = (() => {
+      if (json && typeof json === 'object' && 'code' in json && 'message' in json) {
+        const obj = json as { code: string; message: string }
+        return { code: obj.code.toUpperCase(), message: obj.message }
+      }
+      return { code: 'FETCH_FAILED', message: text }
+    })()
+    return c.error(error)
+  }
+
+  if (!c.options.objective && text.length > 10_000)
+    return c.ok(text, {
+      cta: {
+        description: 'Narrow results with objective:',
+        commands: [
+          {
+            command: c.displayName,
+            args: { url: result.data },
+            options: { objective: true },
+            description: 'focus on a specific topic',
+          },
+          ...c.var.commands,
+        ],
+      },
+    })
+
+  if (!c.options.objective)
+    return c.ok(text, {
+      cta: { commands: c.var.commands },
+    })
+
+  return c.ok(text, {
+    cta: { commands: c.var.commands },
+  })
+}

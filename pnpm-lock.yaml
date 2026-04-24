@@ -311,8 +311,8 @@ importers:
         specifier: 2.0.0-alpha.2
         version: 2.0.0-alpha.2(@cfworker/json-schema@4.1.1)
       curl.md:
-        specifier: 0.0.20
-        version: 0.0.20
+        specifier: workspace:*
+        version: link:../../cli
       zod:
         specifier: ^4.3.6
         version: 4.3.6
@@ -3805,11 +3805,6 @@ packages:
 
   csstype@3.2.3:
     resolution: {integrity: sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ==}
-
-  curl.md@0.0.20:
-    resolution: {integrity: sha512-2uO17rpTwXMxevVLf57ZrTVT/0+oj6cZcgkjZeWQ/h6/6W1w+MSK6cMdDTmSxjZDTa/osq3djnjUCsY/W+l/QA==}
-    engines: {node: '>=22.0.0'}
-    hasBin: true
 
   d3-array@3.2.4:
     resolution: {integrity: sha512-tdQAmyA18i4J7wprpYq8ClcxZy3SC31QMeByyCFyRt7BVHdREQZ5lpzoe5mFEYZUWe+oq8HBvk9JjpibyEV4Jg==}
@@ -10246,12 +10241,6 @@ snapshots:
   css-what@6.2.2: {}
 
   csstype@3.2.3: {}
-
-  curl.md@0.0.20:
-    dependencies:
-      hono: 4.12.14
-      incur: 0.4.2
-      picocolors: 1.1.1
 
   d3-array@3.2.4:
     dependencies:

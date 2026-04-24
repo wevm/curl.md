@@ -79,6 +79,7 @@ test('help', async () => {
     Commands:
       auth     Authenticate with curl.md (login, logout, status)
       credits  Manage prepaid credits (add, status)
+      fetch    Fetch URL as markdown
       org      Manage organizations (create, invite, list, member, switch, view)
       request  Manage requests (list, view)
       token    Manage API tokens (create, list, delete)

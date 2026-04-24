@@ -25,7 +25,7 @@
     "deps": "pnpx taze -r --no-ignore-other-workspaces --ignore-paths node_modules",
     "deps:ci": "pnpx actions-up --dir .github",
     "dev": "docker compose up -d",
-    "gen:claude": "node --experimental-strip-types scripts/syncClaude.ts",
+    "gen:claude": "node --experimental-strip-types plugins/claude/scripts/sync.ts",
     "gen:fixtures:md:rules": "node --experimental-strip-types scripts/updateMdRulesFixtures.ts",
     "gen:types": "cp -n .env.example .env 2>/dev/null; wrangler types src/worker-configuration.d.ts && node --experimental-strip-types scripts/updateWranglerTypes.ts && pnpm --filter curl.md gen:types",
     "md": "CURLMD_BASE_URL=https://curl.local NODE_TLS_REJECT_UNAUTHORIZED=0 node --experimental-strip-types cli/src/bin.ts",

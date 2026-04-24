@@ -185,13 +185,36 @@ test('rejects non-http(s) URLs', async () => {
   ).rejects.toThrow('URL must use http or https')
 })
 
-// --- Anonymous fetch ---
-
-test('fetches anonymously and returns expected shape', async () => {
+test('preserves URL fragments', async () => {
+  const requests: CapturedRequest[] = []
   server.use(
     http.get('*', async ({ request }) => {
       const url = new URL(request.url)
       if (url.origin !== new URL(defaultBaseUrl).origin) return passthrough()
+      requests.push(captureRequest(request))
+      return HttpResponse.json({ content: '# Fragment' })
+    }),
+  )
+
+  const { tools } = loadPlugin()
+  const result = await tools[0]!.execute({ url: 'https://example.com/docs?q=1#section' }, {
+    logger: { log() {} },
+  } as any)
+
+  expect(requests[0]?.url).toContain('anchor=section')
+  expect((result as any).url).toBe('https://example.com/docs?q=1#section')
+})
+
+// --- Anonymous fetch ---
+
+test('fetches anonymously and returns expected shape', async () => {
+  const requests: CapturedRequest[] = []
+
+  server.use(
+    http.get('*', async ({ request }) => {
+      const url = new URL(request.url)
+      if (url.origin !== new URL(defaultBaseUrl).origin) return passthrough()
+      requests.push(captureRequest(request))
       return HttpResponse.json(
         { content: '# Example\n\n---\n\nPowered by [curl.md](https://curl.md)' },
         {
@@ -209,10 +232,18 @@ test('fetches anonymously and returns expected shape', async () => {
 
   const { tools } = loadPlugin()
   const result = await tools[0]!.execute(
-    { url: 'https://example.com', objective: 'test', keywords: ['a'], mode: 'rush', fresh: true },
+    {
+      url: 'https://example.com/docs#intro',
+      objective: 'test',
+      keywords: ['a'],
+      mode: 'rush',
+      fresh: true,
+    },
     { logger: { log() {} } } as any,
   )
 
+  expect(requests[0]?.url).toContain(`${defaultBaseUrl}/api/https://example.com/docs`)
+  expect(requests[0]?.url).toContain('anchor=intro')
   expect(result).toEqual({
     auth: 'anon',
     cache: 'HIT',
@@ -225,7 +256,7 @@ test('fetches anonymously and returns expected shape', async () => {
     request_id: 'req_abc',
     tokens_count: 100,
     tokens_saved: 50,
-    url: 'https://example.com/',
+    url: 'https://example.com/docs#intro',
   })
 })
 
@@ -334,22 +365,26 @@ test('caches session auth headers in memory', async () => {
 
 // --- Retry on session 401 ---
 
-test('retries once on session 401', async () => {
+test('retries once on session 401 with forced auth refresh', async () => {
+  const requests: CapturedRequest[] = []
   let fetchCount = 0
+  let headersCalls = 0
 
   server.use(
     http.post('*', async ({ request }) => {
       const url = new URL(request.url)
       if (url.origin !== new URL(defaultBaseUrl).origin || url.pathname !== '/api/auth/headers')
         return passthrough()
+      headersCalls++
       return HttpResponse.json({
-        authorization: 'Bearer access-token-fresh',
+        authorization: `Bearer access-token-${headersCalls === 1 ? 'stale' : 'fresh'}`,
         expires_at: '2099-01-01T00:00:00.000Z',
       })
     }),
     http.get('*', async ({ request }) => {
       const url = new URL(request.url)
       if (url.origin !== new URL(defaultBaseUrl).origin) return passthrough()
+      requests.push(captureRequest(request))
       fetchCount++
       if (fetchCount === 1) return HttpResponse.json({ message: 'Unauthorized' }, { status: 401 })
       return HttpResponse.json({ content: '# Retried' })
@@ -366,7 +401,12 @@ test('retries once on session 401', async () => {
     logger: { log() {} },
   } as any)
 
+  expect(headersCalls).toBe(2)
   expect(fetchCount).toBe(2)
+  expect(requests.map((request) => request.headers.authorization)).toEqual([
+    'Bearer access-token-stale',
+    'Bearer access-token-fresh',
+  ])
   expect((result as any).auth).toBe('session')
   expect((result as any).markdown).toBe('# Retried')
 

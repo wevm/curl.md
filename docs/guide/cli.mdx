@@ -167,6 +167,24 @@ $ curl.md skills add --no-global
 
 It's recommended to use native agent [plugins](/docs/guide/plugins) instead of direct CLI usage when possible.
 
+### MCP
+
+If your editor or agent supports MCP stdio servers, you can run the CLI directly in MCP mode:
+
+```sh
+$ curl.md --mcp
+```
+
+That exposes curl.md's `fetch` command as an MCP tool, so hosts without a first-party curl.md integration can still fetch URLs through the normal CLI/API path.
+
+If your agent supports automatic MCP registration, you can also use:
+
+```sh
+$ curl.md mcp add
+```
+
+See [`mcp add`](#mcp-add) below for supported options and agent targeting.
+
 ## Commands
 
 {/* GENERATED:cli-commands:start */}
@@ -268,6 +286,36 @@ Check credits
 
 ```sh
 $ curl.md credits status
+```
+
+<a id="fetch"></a>
+### `fetch`
+
+Fetch URL as markdown
+
+```sh
+$ curl.md fetch <url> [options]
+```
+
+| Argument | Type  | Description  |
+| -------- | ----- | ------------ |
+| `url`    | `url` | URL to fetch |
+
+| Option            | Type          | Default | Description                                        |
+| ----------------- | ------------- | ------- | -------------------------------------------------- |
+| `--fresh, -f`     | `boolean`     |         | Force fresh fetch (bypass cache)                   |
+| `--keywords, -k`  | `array`       |         | Pre-filter by keywords (comma-separated)           |
+| `--mode, -m`      | `rush\|smart` | `smart` | Mode when narrowing content with --objective       |
+| `--objective, -o` | `string`      |         | Narrow content to a specific objective             |
+| `--token, -t`     | `string`      |         | API token for authentication (env: CURLMD_API_KEY) |
+
+```sh
+$ curl.md fetch example.com
+$ curl.md fetch docs.github.com/en/webhooks/webhook-events-and-payloads --objective pull request webhook event payload and actions --keywords pull_request
+$ curl.md fetch developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch --objective streaming response body --keywords ReadableStream,getReader
+$ curl.md fetch developers.cloudflare.com/d1/get-started --objective how to query D1 from a worker --keywords D1,bindings
+$ curl.md fetch ai-sdk.dev/docs/ai-sdk-core/generating-text --objective how to stream text with the ai sdk --keywords streamText,generateText
+$ curl.md fetch zod.dev/error-formatting --objective tree error formatting --keywords treeifyError
 ```
 
 <a id="org"></a>
