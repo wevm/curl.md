@@ -16,7 +16,7 @@
       "ignore": ["**/*.test.ts"]
     },
     "plugins/claude": {
-      "entry": ["src/server.ts"],
+      "entry": ["scripts/sync.ts", "src/server.ts"],
       "ignore": ["**/*.test.ts"],
       "ignoreDependencies": ["@anthropic-ai/claude-code"]
     },
