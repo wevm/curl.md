@@ -1,11 +1,32 @@
 {
-  "name": "curl-md",
-  "description": "Use curl.md inside Claude Code for low-token web fetches.",
-  "version": "0.0.1",
   "author": {
     "name": "curl.md"
   },
+  "description": "Use curl.md inside Claude Code for low-token web fetches.",
   "homepage": "https://curl.md/docs/plugins/claude",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/redirect-webfetch.sh\"",
+            "type": "command"
+          }
+        ],
+        "matcher": "WebFetch"
+      }
+    ]
+  },
+  "license": "MIT",
+  "name": "curl-md",
   "repository": "https://github.com/wevm/curl.md/tree/main/plugins/claude",
-  "license": "MIT"
+  "userConfig": {
+    "webfetch_redirect": {
+      "default": false,
+      "description": "Block Claude Code's built-in WebFetch tool and tell Claude to retry with curl_md.",
+      "title": "Redirect WebFetch to curl_md",
+      "type": "boolean"
+    }
+  },
+  "version": "0.0.0"
 }

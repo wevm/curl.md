@@ -69,6 +69,7 @@ jobs:
 
       - name: Generate code
         run: |
+          pnpm gen:claude
           pnpm preconstruct
           pnpm gen:types
           pnpm db:codegen
@@ -103,13 +104,32 @@ jobs:
       - name: Test
         run: pnpm test --project cli
 
-      - name: Plugin tests
+      - name: Build
+        run: pnpm --filter curl.md build
+
+  plugins:
+    name: Plugins
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup
+        uses: ./.github/actions/setup-pnpm
+
+      - name: Test
         run: pnpm test --project plugins:amp --project plugins:claude --project plugins:opencode --project plugins:pi
 
-      - name: Build
+      - name: Validate Claude plugin manifest
         run: |
-          pnpm --filter curl.md build
-          pnpm --filter @curl.md/amp build
+          cd plugins/claude
+          node node_modules/@anthropic-ai/claude-code/install.cjs
+          ./node_modules/.bin/claude plugin validate .
+
+      - name: Build
+        run: pnpm --filter @curl.md/amp build
 
   e2e:
     name: E2E

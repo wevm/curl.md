@@ -31,6 +31,10 @@ claude plugin install curl-md@curl-md
 
 For full documentation, visit [curl.md/docs](https://curl.md/docs/plugins/claude)
 
+## Optional WebFetch Redirect
+
+Enable the plugin's `webfetch_redirect` setting to block built-in `WebFetch` calls and nudge Claude to retry with the plugin's `curl_md` tool.
+
 ## License
 
 [MIT](https://github.com/wevm/curl.md/blob/main/LICENSE)

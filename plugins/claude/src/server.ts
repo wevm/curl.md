@@ -1,6 +1,5 @@
 import process from 'node:process'
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
+import { McpServer, StdioServerTransport } from '@modelcontextprotocol/server'
 import { createClient, defaultBaseUrl } from 'curl.md'
 import { Auth, Session } from 'curl.md/internal'
 import { z } from 'zod'
@@ -19,7 +18,7 @@ server.registerTool(
   {
     title: 'curl.md',
     description: 'Read a web page through curl.md and return markdown optimized for coding agents.',
-    inputSchema: {
+    inputSchema: z.object({
       url: z
         .string()
         .describe(
@@ -49,27 +48,18 @@ server.registerTool(
         .describe(
           'Bypass curl.md cache when freshness matters, such as changelogs, release notes, or recently updated docs.',
         ),
-    },
+    }),
   },
   async (input) => {
     try {
       const result = await fetchPage(input)
-
       return {
-        content: [
-          {
-            type: 'text' as const,
-            text: result.markdown,
-          },
-        ],
+        content: [{ type: 'text' as const, text: result.markdown }],
       }
     } catch (error) {
       return {
         content: [
-          {
-            type: 'text' as const,
-            text: error instanceof Error ? error.message : String(error),
-          },
+          { type: 'text' as const, text: error instanceof Error ? error.message : String(error) },
         ],
         isError: true,
       }
@@ -86,7 +76,7 @@ async function fetchPage(input: {
   objective?: string
   url: string
 }) {
-  const url = normalizeUrl(input.url)
+  const url = normalizeURL(input.url)
 
   let authHeaders = await resolver()
   let authType: 'anon' | 'api_key' | 'session' = (() => {
@@ -183,7 +173,7 @@ function createHeaders(auth: Auth.Headers | null) {
   return headers
 }
 
-function normalizeUrl(value: string) {
+function normalizeURL(value: string) {
   const url = new URL(value.includes('://') ? value : `https://${value}`)
   if (!/^https?:$/.test(url.protocol)) throw new Error('URL must use http or https')
   return url.toString()

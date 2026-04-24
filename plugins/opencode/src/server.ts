@@ -143,7 +143,7 @@ async function fetchPage(input: {
   signal?: AbortSignal
   url: string
 }) {
-  const url = normalizeUrl(input.url)
+  const url = normalizeURL(input.url)
 
   let authHeaders = await input.resolver()
   let authType: 'anon' | 'api_key' | 'session' = (() => {
@@ -254,7 +254,7 @@ async function fetchPage(input: {
   }
 }
 
-function normalizeUrl(value: string) {
+function normalizeURL(value: string) {
   const url = new URL(value.includes('://') ? value : `https://${value}`)
   if (!/^https?:$/.test(url.protocol)) throw new Error('URL must use http or https')
   return url.toString()

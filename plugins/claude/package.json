@@ -34,11 +34,14 @@
     "check:types": "tsgo --noEmit"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "1.29.0",
+    "@modelcontextprotocol/server": "2.0.0-alpha.2",
     "curl.md": "0.0.20",
     "zod": "^4.3.6"
   },
   "engines": {
     "node": ">=22.0.0"
+  },
+  "devDependencies": {
+    "@anthropic-ai/claude-code": "^2.1.118"
   }
 }

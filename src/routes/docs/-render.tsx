@@ -2399,6 +2399,7 @@ function clearDocSearchPreviewHighlights(container: HTMLElement) {
 
 function getCodeGroupTabIcon(label: string, language?: string) {
   const normalized = label.trim().toLowerCase()
+  if (language === 'json' && normalized.endsWith('/.claude/settings.json')) return claudeCodeIcon
   if (language === 'json' && normalized.endsWith('/.pi/agent/settings.json')) return piCodeIcon
 
   if (
@@ -2417,6 +2418,7 @@ function getCodeGroupTabIcon(label: string, language?: string) {
   return undefined
 }
 
+const claudeCodeIcon = { className: 'scale-95', Component: IconSimpleIconsClaude } as const
 const opencodeCodeIcon = { className: 'scale-90', Component: IconBrandOpencode } as const
 const piCodeIcon = { className: 'scale-125', Component: IconBrandPi } as const
 

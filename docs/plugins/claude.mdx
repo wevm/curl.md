@@ -7,7 +7,7 @@ import packageJson from '../../plugins/claude/package.json'
 
 # Claude
 
-First-party [Claude Code](https://code.claude.com) plugin that adds a `curl_md` MCP tool and `/curl-md:fetch` slash skill.
+First-party [Claude Code](https://code.claude.com) plugin that adds a `curl_md` MCP tool, `/curl-md:fetch` slash skill, and an opt-in `WebFetch` redirect hook.
 
 <PackageLinks
   npm="@curl.md/claude"
@@ -91,6 +91,33 @@ Or inside Claude:
 /plugin install curl-md@curl-md
 /reload-plugins
 ```
+
+## Configuration
+
+Claude Code's built-in web reader is `WebFetch`. Since Claude plugins cannot transparently replace built-in tool results, the curl.md plugin ships an opt-in redirect hook that blocks `WebFetch` and tells Claude to retry with `curl_md` using the same URL.
+
+| Option              | Type      | Default | Description                                                                                                    |
+| ------------------- | --------- | ------- | -------------------------------------------------------------------------------------------------------------- |
+| `webfetch_redirect` | `boolean` | `false` | Block built-in `WebFetch` and tell Claude to retry with `curl_md`, mapping the original prompt to `objective`. |
+
+:::note
+By default, the plugin leaves Claude's built-in `WebFetch` enabled. If you want to turn on the `WebFetch` redirect manually, add the plugin option to your Claude settings:
+
+```json title="~/.claude/settings.json"
+{
+  "pluginConfigs": {
+    "curl-md@curl-md": {
+      "options": {
+        "webfetch_redirect": true
+      }
+    }
+  }
+}
+```
+
+Claude also prompts for `webfetch_redirect` when configuring the plugin, and exposes the saved value to the redirect hook automatically.
+
+:::
 
 ## Usage
 

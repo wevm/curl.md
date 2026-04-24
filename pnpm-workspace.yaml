@@ -24,6 +24,7 @@ minimumReleaseAgeExclude:
   - incur
 
 onlyBuiltDependencies:
+  - '@anthropic-ai/claude-code'
   - bun
   - msw
   - opencode-ai

@@ -96,7 +96,14 @@ By default, the plugin overrides the built-in `webfetch` tool to ensure maximum 
 ```json title="~/.config/opencode/opencode.json"
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugin": [["@curl.md/opencode", { "webfetch": false }]]
+  "plugin": [
+    [
+      "@curl.md/opencode",
+      {
+        "webfetch": false
+      }
+    ]
+  ]
 }
 ```
 

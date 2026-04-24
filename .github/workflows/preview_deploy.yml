@@ -212,8 +212,9 @@ jobs:
         env:
           DB_URL: ${{ steps.ps.outputs.db_url }}
 
-      - name: Generate types
+      - name: Generate code
         run: |
+          pnpm gen:claude
           pnpm gen:types
           pnpm db:codegen
         env:

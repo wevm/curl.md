@@ -5,16 +5,19 @@
   },
   "plugins": [
     {
-      "name": "curl-md",
-      "source": {
-        "source": "npm",
-        "package": "@curl.md/claude"
-      },
-      "description": "Use curl.md inside Claude Code for low-token web fetches.",
-      "version": "0.0.1",
       "author": {
         "name": "curl.md"
-      }
+      },
+      "description": "Use curl.md inside Claude Code for low-token web fetches.",
+      "homepage": "https://curl.md/docs/plugins/claude",
+      "license": "MIT",
+      "name": "curl-md",
+      "repository": "https://github.com/wevm/curl.md/tree/main/plugins/claude",
+      "source": {
+        "package": "@curl.md/claude",
+        "source": "npm"
+      },
+      "version": "0.0.0"
     }
   ]
 }

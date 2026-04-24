@@ -38,8 +38,9 @@ jobs:
         env:
           DB_URL: ${{ secrets.DB_URL }}
 
-      - name: Generate types
+      - name: Generate code
         run: |
+          pnpm gen:claude
           pnpm gen:types
           pnpm db:codegen
         env:
