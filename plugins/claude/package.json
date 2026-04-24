@@ -27,7 +27,8 @@
     "README.md",
     "scripts/**/*.sh",
     "skills/**",
-    "src/**/*.ts"
+    "src/**/*.ts",
+    "!src/**/*.test.ts"
   ],
   "type": "module",
   "scripts": {

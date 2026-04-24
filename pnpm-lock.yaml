@@ -316,6 +316,10 @@ importers:
       zod:
         specifier: ^4.3.6
         version: 4.3.6
+    devDependencies:
+      '@anthropic-ai/claude-code':
+        specifier: ^2.1.118
+        version: 2.1.118
 
   plugins/opencode:
     dependencies:
@@ -349,6 +353,55 @@ packages:
 
   '@antfu/install-pkg@1.1.0':
     resolution: {integrity: sha512-MGQsmw10ZyI+EJo45CdSER4zEb+p31LpDAFp2Z3gkSd1yqVZGi0Ebx++YTEMonJy4oChEMLsxZ64j8FH6sSqtQ==}
+
+  '@anthropic-ai/claude-code-darwin-arm64@2.1.118':
+    resolution: {integrity: sha512-Qg1LR1XfRUCUqoGUq5p8BlQ764F+7ReEFW1WATFoNsW6Gv7D39epzFYbHw59acdIICcOzRaUbSGNarssrv/y/Q==}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@anthropic-ai/claude-code-darwin-x64@2.1.118':
+    resolution: {integrity: sha512-SgAvTCMnuLmD+LBqX8n+dBbSoED49GT5IioRD7z1P+JSBpIqCzE07TiBZ5mEOGssRNpsMw+GIHL6l1702ra5xg==}
+    cpu: [x64]
+    os: [darwin]
+
+  '@anthropic-ai/claude-code-linux-arm64-musl@2.1.118':
+    resolution: {integrity: sha512-eoALUO6vVEcwquLS2kiIvF1f8eCeX9gs8ZGkNUkiKp0pasC5l1BTDpxi+ww1Efuh8L6u2iVzhVp0YgYXVf1eVw==}
+    cpu: [arm64]
+    os: [linux]
+    libc: [musl]
+
+  '@anthropic-ai/claude-code-linux-arm64@2.1.118':
+    resolution: {integrity: sha512-XYVJwJulEKmlbaYZnYQiRaoZTdmBL+A94cRJO4J50txbHe9+T7TErgxFCLTd7AVZ8GX+PGulSBnKmiuzJhkcGg==}
+    cpu: [arm64]
+    os: [linux]
+    libc: [glibc]
+
+  '@anthropic-ai/claude-code-linux-x64-musl@2.1.118':
+    resolution: {integrity: sha512-dGb2cVsruUY5HJNYdgVxitVN/pWZqLKqLr2bqBswZPlS8ieg1OQDaU5JaKtrMvjZzeyh33Vs4idhegDZJ84fhw==}
+    cpu: [x64]
+    os: [linux]
+    libc: [musl]
+
+  '@anthropic-ai/claude-code-linux-x64@2.1.118':
+    resolution: {integrity: sha512-t6aNIvNa1T+ZR5IkJARqjTy+U5LH59FuWok4QoXa/RpT4C0njeeE/SdUzvvhwmH3ji/Rh6EX4zgbx/v5yGtG8Q==}
+    cpu: [x64]
+    os: [linux]
+    libc: [glibc]
+
+  '@anthropic-ai/claude-code-win32-arm64@2.1.118':
+    resolution: {integrity: sha512-MWX6Fc8QnDaHin1dmQ9SEdOcW1XLTRJ9N+8i4CbB0awzpJ4yPz4MnxsBFWgO2QWV4NgCbMUHLWTFFAocjs3/2w==}
+    cpu: [arm64]
+    os: [win32]
+
+  '@anthropic-ai/claude-code-win32-x64@2.1.118':
+    resolution: {integrity: sha512-xRR4ohswGXyE1QW2ZrhLrWjX0x9agMX0fotuQZ11g2pZtrmfjFr73BBhQM4QfGpJQf9qQ/lX5/L6Afmbe0DJPA==}
+    cpu: [x64]
+    os: [win32]
+
+  '@anthropic-ai/claude-code@2.1.118':
+    resolution: {integrity: sha512-wQw3aWRmDc6+OB2JQ/FyIxyQOLbdX7doPEsmIRklB/N6hjFDDqquIG7y78yofHFx1YKbyrkfvmLWecwxNL8fZg==}
+    engines: {node: '>=18.0.0'}
+    hasBin: true
 
   '@anthropic-ai/sdk@0.73.0':
     resolution: {integrity: sha512-URURVzhxXGJDGUGFunIOtBlSl7KWvZiAAKY/ttTkZAkXT9bTPqdk2eK0b8qqSxXpikh3QKPnPYpiyX98zf5ebw==}
@@ -6619,6 +6672,41 @@ snapshots:
       package-manager-detector: 1.6.0
       tinyexec: 1.0.2
 
+  '@anthropic-ai/claude-code-darwin-arm64@2.1.118':
+    optional: true
+
+  '@anthropic-ai/claude-code-darwin-x64@2.1.118':
+    optional: true
+
+  '@anthropic-ai/claude-code-linux-arm64-musl@2.1.118':
+    optional: true
+
+  '@anthropic-ai/claude-code-linux-arm64@2.1.118':
+    optional: true
+
+  '@anthropic-ai/claude-code-linux-x64-musl@2.1.118':
+    optional: true
+
+  '@anthropic-ai/claude-code-linux-x64@2.1.118':
+    optional: true
+
+  '@anthropic-ai/claude-code-win32-arm64@2.1.118':
+    optional: true
+
+  '@anthropic-ai/claude-code-win32-x64@2.1.118':
+    optional: true
+
+  '@anthropic-ai/claude-code@2.1.118':
+    optionalDependencies:
+      '@anthropic-ai/claude-code-darwin-arm64': 2.1.118
+      '@anthropic-ai/claude-code-darwin-x64': 2.1.118
+      '@anthropic-ai/claude-code-linux-arm64': 2.1.118
+      '@anthropic-ai/claude-code-linux-arm64-musl': 2.1.118
+      '@anthropic-ai/claude-code-linux-x64': 2.1.118
+      '@anthropic-ai/claude-code-linux-x64-musl': 2.1.118
+      '@anthropic-ai/claude-code-win32-arm64': 2.1.118
+      '@anthropic-ai/claude-code-win32-x64': 2.1.118
+
   '@anthropic-ai/sdk@0.73.0(zod@4.3.6)':
     dependencies:
       json-schema-to-ts: 3.1.1
@@ -8008,6 +8096,7 @@ snapshots:
       '@cfworker/json-schema': 4.1.1
     transitivePeerDependencies:
       - supports-color
+    optional: true
 
   '@modelcontextprotocol/server@2.0.0-alpha.2(@cfworker/json-schema@4.1.1)':
     dependencies:
@@ -9667,6 +9756,7 @@ snapshots:
     dependencies:
       mime-types: 3.0.2
       negotiator: 1.0.0
+    optional: true
 
   acorn-jsx@5.3.2(acorn@8.16.0):
     dependencies:
@@ -9859,6 +9949,7 @@ snapshots:
       type-is: 2.0.1
     transitivePeerDependencies:
       - supports-color
+    optional: true
 
   boolbase@1.0.0: {}
 
@@ -9920,7 +10011,8 @@ snapshots:
 
   byline@5.0.0: {}
 
-  bytes@3.1.2: {}
+  bytes@3.1.2:
+    optional: true
 
   c12@3.3.3:
     dependencies:
@@ -9941,11 +10033,13 @@ snapshots:
     dependencies:
       es-errors: 1.3.0
       function-bind: 1.1.2
+    optional: true
 
   call-bound@1.0.4:
     dependencies:
       call-bind-apply-helpers: 1.0.2
       get-intrinsic: 1.3.0
+    optional: true
 
   callsites@3.1.0: {}
 
@@ -10087,17 +10181,21 @@ snapshots:
 
   consola@3.4.2: {}
 
-  content-disposition@1.1.0: {}
+  content-disposition@1.1.0:
+    optional: true
 
-  content-type@1.0.5: {}
+  content-type@1.0.5:
+    optional: true
 
   convert-source-map@2.0.0: {}
 
   cookie-es@2.0.0: {}
 
-  cookie-signature@1.2.2: {}
+  cookie-signature@1.2.2:
+    optional: true
 
-  cookie@0.7.2: {}
+  cookie@0.7.2:
+    optional: true
 
   cookie@1.1.1: {}
 
@@ -10107,6 +10205,7 @@ snapshots:
     dependencies:
       object-assign: 4.1.1
       vary: 1.1.2
+    optional: true
 
   cosmiconfig@8.3.6(typescript@5.9.3):
     dependencies:
@@ -10216,7 +10315,8 @@ snapshots:
       escodegen: 2.1.0
       esprima: 4.0.1
 
-  depd@2.0.0: {}
+  depd@2.0.0:
+    optional: true
 
   dequal@2.0.3: {}
 
@@ -10293,6 +10393,7 @@ snapshots:
       call-bind-apply-helpers: 1.0.2
       es-errors: 1.3.0
       gopd: 1.2.0
+    optional: true
 
   eastasianwidth@0.2.0: {}
 
@@ -10300,7 +10401,8 @@ snapshots:
     dependencies:
       safe-buffer: 5.2.1
 
-  ee-first@1.1.1: {}
+  ee-first@1.1.1:
+    optional: true
 
   effect@4.0.0-beta.48:
     dependencies:
@@ -10332,7 +10434,8 @@ snapshots:
     transitivePeerDependencies:
       - hono
 
-  encodeurl@2.0.0: {}
+  encodeurl@2.0.0:
+    optional: true
 
   encoding-sniffer@0.2.1:
     dependencies:
@@ -10367,15 +10470,18 @@ snapshots:
 
   error-stack-parser-es@1.0.5: {}
 
-  es-define-property@1.0.1: {}
+  es-define-property@1.0.1:
+    optional: true
 
-  es-errors@1.3.0: {}
+  es-errors@1.3.0:
+    optional: true
 
   es-module-lexer@2.0.0: {}
 
   es-object-atoms@1.1.1:
     dependencies:
       es-errors: 1.3.0
+    optional: true
 
   es-toolkit@1.45.1: {}
 
@@ -10453,7 +10559,8 @@ snapshots:
 
   escalade@3.2.0: {}
 
-  escape-html@1.0.3: {}
+  escape-html@1.0.3:
+    optional: true
 
   escape-string-regexp@5.0.0: {}
 
@@ -10510,7 +10617,8 @@ snapshots:
 
   esutils@2.0.3: {}
 
-  etag@1.8.1: {}
+  etag@1.8.1:
+    optional: true
 
   event-target-shim@5.0.1: {}
 
@@ -10524,11 +10632,13 @@ snapshots:
 
   events@3.3.0: {}
 
-  eventsource-parser@3.0.8: {}
+  eventsource-parser@3.0.8:
+    optional: true
 
   eventsource@3.0.7:
     dependencies:
       eventsource-parser: 3.0.8
+    optional: true
 
   expect-type@1.3.0: {}
 
@@ -10536,6 +10646,7 @@ snapshots:
     dependencies:
       express: 5.2.1
       ip-address: 10.1.0
+    optional: true
 
   express@5.2.1:
     dependencies:
@@ -10569,6 +10680,7 @@ snapshots:
       vary: 1.1.2
     transitivePeerDependencies:
       - supports-color
+    optional: true
 
   exsolve@1.0.8: {}
 
@@ -10665,6 +10777,7 @@ snapshots:
       statuses: 2.0.2
     transitivePeerDependencies:
       - supports-color
+    optional: true
 
   find-my-way-ts@0.1.6: {}
 
@@ -10688,9 +10801,11 @@ snapshots:
     dependencies:
       fetch-blob: 3.2.0
 
-  forwarded@0.2.0: {}
+  forwarded@0.2.0:
+    optional: true
 
-  fresh@2.0.0: {}
+  fresh@2.0.0:
+    optional: true
 
   fs-constants@1.0.0: {}
 
@@ -10712,7 +10827,8 @@ snapshots:
   fsevents@2.3.3:
     optional: true
 
-  function-bind@1.1.2: {}
+  function-bind@1.1.2:
+    optional: true
 
   gaxios@7.1.4:
     dependencies:
@@ -10748,6 +10864,7 @@ snapshots:
       has-symbols: 1.1.0
       hasown: 2.0.3
       math-intrinsics: 1.1.0
+    optional: true
 
   get-port@7.1.0: {}
 
@@ -10755,6 +10872,7 @@ snapshots:
     dependencies:
       dunder-proto: 1.0.1
       es-object-atoms: 1.1.1
+    optional: true
 
   get-stream@5.2.0:
     dependencies:
@@ -10824,7 +10942,8 @@ snapshots:
 
   google-logging-utils@1.1.3: {}
 
-  gopd@1.2.0: {}
+  gopd@1.2.0:
+    optional: true
 
   graceful-fs@4.2.11: {}
 
@@ -10837,11 +10956,13 @@ snapshots:
 
   has-flag@4.0.0: {}
 
-  has-symbols@1.1.0: {}
+  has-symbols@1.1.0:
+    optional: true
 
   hasown@2.0.3:
     dependencies:
       function-bind: 1.1.2
+    optional: true
 
   hast-util-embedded@3.0.0:
     dependencies:
@@ -11025,6 +11146,7 @@ snapshots:
       setprototypeof: 1.2.0
       statuses: 2.0.2
       toidentifier: 1.0.1
+    optional: true
 
   http-proxy-agent@7.0.2:
     dependencies:
@@ -11084,7 +11206,8 @@ snapshots:
 
   ip-address@10.1.0: {}
 
-  ipaddr.js@1.9.1: {}
+  ipaddr.js@1.9.1:
+    optional: true
 
   is-alphabetical@2.0.1: {}
 
@@ -11121,7 +11244,8 @@ snapshots:
 
   is-plain-obj@4.1.0: {}
 
-  is-promise@4.0.0: {}
+  is-promise@4.0.0:
+    optional: true
 
   is-stream@2.0.1: {}
 
@@ -11145,7 +11269,8 @@ snapshots:
 
   jiti@2.6.1: {}
 
-  jose@6.2.2: {}
+  jose@6.2.2:
+    optional: true
 
   js-tokens@4.0.0: {}
 
@@ -11175,7 +11300,8 @@ snapshots:
 
   json-schema-traverse@1.0.0: {}
 
-  json-schema-typed@8.0.2: {}
+  json-schema-typed@8.0.2:
+    optional: true
 
   json-with-bigint@3.5.3: {}
 
@@ -11381,7 +11507,8 @@ snapshots:
 
   marked@15.0.12: {}
 
-  math-intrinsics@1.1.0: {}
+  math-intrinsics@1.1.0:
+    optional: true
 
   mdast-util-directive@3.1.0:
     dependencies:
@@ -11571,9 +11698,11 @@ snapshots:
     dependencies:
       '@types/mdast': 4.0.4
 
-  media-typer@1.1.0: {}
+  media-typer@1.1.0:
+    optional: true
 
-  merge-descriptors@2.0.0: {}
+  merge-descriptors@2.0.0:
+    optional: true
 
   merge2@1.4.1: {}
 
@@ -11976,7 +12105,8 @@ snapshots:
 
   nanoid@5.1.6: {}
 
-  negotiator@1.0.0: {}
+  negotiator@1.0.0:
+    optional: true
 
   netmask@2.1.0: {}
 
@@ -12022,7 +12152,8 @@ snapshots:
 
   object-assign@4.1.1: {}
 
-  object-inspect@1.13.4: {}
+  object-inspect@1.13.4:
+    optional: true
 
   obug@2.1.1: {}
 
@@ -12037,6 +12168,7 @@ snapshots:
   on-finished@2.4.1:
     dependencies:
       ee-first: 1.1.1
+    optional: true
 
   once@1.4.0:
     dependencies:
@@ -12241,7 +12373,8 @@ snapshots:
     dependencies:
       entities: 6.0.1
 
-  parseurl@1.3.3: {}
+  parseurl@1.3.3:
+    optional: true
 
   partial-json@0.1.7: {}
 
@@ -12263,7 +12396,8 @@ snapshots:
 
   path-to-regexp@6.3.0: {}
 
-  path-to-regexp@8.4.0: {}
+  path-to-regexp@8.4.0:
+    optional: true
 
   path-type@4.0.0: {}
 
@@ -12281,7 +12415,8 @@ snapshots:
 
   pify@4.0.1: {}
 
-  pkce-challenge@5.0.1: {}
+  pkce-challenge@5.0.1:
+    optional: true
 
   pkg-types@1.3.1:
     dependencies:
@@ -12361,6 +12496,7 @@ snapshots:
     dependencies:
       forwarded: 0.2.0
       ipaddr.js: 1.9.1
+    optional: true
 
   proxy-agent@6.5.0:
     dependencies:
@@ -12387,12 +12523,14 @@ snapshots:
   qs@6.15.1:
     dependencies:
       side-channel: 1.1.0
+    optional: true
 
   quansync@0.2.11: {}
 
   queue-microtask@1.2.3: {}
 
-  range-parser@1.2.1: {}
+  range-parser@1.2.1:
+    optional: true
 
   raw-body@3.0.2:
     dependencies:
@@ -12400,6 +12538,7 @@ snapshots:
       http-errors: 2.0.1
       iconv-lite: 0.7.2
       unpipe: 1.0.0
+    optional: true
 
   rc9@2.1.2:
     dependencies:
@@ -12736,6 +12875,7 @@ snapshots:
       path-to-regexp: 8.4.0
     transitivePeerDependencies:
       - supports-color
+    optional: true
 
   run-parallel@1.2.0:
     dependencies:
@@ -12770,6 +12910,7 @@ snapshots:
       statuses: 2.0.2
     transitivePeerDependencies:
       - supports-color
+    optional: true
 
   seroval-plugins@1.5.1(seroval@1.5.1):
     dependencies:
@@ -12785,8 +12926,10 @@ snapshots:
       send: 1.2.1
     transitivePeerDependencies:
       - supports-color
+    optional: true
 
-  setprototypeof@1.2.0: {}
+  setprototypeof@1.2.0:
+    optional: true
 
   sharp@0.34.5:
     dependencies:
@@ -12840,6 +12983,7 @@ snapshots:
     dependencies:
       es-errors: 1.3.0
       object-inspect: 1.13.4
+    optional: true
 
   side-channel-map@1.0.1:
     dependencies:
@@ -12847,6 +12991,7 @@ snapshots:
       es-errors: 1.3.0
       get-intrinsic: 1.3.0
       object-inspect: 1.13.4
+    optional: true
 
   side-channel-weakmap@1.0.2:
     dependencies:
@@ -12855,6 +13000,7 @@ snapshots:
       get-intrinsic: 1.3.0
       object-inspect: 1.13.4
       side-channel-map: 1.0.1
+    optional: true
 
   side-channel@1.1.0:
     dependencies:
@@ -12863,6 +13009,7 @@ snapshots:
       side-channel-list: 1.0.1
       side-channel-map: 1.0.1
       side-channel-weakmap: 1.0.2
+    optional: true
 
   siginfo@2.0.0: {}
 
@@ -13174,7 +13321,8 @@ snapshots:
     dependencies:
       is-number: 7.0.0
 
-  toidentifier@1.0.1: {}
+  toidentifier@1.0.1:
+    optional: true
 
   token-types@6.1.2:
     dependencies:
@@ -13233,6 +13381,7 @@ snapshots:
       content-type: 1.0.5
       media-typer: 1.1.0
       mime-types: 3.0.2
+    optional: true
 
   typescript@5.9.3:
     optional: true
@@ -13330,7 +13479,8 @@ snapshots:
 
   universalify@0.1.2: {}
 
-  unpipe@1.0.0: {}
+  unpipe@1.0.0:
+    optional: true
 
   unplugin-auto-import@21.0.0:
     dependencies:
@@ -13379,7 +13529,8 @@ snapshots:
 
   uuid@14.0.0: {}
 
-  vary@1.1.2: {}
+  vary@1.1.2:
+    optional: true
 
   vfile-location@5.0.3:
     dependencies:
