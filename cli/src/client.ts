@@ -24,18 +24,20 @@ export function createClient(url: string = defaultBaseUrl, options?: ClientReque
     get(target, prop, receiver) {
       if (prop === 'fetch') {
         return (targetUrl: string, fetchOptions?: FetchOptions | undefined) => {
-          const normalizedTargetUrl = normalizeTargetUrl(targetUrl)
+          const normalizedTargetURL = normalizeTargetURL(targetUrl)
           const { options, token, ...queryOptions } = fetchOptions ?? {}
           const query = {
-            anchor: normalizedTargetUrl.anchor,
+            anchor: normalizedTargetURL.anchor,
             ...queryOptions,
             fresh: queryOptions.fresh ? '' : undefined,
             keywords: queryOptions.keywords?.join(','),
-          } satisfies InternalFetchQuery
+          } satisfies FetchQuery & {
+            anchor?: string | undefined
+          }
 
           return target.api[':url{.+}'].$get(
             {
-              param: { url: normalizedTargetUrl.url },
+              param: { url: normalizedTargetURL.url },
               query,
             },
             token ? withAuthorizationHeader(options, token) : options,
@@ -56,14 +58,11 @@ type RpcClient = ReturnType<typeof hc<typeof api>>
 type Api = RpcClient['api']
 type PublicApi = Omit<Api, 'og.png' | 'sentry' | 'stats' | 'stripe'>
 type Fetch = RpcClient['api'][':url{.+}']['$get']
-type PublicFetchQuery = Pick<
+type FetchQuery = Pick<
   NonNullable<NonNullable<Parameters<Fetch>[0]>['query']>,
   'fresh' | 'keywords' | 'mode' | 'objective'
 >
-type InternalFetchQuery = PublicFetchQuery & {
-  anchor?: string | undefined
-}
-type FetchOptions = Partial<Omit<PublicFetchQuery, 'fresh' | 'keywords'>> & {
+type FetchOptions = Partial<Omit<FetchQuery, 'fresh' | 'keywords'>> & {
   fresh?: boolean | undefined
   keywords?: string[] | undefined
   options?: NonNullable<Parameters<Fetch>[1]> | undefined
@@ -94,7 +93,7 @@ function withTokenHeader(headers: Record<string, string> | undefined, token: str
   return nextHeaders
 }
 
-function normalizeTargetUrl(targetUrl: string) {
+function normalizeTargetURL(targetUrl: string) {
   const hashIndex = targetUrl.indexOf('#')
   const url = hashIndex === -1 ? targetUrl : targetUrl.slice(0, hashIndex)
   const searchIndex = url.indexOf('?')
@@ -105,8 +104,5 @@ function normalizeTargetUrl(targetUrl: string) {
   if (hashIndex === -1) return { anchor: undefined, url: encodedUrl }
 
   const anchor = targetUrl.slice(hashIndex + 1) || undefined
-  return {
-    anchor,
-    url: encodedUrl,
-  }
+  return { anchor, url: encodedUrl }
 }

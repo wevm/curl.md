@@ -43,7 +43,7 @@ export const Route = createFileRoute('/playground')({
 function Component() {
   const search = Route.useSearch()
   const navigate = useNavigate()
-  const [url, setUrl] = React.useState(toInputUrl(search.url, search.anchor))
+  const [url, setUrl] = React.useState(toInputURL(search.url, search.anchor))
   const [objective, setObjective] = React.useState(search.q ?? '')
   const [keywords, setKeywords] = React.useState(search.k ?? '')
   const abortRef = React.useRef<AbortController | null>(null)
@@ -106,12 +106,12 @@ function Component() {
       navigate({
         to: '/playground',
         search: () => {
-          const normalizedUrl = normalizeTargetUrl(values.url)
+          const normalizedURL = normalizeTargetURL(values.url)
           const next = {
-            anchor: normalizedUrl.anchor,
+            anchor: normalizedURL.anchor,
             k: values.k,
             q: values.q,
-            url: normalizedUrl.url,
+            url: normalizedURL.url,
           }
           for (const key of Object.keys(next) as (keyof typeof next)[])
             if (!next[key]) delete next[key]
@@ -131,8 +131,8 @@ function Component() {
   // Auto-submit on load if URL is present
   // oxlint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
   React.useEffect(() => {
-    const inputUrl = toInputUrl(search.url, search.anchor)
-    if (inputUrl.trim()) mutation.mutate({ url: inputUrl, q: search.q, k: search.k })
+    const inputURL = toInputURL(search.url, search.anchor)
+    if (inputURL.trim()) mutation.mutate({ url: inputURL, q: search.q, k: search.k })
   }, [])
 
   const setInputs = (values: {
@@ -448,7 +448,7 @@ function CopyButton(props: { text: string }) {
   )
 }
 
-function normalizeTargetUrl(url: string | undefined) {
+function normalizeTargetURL(url: string | undefined) {
   if (!url) return { anchor: undefined, url: undefined }
 
   const hashIndex = url.indexOf('#')
@@ -460,7 +460,7 @@ function normalizeTargetUrl(url: string | undefined) {
   }
 }
 
-function toInputUrl(url: string | undefined, anchor: string | undefined) {
+function toInputURL(url: string | undefined, anchor: string | undefined) {
   if (!url) return ''
   return anchor ? `${url}#${anchor}` : url
 }

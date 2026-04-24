@@ -1876,8 +1876,8 @@ export const api = new Hono<{
       if (hono.narrowValidation) return hono.validationError(c)
       if (hono.narrowValidation) return hono.invalidApiKey(c)
       const query = c.req.valid('query')
-      const requestUrl = new URL(c.req.valid('param').url)
-      const url = new URL(requestUrl)
+      const requestURL = new URL(c.req.valid('param').url)
+      const url = new URL(requestURL)
       url.hash = ''
 
       const userAgent = c.req.header('user-agent')
@@ -2236,17 +2236,17 @@ export const api = new Hono<{
         cost_mills: costMills,
         extracted_tokens: extractedTokens,
         filtered_tokens: filteredTokens,
-        hostname: requestUrl.hostname,
+        hostname: requestURL.hostname,
         id: requestId,
         keywords: query.keywords?.join(',') || null,
         markdown_tokens: markdownTokens,
         mode: query.objective ? query.mode : null,
         objective: query.objective || null,
         organization_id: c.var.organization_id,
-        path: requestUrl.pathname,
+        path: requestURL.pathname,
         source_tokens: sourceTokens,
         source_tokens_method: sourceTokensMethod,
-        url: requestUrl.href,
+        url: requestURL.href,
         user_agent: userAgent,
       })
 
