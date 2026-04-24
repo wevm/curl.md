@@ -628,7 +628,7 @@ test('fetches markdown from curl.md anonymously', async () => {
       const url = new URL(request.url)
       if (
         url.origin !== new URL(defaultBaseUrl).origin ||
-        url.pathname !== '/api/https://example.com/docs'
+        url.pathname !== '/api/https://example.com/docs%3Fq%3D1'
       )
         return passthrough()
       requests.push(captureRequest(request))
@@ -658,7 +658,7 @@ test('fetches markdown from curl.md anonymously', async () => {
   const result = await tools[0]!.execute('call_1', params)
 
   expect(requests).toHaveLength(1)
-  expect(requests[0]?.url).toContain(`${defaultBaseUrl}/api/https://example.com/docs?q=1`)
+  expect(requests[0]?.url).toContain(`${defaultBaseUrl}/api/https://example.com/docs%3Fq%3D1`)
   expect(requests[0]?.url).toContain('fresh=')
   expect(requests[0]?.url).toContain('keywords=pricing%2Cbilling')
   expect(requests[0]?.url).toContain('mode=rush')

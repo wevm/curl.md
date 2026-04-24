@@ -5,7 +5,7 @@ import path from 'node:path'
 
 console.log('Restoring packages.')
 
-const packageDirs = ['cli', 'plugins/amp', 'plugins/opencode', 'plugins/pi']
+const packageDirs = ['cli', 'plugins/amp', 'plugins/claude', 'plugins/opencode', 'plugins/pi']
 
 for (const dir of packageDirs) {
   const packagePath = path.join(dir, 'package.json')

@@ -48,4 +48,4 @@ jobs:
       - name: Publish preview
         run: |
           node --experimental-strip-types scripts/formatPackage.ts
-          pnpx pkg-pr-new publish --pnpm ./cli ./plugins/amp ./plugins/pi
+          pnpx pkg-pr-new publish --pnpm ./cli ./plugins/amp ./plugins/claude ./plugins/opencode ./plugins/pi

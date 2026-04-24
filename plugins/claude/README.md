@@ -20,26 +20,12 @@ claude plugin marketplace add https://curl.md/claude.json
 claude plugin install curl-md@curl-md
 ```
 
-Use `curl-md` as the marketplace/plugin name in install commands, `/curl-md:fetch` as the slash skill, and `curl_md` as the MCP tool name shown in Claude.
+To update:
 
-Then reload plugins or restart Claude Code.
-
-```text
-/reload-plugins
+```sh
+claude plugin marketplace update curl-md
+claude plugin install curl-md@curl-md
 ```
-
-## Use
-
-Use Claude normally and paste a URL, or run the plugin skill directly:
-
-```text
-/curl-md:fetch https://curl.md/docs/plugins/claude
-```
-
-## Notes
-
-- First launch installs plugin runtime dependencies with `npm`, so Node/npm must be on your `PATH`.
-- For higher limits, set `CURLMD_API_KEY` or run `curl.md auth login`.
 
 ## Documentation
 

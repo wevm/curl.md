@@ -5,7 +5,7 @@ import path from 'node:path'
 
 console.log('Formatting packages.')
 
-const packageDirs = ['cli', 'plugins/amp', 'plugins/opencode', 'plugins/pi']
+const packageDirs = ['cli', 'plugins/amp', 'plugins/claude', 'plugins/opencode', 'plugins/pi']
 
 for (const dir of packageDirs) {
   await fs.copyFile('LICENSE', path.join(dir, 'LICENSE'))

@@ -143,6 +143,13 @@ export default defineConfig({
       },
       {
         test: {
+          name: 'plugins:claude',
+          include: ['plugins/claude/**/*.test.ts'],
+          root,
+        },
+      },
+      {
+        test: {
           name: 'plugins:opencode',
           include: ['plugins/opencode/**/*.test.ts'],
           root,

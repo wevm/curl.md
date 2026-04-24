@@ -103,6 +103,9 @@ jobs:
       - name: Test
         run: pnpm test --project cli
 
+      - name: Plugin tests
+        run: pnpm test --project plugins:amp --project plugins:claude --project plugins:opencode --project plugins:pi
+
       - name: Build
         run: |
           pnpm --filter curl.md build
