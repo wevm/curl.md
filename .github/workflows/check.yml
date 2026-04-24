@@ -119,6 +119,9 @@ jobs:
       - name: Setup
         uses: ./.github/actions/setup-pnpm
 
+      - name: Preconstruct
+        run: pnpm preconstruct
+
       - name: Test
         run: pnpm test --project plugins:amp --project plugins:claude --project plugins:opencode --project plugins:pi
 
