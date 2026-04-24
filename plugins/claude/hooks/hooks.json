@@ -1,0 +1,25 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/redirect-webfetch.sh\"",
+            "type": "command"
+          }
+        ],
+        "matcher": "WebFetch"
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/bootstrap-deps.sh\"",
+            "type": "command"
+          }
+        ]
+      }
+    ]
+  }
+}

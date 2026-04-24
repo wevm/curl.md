@@ -107,11 +107,9 @@ test('start script prefers source files for local development', () => {
 
   try {
     const pluginDir = path.join(fixtureDir, 'plugin')
-    fs.mkdirSync(path.join(pluginDir, 'dist'), { recursive: true })
     fs.mkdirSync(path.join(pluginDir, 'scripts'), { recursive: true })
     fs.mkdirSync(path.join(pluginDir, 'src'), { recursive: true })
     fs.copyFileSync(startScriptPath, path.join(pluginDir, 'scripts', 'start.sh'))
-    fs.writeFileSync(path.join(pluginDir, 'dist', 'server.js'), 'console.log("dist")\n')
     fs.writeFileSync(path.join(pluginDir, 'src', 'server.ts'), 'console.log("src")\n')
 
     expect(runStartScript(pluginDir)).toEqual([
@@ -124,23 +122,49 @@ test('start script prefers source files for local development', () => {
   }
 })
 
-test('start script falls back to bundled dist for published installs', () => {
+test('start script links persisted node_modules when available', () => {
   const fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), 'curlmd-claude-start-'))
 
   try {
     const pluginDir = path.join(fixtureDir, 'plugin')
-    fs.mkdirSync(path.join(pluginDir, 'dist'), { recursive: true })
+    const pluginDataDir = path.join(fixtureDir, 'data')
     fs.mkdirSync(path.join(pluginDir, 'scripts'), { recursive: true })
+    fs.mkdirSync(path.join(pluginDir, 'src'), { recursive: true })
+    fs.mkdirSync(path.join(pluginDataDir, 'node_modules'), { recursive: true })
     fs.copyFileSync(startScriptPath, path.join(pluginDir, 'scripts', 'start.sh'))
-    fs.writeFileSync(path.join(pluginDir, 'dist', 'server.js'), 'console.log("dist")\n')
+    fs.writeFileSync(path.join(pluginDir, 'src', 'server.ts'), 'console.log("src")\n')
 
-    expect(runStartScript(pluginDir)).toEqual([path.join(pluginDir, 'dist', 'server.js')])
+    expect(runStartScript(pluginDir, { CLAUDE_PLUGIN_DATA: pluginDataDir })).toEqual([
+      '--experimental-strip-types',
+      '--no-warnings',
+      path.join(pluginDir, 'src', 'server.ts'),
+    ])
+    expect(fs.lstatSync(path.join(pluginDir, 'node_modules')).isSymbolicLink()).toBe(true)
+    expect(fs.realpathSync(path.join(pluginDir, 'node_modules'))).toBe(
+      fs.realpathSync(path.join(pluginDataDir, 'node_modules')),
+    )
   } finally {
     fs.rmSync(fixtureDir, { force: true, recursive: true })
   }
 })
 
-function runStartScript(pluginDir: string) {
+test('start script errors when the source entrypoint is missing', () => {
+  const fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), 'curlmd-claude-start-'))
+
+  try {
+    const pluginDir = path.join(fixtureDir, 'plugin')
+    fs.mkdirSync(path.join(pluginDir, 'scripts'), { recursive: true })
+    fs.copyFileSync(startScriptPath, path.join(pluginDir, 'scripts', 'start.sh'))
+
+    expect(() => runStartScript(pluginDir)).toThrowError(
+      'curl.md Claude plugin entrypoint not found. Expected src/server.ts.',
+    )
+  } finally {
+    fs.rmSync(fixtureDir, { force: true, recursive: true })
+  }
+})
+
+function runStartScript(pluginDir: string, env: Record<string, string> = {}) {
   const binDir = path.join(path.dirname(pluginDir), 'bin')
   const nodePath = path.join(binDir, 'node')
 
@@ -152,6 +176,7 @@ function runStartScript(pluginDir: string) {
     encoding: 'utf8',
     env: {
       ...process.env,
+      ...env,
       CLAUDE_PLUGIN_ROOT: pluginDir,
       PATH: `${binDir}:${process.env.PATH || ''}`,
     },

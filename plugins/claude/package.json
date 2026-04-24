@@ -24,21 +24,24 @@
     ".claude-plugin/**",
     ".mcp.json",
     "CHANGELOG.md",
+    "hooks/**",
     "README.md",
-    "dist/**",
     "scripts/**/*.sh",
+    "src/**/*.ts",
+    "!src/**/*.test.ts",
     "skills/**"
   ],
   "type": "module",
   "scripts": {
-    "build": "node --experimental-strip-types scripts/build.ts",
     "check:types": "tsgo --noEmit"
   },
-  "devDependencies": {
-    "@anthropic-ai/claude-code": "^2.1.118",
+  "dependencies": {
     "@modelcontextprotocol/server": "2.0.0-alpha.2",
     "curl.md": "workspace:*",
     "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@anthropic-ai/claude-code": "^2.1.118"
   },
   "engines": {
     "node": ">=22.0.0"

@@ -306,7 +306,10 @@ importers:
         version: 0.0.0-dev
 
   plugins/claude:
-    dependencies:
+    devDependencies:
+      '@anthropic-ai/claude-code':
+        specifier: ^2.1.118
+        version: 2.1.118
       '@modelcontextprotocol/server':
         specifier: 2.0.0-alpha.2
         version: 2.0.0-alpha.2(@cfworker/json-schema@4.1.1)
@@ -316,10 +319,6 @@ importers:
       zod:
         specifier: ^4.3.6
         version: 4.3.6
-    devDependencies:
-      '@anthropic-ai/claude-code':
-        specifier: ^2.1.118
-        version: 2.1.118
 
   plugins/opencode:
     dependencies:

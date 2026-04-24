@@ -63,7 +63,7 @@ function createFetchTool(input: {
   return opencodePlugin.tool({
     description:
       input.toolName === 'webfetch'
-        ? 'Built-in webfetch routed to markdown output.'
+        ? 'Overrides built-in webfetch with markdown output.'
         : 'Fetch a URL as markdown.',
     args: {
       ...(input.toolName === 'webfetch' ? optionArgs : {}),
