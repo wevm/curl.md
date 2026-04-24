@@ -8,6 +8,7 @@ import { formatCost } from '#lib/format.ts'
 import { rpc } from '#lib/rpc.ts'
 
 const searchSchema = z.object({
+  anchor: z.string().optional(),
   k: z.string().optional(),
   q: z.string().optional(),
   url: z.string().optional(),
@@ -42,7 +43,7 @@ export const Route = createFileRoute('/playground')({
 function Component() {
   const search = Route.useSearch()
   const navigate = useNavigate()
-  const [url, setUrl] = React.useState(search.url ?? '')
+  const [url, setUrl] = React.useState(toInputURL(search.url, search.anchor))
   const [objective, setObjective] = React.useState(search.q ?? '')
   const [keywords, setKeywords] = React.useState(search.k ?? '')
   const abortRef = React.useRef<AbortController | null>(null)
@@ -73,11 +74,14 @@ function Component() {
           input.url.trim(),
         ),
       )
+      const anchor = validatedUrl.hash.slice(1) || undefined
       const params = new URLSearchParams()
-      if (input.q?.trim()) params.set('q', input.q.trim())
+      if (anchor) params.set('anchor', anchor)
       if (input.k?.trim()) params.set('k', input.k.trim())
+      if (input.q?.trim()) params.set('q', input.q.trim())
       const query = params.toString()
-      const path = `/${validatedUrl.host}${validatedUrl.pathname}${query ? `?${query}` : ''}`
+      const targetSearch = validatedUrl.search ? encodeURIComponent(validatedUrl.search) : ''
+      const path = `/${validatedUrl.host}${validatedUrl.pathname}${targetSearch}${query ? `?${query}` : ''}`
 
       const res = await fetch(path, {
         headers: { accept: 'application/json' },
@@ -102,7 +106,13 @@ function Component() {
       navigate({
         to: '/playground',
         search: () => {
-          const next = { ...values }
+          const normalizedURL = normalizeTargetURL(values.url)
+          const next = {
+            anchor: normalizedURL.anchor,
+            k: values.k,
+            q: values.q,
+            url: normalizedURL.url,
+          }
           for (const key of Object.keys(next) as (keyof typeof next)[])
             if (!next[key]) delete next[key]
           return next
@@ -121,7 +131,8 @@ function Component() {
   // Auto-submit on load if URL is present
   // oxlint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
   React.useEffect(() => {
-    if (search.url?.trim()) mutation.mutate({ url: search.url, q: search.q, k: search.k })
+    const inputURL = toInputURL(search.url, search.anchor)
+    if (inputURL.trim()) mutation.mutate({ url: inputURL, q: search.q, k: search.k })
   }, [])
 
   const setInputs = (values: {
@@ -435,4 +446,21 @@ function CopyButton(props: { text: string }) {
       )}
     </button>
   )
+}
+
+function normalizeTargetURL(url: string | undefined) {
+  if (!url) return { anchor: undefined, url: undefined }
+
+  const hashIndex = url.indexOf('#')
+  if (hashIndex === -1) return { anchor: undefined, url }
+
+  return {
+    anchor: url.slice(hashIndex + 1) || undefined,
+    url: url.slice(0, hashIndex) || undefined,
+  }
+}
+
+function toInputURL(url: string | undefined, anchor: string | undefined) {
+  if (!url) return ''
+  return anchor ? `${url}#${anchor}` : url
 }

@@ -24,16 +24,20 @@ export function createClient(url: string = defaultBaseUrl, options?: ClientReque
     get(target, prop, receiver) {
       if (prop === 'fetch') {
         return (targetUrl: string, fetchOptions?: FetchOptions | undefined) => {
+          const normalizedTargetURL = normalizeTargetURL(targetUrl)
           const { options, token, ...queryOptions } = fetchOptions ?? {}
           const query = {
+            anchor: normalizedTargetURL.anchor,
             ...queryOptions,
             fresh: queryOptions.fresh ? '' : undefined,
             keywords: queryOptions.keywords?.join(','),
-          } satisfies FetchQuery
+          } satisfies FetchQuery & {
+            anchor?: string | undefined
+          }
 
           return target.api[':url{.+}'].$get(
             {
-              param: { url: targetUrl },
+              param: { url: normalizedTargetURL.url },
               query,
             },
             token ? withAuthorizationHeader(options, token) : options,
@@ -87,4 +91,18 @@ function withTokenHeader(headers: Record<string, string> | undefined, token: str
   }
   nextHeaders.Authorization = `Bearer ${token}`
   return nextHeaders
+}
+
+function normalizeTargetURL(targetUrl: string) {
+  const hashIndex = targetUrl.indexOf('#')
+  const url = hashIndex === -1 ? targetUrl : targetUrl.slice(0, hashIndex)
+  const searchIndex = url.indexOf('?')
+  const encodedUrl =
+    searchIndex === -1
+      ? url
+      : `${url.slice(0, searchIndex)}${encodeURIComponent(url.slice(searchIndex))}`
+  if (hashIndex === -1) return { anchor: undefined, url: encodedUrl }
+
+  const anchor = targetUrl.slice(hashIndex + 1) || undefined
+  return { anchor, url: encodedUrl }
 }

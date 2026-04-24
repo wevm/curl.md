@@ -6,3 +6,4 @@
 
 - Remove the temporary TanStack Router pnpm patches in [pnpm-workspace.yaml](file:///Users/tmm/Developer/curl.md/pnpm-workspace.yaml) once [TanStack/router PR #7116](https://github.com/TanStack/router/pull/7116) is merged and released. Re-run `pnpm test:e2e test/e2e/dashboard.test.ts` after dropping them.
 - Switch to `cf` CLI for preview workflows https://blog.cloudflare.com/cf-cli-local-explorer/
+- Add anchor-aware content narrowing for fetched markdown: narrow by heading slug in `src/md/chunk.ts` using the same slug rules as `src/lib/docs.ts`, apply anchor narrowing before keyword/objective filtering, and add `anchor` to derived-content cache keys once that behavior is enabled.

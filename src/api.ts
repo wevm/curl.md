@@ -1843,6 +1843,7 @@ export const api = new Hono<{
         const objective = z.string().optional()
         return z
           .object({
+            anchor: z.string().optional(),
             f: fresh,
             fresh,
             k: keywords,
@@ -1854,6 +1855,16 @@ export const api = new Hono<{
             q: objective,
           })
           .transform((v) => ({
+            anchor: (() => {
+              if (!v.anchor) return undefined
+              try {
+                const decoded = decodeURIComponent(v.anchor).trim().replace(/^#+/, '')
+                return decoded || undefined
+              } catch {
+                const trimmed = v.anchor.trim().replace(/^#+/, '')
+                return trimmed || undefined
+              }
+            })(),
             fresh: v.fresh || v.f,
             keywords: v.keywords ?? v.k,
             mode: v.mode === 'smart' && v.m !== 'smart' ? v.m : v.mode,
@@ -1864,8 +1875,10 @@ export const api = new Hono<{
     async (c) => {
       if (hono.narrowValidation) return hono.validationError(c)
       if (hono.narrowValidation) return hono.invalidApiKey(c)
-      const url = new URL(c.req.valid('param').url)
       const query = c.req.valid('query')
+      const requestURL = new URL(c.req.valid('param').url)
+      const url = new URL(requestURL)
+      url.hash = ''
 
       const userAgent = c.req.header('user-agent')
       if (
@@ -2223,17 +2236,17 @@ export const api = new Hono<{
         cost_mills: costMills,
         extracted_tokens: extractedTokens,
         filtered_tokens: filteredTokens,
-        hostname: url.hostname,
+        hostname: requestURL.hostname,
         id: requestId,
         keywords: query.keywords?.join(',') || null,
         markdown_tokens: markdownTokens,
         mode: query.objective ? query.mode : null,
         objective: query.objective || null,
         organization_id: c.var.organization_id,
-        path: url.pathname,
+        path: requestURL.pathname,
         source_tokens: sourceTokens,
         source_tokens_method: sourceTokensMethod,
-        url: url.href,
+        url: requestURL.href,
         user_agent: userAgent,
       })
 
