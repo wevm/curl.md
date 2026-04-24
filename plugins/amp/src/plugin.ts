@@ -41,37 +41,32 @@ export default function (amp: PluginAPI) {
 
   amp.registerTool({
     name: 'curl_md',
-    description:
-      'Read the contents of a web page at a given URL via curl.md and return markdown optimized for coding agents. Fallback for read_web_page interception.',
+    description: 'Fetch a URL as markdown. Used for read_web_page interception.',
     inputSchema: {
       type: 'object',
       properties: {
         url: {
           type: 'string',
           description:
-            'HTTP(S) URL or bare domain to fetch via curl.md. Prefer the canonical docs or article URL you want summarized.',
+            'HTTP(S) URL or bare domain to fetch. Prefer the canonical docs or article URL.',
         },
         objective: {
           type: 'string',
-          description:
-            'Specific question or goal to answer from the page. Prefer concrete objectives like "compare pricing tiers" or "find auth header requirements".',
+          description: 'Specific question to answer from the page. Use when only part matters.',
         },
         keywords: {
           type: 'array',
           items: { type: 'string' },
-          description:
-            'Keywords to pre-filter sections by. Prefer 2-5 distinct terms when only part of a long page matters.',
+          description: 'Keywords to focus extraction on relevant sections.',
         },
         mode: {
           type: 'string',
           enum: ['rush', 'smart'],
-          description:
-            'rush: lower-latency, best when you already know the section. smart: higher-quality narrowing for long or noisy pages.',
+          description: 'rush: faster. smart: better section selection on long or noisy pages.',
         },
         fresh: {
           type: 'boolean',
-          description:
-            'Bypass curl.md cache when freshness matters, such as changelogs, release notes, or recently updated docs.',
+          description: 'Bypass cache when freshness matters.',
         },
       },
       required: ['url'],
@@ -195,10 +190,7 @@ export default function (amp: PluginAPI) {
       credits_remaining: parseNumberHeader(res.headers.get('x-credits-remaining')),
       fresh: input.fresh || undefined,
       keywords: input.keywords,
-      markdown: json.content.replace(
-        /\n\n---\n\nPowered by \[curl\.md\]\(https:\/\/curl\.md\)$/,
-        '',
-      ),
+      markdown: json.content,
       mode: input.mode,
       objective: input.objective,
       request_id: res.headers.get('x-request-id') || undefined,

@@ -275,7 +275,7 @@ async function expectStatusCommand(rpc: ReturnType<typeof startPiRpc>) {
   expect(getCommandsResponse.success).toBe(true)
   expect(getCommandsResponse.data.commands).toContainEqual(
     expect.objectContaining({
-      description: 'Show curl.md status',
+      description: 'Show status',
       name: 'curl_md_status',
       source: 'extension',
     }),

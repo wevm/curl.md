@@ -25,24 +25,22 @@
     ".mcp.json",
     "CHANGELOG.md",
     "README.md",
+    "dist/**",
     "scripts/**/*.sh",
-    "skills/**",
-    "src/**/*.ts",
-    "!src/**/*.test.ts"
+    "skills/**"
   ],
   "type": "module",
   "scripts": {
+    "build": "node --experimental-strip-types scripts/build.ts",
     "check:types": "tsgo --noEmit"
   },
-  "dependencies": {
+  "devDependencies": {
+    "@anthropic-ai/claude-code": "^2.1.118",
     "@modelcontextprotocol/server": "2.0.0-alpha.2",
     "curl.md": "workspace:*",
     "zod": "^4.3.6"
   },
   "engines": {
     "node": ">=22.0.0"
-  },
-  "devDependencies": {
-    "@anthropic-ai/claude-code": "^2.1.118"
   }
 }

@@ -3,12 +3,13 @@ set -eu
 
 plugin_root=${CLAUDE_PLUGIN_ROOT:-$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)}
 
-if [ ! -d "$plugin_root/node_modules/@modelcontextprotocol" ] || [ ! -d "$plugin_root/node_modules/curl.md" ] || [ ! -d "$plugin_root/node_modules/zod" ]; then
-  echo "Installing curl.md Claude plugin dependencies..." >&2
-  (
-    cd "$plugin_root"
-    npm install --ignore-scripts --no-audit --no-fund --omit=dev --silent
-  )
+if [ -f "$plugin_root/src/server.ts" ]; then
+  exec node --experimental-strip-types --no-warnings "$plugin_root/src/server.ts"
 fi
 
-exec node --experimental-strip-types --no-warnings "$plugin_root/src/server.ts"
+if [ -f "$plugin_root/dist/server.js" ]; then
+  exec node "$plugin_root/dist/server.js"
+fi
+
+echo "curl.md Claude plugin entrypoint not found. Expected src/server.ts for local development or dist/server.js for published installs." >&2
+exit 1

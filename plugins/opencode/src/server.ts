@@ -30,30 +30,25 @@ function createFetchTool(input: {
     format: opencodePlugin.tool.schema
       .enum(['html', 'markdown', 'text'])
       .optional()
-      .describe(
-        'Compatibility option for OpenCode built-in webfetch calls. curl.md always returns markdown.',
-      ),
-    fresh: opencodePlugin.tool.schema
-      .boolean()
-      .optional()
-      .describe('Bypass the curl.md cache and fetch the page live.'),
+      .describe('Compatibility option for built-in webfetch calls. Output is always markdown.'),
+    fresh: opencodePlugin.tool.schema.boolean().optional().describe('Bypass cache and fetch live.'),
     keywords: opencodePlugin.tool.schema
       .array(opencodePlugin.tool.schema.string())
       .optional()
-      .describe('Optional keywords to focus extraction on specific sections of the page.'),
+      .describe('Keywords to focus extraction on relevant sections.'),
     mode: opencodePlugin.tool.schema
       .enum(['rush', 'smart'])
       .optional()
-      .describe('Extraction mode. Use smart for better section selection on long pages.'),
+      .describe('rush: faster. smart: better section selection on long or noisy pages.'),
     objective: opencodePlugin.tool.schema
       .string()
       .optional()
-      .describe('Optional objective describing what to extract from the page.'),
+      .describe('Specific question to answer from the page. Use when only part matters.'),
     timeout: opencodePlugin.tool.schema
       .number()
       .optional()
       .describe(
-        'Compatibility option for OpenCode built-in webfetch calls. curl.md manages fetch timing internally.',
+        'Compatibility option for built-in webfetch calls. Fetch timing is managed internally.',
       ),
   }
   type FetchToolArgs = FetchOptionArgs & {
@@ -68,8 +63,8 @@ function createFetchTool(input: {
   return opencodePlugin.tool({
     description:
       input.toolName === 'webfetch'
-        ? 'Override OpenCode built-in webfetch with curl.md markdown output.'
-        : 'Fetch a web page through curl.md and return markdown optimized for coding agents.',
+        ? 'Built-in webfetch routed to markdown output.'
+        : 'Fetch a URL as markdown.',
     args: {
       ...(input.toolName === 'webfetch' ? optionArgs : {}),
       options: opencodePlugin.tool.schema
@@ -78,9 +73,7 @@ function createFetchTool(input: {
         .describe('Optional fetch settings.'),
       url: opencodePlugin.tool.schema
         .string()
-        .describe(
-          'HTTP(S) URL or bare domain to fetch via curl.md. Prefer the canonical docs or article URL you want summarized.',
-        ),
+        .describe('HTTP(S) URL or bare domain to fetch. Prefer the canonical docs or article URL.'),
     },
     async execute(args, ctx) {
       const toolArgs = args as FetchToolArgs
@@ -247,7 +240,7 @@ async function fetchPage(input: {
     auth: authType,
     cache: res.headers.get('x-cache') || undefined,
     fresh: input.fresh || undefined,
-    markdown: json.content.replace(/\n\n---\n\nPowered by \[curl\.md\]\(https:\/\/curl\.md\)$/, ''),
+    markdown: json.content,
     request_id: res.headers.get('x-request-id') || undefined,
     tokens_saved: parseNumberHeader(res.headers.get('x-tokens-saved')),
     url,

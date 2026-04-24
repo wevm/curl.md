@@ -1,8 +1,8 @@
 ---
-description: Use curl.md when you need to read a public URL, docs page, changelog, article, or blog post with low-token markdown output.
+description: Use when you need markdown from a public URL, docs page, article, or changelog.
 ---
 
-Use the `curl_md` tool to fetch the URL or domain in `$ARGUMENTS` or in the surrounding conversation.
+Use `curl_md` to fetch the URL or domain in `$ARGUMENTS` or the surrounding conversation.
 
 Guidelines:
 

@@ -86,7 +86,7 @@ test('returns markdown and tool metadata for curl_md by default', async () => {
   expect(requests[0]?.url).toContain('keywords=plugin')
   expect(requests[0]?.url).toContain('mode=smart')
   expect(requests[0]?.url).toContain('objective=Summarize+the+docs')
-  expect(result).toBe('# Example')
+  expect(result).toBe('# Example\n\n---\n\nPowered by [curl.md](https://curl.md)')
   expect(metadata).toHaveBeenCalledWith({
     metadata: {
       auth: 'anon',
@@ -135,7 +135,7 @@ test('returns markdown and tool metadata for webfetch when enabled', async () =>
     createToolContext(metadata),
   )
 
-  expect(result).toBe('# Example')
+  expect(result).toBe('# Example\n\n---\n\nPowered by [curl.md](https://curl.md)')
   expect(metadata).toHaveBeenCalledWith({
     metadata: {
       auth: 'anon',

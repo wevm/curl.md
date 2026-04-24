@@ -17,37 +17,24 @@ server.registerTool(
   'curl_md',
   {
     title: 'curl.md',
-    description: 'Read a web page through curl.md and return markdown optimized for coding agents.',
+    description: 'Fetch a URL as markdown.',
     inputSchema: z.object({
       url: z
         .string()
-        .describe(
-          'HTTP(S) URL or bare domain to fetch via curl.md. Prefer the canonical docs or article URL you want summarized.',
-        ),
+        .describe('HTTP(S) URL or bare domain to fetch. Prefer the canonical docs or article URL.'),
       objective: z
         .string()
         .optional()
-        .describe(
-          'Specific question or goal to answer from the page. Prefer concrete objectives like "compare pricing tiers" or "find auth header requirements".',
-        ),
+        .describe('Specific question to answer from the page. Use when only part matters.'),
       keywords: z
         .array(z.string())
         .optional()
-        .describe(
-          'Keywords to pre-filter sections by. Prefer 2-5 distinct terms when only part of a long page matters.',
-        ),
+        .describe('Keywords to focus extraction on relevant sections.'),
       mode: z
         .enum(['rush', 'smart'])
         .optional()
-        .describe(
-          'rush: lower-latency, best when you already know the section. smart: higher-quality narrowing for long or noisy pages.',
-        ),
-      fresh: z
-        .boolean()
-        .optional()
-        .describe(
-          'Bypass curl.md cache when freshness matters, such as changelogs, release notes, or recently updated docs.',
-        ),
+        .describe('rush: faster. smart: better section selection on long or noisy pages.'),
+      fresh: z.boolean().optional().describe('Bypass cache when freshness matters.'),
     }),
   },
   async (input) => {
@@ -160,10 +147,7 @@ async function fetchPage(input: {
 
   const json = await res.json()
 
-  return {
-    markdown: json.content.replace(/\n\n---\n\nPowered by \[curl\.md\]\(https:\/\/curl\.md\)$/, ''),
-    url,
-  }
+  return { markdown: json.content, url }
 }
 
 function createHeaders(auth: Auth.Headers | null) {

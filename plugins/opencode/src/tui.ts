@@ -22,7 +22,7 @@ export const tuiPlugin: opencodePluginTui.TuiPluginModule = {
     api.command.register(() => [
       {
         category: 'curl.md',
-        description: 'Log in to curl.md with browser.',
+        description: 'Log in',
         onSelect: async () => {
           if (loginAbortController) {
             api.ui.toast({
@@ -103,12 +103,12 @@ export const tuiPlugin: opencodePluginTui.TuiPluginModule = {
         },
         slash: { name: 'curl_md_login' },
         suggested: true,
-        title: 'Login to curl.md',
+        title: 'Log in',
         value: 'curlmd.login',
       },
       {
         category: 'curl.md',
-        description: 'Log out of curl.md.',
+        description: 'Log out',
         onSelect: async () => {
           api.ui.dialog.clear()
 
@@ -140,19 +140,19 @@ export const tuiPlugin: opencodePluginTui.TuiPluginModule = {
           })
         },
         slash: { name: 'curl_md_logout' },
-        title: 'Logout of curl.md',
+        title: 'Log out',
         value: 'curlmd.logout',
       },
       {
         category: 'curl.md',
-        description: 'Switch active curl.md organization.',
+        description: 'Switch organization',
         onSelect: async () => {
           const authHeaders = await resolver()
           if (!authHeaders) {
             api.ui.dialog.clear()
             api.ui.toast({
               duration: authStatusToastDurationMs,
-              message: 'Not authenticated with curl.md. Run /curl_md_login first.',
+              message: 'Not authenticated. Run /curl_md_login first.',
               title: 'curl.md',
               variant: 'error',
             })
@@ -168,7 +168,7 @@ export const tuiPlugin: opencodePluginTui.TuiPluginModule = {
           if (orgsRes.status !== 200 || meRes.status !== 200) {
             api.ui.dialog.clear()
             api.ui.toast({
-              message: 'Failed to fetch curl.md organizations.',
+              message: 'Failed to fetch organizations.',
               title: 'curl.md',
               variant: 'error',
             })
@@ -181,7 +181,7 @@ export const tuiPlugin: opencodePluginTui.TuiPluginModule = {
             api.ui.dialog.clear()
             api.ui.toast({
               duration: authStatusToastDurationMs,
-              message: 'Not authenticated with curl.md. Run /curl_md_login first.',
+              message: 'Not authenticated. Run /curl_md_login first.',
               title: 'curl.md',
               variant: 'error',
             })
@@ -228,17 +228,17 @@ export const tuiPlugin: opencodePluginTui.TuiPluginModule = {
               },
               options,
               placeholder: 'Choose account or organization',
-              title: 'Switch curl.md organization',
+              title: 'Switch organization',
             }),
           )
         },
         slash: { name: 'curl_md_org' },
-        title: 'Switch curl.md organization',
+        title: 'Switch organization',
         value: 'curlmd.org',
       },
       {
         category: 'curl.md',
-        description: 'Show curl.md status.',
+        description: 'Show status',
         onSelect: async () => {
           api.ui.dialog.clear()
 
@@ -289,7 +289,7 @@ export const tuiPlugin: opencodePluginTui.TuiPluginModule = {
           })
         },
         slash: { name: 'curl_md_status' },
-        title: 'Show curl.md status',
+        title: 'Show status',
         value: 'curlmd.status',
       },
     ])
@@ -305,17 +305,17 @@ type OrgChoice = {
 }
 
 function buildAlreadyAuthenticatedMessage(login: string | null) {
-  if (!login) return withApiKeyNote('Already logged in to curl.md.')
-  return withApiKeyNote(`Already logged in as ${login} to curl.md.`)
+  if (!login) return withApiKeyNote('Already logged in.')
+  return withApiKeyNote(`Already logged in as ${login}.`)
 }
 
 function buildAlreadyLoggedOutMessage() {
-  return withApiKeyNote('Already logged out of curl.md.')
+  return withApiKeyNote('Already logged out.')
 }
 
 function buildOrgSwitchMessage(kind: 'account' | 'organization', label: string) {
-  if (kind === 'account') return withApiKeyNote(`Switched curl.md account to ${label}.`)
-  return withApiKeyNote(`Switched curl.md organization to ${label}.`)
+  if (kind === 'account') return withApiKeyNote(`Switched account to ${label}.`)
+  return withApiKeyNote(`Switched organization to ${label}.`)
 }
 
 function buildLoginPrompt(url: string, userCode: string) {
@@ -330,13 +330,13 @@ function buildLoginPrompt(url: string, userCode: string) {
 }
 
 function buildLoginSuccessMessage(login: string | null) {
-  if (!login) return withApiKeyNote('Logged in to curl.md.')
-  return withApiKeyNote(`Logged in as ${login} to curl.md.`)
+  if (!login) return withApiKeyNote('Logged in.')
+  return withApiKeyNote(`Logged in as ${login}.`)
 }
 
 function buildLogoutSuccessMessage(login: string | null) {
-  if (!login) return withApiKeyNote('Logged out of curl.md.')
-  return withApiKeyNote(`Logged out of ${login} from curl.md.`)
+  if (!login) return withApiKeyNote('Logged out.')
+  return withApiKeyNote(`Logged out of ${login}.`)
 }
 
 function findCliPath() {

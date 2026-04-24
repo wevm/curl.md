@@ -85,7 +85,7 @@ test('tool.call hook intercepts read_web_page and synthesizes result', async () 
   expect(result).toEqual({
     action: 'synthesize',
     result: {
-      output: '# Example Page',
+      output: '# Example Page\n\n---\n\nPowered by [curl.md](https://curl.md)',
     },
   })
 })
@@ -250,7 +250,7 @@ test('fetches anonymously and returns expected shape', async () => {
     credits_remaining: 42,
     fresh: true,
     keywords: ['a'],
-    markdown: '# Example',
+    markdown: '# Example\n\n---\n\nPowered by [curl.md](https://curl.md)',
     mode: 'rush',
     objective: 'test',
     request_id: 'req_abc',

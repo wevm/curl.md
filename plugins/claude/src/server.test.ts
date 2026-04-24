@@ -118,7 +118,9 @@ test('returns stripped markdown and forwards fetch options', async () => {
   expect(requests[0]?.url).toContain('mode=smart')
   expect(requests[0]?.url).toContain('objective=Summarize+the+docs')
   expect(requests[0]?.headers).toEqual({ accept: 'application/json' })
-  expect(result).toEqual({ content: [{ text: '# Example', type: 'text' }] })
+  expect(result).toEqual({
+    content: [{ text: '# Example\n\n---\n\nPowered by [curl.md](https://curl.md)', type: 'text' }],
+  })
 })
 
 test('returns MCP error content for invalid URLs', async () => {

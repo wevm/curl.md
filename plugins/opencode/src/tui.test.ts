@@ -73,27 +73,27 @@ test('registers a login command and completes device flow', async () => {
   expect(commands).toEqual(
     expect.arrayContaining([
       expect.objectContaining({
-        description: 'Log in to curl.md with browser.',
+        description: 'Log in',
         slash: { name: 'curl_md_login' },
-        title: 'Login to curl.md',
+        title: 'Log in',
         value: 'curlmd.login',
       }),
       expect.objectContaining({
-        description: 'Log out of curl.md.',
+        description: 'Log out',
         slash: { name: 'curl_md_logout' },
-        title: 'Logout of curl.md',
+        title: 'Log out',
         value: 'curlmd.logout',
       }),
       expect.objectContaining({
-        description: 'Switch active curl.md organization.',
+        description: 'Switch organization',
         slash: { name: 'curl_md_org' },
-        title: 'Switch curl.md organization',
+        title: 'Switch organization',
         value: 'curlmd.org',
       }),
       expect.objectContaining({
-        description: 'Show curl.md status.',
+        description: 'Show status',
         slash: { name: 'curl_md_status' },
-        title: 'Show curl.md status',
+        title: 'Show status',
         value: 'curlmd.status',
       }),
     ]),
@@ -120,7 +120,7 @@ test('registers a login command and completes device flow', async () => {
   expect(api.clear).toHaveBeenCalledTimes(1)
   expect(api.toast).toHaveBeenLastCalledWith({
     duration: 6_000,
-    message: 'Logged in as tmm to curl.md.',
+    message: 'Logged in as tmm.',
     title: 'curl.md',
     variant: 'success',
   })
@@ -143,7 +143,7 @@ test('keeps already-authenticated toast visible longer', async () => {
   expect(api.clear).toHaveBeenCalledTimes(1)
   expect(api.toast).toHaveBeenCalledWith({
     duration: 6_000,
-    message: 'Already logged in as tmm to curl.md.',
+    message: 'Already logged in as tmm.',
     title: 'curl.md',
     variant: 'info',
   })
@@ -165,7 +165,7 @@ test('logs out of curl.md', async () => {
   expect(Auth.logout).toHaveBeenCalledWith(defaultBaseUrl)
   expect(api.toast).toHaveBeenCalledWith({
     duration: 6_000,
-    message: 'Logged out of tmm from curl.md.',
+    message: 'Logged out of tmm.',
     title: 'curl.md',
     variant: 'info',
   })
@@ -184,7 +184,7 @@ test('shows already logged out when no session exists', async () => {
   expect(logoutSpy).not.toHaveBeenCalled()
   expect(api.toast).toHaveBeenCalledWith({
     duration: 6_000,
-    message: 'Already logged out of curl.md.',
+    message: 'Already logged out.',
     title: 'curl.md',
     variant: 'info',
   })
@@ -227,7 +227,7 @@ test('switches curl.md organization', async () => {
   await findCommand(api.commands(), 'curlmd.org').onSelect?.()
 
   expect(api.dialogSelect).toHaveBeenCalledWith(
-    expect.objectContaining({ title: 'Switch curl.md organization' }),
+    expect.objectContaining({ title: 'Switch organization' }),
   )
 
   const selectProps = api.lastDialogSelectProps()
@@ -237,7 +237,7 @@ test('switches curl.md organization', async () => {
   expect(api.clear).toHaveBeenCalledTimes(1)
   expect(api.toast).toHaveBeenCalledWith({
     duration: 6_000,
-    message: 'Switched curl.md organization to acme.',
+    message: 'Switched organization to acme.',
     title: 'curl.md',
     variant: 'info',
   })
