@@ -17,4 +17,4 @@ runs:
       shell: bash
       run: |
         pnpm install --frozen-lockfile --ignore-scripts
-        node cli/node_modules/bun/install.js
+        pnpm --dir cli rebuild bun --pending

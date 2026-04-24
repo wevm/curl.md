@@ -33,8 +33,11 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Setup
+      - name: Setup pnpm
         uses: ./.github/actions/setup-pnpm
+
+      - name: Setup Playwright
+        uses: ./.github/actions/setup-playwright
 
       # TODO: Remove `--ignore-registry-errors`
       # https://github.com/pnpm/pnpm/issues/11265
@@ -78,7 +81,7 @@ jobs:
         run: pnpm check:types
 
       - name: Test
-        run: pnpm test --project app --project md --project workers
+        run: pnpm test --project app --project browser --project md --project workers
 
       - name: Build
         run: pnpm build
@@ -92,7 +95,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Setup
+      - name: Setup pnpm
         uses: ./.github/actions/setup-pnpm
 
       - name: Check dependencies
@@ -116,20 +119,16 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Setup
+      - name: Setup pnpm
         uses: ./.github/actions/setup-pnpm
 
       - name: Preconstruct
-        run: pnpm preconstruct
+        run: |
+          pnpm preconstruct
+          pnpm --dir plugins/claude rebuild @anthropic-ai/claude-code --pending
 
       - name: Test
         run: pnpm test --project plugins:amp --project plugins:claude --project plugins:opencode --project plugins:pi
-
-      - name: Validate Claude plugin manifest
-        run: |
-          cd plugins/claude
-          node node_modules/@anthropic-ai/claude-code/install.cjs
-          ./node_modules/.bin/claude plugin validate .
 
       - name: Build
         run: pnpm --filter @curl.md/amp build
@@ -143,19 +142,11 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Setup
+      - name: Setup pnpm
         uses: ./.github/actions/setup-pnpm
 
-      - name: Cache Playwright
-        id: playwright-cache
-        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
-
-      - name: Install Playwright
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: pnpm exec playwright install --with-deps chromium
+      - name: Setup Playwright
+        uses: ./.github/actions/setup-playwright
 
       - name: Run E2E tests
         run: pnpm test:e2e
