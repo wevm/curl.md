@@ -133,7 +133,6 @@ jobs:
       - name: Build
         run: |
           pnpm --filter @curl.md/amp build
-          pnpm --filter @curl.md/claude build
 
   e2e:
     name: E2E

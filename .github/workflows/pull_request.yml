@@ -41,7 +41,7 @@ jobs:
         uses: ./.github/actions/setup-pnpm
 
       - name: Build packages
-        run: pnpm --filter curl.md --filter @curl.md/amp --filter @curl.md/claude build
+        run: pnpm --filter curl.md --filter @curl.md/amp build
 
       - name: Publish preview
         run: |
