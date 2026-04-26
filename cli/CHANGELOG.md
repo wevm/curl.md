@@ -1,5 +1,11 @@
 # curl.md
 
+## 0.0.21
+
+### Patch Changes
+
+- Added fetch command (alias for root `<url>` command) ([`9933d6a`](https://github.com/wevm/curl.md/commit/9933d6acf916a45e8e537804c1699be9d178d281))
+
 ## 0.0.20
 
 ### Patch Changes

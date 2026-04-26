@@ -1,6 +1,6 @@
 {
   "name": "@curl.md/claude",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "curl.md plugin for Claude Code",
   "contributors": [
     "tmm <t@curl.md>",

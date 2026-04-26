@@ -1,5 +1,14 @@
 # @curl.md/opencode
 
+## 0.0.6
+
+### Patch Changes
+
+- Updated internals ([`9933d6a`](https://github.com/wevm/curl.md/commit/9933d6acf916a45e8e537804c1699be9d178d281))
+
+- Updated dependencies [[`9933d6a`](https://github.com/wevm/curl.md/commit/9933d6acf916a45e8e537804c1699be9d178d281)]:
+  - curl.md@0.0.21
+
 ## 0.0.5
 
 ### Patch Changes
