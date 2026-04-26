@@ -9,9 +9,9 @@
   <br>
 </p>
 
-# @curl.md/claude
+# @curl.md/amp - URL to markdown for Claude
 
-Turn websites into **optimized, low token output** inside **Claude Code**.
+Turn websites into **optimized, low token output** to **supercharge your context**.
 
 ## Install
 

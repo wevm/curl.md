@@ -9,7 +9,7 @@
   <br>
 </p>
 
-### URL to markdown for agents.
+### URL to markdown for agents
 
 Turn websites into **optimized, low token output** to **supercharge your context**. Works with **every agent**.
 

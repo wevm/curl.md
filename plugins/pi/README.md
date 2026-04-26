@@ -9,9 +9,9 @@
   <br>
 </p>
 
-# @curl.md/pi
+# @curl.md/pi - URL to markdown for Pi
 
-Turn websites into **optimized, low token output** inside **Pi**.
+Turn websites into **optimized, low token output** to **supercharge your context**.
 
 ## Install
 

@@ -9,9 +9,9 @@
   <br>
 </p>
 
-# @curl.md/opencode
+# @curl.md/amp - URL to markdown for OpenCode
 
-Turn websites into **optimized, low token output** inside **OpenCode**.
+Turn websites into **optimized, low token output** to **supercharge your context**.
 
 ## Install
 

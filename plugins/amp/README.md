@@ -9,9 +9,9 @@
   <br>
 </p>
 
-# @curl.md/amp
+# @curl.md/amp - URL to markdown for Amp
 
-Turn websites into **optimized, low token output** inside **Amp**.
+Turn websites into **optimized, low token output** to **supercharge your context**.
 
 ## Install
 
