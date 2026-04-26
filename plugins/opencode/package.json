@@ -1,6 +1,6 @@
 {
   "name": "@curl.md/opencode",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "curl.md plugin for OpenCode",
   "contributors": [
     "tmm <t@curl.md>",
