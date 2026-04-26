@@ -1,6 +1,6 @@
 {
   "name": "curl.md",
-  "version": "0.0.21",
+  "version": "0.0.22",
   "description": "URL to markdown for agents",
   "contributors": [
     "tmm <t@curl.md>",

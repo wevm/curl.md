@@ -1,5 +1,11 @@
 # curl.md
 
+## 0.0.22
+
+### Patch Changes
+
+- Added agent detection ([#65](https://github.com/wevm/curl.md/pull/65))
+
 ## 0.0.21
 
 ### Patch Changes
