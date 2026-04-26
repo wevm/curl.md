@@ -278,10 +278,12 @@ test('prefers CURLMD_API_KEY for authentication', async () => {
   const { tools } = loadPlugin()
   await tools[0]!.execute({ url: 'https://example.com' }, { logger: { log() {} } } as any)
 
-  expect(requests[0]?.headers).toEqual({
-    accept: 'application/json',
-    authorization: 'Bearer curlmd_test_token',
-  })
+  expect(requests[0]?.headers).toEqual(
+    expect.objectContaining({
+      accept: 'application/json',
+      authorization: 'Bearer curlmd_test_token',
+    }),
+  )
 })
 
 // --- Session auth ---
@@ -316,11 +318,13 @@ test('uses session auth headers when available', async () => {
   const { tools } = loadPlugin()
   await tools[0]!.execute({ url: 'https://example.com' }, { logger: { log() {} } } as any)
 
-  expect(requests[0]?.headers).toEqual({
-    accept: 'application/json',
-    authorization: 'Bearer access-token-1',
-    'x-organization-id': 'org_123',
-  })
+  expect(requests[0]?.headers).toEqual(
+    expect.objectContaining({
+      accept: 'application/json',
+      authorization: 'Bearer access-token-1',
+      'x-organization-id': 'org_123',
+    }),
+  )
 
   Session.delete()
 })

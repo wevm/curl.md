@@ -3,6 +3,8 @@ import type { PluginAPI } from '@ampcode/plugin'
 import { createClient, defaultBaseUrl } from 'curl.md'
 import { Auth, Session } from 'curl.md/internal'
 
+const aiAgent = 'amp' as const
+
 export default function (amp: PluginAPI) {
   const baseUrl = process.env.CURLMD_BASE_URL || defaultBaseUrl
   const apiKey = process.env.CURLMD_API_KEY
@@ -110,6 +112,7 @@ export default function (amp: PluginAPI) {
     }
 
     const client = createClient(baseUrl, {
+      aiAgent,
       headers: apiKey ? createHeaders(null) : createHeaders(authHeaders),
     })
     let res = await client.fetch(url, { ...fetchParams, token: apiKey })
@@ -118,6 +121,7 @@ export default function (amp: PluginAPI) {
       authHeaders = await resolver({ forceRefresh: true })
       if (!authHeaders) authType = 'anon'
       const retryClient = createClient(baseUrl, {
+        aiAgent,
         headers: apiKey ? createHeaders(null) : createHeaders(authHeaders),
       })
       res = await retryClient.fetch(url, { ...fetchParams, token: apiKey })

@@ -371,10 +371,12 @@ test('uses CURLMD_API_KEY when provided', async () => {
   const hooks = await loadPlugin({ webfetch: true })
   await hooks.tool!.webfetch.execute({ url: 'https://example.com' }, createToolContext(vi.fn()))
 
-  expect(requests[0]?.headers).toEqual({
-    accept: 'application/json',
-    authorization: 'Bearer curlmd_test_token',
-  })
+  expect(requests[0]?.headers).toEqual(
+    expect.objectContaining({
+      accept: 'application/json',
+      authorization: 'Bearer curlmd_test_token',
+    }),
+  )
 })
 
 test('surfaces authentication guidance for anonymous 401s', async () => {

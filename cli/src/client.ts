@@ -17,15 +17,29 @@ export const defaultBaseUrl = 'https://curl.md'
  * const res = await client.fetch('example.com')
  * ```
  */
-export function createClient(url: string = defaultBaseUrl, options?: ClientRequestOptions): Client {
-  const client = hc<typeof api>(url, options)
+export function createClient(
+  url: string = defaultBaseUrl,
+  options?: ClientRequestOptions & {
+    aiAgent?: AiAgent | undefined
+  },
+): Client {
+  const aiAgent = (() => {
+    if (options && Object.prototype.hasOwnProperty.call(options, 'aiAgent'))
+      return normalizeAiAgent(options.aiAgent)
+    return normalizeAiAgent(detectAgent().name)
+  })()
+
+  const client = hc<typeof api>(url, {
+    ...options,
+    headers: getHeaders(options?.headers, undefined, { aiAgent }),
+  })
 
   return new Proxy(client, {
     get(target, prop, receiver) {
       if (prop === 'fetch') {
         return (targetUrl: string, fetchOptions?: FetchOptions | undefined) => {
           const normalizedTargetURL = normalizeTargetURL(targetUrl)
-          const { options, token, ...queryOptions } = fetchOptions ?? {}
+          const { options: requestOptions, token, ...queryOptions } = fetchOptions ?? {}
           const query = {
             anchor: normalizedTargetURL.anchor,
             ...queryOptions,
@@ -35,12 +49,20 @@ export function createClient(url: string = defaultBaseUrl, options?: ClientReque
             anchor?: string | undefined
           }
 
+          const clientRequestOptions = (() => {
+            if (!requestOptions && !token) return undefined
+            return {
+              ...requestOptions,
+              headers: getHeaders(options?.headers, requestOptions?.headers, { aiAgent, token }),
+            }
+          })()
+
           return target.api[':url{.+}'].$get(
             {
               param: { url: normalizedTargetURL.url },
               query,
             },
-            token ? withAuthorizationHeader(options, token) : options,
+            clientRequestOptions,
           )
         }
       }
@@ -69,28 +91,77 @@ type FetchOptions = Partial<Omit<FetchQuery, 'fresh' | 'keywords'>> & {
   token?: string | undefined
 }
 
-function withAuthorizationHeader(
-  options: NonNullable<Parameters<Fetch>[1]> | undefined,
-  token: string,
-): NonNullable<Parameters<Fetch>[1]> {
-  const headers = options?.headers
-  return {
-    ...options,
-    headers:
-      typeof headers === 'function'
-        ? async () => withTokenHeader(await headers(), token)
-        : withTokenHeader(headers, token),
-  }
+function getHeaders(
+  baseHeaders: ClientRequestOptions['headers'],
+  requestHeaders: ClientRequestOptions['headers'],
+  opts: {
+    aiAgent?: AiAgent | undefined
+    token?: string | undefined
+  },
+): ClientRequestOptions['headers'] {
+  if (typeof baseHeaders === 'function' || typeof requestHeaders === 'function')
+    return async () => {
+      const nextBaseHeaders = typeof baseHeaders === 'function' ? await baseHeaders() : baseHeaders
+      const nextRequestHeaders =
+        typeof requestHeaders === 'function' ? await requestHeaders() : requestHeaders
+      return mergeHeaders(nextBaseHeaders, nextRequestHeaders, opts) || {}
+    }
+  return mergeHeaders(baseHeaders, requestHeaders, opts)
 }
 
-function withTokenHeader(headers: Record<string, string> | undefined, token: string) {
-  const nextHeaders = { ...headers }
-  for (const key of Object.keys(nextHeaders)) {
-    if (key.toLowerCase() !== 'authorization') continue
-    delete nextHeaders[key]
+function mergeHeaders(
+  baseHeaders: Record<string, string> | undefined,
+  requestHeaders: Record<string, string> | undefined,
+  opts: {
+    aiAgent?: AiAgent | undefined
+    token?: string | undefined
+  },
+) {
+  if (!baseHeaders && !requestHeaders && !opts.aiAgent && !opts.token) return undefined
+  const nextHeaders = new Headers(baseHeaders)
+  if (requestHeaders)
+    for (const [name, value] of Object.entries(requestHeaders)) nextHeaders.set(name, value)
+  nextHeaders.delete('x-ai-agent')
+  if (opts.aiAgent) nextHeaders.set('x-ai-agent', opts.aiAgent)
+  if (opts.token) nextHeaders.set('Authorization', `Bearer ${opts.token}`)
+  return Object.fromEntries(nextHeaders.entries())
+}
+
+const aiAgents = ['amp', 'claude', 'codex', 'cursor', 'gemini', 'opencode', 'pi'] as const
+type AiAgent = (typeof aiAgents)[number]
+
+function normalizeAiAgent(value: unknown): AiAgent | undefined {
+  if (typeof value !== 'string') return undefined
+
+  const normalizedValue = value.toLowerCase()
+  if (!aiAgents.includes(normalizedValue as AiAgent)) return undefined
+  return normalizedValue as AiAgent
+}
+
+/**
+ * Vendored from std-env v4.1.0 — agent detection subset
+ * https://github.com/unjs/std-env
+ * MIT License
+ */
+function detectAgent(): { name?: string } {
+  const env = globalThis.process?.env || Object.create(null)
+  const aiAgent = env.AI_AGENT
+  if (aiAgent) return { name: aiAgent.toLowerCase() }
+
+  const rules: Array<[string, (string | (() => boolean))[]]> = [
+    ['amp', [() => env.AGENT === 'amp']],
+    ['claude', ['CLAUDECODE', 'CLAUDE_CODE']],
+    ['codex', ['CODEX_SANDBOX', 'CODEX_THREAD_ID']],
+    ['cursor', ['CURSOR_AGENT']],
+    ['gemini', ['GEMINI_CLI']],
+    ['opencode', ['OPENCODE']],
+    ['pi', [() => /\.pi[\\/]agent/.test(env.PATH ?? '')]],
+  ]
+  for (const [name, checks] of rules) {
+    for (const check of checks)
+      if (typeof check === 'string' ? env[check] : check()) return { name }
   }
-  nextHeaders.Authorization = `Bearer ${token}`
-  return nextHeaders
+  return {}
 }
 
 function normalizeTargetURL(targetUrl: string) {

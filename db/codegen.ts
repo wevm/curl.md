@@ -45,11 +45,27 @@ const customTypes: Record<string, Record<string, string>> = {
   organization_invite: { role: "'admin' | 'member' | 'owner'" },
   organization_member: { role: "'admin' | 'member' | 'owner'" },
   request: {
+    ai_agent: "'amp' | 'claude' | 'codex' | 'cursor' | 'gemini' | 'opencode' | 'pi'",
     mode: "'rush' | 'smart'",
     source_tokens_method: "'estimated' | 'html' | 'markdown'",
   },
   session: { session_type: "'browser' | 'cli'" },
 }
+
+let output = '// Auto-generated from database schema\n\n'
+output += "import type * as k from 'kysely'\n\n"
+output += 'type Timestamp = k.ColumnType<Date, Date | string, Date | string>\n'
+output +=
+  'type GeneratedTimestamp = k.ColumnType<Date, Date | string | undefined, Date | string>\n\n'
+
+let schemaOutput = '// Auto-generated from database schema\n\n'
+schemaOutput += "import { z } from 'zod'\n\n"
+
+// TODO: Generate insert/update schemas alongside row/select schemas.
+
+output += 'export interface DB {\n'
+for (const table of publicTables) output += `\t${table.name}: ${table.name}\n`
+output += '}\n\n'
 
 const timestampTypes = new Set([
   'timestamptz',
@@ -57,6 +73,83 @@ const timestampTypes = new Set([
   'timestamp with time zone',
   'timestamp without time zone',
 ])
+
+for (const table of publicTables) {
+  const columns = [...table.columns].sort((a, b) => a.name.localeCompare(b.name))
+  const tableSchemaName = table.name
+  let tableSchemaObjectOutput = `export const ${tableSchemaName} = z.object({\n`
+
+  output += `type ${table.name} = {\n`
+  for (const col of columns) {
+    const custom = customTypes[table.name]?.[col.name]
+    const isTimestamp = timestampTypes.has(col.dataType)
+    const enumValues = enums.get(`public.${col.dataType}`)
+    const customValues = custom ? parseStringUnionValues(custom) : undefined
+
+    // Timestamp columns use rich ColumnType aliases
+    if (isTimestamp) {
+      const base = col.hasDefaultValue ? 'GeneratedTimestamp' : 'Timestamp'
+      const suffix = col.isNullable ? ' | null' : ''
+      output += `\t${col.name}: ${base}${suffix}\n`
+      tableSchemaObjectOutput += `  ${col.name}: z.date()${col.isNullable ? '.nullable()' : ''},\n`
+      continue
+    }
+
+    // Custom override, auto-discovered enum, or standard type mapping
+    const baseType = (() => {
+      if (custom) return custom
+      else if (enumValues)
+        return enumValues
+          .sort()
+          .map((v) => `'${v}'`)
+          .join(' | ')
+      return pgToTs(col.dataType)
+    })()
+
+    const zodType = (() => {
+      if (customValues) return `z.enum([${customValues.map((value) => `'${value}'`).join(', ')}])`
+      if (enumValues) {
+        const sortedValues = [...enumValues].sort()
+        return `z.enum([${sortedValues.map((value) => `'${value}'`).join(', ')}])`
+      }
+      return pgToZod(col.dataType)
+    })()
+
+    const nullableSuffix = col.isNullable ? ' | null' : ''
+    const isGenerated = col.hasDefaultValue
+
+    if (isGenerated) output += `\t${col.name}: k.Generated<${baseType}${nullableSuffix}>\n`
+    else output += `\t${col.name}: ${baseType}${nullableSuffix}\n`
+
+    tableSchemaObjectOutput += `  ${col.name}: ${zodType}${col.isNullable ? '.nullable()' : ''},\n`
+  }
+  output += '}\n\n'
+  tableSchemaObjectOutput += '})\n'
+  schemaOutput += `${tableSchemaObjectOutput}\n`
+}
+
+output += 'export declare namespace DB {\n'
+for (const table of publicTables)
+  output += `\ttype ${table.name} = k.Selectable<DB["${table.name}"]>\n`
+output += '\n\texport namespace Insertable {\n'
+for (const table of publicTables)
+  output += `\t\ttype ${table.name} = k.Insertable<DB["${table.name}"]>\n`
+output += '\t}\n\n\texport namespace Selectable {\n'
+for (const table of publicTables)
+  output += `\t\ttype ${table.name} = k.Selectable<DB["${table.name}"]>\n`
+output += '\t}\n\n\texport namespace Updateable {\n'
+for (const table of publicTables)
+  output += `\t\ttype ${table.name} = k.Updateable<DB["${table.name}"]>\n`
+output += '\t}\n}\n'
+
+schemaOutput += 'export const db = {\n'
+for (const table of publicTables) schemaOutput += `  ${table.name}: ${table.name},\n`
+schemaOutput += '}\n'
+
+writeGeneratedFile('db/types.gen.ts', output)
+writeGeneratedFile('db/schemas.gen.ts', schemaOutput)
+
+process.exit()
 
 function pgToTs(dataType: string): string {
   switch (dataType) {
@@ -85,81 +178,43 @@ function pgToTs(dataType: string): string {
   }
 }
 
-let output = '// Auto-generated from database schema\n\n'
-output += "import type * as k from 'kysely'\n\n"
-output += 'type Timestamp = k.ColumnType<Date, Date | string, Date | string>\n'
-output +=
-  'type GeneratedTimestamp = k.ColumnType<Date, Date | string | undefined, Date | string>\n\n'
-
-output += 'export interface DB {\n'
-for (const table of publicTables) {
-  output += `\t${table.name}: ${table.name}\n`
-}
-output += '}\n\n'
-
-for (const table of publicTables) {
-  const columns = [...table.columns].sort((a, b) => a.name.localeCompare(b.name))
-
-  output += `type ${table.name} = {\n`
-  for (const col of columns) {
-    const custom = customTypes[table.name]?.[col.name]
-    const isTimestamp = timestampTypes.has(col.dataType)
-    const enumValues = enums.get(`public.${col.dataType}`)
-
-    // Timestamp columns use rich ColumnType aliases
-    if (isTimestamp) {
-      const base = col.hasDefaultValue ? 'GeneratedTimestamp' : 'Timestamp'
-      const suffix = col.isNullable ? ' | null' : ''
-      output += `\t${col.name}: ${base}${suffix}\n`
-      continue
-    }
-
-    // Custom override, auto-discovered enum, or standard type mapping
-    let baseType: string
-    if (custom) baseType = custom
-    else if (enumValues)
-      baseType = enumValues
-        .sort()
-        .map((v) => `'${v}'`)
-        .join(' | ')
-    else baseType = pgToTs(col.dataType)
-
-    const nullableSuffix = col.isNullable ? ' | null' : ''
-    const isGenerated = col.hasDefaultValue
-
-    if (isGenerated) {
-      output += `\t${col.name}: k.Generated<${baseType}${nullableSuffix}>\n`
-    } else {
-      output += `\t${col.name}: ${baseType}${nullableSuffix}\n`
-    }
+function pgToZod(dataType: string): string {
+  switch (dataType) {
+    case 'varchar':
+    case 'text':
+    case 'character varying':
+      return 'z.string()'
+    case 'int4':
+    case 'integer':
+    case 'int':
+    case 'smallint':
+    case 'bigint':
+    case 'float4':
+    case 'float8':
+    case 'real':
+    case 'double precision':
+    case 'numeric':
+      return 'z.number()'
+    case 'bool':
+    case 'boolean':
+      return 'z.boolean()'
+    case 'bytea':
+      return 'z.instanceof(Uint8Array)'
+    default:
+      return 'z.unknown()'
   }
-  output += '}\n\n'
 }
 
-output += 'export declare namespace DB {\n'
-for (const table of publicTables) {
-  output += `\ttype ${table.name} = k.Selectable<DB["${table.name}"]>\n`
+function parseStringUnionValues(value: string) {
+  return [...value.matchAll(/'([^']+)'/g)].map((match) => match[1]!)
 }
-output += '\n\texport namespace Insertable {\n'
-for (const table of publicTables) {
-  output += `\t\ttype ${table.name} = k.Insertable<DB["${table.name}"]>\n`
-}
-output += '\t}\n\n\texport namespace Selectable {\n'
-for (const table of publicTables) {
-  output += `\t\ttype ${table.name} = k.Selectable<DB["${table.name}"]>\n`
-}
-output += '\t}\n\n\texport namespace Updateable {\n'
-for (const table of publicTables) {
-  output += `\t\ttype ${table.name} = k.Updateable<DB["${table.name}"]>\n`
-}
-output += '\t}\n}\n'
 
-const outputPath = path.resolve(import.meta.dirname, '../db/types.gen.ts')
-fs.writeFileSync(outputPath, `${output.trimEnd()}\n`)
-execSync(`pnpm exec oxfmt ${outputPath}`, {
-  cwd: path.resolve(import.meta.dirname, '..'),
-  stdio: 'inherit',
-})
-console.log('Generated db/types.gen.ts')
-
-process.exit()
+function writeGeneratedFile(filePath: string, output: string) {
+  const outputPath = path.resolve(import.meta.dirname, '..', filePath)
+  fs.writeFileSync(outputPath, `${output.trimEnd()}\n`)
+  execSync(`pnpm exec oxfmt ${outputPath}`, {
+    cwd: path.resolve(import.meta.dirname, '..'),
+    stdio: 'inherit',
+  })
+  console.log(`Generated ${filePath}`)
+}

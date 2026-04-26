@@ -1,5 +1,6 @@
 pnpm-lock.yaml linguist-generated
 cli/src/cf-env.d.ts linguist-generated
+db/schemas.gen.ts linguist-generated
 db/types.gen.ts linguist-generated
 src/routeTree.gen.ts linguist-generated
 src/worker-configuration.d.ts linguist-generated

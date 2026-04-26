@@ -3,6 +3,8 @@ import * as curlmd from 'curl.md'
 import * as curlmdInternal from 'curl.md/internal'
 import { createHeaders, formatApiError, parseApiError } from './utils.ts'
 
+const aiAgent = 'opencode' as const
+
 export const plugin: opencodePlugin.Plugin = async (_input, options) => {
   const baseUrl = process.env.CURLMD_BASE_URL || curlmd.defaultBaseUrl
   const apiKey = process.env.CURLMD_API_KEY
@@ -154,6 +156,7 @@ async function fetchPage(input: {
 
   const apiKey = process.env.CURLMD_API_KEY
   const client = curlmd.createClient(input.baseUrl, {
+    aiAgent,
     headers: apiKey ? createHeaders(null) : createHeaders(authHeaders),
   })
   let res = await client.fetch(url, {
@@ -166,6 +169,7 @@ async function fetchPage(input: {
     authHeaders = await input.resolver({ forceRefresh: true })
     if (!authHeaders) authType = 'anon'
     const retryClient = curlmd.createClient(input.baseUrl, {
+      aiAgent,
       headers: apiKey ? createHeaders(null) : createHeaders(authHeaders),
     })
     res = await retryClient.fetch(url, {

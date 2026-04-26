@@ -14,6 +14,7 @@ export async function processRequestMessage(
     .insertInto('request')
     .values({
       account_id: body.account_id,
+      ai_agent: body.ai_agent ?? null,
       api_key_id: body.api_key_id,
       cached: body.cached,
       extracted_tokens: body.extracted_tokens,
@@ -90,6 +91,7 @@ processRequestMessage.queueName = 'curl-request' as const
 export namespace processRequestMessage {
   export type Body = {
     account_id: string | null
+    ai_agent?: DB.request['ai_agent']
     api_key_id: string | null
     billable: boolean
     cached: boolean

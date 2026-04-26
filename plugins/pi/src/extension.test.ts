@@ -227,10 +227,12 @@ test('status command verifies API key auth state', async () => {
 
   expect(requests[0]?.url).toBe(`${defaultBaseUrl}/api/auth/me`)
   expect(requests[0]?.method).toBe('GET')
-  expect(requests[0]?.headers).toEqual({
-    accept: 'application/json',
-    authorization: 'Bearer curlmd_test_token',
-  })
+  expect(requests[0]?.headers).toEqual(
+    expect.objectContaining({
+      accept: 'application/json',
+      authorization: 'Bearer curlmd_test_token',
+    }),
+  )
   expect(notify).toHaveBeenCalledWith(
     `${extensionHeader}\nAuth: api_key (tmm)\nOrganization: none\nTool: read_web_page (alias: curl_md)\nCLI: ${mockCliPath}`,
     'info',
@@ -665,9 +667,11 @@ test('fetches markdown from curl.md anonymously', async () => {
   expect(requests[0]?.url).toContain('mode=rush')
   expect(requests[0]?.url).toContain('objective=compare+plans')
   expect(requests[0]?.method).toBe('GET')
-  expect(requests[0]?.headers).toEqual({
-    accept: 'application/json',
-  })
+  expect(requests[0]?.headers).toEqual(
+    expect.objectContaining({
+      accept: 'application/json',
+    }),
+  )
   expect(result).toEqual({
     content: [{ type: 'text', text: '# Pricing' }],
     details: {
@@ -721,11 +725,13 @@ test('uses session auth headers when available', async () => {
   const { tools } = loadExtension()
   await tools[0]!.execute('call_1', { url: 'https://example.com' })
 
-  expect(requests[0]?.headers).toEqual({
-    accept: 'application/json',
-    authorization: 'Bearer access-token-1',
-    'x-organization-id': 'org_123',
-  })
+  expect(requests[0]?.headers).toEqual(
+    expect.objectContaining({
+      accept: 'application/json',
+      authorization: 'Bearer access-token-1',
+      'x-organization-id': 'org_123',
+    }),
+  )
 
   Session.delete()
   fs.rmSync(tmpDir, { force: true, recursive: true })
@@ -840,10 +846,12 @@ test('prefers CURLMD_API_KEY for authentication', async () => {
   await tools[0]!.execute('call_1', { url: 'https://example.com' })
 
   expect(requests[0]?.method).toBe('GET')
-  expect(requests[0]?.headers).toEqual({
-    accept: 'application/json',
-    authorization: 'Bearer curlmd_test_token',
-  })
+  expect(requests[0]?.headers).toEqual(
+    expect.objectContaining({
+      accept: 'application/json',
+      authorization: 'Bearer curlmd_test_token',
+    }),
+  )
 })
 
 test('throws validation issues for bad requests', async () => {

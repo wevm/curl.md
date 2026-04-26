@@ -11,6 +11,7 @@ import { estimateTokenCount } from 'tokenx'
 import { stringify as yamlStringify } from 'yaml'
 import { z } from 'zod'
 import { createClient, type Database } from '#db/client.ts'
+import * as DbSchema from '#db/schemas.gen.ts'
 import type { DB } from '#db/types.gen.ts'
 import { requestTokensSavedSql } from '#db/utils.ts'
 import * as ApiKey from '#lib/apiKey.ts'
@@ -1257,7 +1258,9 @@ export const api = new Hono<{
       z.object({
         expires_in: z.number().int().positive().optional(),
         max_uses: z.number().int().positive().nullable().default(null),
-        role: z.enum(['member', 'admin']).default('member'),
+        role: DbSchema.organization_invite.shape.role
+          .extract(['admin', 'member'])
+          .default('member'),
       }),
     ),
     async (c) => {
@@ -1394,7 +1397,9 @@ export const api = new Hono<{
       'json',
       z.object({
         login: z.string(),
-        role: z.enum(['member', 'admin']).default('member'),
+        role: DbSchema.organization_invite.shape.role
+          .extract(['admin', 'member'])
+          .default('member'),
       }),
     ),
     async (c) => {
@@ -1446,7 +1451,10 @@ export const api = new Hono<{
   )
   .patch(
     '/api/orgs/:id/members/:memberId',
-    hono.validator('json', z.object({ role: z.enum(['member', 'admin']) })),
+    hono.validator(
+      'json',
+      z.object({ role: DbSchema.organization_invite.shape.role.extract(['admin', 'member']) }),
+    ),
     async (c) => {
       if (hono.narrowValidation) return hono.validationError(c)
       if (!c.var.session)
@@ -1839,7 +1847,7 @@ export const api = new Hono<{
           .string()
           .transform((v) => v.split(/[\s,]+/).filter(Boolean))
           .optional()
-        const mode = z.enum(['rush', 'smart']).default('smart')
+        const mode = DbSchema.request.shape.mode.unwrap().default('smart')
         const objective = z.string().optional()
         return z
           .object({
@@ -2228,8 +2236,17 @@ export const api = new Hono<{
       })()
 
       const requestId = Nanoid.generate()
+      const aiAgent = (() => {
+        const parsed = z.safeParse(
+          DbSchema.request.shape.ai_agent.unwrap(),
+          c.req.header('x-ai-agent'),
+        )
+        if (!parsed.success) return null
+        return parsed.data
+      })()
       await c.env.REQUEST_QUEUE.send({
         account_id: c.var.session?.account_id ?? null,
+        ai_agent: aiAgent,
         api_key_id: c.var.api_key_id,
         billable,
         cached,

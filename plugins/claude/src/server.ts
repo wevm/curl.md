@@ -4,6 +4,8 @@ import { createClient, defaultBaseUrl } from 'curl.md'
 import { Auth, Session } from 'curl.md/internal'
 import { z } from 'zod'
 
+const aiAgent = 'claude' as const
+
 const baseUrl = process.env.CURLMD_BASE_URL || defaultBaseUrl
 const apiKey = process.env.CURLMD_API_KEY
 const resolver = Auth.createResolver(baseUrl, apiKey)
@@ -73,6 +75,7 @@ async function fetchPage(input: {
   })()
 
   const client = createClient(baseUrl, {
+    aiAgent,
     headers: apiKey ? createHeaders(null) : createHeaders(authHeaders),
   })
   let res = await client.fetch(url, {
@@ -87,6 +90,7 @@ async function fetchPage(input: {
     authHeaders = await resolver({ forceRefresh: true })
     if (!authHeaders) authType = 'anon'
     const retryClient = createClient(baseUrl, {
+      aiAgent,
       headers: apiKey ? createHeaders(null) : createHeaders(authHeaders),
     })
     res = await retryClient.fetch(url, {

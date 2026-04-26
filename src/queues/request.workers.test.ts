@@ -20,6 +20,7 @@ test('inserts request record', async () => {
       attempts: 1,
       body: {
         account_id: null,
+        ai_agent: 'amp',
         api_key_id: null,
         billable: false,
         cached: false,
@@ -50,6 +51,7 @@ test('inserts request record', async () => {
     .where('id', '=', 'req_1')
     .selectAll()
     .executeTakeFirstOrThrow()
+  expect(row.ai_agent).toBe('amp')
   expect(row.extracted_tokens).toBe(15)
   expect(row.filtered_tokens).toBe(20)
   expect(row.hostname).toBe('example.com')

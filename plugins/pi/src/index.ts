@@ -14,6 +14,8 @@ import {
   parseNumberHeader,
 } from './utils.ts'
 
+const aiAgent = 'pi' as const
+
 export default function (pi: ExtensionAPI) {
   const baseUrl = process.env.CURLMD_BASE_URL || defaultBaseUrl
   const apiKey = process.env.CURLMD_API_KEY
@@ -123,7 +125,7 @@ export default function (pi: ExtensionAPI) {
         return
       }
 
-      const client = createClient(baseUrl, { headers: createHeaders(authHeaders) })
+      const client = createClient(baseUrl, { aiAgent, headers: createHeaders(authHeaders) })
       const [orgsRes, meRes] = await Promise.all([
         client.api.orgs.$get(),
         client.api.auth.me.$get(),
@@ -255,6 +257,7 @@ export default function (pi: ExtensionAPI) {
       const status = await (async () => {
         try {
           const client = createClient(baseUrl, {
+            aiAgent,
             headers: createHeaders({
               authorization: authHeaders.authorization,
               expires_at: null,
@@ -413,6 +416,7 @@ export default function (pi: ExtensionAPI) {
       })()
 
       const client = createClient(baseUrl, {
+        aiAgent,
         headers: apiKey ? createHeaders(null) : createHeaders(authHeaders),
       })
       let res = await client.fetch(params.url, {
@@ -428,6 +432,7 @@ export default function (pi: ExtensionAPI) {
         authHeaders = await resolver({ forceRefresh: true })
         if (!authHeaders) authType = 'anon'
         const client = createClient(baseUrl, {
+          aiAgent,
           headers: apiKey ? createHeaders(null) : createHeaders(authHeaders),
         })
         res = await client.fetch(params.url, {

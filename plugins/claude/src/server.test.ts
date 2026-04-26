@@ -117,7 +117,11 @@ test('returns stripped markdown and forwards fetch options', async () => {
   expect(requests[0]?.url).toContain('keywords=plugin')
   expect(requests[0]?.url).toContain('mode=smart')
   expect(requests[0]?.url).toContain('objective=Summarize+the+docs')
-  expect(requests[0]?.headers).toEqual({ accept: 'application/json' })
+  expect(requests[0]?.headers).toEqual(
+    expect.objectContaining({
+      accept: 'application/json',
+    }),
+  )
   expect(result).toEqual({
     content: [{ text: '# Example\n\n---\n\nPowered by [curl.md](https://curl.md)', type: 'text' }],
   })
@@ -249,10 +253,12 @@ test('uses CURLMD_API_KEY and surfaces invalid API key guidance on 401', async (
   const tool = await loadTool()
   const result = await tool.handler({ url: 'https://example.com' })
 
-  expect(requests[0]?.headers).toEqual({
-    accept: 'application/json',
-    authorization: 'Bearer curlmd_test_token',
-  })
+  expect(requests[0]?.headers).toEqual(
+    expect.objectContaining({
+      accept: 'application/json',
+      authorization: 'Bearer curlmd_test_token',
+    }),
+  )
   expectErrorText(result).toBe('curl.md authentication failed. Fix CURLMD_API_KEY.')
 })
 

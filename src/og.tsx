@@ -28,8 +28,7 @@ async function getElement(env: Cloudflare.Env, db: Database, query: query) {
       return urlVariant(query.url, tokensSaved)
     }
     case 'playground': {
-      const tokensSaved = await getTokensSaved(env, db)
-      return playgroundVariant(tokensSaved)
+      return playgroundVariant()
     }
     case 'index': {
       const tokensSaved = await getTokensSaved(env, db)
@@ -65,24 +64,18 @@ function indexVariant(tokensSaved: number) {
         <div tw="text-[#a1a1a1] text-[36px] tracking-[0.08em] uppercase leading-none">
           tokens saved
         </div>
-        <div tw="text-[#ededed] text-[36px] leading-none">{tokensSaved.toLocaleString()}</div>
+        <div tw="text-[#ededed] text-[36px] leading-none">{formatNumber(tokensSaved)}</div>
       </div>
     </div>
   )
 }
 
-function playgroundVariant(tokensSaved: number) {
+function playgroundVariant() {
   return (
     <div tw="relative flex w-full h-full bg-black text-[#ededed] font-[Geist_Mono] px-[80px] py-[40px]">
       <div tw="flex flex-1 flex-col items-center justify-center">
         <BrandLogo height={56} width={772} />
         <div tw="text-[#a1a1a1] text-[54px] mt-[44px] text-center">playground</div>
-      </div>
-      <div tw="absolute right-[80px] bottom-[40px] left-[80px] flex items-end justify-between">
-        <div tw="text-[#a1a1a1] text-[36px] tracking-[0.08em] uppercase leading-none">
-          tokens saved
-        </div>
-        <div tw="text-[#ededed] text-[36px] leading-none">{tokensSaved.toLocaleString()}</div>
       </div>
     </div>
   )
@@ -101,7 +94,7 @@ function urlVariant(urlParam: string, tokensSaved: number) {
         <div tw="text-[#a1a1a1] text-[36px] tracking-[0.08em] uppercase leading-none">
           tokens saved
         </div>
-        <div tw="text-[#ededed] text-[36px] leading-none">{tokensSaved.toLocaleString()}</div>
+        <div tw="text-[#ededed] text-[36px] leading-none">{formatNumber(tokensSaved)}</div>
       </div>
     </div>
   )
@@ -152,6 +145,10 @@ export async function render(request: Request, env: Cloudflare.Env, db: Database
     module,
     width: 1200,
   })
+}
+
+function formatNumber(n: number) {
+  return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')
 }
 
 async function loadFont(request: Request, env: Cloudflare.Env, path: string) {

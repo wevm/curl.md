@@ -112,6 +112,7 @@ type organization_member = {
 
 type request = {
   account_id: string | null
+  ai_agent: 'amp' | 'claude' | 'codex' | 'cursor' | 'gemini' | 'opencode' | 'pi' | null
   api_key_id: string | null
   cached: boolean
   created_at: GeneratedTimestamp
