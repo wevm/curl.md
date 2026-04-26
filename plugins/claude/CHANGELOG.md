@@ -1,5 +1,11 @@
 # @curl.md/claude
 
+## 0.0.2
+
+### Patch Changes
+
+- Removed duplicate hook registration from plugin manifest. ([`bffcb4f`](https://github.com/wevm/curl.md/commit/bffcb4fc356966294aa14bc029e6907acd5e0646))
+
 ## 0.0.1
 
 ### Patch Changes
