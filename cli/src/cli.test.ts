@@ -1,3 +1,6 @@
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import { HttpResponse, http, passthrough } from 'msw'
 import pc from 'picocolors'
 import { afterAll, beforeEach, describe, expect, inject, onTestFinished, test, vi } from 'vitest'
@@ -81,6 +84,7 @@ test('help', async () => {
       credits  Manage prepaid credits (add, status)
       fetch    Fetch URL as markdown
       org      Manage organizations (create, invite, list, member, switch, view)
+      plugins  Manage first-party plugins (doctor, install, list, update)
       request  Manage requests (list, view)
       token    Manage API tokens (create, list, delete)
       update   Update curl.md CLI
@@ -2866,6 +2870,110 @@ describe('token', () => {
     const { exitCode, output } = await serve(['token', 'delete', 'nope'])
     expect(exitCode).toBe(1)
     expect(output).toContain('NO_TOKENS')
+  })
+})
+
+describe('plugins', () => {
+  test('list supported plugins', async () => {
+    const { output } = await serve(['plugins'])
+
+    expect(output).toContain('install/update')
+    expect(output).toContain('coming soon')
+    expect(output).toContain('Requires `PLUGINS=all` when starting Amp.')
+    expect(output).toContain('Doctor: curl.md plugins doctor')
+    expect(output).toContain('Install: curl.md plugins install <plugin>')
+  })
+
+  test('doctor reports host and install markers', async () => {
+    const commandSpy = vi
+      .spyOn(utils, 'commandExists')
+      .mockImplementation((command) => command !== 'claude')
+    onTestFinished(() => commandSpy.mockRestore())
+
+    const homeDir = os.homedir()
+    fs.mkdirSync(path.join(homeDir, '.config', 'amp', 'plugins'), { recursive: true })
+    fs.mkdirSync(path.join(homeDir, '.config', 'opencode'), { recursive: true })
+    fs.mkdirSync(path.join(homeDir, '.pi', 'agent'), { recursive: true })
+
+    fs.writeFileSync(
+      path.join(homeDir, '.config', 'amp', 'plugins', 'curlmd.ts'),
+      "import plugin from '@curl.md/amp'\n",
+    )
+    fs.writeFileSync(
+      path.join(homeDir, '.config', 'opencode', 'opencode.json'),
+      '{"plugin":["@curl.md/opencode"]}\n',
+    )
+    fs.writeFileSync(
+      path.join(homeDir, '.pi', 'agent', 'settings.json'),
+      '{"packages":["npm:@curl.md/pi"]}\n',
+    )
+
+    const { output } = await serve(['plugins', 'doctor'])
+
+    expect(output).toContain('Plugin doctor')
+    expect(output).toContain('amp')
+    expect(output).toContain('detected')
+    expect(output).toContain('claude')
+    expect(output).toContain('missing')
+    expect(output).toContain('unknown')
+    expect(output).toContain('~/.config/opencode/opencode.json')
+    expect(output).toContain('~/.pi/agent/settings.json')
+  })
+
+  test('status aliases doctor', async () => {
+    const commandSpy = vi.spyOn(utils, 'commandExists').mockReturnValue(false)
+    onTestFinished(() => commandSpy.mockRestore())
+
+    const { output } = await serve(['plugins', 'status'])
+
+    expect(output).toContain('Plugin doctor')
+    expect(output).toContain('missing')
+  })
+
+  test('install amp delegates to package runner', async () => {
+    const spy = vi.spyOn(utils, 'execPackageBinary').mockResolvedValue({ stderr: '', stdout: '' })
+    onTestFinished(() => spy.mockRestore())
+
+    const { output } = await serve(['plugins', 'install', 'amp'])
+
+    expect(spy).toHaveBeenCalledWith('@curl.md/amp@latest', ['install'])
+    expect(output).toContain('Installed Amp plugin')
+    expect(output).toContain('PLUGINS=all amp')
+  })
+
+  test('install claude delegates to marketplace flow', async () => {
+    const spy = vi.spyOn(utils, 'execCommand').mockResolvedValue({ stderr: '', stdout: '' })
+    onTestFinished(() => spy.mockRestore())
+
+    const { output } = await serve(['plugins', 'install', 'claude'])
+
+    expect(spy).toHaveBeenNthCalledWith(1, 'claude', [
+      'plugin',
+      'marketplace',
+      'add',
+      'https://curl.md/claude.json',
+    ])
+    expect(spy).toHaveBeenNthCalledWith(2, 'claude', ['plugin', 'install', 'curl-md@curl-md'])
+    expect(output).toContain('Installed Claude plugin')
+    expect(output).toContain('/reload-plugins')
+  })
+
+  test('update opencode delegates to forced reinstall', async () => {
+    const spy = vi.spyOn(utils, 'execCommand').mockResolvedValue({ stderr: '', stdout: '' })
+    onTestFinished(() => spy.mockRestore())
+
+    const { output } = await serve(['plugins', 'update', 'opencode'])
+
+    expect(spy).toHaveBeenCalledWith('opencode', ['plugin', '-g', '@curl.md/opencode', '--force'])
+    expect(output).toContain('Updated OpenCode plugin')
+  })
+
+  test('unsupported plugin returns clear error', async () => {
+    const { exitCode, output } = await serve(['plugins', 'install', 'codex'])
+
+    expect(exitCode).toBe(1)
+    expect(output).toContain('PLUGIN_UNSUPPORTED')
+    expect(output).toContain('Codex plugin is not supported yet')
   })
 })
 

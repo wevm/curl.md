@@ -34,6 +34,22 @@ export function installGlobal(name: string, version?: string) {
   return execFileAsync('npm', ['install', '-g', spec])
 }
 
+export function execCommand(command: string, args: string[]) {
+  const execFileAsync = util.promisify(child_process.execFile)
+  return execFileAsync(resolveCommand(command), args)
+}
+
+export function execPackageBinary(spec: string, args: string[]) {
+  const type = detectPackageManager()
+  if (type === 'pnpm') return execCommand('pnpm', ['dlx', spec, ...args])
+  if (type === 'bun') return execCommand('bunx', [spec, ...args])
+  return execCommand('npx', ['--yes', spec, ...args])
+}
+
+export function commandExists(command: string) {
+  return hasBinary(command)
+}
+
 export function openUrl(url: string) {
   const cmd =
     process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'start' : 'xdg-open'
@@ -138,6 +154,12 @@ export declare namespace UpdateCache {
     latest: string
     released_at: string | null
   }
+}
+
+function resolveCommand(command: string) {
+  if (process.platform !== 'win32') return command
+  if (command.endsWith('.cmd') || command.endsWith('.exe')) return command
+  return `${command}.cmd`
 }
 
 export function relativeTime(date: Date) {

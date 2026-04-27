@@ -1,3 +1,6 @@
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import { Cli, type MiddlewareContext, middleware, z } from 'incur'
 import pc from 'picocolors'
 import pkg from '../package.json' with { type: 'json' }
@@ -6,8 +9,11 @@ import { Auth } from './internal/auth.ts'
 import { Session } from './internal/session.ts'
 import * as UI from './ui.ts'
 import {
+  commandExists,
   compareVersions,
   estimateRequests,
+  execCommand,
+  execPackageBinary,
   formatCost,
   formatValidationError,
   installGlobal,
@@ -20,6 +26,42 @@ import {
 } from './utils.ts'
 
 const aliases = ['md', 'curlmd']
+const pluginNames = ['amp', 'claude', 'codex', 'cursor', 'opencode', 'pi'] as const
+type PluginName = (typeof pluginNames)[number]
+type SupportedPluginName = Extract<PluginName, 'amp' | 'claude' | 'opencode' | 'pi'>
+
+const pluginMetadata: Record<PluginName, { label: string; note: string; supported: boolean }> = {
+  amp: {
+    label: 'Amp',
+    note: 'Requires `PLUGINS=all` when starting Amp.',
+    supported: true,
+  },
+  claude: {
+    label: 'Claude',
+    note: 'Installs through the Claude marketplace.',
+    supported: true,
+  },
+  codex: {
+    label: 'Codex',
+    note: 'Coming soon. Use curl.md skills for now.',
+    supported: false,
+  },
+  cursor: {
+    label: 'Cursor',
+    note: 'Coming soon. Use curl.md skills for now.',
+    supported: false,
+  },
+  opencode: {
+    label: 'OpenCode',
+    note: 'Uses `opencode plugin` under the hood.',
+    supported: true,
+  },
+  pi: {
+    label: 'Pi',
+    note: 'Uses `pi install` and `pi update` under the hood.',
+    supported: true,
+  },
+}
 
 const env = z.object({
   CURLMD_API_KEY: z.string().optional().describe('API token for authentication'),
@@ -1588,6 +1630,50 @@ const update = Cli.create('update', {
   },
 })
 
+const plugins = Cli.create('plugins', {
+  args: z.object({
+    action: z
+      .enum(['doctor', 'install', 'list', 'ls', 'status', 'update'])
+      .optional()
+      .describe('Plugin action'),
+    plugin: z.enum(pluginNames).optional().describe('Plugin name'),
+  }),
+  description: 'Manage first-party plugins (doctor, install, list, update)',
+  output: z.string(),
+  format: 'md',
+  vars,
+  async run(c) {
+    if (!c.args.action || c.args.action === 'list' || c.args.action === 'ls')
+      return c.ok(renderPluginList(c.displayName))
+    if (c.args.action === 'doctor' || c.args.action === 'status') return c.ok(renderPluginDoctor())
+
+    const plugin = c.args.plugin
+    if (!plugin)
+      return c.error({
+        code: 'PLUGIN_REQUIRED',
+        message: `Pass a plugin name. Run ${c.displayName} plugins to list supported plugins.`,
+      })
+    if (!pluginMetadata[plugin].supported) return unsupportedPlugin(c, plugin)
+
+    const action = c.args.action
+    const spinner = UI.createSpinner(
+      `${action === 'install' ? 'Installing' : 'Updating'} ${pluginMetadata[plugin].label} plugin`,
+    )
+    try {
+      if (action === 'install') await installPlugin(plugin)
+      else await updatePlugin(plugin)
+      spinner.stop()
+      return c.ok(renderPluginSuccess(plugin, action))
+    } catch (error) {
+      spinner.stop()
+      return c.error({
+        code: action === 'install' ? 'PLUGIN_INSTALL_FAILED' : 'PLUGIN_UPDATE_FAILED',
+        message: formatPluginActionError(error),
+      })
+    }
+  },
+})
+
 const request = Cli.create('request', {
   description: 'Manage requests (list, view)',
   vars,
@@ -1776,6 +1862,7 @@ cli.command(
   }),
 )
 cli.command(org.command(invite).command(member))
+cli.command(plugins)
 cli.command(request)
 cli.command(token)
 cli.command(update)
@@ -1964,4 +2051,226 @@ async function run(
   return c.ok(text, {
     cta: { commands: c.var.commands },
   })
+}
+
+function renderPluginList(displayName: string) {
+  const rows = pluginNames.map((plugin) => [
+    pc.green(plugin),
+    pluginMetadata[plugin].supported ? 'install/update' : pc.dim('coming soon'),
+    pluginMetadata[plugin].note,
+  ])
+
+  return [
+    UI.table(['plugin', 'status', 'notes'], rows, { noTruncate: [0, 2] }),
+    `Doctor: ${displayName} plugins doctor`,
+    `Install: ${displayName} plugins install <plugin>`,
+    `Update: ${displayName} plugins update <plugin>`,
+  ].join('\n\n')
+}
+
+function renderPluginDoctor() {
+  const rows = pluginNames.map((plugin) => {
+    const diagnostic = diagnosePlugin(plugin)
+    return [pc.green(plugin), diagnostic.host, diagnostic.install, diagnostic.notes]
+  })
+
+  return [
+    pc.bold('Plugin doctor'),
+    UI.table(['plugin', 'host', 'install', 'notes'], rows, { noTruncate: [0, 3] }),
+  ].join('\n\n')
+}
+
+function renderPluginSuccess(plugin: PluginName, action: 'install' | 'update') {
+  const lines = [
+    UI.success(
+      `${action === 'install' ? 'Installed' : 'Updated'} ${pluginMetadata[plugin].label} plugin`,
+    ),
+    `- Docs: ${pluginDocsUrl(plugin)}`,
+  ]
+
+  const next = pluginNextStep(plugin)
+  if (next) lines.push(`- Next: ${next}`)
+
+  return lines.join('\n')
+}
+
+function pluginDocsUrl(plugin: PluginName) {
+  return `https://curl.md/docs/plugins/${plugin}`
+}
+
+function pluginNextStep(plugin: PluginName) {
+  switch (plugin) {
+    case 'amp':
+      return 'start Amp with `PLUGINS=all amp`'
+    case 'claude':
+      return 'run `/reload-plugins` if Claude is already open'
+    default:
+      return undefined
+  }
+}
+
+function formatPluginActionError(error: unknown) {
+  if (error && typeof error === 'object') {
+    if ('stderr' in error && typeof error.stderr === 'string' && error.stderr.trim())
+      return error.stderr.trim()
+    if ('message' in error && typeof error.message === 'string' && error.message.trim())
+      return error.message.trim()
+  }
+
+  return 'Unexpected error.'
+}
+
+async function installPlugin(plugin: PluginName) {
+  switch (plugin) {
+    case 'amp':
+      await execPackageBinary('@curl.md/amp@latest', ['install'])
+      return
+    case 'claude':
+      await execCommand('claude', ['plugin', 'marketplace', 'add', 'https://curl.md/claude.json'])
+      await execCommand('claude', ['plugin', 'install', 'curl-md@curl-md'])
+      return
+    case 'opencode':
+      await execCommand('opencode', ['plugin', '-g', '@curl.md/opencode'])
+      return
+    case 'pi':
+      await execCommand('pi', ['install', 'npm:@curl.md/pi'])
+      return
+    default:
+      throw new Error(`${pluginMetadata[plugin].label} plugin is not supported yet.`)
+  }
+}
+
+async function updatePlugin(plugin: PluginName) {
+  switch (plugin) {
+    case 'amp':
+      await execPackageBinary('@curl.md/amp@latest', ['install'])
+      return
+    case 'claude':
+      await execCommand('claude', ['plugin', 'marketplace', 'update', 'curl-md'])
+      await execCommand('claude', ['plugin', 'install', 'curl-md@curl-md'])
+      return
+    case 'opencode':
+      await execCommand('opencode', ['plugin', '-g', '@curl.md/opencode', '--force'])
+      return
+    case 'pi':
+      await execCommand('pi', ['update', 'npm:@curl.md/pi'])
+      return
+    default:
+      throw new Error(`${pluginMetadata[plugin].label} plugin is not supported yet.`)
+  }
+}
+
+function unsupportedPlugin(c: Pick<MiddlewareContext, 'error'>, plugin: PluginName) {
+  return c.error({
+    code: 'PLUGIN_UNSUPPORTED',
+    message: `${pluginMetadata[plugin].label} plugin is not supported yet. See ${pluginDocsUrl(plugin)}.`,
+  })
+}
+
+function diagnosePlugin(plugin: PluginName) {
+  if (!pluginMetadata[plugin].supported)
+    return {
+      host: pc.dim('n/a'),
+      install: pc.dim('coming soon'),
+      notes: pluginMetadata[plugin].note,
+    }
+
+  const hostBinary = pluginHostBinary(plugin as SupportedPluginName)
+  const host = commandExists(hostBinary) ? pc.green('ok') : pc.red('missing')
+  const install = pluginInstallStatus(plugin as SupportedPluginName)
+  return {
+    host,
+    install: install.status,
+    notes: `${install.path} — ${install.note}`,
+  }
+}
+
+function pluginHostBinary(plugin: SupportedPluginName) {
+  switch (plugin) {
+    case 'amp':
+      return 'amp'
+    case 'claude':
+      return 'claude'
+    case 'opencode':
+      return 'opencode'
+    case 'pi':
+      return 'pi'
+  }
+}
+
+function pluginInstallStatus(plugin: SupportedPluginName) {
+  switch (plugin) {
+    case 'amp': {
+      const shimPath = path.join(getAmpConfigDir(), 'plugins', 'curlmd.ts')
+      return {
+        note: 'plugin shim',
+        path: displayPath(shimPath),
+        status: fileContains(shimPath, ['@curl.md/amp'])
+          ? pc.green('detected')
+          : pc.yellow('not found'),
+      }
+    }
+    case 'claude': {
+      const settingsPath = path.join(os.homedir(), '.claude', 'settings.json')
+      return {
+        note: 'best effort from settings',
+        path: displayPath(settingsPath),
+        status: fileContains(settingsPath, ['curl-md@curl-md', 'https://curl.md/claude.json'])
+          ? pc.green('detected')
+          : pc.yellow('unknown'),
+      }
+    }
+    case 'opencode': {
+      const configPath = path.join(getConfigDir('opencode'), 'opencode.json')
+      return {
+        note: 'global config reference',
+        path: displayPath(configPath),
+        status: fileContains(configPath, ['@curl.md/opencode'])
+          ? pc.green('detected')
+          : pc.yellow('not found'),
+      }
+    }
+    case 'pi': {
+      const settingsPath = path.join(os.homedir(), '.pi', 'agent', 'settings.json')
+      return {
+        note: 'extension package reference',
+        path: displayPath(settingsPath),
+        status: fileContains(settingsPath, ['npm:@curl.md/pi', '@curl.md/pi'])
+          ? pc.green('detected')
+          : pc.yellow('not found'),
+      }
+    }
+  }
+}
+
+function getAmpConfigDir() {
+  if (process.env.AMP_CONFIG_DIR) return process.env.AMP_CONFIG_DIR
+  if (process.platform === 'win32') {
+    const appData = process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming')
+    return path.join(appData, 'amp')
+  }
+
+  return path.join(process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'), 'amp')
+}
+
+function getConfigDir(name: string) {
+  if (process.platform === 'win32') {
+    const appData = process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming')
+    return path.join(appData, name)
+  }
+
+  return path.join(process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'), name)
+}
+
+function displayPath(filePath: string) {
+  return filePath.startsWith(os.homedir()) ? `~${filePath.slice(os.homedir().length)}` : filePath
+}
+
+function fileContains(filePath: string, needles: string[]) {
+  try {
+    const contents = fs.readFileSync(filePath, 'utf8')
+    return needles.some((needle) => contents.includes(needle))
+  } catch {
+    return false
+  }
 }
