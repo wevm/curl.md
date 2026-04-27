@@ -1,5 +1,11 @@
 # @curl.md/opencode
 
+## 0.0.8
+
+### Patch Changes
+
+- Fixed plugin packaging so npm installs exposed package-root `server.ts` and `tui.ts` entrypoints. ([`a8a215c`](https://github.com/wevm/curl.md/commit/a8a215c7a8f1e02207289fa2848a598c8b87137a))
+
 ## 0.0.7
 
 ### Patch Changes
