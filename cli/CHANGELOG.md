@@ -1,5 +1,11 @@
 # curl.md
 
+## 0.0.23
+
+### Patch Changes
+
+- Bumped internal deps ([`4794304`](https://github.com/wevm/curl.md/commit/4794304d070c2b2c7b7c25c1eb3f62f07ac9791d))
+
 ## 0.0.22
 
 ### Patch Changes
