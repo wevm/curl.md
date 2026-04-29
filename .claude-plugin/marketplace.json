@@ -14,7 +14,7 @@
       "name": "curl-md",
       "repository": "https://github.com/wevm/curl.md/tree/main/plugins/claude",
       "source": "./plugins/claude",
-      "version": "0.0.3"
+      "version": "0.0.4"
     }
   ]
 }
