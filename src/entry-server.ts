@@ -118,15 +118,6 @@ export default Sentry.withSentry<Env, QueueHandlerMessage>(
       return response
     },
     async queue(batch, env) {
-      if (batch.queue.endsWith('-dlq')) {
-        for (const message of batch.messages) {
-          const { ack: _, retry: __, ...rest } = message
-          console.error(`DLQ message [${batch.queue}]`, rest)
-          message.ack()
-        }
-        return
-      }
-
       const queueName = (() => {
         // Preview queues have a suffix (e.g. `stripe-webhook-pr25`), strip it
         const previewApex = env.HOST.replace('.curl.md', '')
@@ -153,6 +144,20 @@ export default Sentry.withSentry<Env, QueueHandlerMessage>(
           message.ack()
         } catch (error) {
           console.error(`Queue message ${message.id} failed:`, error)
+          // Emit alert when next retry will move the message into DLQ
+          if (message.attempts >= 3)
+            Sentry.captureException(error, {
+              extra: {
+                queue: {
+                  attempts: message.attempts,
+                  batch_queue: batch.queue,
+                  body: message.body,
+                  logical_queue: queueName,
+                  message_id: message.id,
+                },
+              },
+              tags: { queue: queueName, queue_outcome: 'dead_letter' },
+            })
           message.retry()
         }
       }

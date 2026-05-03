@@ -52,24 +52,7 @@
         "max_retries": 3,
         "dead_letter_queue": "curl-stripe-webhook-dlq",
       },
-      {
-        "queue": "curl-request-enrichment-dlq",
-        "max_batch_size": 1,
-        "max_batch_timeout": 5,
-        "max_retries": 0,
-      },
-      {
-        "queue": "curl-request-dlq",
-        "max_batch_size": 1,
-        "max_batch_timeout": 5,
-        "max_retries": 0,
-      },
-      {
-        "queue": "curl-stripe-webhook-dlq",
-        "max_batch_size": 1,
-        "max_batch_timeout": 5,
-        "max_retries": 0,
-      },
+      // No DLQ consumers. Dead-lettered messages must remain available for inspection and replay.
     ],
   },
   "triggers": {
@@ -147,24 +130,7 @@
             "max_retries": 3,
             "dead_letter_queue": "curl-stripe-webhook-dlq",
           },
-          {
-            "queue": "curl-request-enrichment-dlq",
-            "max_batch_size": 1,
-            "max_batch_timeout": 5,
-            "max_retries": 0,
-          },
-          {
-            "queue": "curl-request-dlq",
-            "max_batch_size": 1,
-            "max_batch_timeout": 5,
-            "max_retries": 0,
-          },
-          {
-            "queue": "curl-stripe-webhook-dlq",
-            "max_batch_size": 1,
-            "max_batch_timeout": 5,
-            "max_retries": 0,
-          },
+          // No DLQ consumers. Dead-lettered messages must remain available for inspection and replay.
         ],
       },
       "version_metadata": {
@@ -254,24 +220,7 @@
             "max_retries": 3,
             "dead_letter_queue": "curl-stripe-webhook-__PREVIEW_APEX__-dlq",
           },
-          {
-            "queue": "curl-request-enrichment-__PREVIEW_APEX__-dlq",
-            "max_batch_size": 1,
-            "max_batch_timeout": 5,
-            "max_retries": 0,
-          },
-          {
-            "queue": "curl-request-__PREVIEW_APEX__-dlq",
-            "max_batch_size": 1,
-            "max_batch_timeout": 5,
-            "max_retries": 0,
-          },
-          {
-            "queue": "curl-stripe-webhook-__PREVIEW_APEX__-dlq",
-            "max_batch_size": 1,
-            "max_batch_timeout": 5,
-            "max_retries": 0,
-          },
+          // No DLQ consumers. Dead-lettered messages must remain available for inspection and replay.
         ],
       },
       "version_metadata": {
