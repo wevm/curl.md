@@ -119,3 +119,26 @@ test('keeps estimated rows when html source tokens are smaller', async () => {
   expect(row.source_tokens).toBe(120)
   expect(row.source_tokens_method).toBe('estimated')
 })
+
+test('throws on transient enrichment fetch failures so the queue can retry', async () => {
+  server.use(http.get('https://retry.example.com/', () => new HttpResponse(null, { status: 503 })))
+
+  const batch = createMessageBatch<processRequestEnrichmentMessage.Body>(
+    processRequestEnrichmentMessage.queueName,
+    [
+      {
+        attempts: 1,
+        body: {
+          request_id: 'req_retry_1',
+          url: 'https://retry.example.com',
+        },
+        id: crypto.randomUUID(),
+        timestamp: new Date(),
+      },
+    ],
+  )
+
+  await expect(processRequestEnrichmentMessage(batch.messages[0]!, db)).rejects.toThrow(
+    'Request enrichment fetch failed with 503',
+  )
+})

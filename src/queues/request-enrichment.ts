@@ -6,28 +6,28 @@ export async function processRequestEnrichmentMessage(
   message: Message<processRequestEnrichmentMessage.Body>,
   db: Database,
 ) {
-  try {
-    const response = await fetch(message.body.url, {
-      headers: { 'User-Agent': `Mozilla/5.0 (compatible; ${env.HOST}/1.0; +https://${env.HOST})` },
-      redirect: 'follow',
-      signal: AbortSignal.timeout(10_000),
-    })
-    if (!response.ok) return
-
-    const contentType = (response.headers.get('content-type') ?? '').toLowerCase()
-    if (!contentType.includes('text/html') && !contentType.includes('application/xhtml+xml')) return
-
-    const sourceTokens = estimateTokenCount(await response.text())
-    await db
-      .updateTable('request')
-      .set({ source_tokens: sourceTokens, source_tokens_method: 'html' })
-      .where('id', '=', message.body.request_id)
-      .where('source_tokens', '<', sourceTokens)
-      .where('source_tokens_method', '=', 'estimated')
-      .executeTakeFirst()
-  } catch {
-    // Best-effort enrichment only; keep the fallback when the follow-up fetch fails.
+  const response = await fetch(message.body.url, {
+    headers: { 'User-Agent': `Mozilla/5.0 (compatible; ${env.HOST}/1.0; +https://${env.HOST})` },
+    redirect: 'follow',
+    signal: AbortSignal.timeout(10_000),
+  })
+  if (!response.ok) {
+    if (response.status >= 500 || response.status === 408 || response.status === 429)
+      throw new Error(`Request enrichment fetch failed with ${response.status}`)
+    return
   }
+
+  const contentType = (response.headers.get('content-type') ?? '').toLowerCase()
+  if (!contentType.includes('text/html') && !contentType.includes('application/xhtml+xml')) return
+
+  const sourceTokens = estimateTokenCount(await response.text())
+  await db
+    .updateTable('request')
+    .set({ source_tokens: sourceTokens, source_tokens_method: 'html' })
+    .where('id', '=', message.body.request_id)
+    .where('source_tokens', '<', sourceTokens)
+    .where('source_tokens_method', '=', 'estimated')
+    .executeTakeFirst()
 }
 
 processRequestEnrichmentMessage.queueName = 'curl-request-enrichment' as const

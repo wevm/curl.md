@@ -1,11 +1,9 @@
 import { createMessageBatch } from 'cloudflare:test'
 import { env } from 'cloudflare:workers'
-import { HttpResponse, http } from 'msw'
 import { afterAll, expect, test } from 'vitest'
 import { createClient } from '#db/client.ts'
 import { processStripeWebhookMessage } from '#queues/stripe-webhook.ts'
 import { createFactory } from '#test/factory.ts'
-import { server } from '#test/workers.server.ts'
 
 const db = createClient(env.DB.connectionString, { max: 1 })
 const factory = createFactory(db)
@@ -198,61 +196,6 @@ test('processes charge.dispute.created for account', async () => {
   const tx = await db
     .selectFrom('credit_transaction')
     .where('reference_id', '=', chargeId)
-    .selectAll()
-    .executeTakeFirstOrThrow()
-  expect(tx.type).toBe('chargeback')
-  expect(tx.amount_mills).toBe(-20000)
-  expect(tx.balance_after_mills).toBe(0)
-  expect(tx.account_id).toBe(account.id)
-})
-
-test('processes charge.dispute.created by expanding charge customer in the queue worker', async () => {
-  const customerId = `cus_${crypto.randomUUID()}`
-  const chargeId = `ch_${crypto.randomUUID()}`
-  const disputeId = `dp_${crypto.randomUUID()}`
-  const account = await factory.account.insert({})
-  await db
-    .updateTable('account')
-    .set({ stripe_customer_id: customerId, balance_mills: 20000 })
-    .where('id', '=', account.id)
-    .execute()
-
-  server.use(
-    http.get(`https://api.stripe.com/v1/charges/${chargeId}`, () =>
-      HttpResponse.json({
-        customer: customerId,
-        id: chargeId,
-        object: 'charge',
-      }),
-    ),
-  )
-
-  const batch = createMessageBatch<processStripeWebhookMessage.Body>(
-    processStripeWebhookMessage.queueName,
-    [
-      {
-        attempts: 1,
-        body: {
-          type: 'charge.dispute.created',
-          data: { amount_total: 2000, charge_id: chargeId, id: disputeId },
-        },
-        id: crypto.randomUUID(),
-        timestamp: new Date(),
-      },
-    ],
-  )
-  await processStripeWebhookMessage(batch.messages[0]!, db)
-
-  const updated = await db
-    .selectFrom('account')
-    .where('id', '=', account.id)
-    .select('balance_mills')
-    .executeTakeFirstOrThrow()
-  expect(updated.balance_mills).toBe(0)
-
-  const tx = await db
-    .selectFrom('credit_transaction')
-    .where('reference_id', '=', disputeId)
     .selectAll()
     .executeTakeFirstOrThrow()
   expect(tx.type).toBe('chargeback')

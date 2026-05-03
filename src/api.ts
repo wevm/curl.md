@@ -1753,14 +1753,17 @@ export const api = new Hono<{
       case 'charge.dispute.created': {
         // TODO: send chargeback alert (email/Slack)
         const dispute = event.data.object
-        const chargeId =
-          typeof dispute.charge === 'string' ? dispute.charge : (dispute.charge?.id ?? null)
-        if (chargeId)
+        const charge =
+          typeof dispute.charge === 'string'
+            ? await stripe.charges.retrieve(dispute.charge)
+            : dispute.charge
+        const customer = typeof charge.customer === 'string' ? charge.customer : null
+        if (customer)
           await c.env.STRIPE_WEBHOOK_QUEUE.send({
             type: event.type,
             data: {
               amount_total: dispute.amount,
-              charge_id: chargeId,
+              customer,
               id: dispute.id,
             },
           })
@@ -1768,14 +1771,17 @@ export const api = new Hono<{
       }
       case 'refund.created': {
         const refund = event.data.object
-        const chargeId =
-          typeof refund.charge === 'string' ? refund.charge : (refund.charge?.id ?? null)
-        if (chargeId)
+        const charge =
+          typeof refund.charge === 'string'
+            ? await stripe.charges.retrieve(refund.charge)
+            : refund.charge
+        const customer = charge && typeof charge.customer === 'string' ? charge.customer : null
+        if (customer)
           await c.env.STRIPE_WEBHOOK_QUEUE.send({
             type: 'refund.created',
             data: {
               amount_total: refund.amount,
-              charge_id: chargeId,
+              customer,
               id: refund.id,
             },
           })

@@ -6,7 +6,7 @@ export const cfBrowserRendering = defineTransport<{
   apiToken: string
 }>(async (url, init, context) => {
   if (context.previous?.status !== 403 || !context.options) return null
-  const signal = AbortSignal.timeout(20_00)
+  const signal = AbortSignal.timeout(20_000)
   const res = await context.fetch(
     `https://api.cloudflare.com/client/v4/accounts/${context.options.accountId}/browser-rendering/content`,
     {

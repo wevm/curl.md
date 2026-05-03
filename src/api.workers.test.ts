@@ -5079,10 +5079,19 @@ describe('POST /api/stripe/webhook', () => {
     await expect(res.json()).resolves.toEqual({ received: true })
   })
 
-  test('queues charge disputes without expanding charge details inline', async () => {
+  test('queues charge disputes after expanding the charge customer inline', async () => {
     const sendSpy = vi.spyOn(env.STRIPE_WEBHOOK_QUEUE, 'send').mockResolvedValue({
       metadata: { metrics: { backlogBytes: 0, backlogCount: 0 } },
     })
+    server.use(
+      http.get('https://api.stripe.com/v1/charges/ch_test_dispute', () =>
+        HttpResponse.json({
+          customer: 'cus_test_dispute',
+          id: 'ch_test_dispute',
+          object: 'charge',
+        }),
+      ),
+    )
     const payload = JSON.stringify({
       id: 'evt_test_dispute',
       type: 'charge.dispute.created',
@@ -5114,7 +5123,7 @@ describe('POST /api/stripe/webhook', () => {
         type: 'charge.dispute.created',
         data: {
           amount_total: 500,
-          charge_id: 'ch_test_dispute',
+          customer: 'cus_test_dispute',
           id: 'dp_test_dispute',
         },
       })
@@ -5123,10 +5132,19 @@ describe('POST /api/stripe/webhook', () => {
     }
   })
 
-  test('queues refunds without expanding charge details inline', async () => {
+  test('queues refunds after expanding the charge customer inline', async () => {
     const sendSpy = vi.spyOn(env.STRIPE_WEBHOOK_QUEUE, 'send').mockResolvedValue({
       metadata: { metrics: { backlogBytes: 0, backlogCount: 0 } },
     })
+    server.use(
+      http.get('https://api.stripe.com/v1/charges/ch_test_refund', () =>
+        HttpResponse.json({
+          customer: 'cus_test_refund',
+          id: 'ch_test_refund',
+          object: 'charge',
+        }),
+      ),
+    )
     const payload = JSON.stringify({
       id: 'evt_test_refund',
       type: 'refund.created',
@@ -5158,7 +5176,7 @@ describe('POST /api/stripe/webhook', () => {
         type: 'refund.created',
         data: {
           amount_total: 700,
-          charge_id: 'ch_test_refund',
+          customer: 'cus_test_refund',
           id: 're_test_refund',
         },
       })
