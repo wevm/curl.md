@@ -6,10 +6,8 @@ export async function processRequestEnrichmentMessage(
   message: Message<processRequestEnrichmentMessage.Body>,
   db: Database,
 ) {
-  const body = message.body
-
   try {
-    const response = await fetch(body.url, {
+    const response = await fetch(message.body.url, {
       headers: { 'User-Agent': `Mozilla/5.0 (compatible; ${env.HOST}/1.0; +https://${env.HOST})` },
       redirect: 'follow',
       signal: AbortSignal.timeout(10_000),
@@ -23,7 +21,7 @@ export async function processRequestEnrichmentMessage(
     await db
       .updateTable('request')
       .set({ source_tokens: sourceTokens, source_tokens_method: 'html' })
-      .where('id', '=', body.request_id)
+      .where('id', '=', message.body.request_id)
       .where('source_tokens', '<', sourceTokens)
       .where('source_tokens_method', '=', 'estimated')
       .executeTakeFirst()

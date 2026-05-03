@@ -52,7 +52,6 @@
         "max_retries": 3,
         "dead_letter_queue": "curl-stripe-webhook-dlq",
       },
-      // No DLQ consumers. Dead-lettered messages must remain available for inspection and replay.
     ],
   },
   "triggers": {
@@ -130,7 +129,6 @@
             "max_retries": 3,
             "dead_letter_queue": "curl-stripe-webhook-dlq",
           },
-          // No DLQ consumers. Dead-lettered messages must remain available for inspection and replay.
         ],
       },
       "version_metadata": {
@@ -220,7 +218,6 @@
             "max_retries": 3,
             "dead_letter_queue": "curl-stripe-webhook-__PREVIEW_APEX__-dlq",
           },
-          // No DLQ consumers. Dead-lettered messages must remain available for inspection and replay.
         ],
       },
       "version_metadata": {
