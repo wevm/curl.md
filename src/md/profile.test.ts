@@ -121,6 +121,30 @@ test('detects read the docs profile before generic sphinx markers', () => {
   })
 })
 
+test('detects rspress profile from generator and dom markers', () => {
+  const result = detectPageProfile(
+    '<!doctype html><html><head><meta name="generator" content="Rspress v2.0.10"></head><body><div id="__rspress_root"><main class="rp-doc-layout__doc-container"><div class="rp-doc rspress-doc"><div class="rp-llms-button">Copy Markdown</div><h1>Docs</h1></div></main></div><div id="__rspress_modal_container"></div></body></html>',
+    new URL('https://rspress.rs/guide/start/introduction'),
+    profiles,
+  )
+
+  expect(result).toEqual({
+    contentRootSelectors: [
+      '.rp-doc-layout__doc-container',
+      '.rp-home-feature',
+      '.rp-home-hero',
+      '.rspress-doc',
+    ],
+    generator: 'Rspress v2.0.10',
+    key: 'rspress',
+    markdownRequest: {
+      headers: { Accept: 'text/markdown' },
+      url: 'https://rspress.rs/guide/start/introduction',
+    },
+    markers: ['meta:generator=Rspress v2.0.10', 'dom:__rspress_root'],
+  })
+})
+
 test('detects sphinx profile from classic theme markers', () => {
   const result = detectPageProfile(
     '<!doctype html><html data-content_root="../"><head><title>Docs</title><script src="../_static/doctools.js"></script></head><body><div class="documentwrapper"><div class="bodywrapper"><div class="body"><h1>Docs</h1></div></div></div><div class="sphinxsidebar"></div></body></html>',

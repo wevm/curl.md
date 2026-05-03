@@ -125,6 +125,34 @@ export const readTheDocs = defineProfile({
   key: 'readTheDocs',
 })
 
+export const rspress = defineProfile<{
+  markdownRequest: { headers: Record<string, string>; url: string }
+}>({
+  checks: [{ url: 'https://rspress.rs/' }, { url: 'https://rspack.rs/guide/start/introduction' }],
+  contentRootSelectors: [
+    '.rp-doc-layout__doc-container',
+    '.rp-home-feature',
+    '.rp-home-hero',
+    '.rspress-doc',
+  ],
+  detect: {
+    generator: /^rspress\b/i,
+    includesAny: {
+      marker: 'dom:__rspress_root',
+      needles: [
+        'id="__rspress_root"',
+        'id="__rspress_modal_container"',
+        'class="rp-doc rspress-doc"',
+        'class="rp-llms-button',
+      ],
+    },
+  },
+  key: 'rspress',
+  resolve: (url) => ({
+    markdownRequest: { headers: { Accept: 'text/markdown' }, url: url.href },
+  }),
+})
+
 export const sphinx = defineProfile({
   checks: [{ url: 'https://docs.python.org/3/library/functions.html' }],
   contentRootSelectors: ['.body', '.bodywrapper', '.documentwrapper'],

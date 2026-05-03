@@ -181,12 +181,19 @@ function strip(
     if (isHidden(child)) return false
     if (isDecorativeHashLink(child)) return false
     if (isSkipLink(child)) return false
-    if (!knownContentRoot && matchesNoiseClassId(child)) return false
+    if (!knownContentRoot && !containsContentContainer(child) && matchesNoiseClassId(child))
+      return false
     if (!knownContentRoot && isHighLinkDensity(child)) return false
 
     strip(child, inSectioning || sectioningTags.has(child.tagName), profile)
     return true
   })
+}
+
+function containsContentContainer(node: Element): boolean {
+  return (
+    node.tagName === 'article' || node.tagName === 'main' || hasDescendantContentContainer(node)
+  )
 }
 
 function isKnownContentRoot(node: Element, profile?: Profile<Record<string, unknown>>): boolean {

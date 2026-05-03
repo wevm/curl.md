@@ -169,6 +169,47 @@ test('requests markdown directly for mintlify docs after profile detection', asy
   expect(result.extras.source_tokens_method).toBe('html')
 })
 
+test('requests markdown directly for rspress docs after profile detection', async () => {
+  const body = 'Normalized docs body.'
+  const requests: Array<{ accept: string | null; url: string }> = []
+  const md = create({
+    fetch: async (input, init) => {
+      const url = input instanceof URL ? input.href : input instanceof Request ? input.url : input
+      const accept = init?.headers ? new Headers(init.headers).get('accept') : null
+      requests.push({ accept, url })
+
+      if (url === 'https://rspress.rs/guide/start/introduction' && accept === 'text/markdown')
+        return new Response(`# Introduction\n\n${body}\n`, {
+          headers: { 'content-type': 'text/markdown; charset=utf-8' },
+          status: 200,
+        })
+
+      if (url === 'https://rspress.rs/guide/start/introduction')
+        return new Response(
+          '<!doctype html><html><head><meta name="generator" content="Rspress v2.0.10"></head><body><div id="__rspress_root"><main class="rp-doc-layout__doc-container"><div class="rp-doc rspress-doc"><div class="rp-llms-button">Copy Markdown</div><h1>Introduction</h1><p>HTML fallback body.</p></div></main></div><div id="__rspress_modal_container"></div></body></html>',
+          { headers: { 'content-type': 'text/html; charset=utf-8' }, status: 200 },
+        )
+
+      return new Response(null, { status: 404 })
+    },
+    profiles,
+  })
+
+  const result = await md.fetch('https://rspress.rs/guide/start/introduction')
+  expect(result.ok).toBe(true)
+  if (!result.ok) return
+
+  expect(requests).toEqual([
+    { accept: null, url: 'https://rspress.rs/guide/start/introduction' },
+    { accept: 'text/markdown', url: 'https://rspress.rs/guide/start/introduction' },
+  ])
+  expect(result.content).toContain(body)
+  expect(result.content).not.toContain('HTML fallback body.')
+  expect(result.meta.generator).toBe('Rspress v2.0.10')
+  expect(result.extras.source_tokens).toBeGreaterThan(0)
+  expect(result.extras.source_tokens_method).toBe('html')
+})
+
 test('fetches markdown from a text/markdown alternate link before converting html', async () => {
   const requests: string[] = []
   const md = create({

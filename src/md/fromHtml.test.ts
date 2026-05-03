@@ -267,6 +267,24 @@ describe('strips noise elements', () => {
     expect(result).toContain('Item')
   })
 
+  test('preserves wrappers with sidebar classes when they contain main content', async () => {
+    const { content: result } = await fromHtml(`
+      <!doctype html>
+      <html class="sidebar-visible">
+        <body>
+          <div class="sidebar-right">
+            <main>
+              <h1>Title</h1>
+              <p>Paragraph</p>
+            </main>
+          </div>
+        </body>
+      </html>
+    `)
+    expect(result).toContain('# Title')
+    expect(result).toContain('Paragraph')
+  })
+
   test('strips nested noise', async () => {
     const { content: result } = await fromHtml(
       html({
