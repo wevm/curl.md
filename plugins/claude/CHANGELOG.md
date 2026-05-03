@@ -1,5 +1,11 @@
 # @curl.md/claude
 
+## 0.0.6
+
+### Patch Changes
+
+- Renamed Claude MCP tool from `curl_md` to `fetch` ([`27c79c0`](https://github.com/wevm/curl.md/commit/27c79c002747b3e17f4886a9c939c704dafb9ad3))
+
 ## 0.0.5
 
 ### Patch Changes
