@@ -4,8 +4,9 @@ import { defineTransport } from './mod.ts'
 export const cfBrowserRendering = defineTransport<{
   accountId: string
   apiToken: string
-}>(async (url, _init, context) => {
+}>(async (url, init, context) => {
   if (context.previous?.status !== 403 || !context.options) return null
+  const signal = AbortSignal.timeout(20_00)
   const res = await context.fetch(
     `https://api.cloudflare.com/client/v4/accounts/${context.options.accountId}/browser-rendering/content`,
     {
@@ -19,6 +20,7 @@ export const cfBrowserRendering = defineTransport<{
         rejectResourceTypes: ['font', 'image', 'media'],
         goToOptions: { waitUntil: 'networkidle2' },
       }),
+      signal: init?.signal ? AbortSignal.any([init?.signal, signal]) : signal,
     },
   )
   if (!res.ok) return null

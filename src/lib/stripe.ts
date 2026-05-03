@@ -111,5 +111,6 @@ export function stripeOptions(apiUrl: string) {
     host: url.hostname,
     port: Number(url.port) || (url.protocol === 'https:' ? 443 : 80),
     protocol: url.protocol.replace(':', '') as 'http' | 'https',
+    timeout: 15_000,
   }
 }

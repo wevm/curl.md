@@ -3136,7 +3136,7 @@ test('GET /api/:url authed 429 includes credits message', async () => {
   })
 })
 
-test('GET /api/:url paid user still hits auth rate limits', async () => {
+test('GET /api/:url paid user skips auth rate limits', async () => {
   const account = await factory.account.insert({})
   const session = await factory.session.insert({ account_id: account.id })
 
@@ -3169,12 +3169,9 @@ test('GET /api/:url paid user still hits auth rate limits', async () => {
       },
     },
   )
-  expect(res.status).toBe(429)
-  expect(res.headers.get('x-ratelimit-limit')).toBe('1000')
-  await expect(res.json()).resolves.toEqual({
-    code: 'rate_limit_exceeded',
-    message: 'Rate limit exceeded',
-  })
+  expect(res.status).toBe(200)
+  expect(res.headers.get('x-credits-remaining')).toBe('999')
+  await expect(res.text()).resolves.toContain('ok')
 })
 
 test('GET /api/:url zero balance user gets authed rate limits', async () => {

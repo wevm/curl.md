@@ -2043,7 +2043,6 @@ export const api = new Hono<{
           vary: 'Accept',
         })
 
-      // Keep throttling tied to auth state so stale balance cache never opens an unlimited fast path.
       const identity = c.var.session
         ? c.var.session.account_id
         : (c.req.header('cf-connecting-ip') ?? 'unknown')
@@ -2057,55 +2056,54 @@ export const api = new Hono<{
         if (balanceMills > 0) billable = true
       }
 
-      const limit = (() => {
-        if (query.objective)
+      let rateLimitHeaders: Record<string, string> = {}
+      if (!billable) {
+        const limit = (() => {
+          if (query.objective)
+            return {
+              key: `query:${identity}` as const,
+              max: c.var.session ? 10 : 3,
+              window: 3600,
+            }
           return {
-            key: `query:${identity}` as const,
-            max: c.var.session ? 10 : 3,
+            key: `fetch:${identity}` as const,
+            max: c.var.session ? 1000 : 100,
             window: 3600,
           }
-        return {
-          key: `fetch:${identity}` as const,
-          max: c.var.session ? 1000 : 100,
-          window: 3600,
+        })()
+
+        const kvKey = `ratelimit:${limit.key}` as const
+        const now = Math.floor(Date.now() / 1000)
+        const record = await c.env.KV.get(kvKey, 'json')
+
+        const reset = record && record.reset > now ? record.reset : now + limit.window
+        const count = record && record.reset > now ? record.count + 1 : 1
+
+        rateLimitHeaders = {
+          'x-ratelimit-limit': String(limit.max),
+          'x-ratelimit-remaining': String(Math.max(0, limit.max - count)),
+          'x-ratelimit-reset': String(reset),
         }
-      })()
 
-      let rateLimitHeaders: Record<string, string> = {}
-      const kvKey = `ratelimit:${limit.key}` as const
-      const now = Math.floor(Date.now() / 1000)
-      const record = await c.env.KV.get(kvKey, 'json')
+        if (count > limit.max)
+          return c.json(
+            {
+              code: 'rate_limit_exceeded' as const,
+              message: c.var.session ? 'Add credits to remove rate limits' : 'Rate limit exceeded',
+            },
+            429,
+            {
+              ...rateLimitHeaders,
+              'retry-after': String(reset - now),
+            },
+          )
 
-      const reset = record && record.reset > now ? record.reset : now + limit.window
-      const count = record && record.reset > now ? record.count + 1 : 1
-
-      rateLimitHeaders = {
-        'x-ratelimit-limit': String(limit.max),
-        'x-ratelimit-remaining': String(Math.max(0, limit.max - count)),
-        'x-ratelimit-reset': String(reset),
-      }
-
-      if (count > limit.max)
-        return c.json(
-          {
-            code: 'rate_limit_exceeded' as const,
-            message:
-              !billable && c.var.session
-                ? 'Add credits to remove rate limits'
-                : 'Rate limit exceeded',
-          },
-          429,
-          {
-            ...rateLimitHeaders,
-            'retry-after': String(reset - now),
-          },
+        c.executionCtx.waitUntil(
+          c.env.KV.put(kvKey, JSON.stringify({ count, reset }), {
+            expirationTtl: limit.window,
+          }),
         )
-
-      c.executionCtx.waitUntil(
-        c.env.KV.put(kvKey, JSON.stringify({ count, reset }), {
-          expirationTtl: limit.window,
-        }),
-      )
+      }
 
       const md = Md.create({
         headers: {

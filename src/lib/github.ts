@@ -60,6 +60,7 @@ export async function resolveToken(
     const res = await fetch(tokenUrl.toString(), {
       method: 'POST',
       headers: { Accept: 'application/json' },
+      signal: AbortSignal.timeout(10_000),
     })
     const parsed = z.safeParse(tokenSchema, await res.json())
     if (!parsed.success) return undefined

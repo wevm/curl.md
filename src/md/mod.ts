@@ -31,6 +31,7 @@ export function create(options: create.Options = {}): create.ReturnType {
       })()
 
       const rewrittenUrl = matched?.rule?.rewrite?.(inputURL, matched.match) ?? inputURL
+      const signal = AbortSignal.timeout(15_000) // 15 seconds
       const requestInit = {
         ...init,
         headers: {
@@ -38,6 +39,7 @@ export function create(options: create.Options = {}): create.ReturnType {
           ...init?.headers,
         },
         redirect: init?.redirect ?? 'follow',
+        signal: init?.signal ? AbortSignal.any([init?.signal, signal]) : signal,
       } satisfies RequestInit
       const context = {
         fetch: options.fetch ?? globalThis.fetch.bind(globalThis),

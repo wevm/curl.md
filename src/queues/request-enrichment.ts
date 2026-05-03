@@ -12,6 +12,7 @@ export async function processRequestEnrichmentMessage(
     const response = await fetch(body.url, {
       headers: { 'User-Agent': `Mozilla/5.0 (compatible; ${env.HOST}/1.0; +https://${env.HOST})` },
       redirect: 'follow',
+      signal: AbortSignal.timeout(10_000),
     })
     if (!response.ok) return
 
