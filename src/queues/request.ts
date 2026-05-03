@@ -1,5 +1,4 @@
 import { env } from 'cloudflare:workers'
-import { estimateTokenCount } from 'tokenx'
 import type { Database } from '#db/client.ts'
 import type { DB } from '#db/types.gen.ts'
 
@@ -83,7 +82,14 @@ export async function processRequestMessage(
     await env.KV.put(`balance:${billingEntity}`, String(newBalance.balance_mills))
   }
 
-  if (body.source_tokens_method === 'estimated') await enrichSourceTokensFromHtml(body, db)
+  if (body.source_tokens_method !== 'estimated') return
+
+  // Best-effort analytics only; billing/logging should not retry just because enrichment handoff fails.
+  try {
+    await env.REQUEST_ENRICH_QUEUE.send({ request_id: body.id, url: body.url })
+  } catch (error) {
+    console.error(`Request enrichment enqueue failed for ${body.id}:`, error)
+  }
 }
 
 processRequestMessage.queueName = 'curl-request' as const
@@ -110,29 +116,5 @@ export namespace processRequestMessage {
     source_tokens_method: DB.request['source_tokens_method']
     url: string
     user_agent: string | undefined
-  }
-}
-
-async function enrichSourceTokensFromHtml(body: processRequestMessage.Body, db: Database) {
-  try {
-    const response = await fetch(body.url, {
-      headers: { 'User-Agent': `Mozilla/5.0 (compatible; ${env.HOST}/1.0; +https://${env.HOST})` },
-      redirect: 'follow',
-    })
-    if (!response.ok) return
-
-    const contentType = (response.headers.get('content-type') ?? '').toLowerCase()
-    if (!contentType.includes('text/html') && !contentType.includes('application/xhtml+xml')) return
-
-    const sourceTokens = estimateTokenCount(await response.text())
-    await db
-      .updateTable('request')
-      .set({ source_tokens: sourceTokens, source_tokens_method: 'html' })
-      .where('id', '=', body.id)
-      .where('source_tokens', '<', sourceTokens)
-      .where('source_tokens_method', '=', 'estimated')
-      .executeTakeFirst()
-  } catch {
-    // Best-effort enrichment only; keep the markdown fallback when HTML fetch fails.
   }
 }

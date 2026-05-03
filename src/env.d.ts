@@ -5,6 +5,9 @@ declare namespace Cloudflare {
     CLOUDFLARE_ACCOUNT_ID: string
     CLOUDFLARE_API_TOKEN: string
     KV: KV
+    REQUEST_ENRICH_QUEUE: Queue<
+      import('#queues/request-enrichment.ts').processRequestEnrichmentMessage.Body
+    >
     REQUEST_QUEUE: Queue<import('#queues/request.ts').processRequestMessage.Body>
     STRIPE_PUBLISHABLE_KEY: string
     STRIPE_WEBHOOK_QUEUE: Queue<

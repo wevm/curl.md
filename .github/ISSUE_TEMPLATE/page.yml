@@ -1,0 +1,101 @@
+name: Page Fetch Issue
+description: Report a problem fetching or narrowing a specific page with curl.md.
+labels: ['bug']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting this.
+
+        For page-specific issues, the most helpful details are the exact page URL and the exact request options you used.
+
+  - type: checkboxes
+    id: existing_issues
+    attributes:
+      label: Check existing issues
+      description: By submitting this issue, you checked there is not already an issue for this problem.
+      options:
+        - label: I checked existing issues and did not find a duplicate.
+          required: true
+
+  - type: input
+    id: page_url
+    attributes:
+      label: Page URL
+      description: The exact page you tried to fetch.
+      placeholder: https://developers.cloudflare.com/workers
+    validations:
+      required: true
+
+  - type: textarea
+    id: issue
+    attributes:
+      label: What is the issue?
+      description: What did you expect, and what happened instead?
+      placeholder: I expected curl.md to return the installation steps, but it omitted that section / returned unrelated content / failed to fetch the page.
+    validations:
+      required: true
+
+  - type: input
+    id: objective
+    attributes:
+      label: Objective
+      description: If you used an objective, paste it exactly.
+      placeholder: find the install steps
+    validations:
+      required: false
+
+  - type: input
+    id: keywords
+    attributes:
+      label: Keywords
+      description: If you used keywords, paste them exactly.
+      placeholder: install,worker,binding
+    validations:
+      required: false
+
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Mode
+      description: If you used an objective, which mode did you use?
+      options:
+        - I did not use an objective
+        - smart
+        - rush
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: request_options
+    attributes:
+      label: Request options
+      options:
+        - label: I used `fresh` / bypassed cache.
+
+  - type: textarea
+    id: exact_request
+    attributes:
+      label: Exact request
+      description: Paste the exact CLI command, browser URL, SDK call, or agent tool input if possible.
+      placeholder: |
+        curl.md developers.cloudflare.com/workers --objective "find the install steps" --keywords install,worker --fresh
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: response
+    attributes:
+      label: Response or error output
+      description: Paste the returned markdown, error message, or a representative excerpt.
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Anything else?
+      description: Extra context. Public/private page, auth requirements, browser vs CLI, screenshots, etc.
+    validations:
+      required: false

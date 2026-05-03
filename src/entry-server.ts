@@ -7,6 +7,7 @@ import { api } from '#api.ts'
 import { cleanupExpired } from '#crons/cleanup.ts'
 import { createClient } from '#db/client.ts'
 import { appendVaryAccept, negotiateAccept } from '#lib/accept.ts'
+import { processRequestEnrichmentMessage } from '#queues/request-enrichment.ts'
 import { processRequestMessage } from '#queues/request.ts'
 import { processStripeWebhookMessage } from '#queues/stripe-webhook.ts'
 
@@ -133,10 +134,15 @@ export default Sentry.withSentry<Env, QueueHandlerMessage>(
         return batch.queue
       })()
       const queue = z.parse(
-        z.enum([processRequestMessage.queueName, processStripeWebhookMessage.queueName]),
+        z.enum([
+          processRequestEnrichmentMessage.queueName,
+          processRequestMessage.queueName,
+          processStripeWebhookMessage.queueName,
+        ]),
         queueName,
       )
       const handler = {
+        [processRequestEnrichmentMessage.queueName]: processRequestEnrichmentMessage,
         [processRequestMessage.queueName]: processRequestMessage,
         [processStripeWebhookMessage.queueName]: processStripeWebhookMessage,
       }[queue]
@@ -163,7 +169,10 @@ export default Sentry.withSentry<Env, QueueHandlerMessage>(
   },
 )
 
-type QueueHandlerMessage = processRequestMessage.Body | processStripeWebhookMessage.Body
+type QueueHandlerMessage =
+  | processRequestEnrichmentMessage.Body
+  | processRequestMessage.Body
+  | processStripeWebhookMessage.Body
 
 declare module '@tanstack/react-start' {
   interface Register {

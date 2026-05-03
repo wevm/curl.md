@@ -1,16 +1,21 @@
 import { createMessageBatch } from 'cloudflare:test'
 import { env } from 'cloudflare:workers'
-import { HttpResponse, http } from 'msw'
-import { estimateTokenCount } from 'tokenx'
 import { afterAll, expect, test, vi } from 'vitest'
 import { createClient } from '#db/client.ts'
 import * as Nanoid from '#lib/nanoid.ts'
 import { processRequestMessage } from '#queues/request.ts'
 import { createFactory } from '#test/factory.ts'
-import { server } from '#test/workers.server.ts'
 
 const db = createClient(env.DB.connectionString, { max: 1 })
 const factory = createFactory(db)
+const queueSendResponse = {
+  metadata: {
+    metrics: {
+      backlogBytes: 0,
+      backlogCount: 0,
+    },
+  },
+}
 
 afterAll(() => db.destroy())
 
@@ -67,18 +72,6 @@ test('leaves KV stats cache untouched when a request is recorded', async () => {
   await env.KV.put('stats:tokens_saved', '1000')
   await env.KV.put('stats:tokens_saved:example.com', '500')
 
-  const html = '<html><body><main><h1>Example</h1><p>Hello world</p></main></body></html>'
-  server.use(
-    http.get(
-      'https://example.com/',
-      () =>
-        new HttpResponse(html, {
-          headers: { 'content-type': 'text/html; charset=utf-8' },
-          status: 200,
-        }),
-    ),
-  )
-
   const batch = createMessageBatch<processRequestMessage.Body>(processRequestMessage.queueName, [
     {
       attempts: 1,
@@ -116,10 +109,11 @@ test('leaves KV stats cache untouched when a request is recorded', async () => {
   expect(hostCached).toBe('500')
 })
 
-test('does not fail when KV delete is rate limited', async () => {
-  const deleteSpy = vi
-    .spyOn(env.KV, 'delete')
-    .mockRejectedValue(new Error('KV DELETE failed: 429 Too Many Requests'))
+test('does not fail when enrichment queue send fails', async () => {
+  const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+  const sendSpy = vi
+    .spyOn(env.REQUEST_ENRICH_QUEUE, 'send')
+    .mockRejectedValue(new Error('queue send failed'))
 
   try {
     const batch = createMessageBatch<processRequestMessage.Body>(processRequestMessage.queueName, [
@@ -142,7 +136,7 @@ test('does not fail when KV delete is rate limited', async () => {
           organization_id: null,
           path: '/',
           source_tokens: 60,
-          source_tokens_method: 'markdown',
+          source_tokens_method: 'estimated',
           url: 'https://ratelimit.example.com',
           user_agent: 'test-agent',
         },
@@ -152,16 +146,20 @@ test('does not fail when KV delete is rate limited', async () => {
     ])
 
     await expect(processRequestMessage(batch.messages[0]!, db)).resolves.toBeUndefined()
-    expect(deleteSpy).not.toHaveBeenCalled()
+    expect(sendSpy).toHaveBeenCalledWith({
+      request_id: 'req_no_kv_delete',
+      url: 'https://ratelimit.example.com',
+    })
 
     const row = await db
       .selectFrom('request')
       .where('id', '=', 'req_no_kv_delete')
       .select(['id', 'source_tokens_method'])
       .executeTakeFirstOrThrow()
-    expect(row).toEqual({ id: 'req_no_kv_delete', source_tokens_method: 'markdown' })
+    expect(row).toEqual({ id: 'req_no_kv_delete', source_tokens_method: 'estimated' })
   } finally {
-    deleteSpy.mockRestore()
+    consoleErrorSpy.mockRestore()
+    sendSpy.mockRestore()
   }
 })
 
@@ -207,113 +205,142 @@ test('stores total savings when stage counts are present', async () => {
   expect(row.source_tokens_method).toBe('markdown')
 })
 
-test('upgrades estimated rows with html source tokens when fetch succeeds', async () => {
-  const html = '<html><body><main><h1>Example</h1><p>Hello world</p></main></body></html>'
-  server.use(
-    http.get(
-      'https://example.com/',
-      () =>
-        new HttpResponse(html, {
-          headers: { 'content-type': 'text/html; charset=utf-8' },
-          status: 200,
-        }),
-    ),
-  )
+test('enqueues html enrichment for estimated rows', async () => {
+  const sendSpy = vi.spyOn(env.REQUEST_ENRICH_QUEUE, 'send').mockResolvedValue(queueSendResponse)
 
-  const batch = createMessageBatch<processRequestMessage.Body>(processRequestMessage.queueName, [
-    {
-      attempts: 1,
-      body: {
-        account_id: null,
-        api_key_id: null,
-        billable: false,
-        cached: false,
-        cost_mills: 0,
-        extracted_tokens: null,
-        filtered_tokens: null,
-        hostname: 'example.com',
-        id: 'req_enrich_html',
-        keywords: null,
-        markdown_tokens: 25,
-        mode: null,
-        objective: null,
-        organization_id: null,
-        path: '/',
-        source_tokens: 25,
-        source_tokens_method: 'estimated',
-        url: 'https://example.com',
-        user_agent: 'test-agent',
+  try {
+    const batch = createMessageBatch<processRequestMessage.Body>(processRequestMessage.queueName, [
+      {
+        attempts: 1,
+        body: {
+          account_id: null,
+          api_key_id: null,
+          billable: false,
+          cached: false,
+          cost_mills: 0,
+          extracted_tokens: null,
+          filtered_tokens: null,
+          hostname: 'example.com',
+          id: 'req_enrich_html',
+          keywords: null,
+          markdown_tokens: 25,
+          mode: null,
+          objective: null,
+          organization_id: null,
+          path: '/',
+          source_tokens: 25,
+          source_tokens_method: 'estimated',
+          url: 'https://example.com',
+          user_agent: 'test-agent',
+        },
+        id: crypto.randomUUID(),
+        timestamp: new Date(),
       },
-      id: crypto.randomUUID(),
-      timestamp: new Date(),
-    },
-  ])
+    ])
 
-  await processRequestMessage(batch.messages[0]!, db)
+    await processRequestMessage(batch.messages[0]!, db)
 
-  const row = await db
-    .selectFrom('request')
-    .where('id', '=', 'req_enrich_html')
-    .select(['source_tokens', 'source_tokens_method'])
-    .executeTakeFirstOrThrow()
+    expect(sendSpy).toHaveBeenCalledWith({
+      request_id: 'req_enrich_html',
+      url: 'https://example.com',
+    })
 
-  expect(row.source_tokens).toBe(estimateTokenCount(html))
-  expect(row.source_tokens_method).toBe('html')
+    const row = await db
+      .selectFrom('request')
+      .where('id', '=', 'req_enrich_html')
+      .select(['source_tokens', 'source_tokens_method'])
+      .executeTakeFirstOrThrow()
+
+    expect(row.source_tokens).toBe(25)
+    expect(row.source_tokens_method).toBe('estimated')
+  } finally {
+    sendSpy.mockRestore()
+  }
 })
 
-test('keeps estimated rows when html source tokens are smaller', async () => {
-  const html = '<html><body><div id="app"></div></body></html>'
-  server.use(
-    http.get(
-      'https://spa.example.com/',
-      () =>
-        new HttpResponse(html, {
-          headers: { 'content-type': 'text/html; charset=utf-8' },
-          status: 200,
-        }),
-    ),
-  )
+test('does not enqueue html enrichment for non-estimated rows', async () => {
+  const sendSpy = vi.spyOn(env.REQUEST_ENRICH_QUEUE, 'send').mockResolvedValue(queueSendResponse)
 
-  const batch = createMessageBatch<processRequestMessage.Body>(processRequestMessage.queueName, [
-    {
-      attempts: 1,
-      body: {
-        account_id: null,
-        api_key_id: null,
-        billable: false,
-        cached: false,
-        cost_mills: 0,
-        extracted_tokens: null,
-        filtered_tokens: null,
-        hostname: 'spa.example.com',
-        id: 'req_keep_fallback',
-        keywords: null,
-        markdown_tokens: 120,
-        mode: null,
-        objective: null,
-        organization_id: null,
-        path: '/',
-        source_tokens: 120,
-        source_tokens_method: 'estimated',
-        url: 'https://spa.example.com',
-        user_agent: 'test-agent',
+  try {
+    const batch = createMessageBatch<processRequestMessage.Body>(processRequestMessage.queueName, [
+      {
+        attempts: 1,
+        body: {
+          account_id: null,
+          api_key_id: null,
+          billable: false,
+          cached: false,
+          cost_mills: 0,
+          extracted_tokens: null,
+          filtered_tokens: null,
+          hostname: 'example.com',
+          id: 'req_keep_fallback',
+          keywords: null,
+          markdown_tokens: 120,
+          mode: null,
+          objective: null,
+          organization_id: null,
+          path: '/',
+          source_tokens: 120,
+          source_tokens_method: 'markdown',
+          url: 'https://example.com',
+          user_agent: 'test-agent',
+        },
+        id: crypto.randomUUID(),
+        timestamp: new Date(),
       },
-      id: crypto.randomUUID(),
-      timestamp: new Date(),
-    },
-  ])
+    ])
 
-  await processRequestMessage(batch.messages[0]!, db)
+    await processRequestMessage(batch.messages[0]!, db)
 
-  const row = await db
-    .selectFrom('request')
-    .where('id', '=', 'req_keep_fallback')
-    .select(['source_tokens', 'source_tokens_method'])
-    .executeTakeFirstOrThrow()
+    expect(sendSpy).not.toHaveBeenCalled()
+  } finally {
+    sendSpy.mockRestore()
+  }
+})
 
-  expect(estimateTokenCount(html)).toBeLessThan(120)
-  expect(row.source_tokens).toBe(120)
-  expect(row.source_tokens_method).toBe('estimated')
+test('enqueues html enrichment for cached estimated rows', async () => {
+  const sendSpy = vi.spyOn(env.REQUEST_ENRICH_QUEUE, 'send').mockResolvedValue(queueSendResponse)
+
+  try {
+    const batch = createMessageBatch<processRequestMessage.Body>(processRequestMessage.queueName, [
+      {
+        attempts: 1,
+        body: {
+          account_id: null,
+          api_key_id: null,
+          billable: false,
+          cached: true,
+          cost_mills: 0,
+          extracted_tokens: null,
+          filtered_tokens: null,
+          hostname: 'example.com',
+          id: 'req_cached_est',
+          keywords: null,
+          markdown_tokens: 120,
+          mode: null,
+          objective: null,
+          organization_id: null,
+          path: '/',
+          source_tokens: 120,
+          source_tokens_method: 'estimated',
+          url: 'https://example.com',
+          user_agent: 'test-agent',
+        },
+        id: crypto.randomUUID(),
+        timestamp: new Date(),
+      },
+    ])
+
+    await processRequestMessage(batch.messages[0]!, db)
+
+    expect(sendSpy).toHaveBeenCalledWith({
+      request_id: 'req_cached_est',
+      url: 'https://example.com',
+    })
+  } finally {
+    sendSpy.mockRestore()
+  }
 })
 
 test('deducts credits when billable', async () => {

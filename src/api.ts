@@ -2045,7 +2045,7 @@ export const api = new Hono<{
           vary: 'Accept',
         })
 
-      // Rate limit: three tiers (anon, authed/free, paid)
+      // Keep throttling tied to auth state so stale balance cache never opens an unlimited fast path.
       const identity = c.var.session
         ? c.var.session.account_id
         : (c.req.header('cf-connecting-ip') ?? 'unknown')
@@ -2073,41 +2073,41 @@ export const api = new Hono<{
         }
       })()
 
-      // Paid users skip rate limiting
       let rateLimitHeaders: Record<string, string> = {}
-      if (!billable) {
-        const kvKey = `ratelimit:${limit.key}` as const
-        const now = Math.floor(Date.now() / 1000)
-        const record = await c.env.KV.get(kvKey, 'json')
+      const kvKey = `ratelimit:${limit.key}` as const
+      const now = Math.floor(Date.now() / 1000)
+      const record = await c.env.KV.get(kvKey, 'json')
 
-        const reset = record && record.reset > now ? record.reset : now + limit.window
-        const count = record && record.reset > now ? record.count + 1 : 1
+      const reset = record && record.reset > now ? record.reset : now + limit.window
+      const count = record && record.reset > now ? record.count + 1 : 1
 
-        rateLimitHeaders = {
-          'x-ratelimit-limit': String(limit.max),
-          'x-ratelimit-remaining': String(Math.max(0, limit.max - count)),
-          'x-ratelimit-reset': String(reset),
-        }
-
-        if (count > limit.max)
-          return c.json(
-            {
-              code: 'rate_limit_exceeded' as const,
-              message: c.var.session ? 'Add credits to remove rate limits' : 'Rate limit exceeded',
-            },
-            429,
-            {
-              ...rateLimitHeaders,
-              'retry-after': String(reset - now),
-            },
-          )
-
-        c.executionCtx.waitUntil(
-          c.env.KV.put(kvKey, JSON.stringify({ count, reset }), {
-            expirationTtl: limit.window,
-          }),
-        )
+      rateLimitHeaders = {
+        'x-ratelimit-limit': String(limit.max),
+        'x-ratelimit-remaining': String(Math.max(0, limit.max - count)),
+        'x-ratelimit-reset': String(reset),
       }
+
+      if (count > limit.max)
+        return c.json(
+          {
+            code: 'rate_limit_exceeded' as const,
+            message:
+              !billable && c.var.session
+                ? 'Add credits to remove rate limits'
+                : 'Rate limit exceeded',
+          },
+          429,
+          {
+            ...rateLimitHeaders,
+            'retry-after': String(reset - now),
+          },
+        )
+
+      c.executionCtx.waitUntil(
+        c.env.KV.put(kvKey, JSON.stringify({ count, reset }), {
+          expirationTtl: limit.window,
+        }),
+      )
 
       const md = Md.create({
         headers: {
@@ -2251,7 +2251,18 @@ export const api = new Hono<{
             }
 
             const chunks = Md.chunk(filteredContent)
-            const results = await Promise.all(chunks.map(extractChunk))
+            const results: Awaited<ReturnType<typeof extractChunk>>[] = []
+            let chunkIndex = 0
+            // Bound Workers AI fan-out so one large objective request can't saturate inference capacity.
+            await Promise.all(
+              Array.from({ length: Math.min(2, chunks.length) }, async () => {
+                while (chunkIndex < chunks.length) {
+                  const currentIndex = chunkIndex
+                  chunkIndex += 1
+                  results[currentIndex] = await extractChunk(chunks[currentIndex]!)
+                }
+              }),
+            )
             const filtered = results
               .filter((r) => r.response && r.response.trim() !== Constants.sentinelValue)
               .map((r) => r.response)

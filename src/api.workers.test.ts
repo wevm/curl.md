@@ -2949,6 +2949,61 @@ test('GET /api/:url retries transient AI timeouts and normalizes HTML error page
   })
 })
 
+test('GET /api/:url bounds objective chunk inference concurrency', async () => {
+  const url = 'https://ai-chunk-pool.example.com/'
+  await env.KV.put(
+    `page:${url}`,
+    JSON.stringify({
+      content: [
+        `## Alpha\n\n${'a'.repeat(40_000)}`,
+        `## Beta\n\n${'b'.repeat(40_000)}`,
+        `## Gamma\n\n${'c'.repeat(40_000)}`,
+      ].join('\n\n'),
+      extras: {},
+      meta: {
+        site: 'ai-chunk-pool.example.com',
+        url,
+      },
+    }),
+  )
+
+  let activeCalls = 0
+  let maxActiveCalls = 0
+  const aiRun = vi.fn(async () => {
+    activeCalls += 1
+    maxActiveCalls = Math.max(maxActiveCalls, activeCalls)
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    activeCalls -= 1
+    return {
+      response: '## Matched\n\nRelevant content',
+      usage: { completion_tokens: 1, prompt_tokens: 1 },
+    }
+  })
+
+  const localClient = testClient(
+    api,
+    {
+      ...env,
+      AI: {
+        run: aiRun,
+      } as unknown as typeof env.AI,
+    } as unknown as typeof env,
+    executionCtx,
+  )
+
+  const res = await localClient.api[':url{.+}'].$get(
+    {
+      param: { url: 'ai-chunk-pool.example.com' },
+      query: { objective: 'find the relevant content' },
+    },
+    { headers: { 'cf-connecting-ip': '10.0.0.41' } },
+  )
+
+  expect(res.status).toBe(200)
+  expect(aiRun).toHaveBeenCalledTimes(3)
+  expect(maxActiveCalls).toBeLessThanOrEqual(2)
+})
+
 test('GET /api/:url reports upstream 5xx fetch failures to sentry', async () => {
   const captureException = vi.spyOn(Sentry, 'captureException').mockImplementation(() => '')
   server.use(
@@ -3040,14 +3095,12 @@ test('GET /api/:url authed 429 includes credits message', async () => {
   })
 })
 
-test('GET /api/:url paid user skips rate limits', async () => {
+test('GET /api/:url paid user still hits auth rate limits', async () => {
   const account = await factory.account.insert({})
   const session = await factory.session.insert({ account_id: account.id })
 
-  // Seed balance cache
   await env.KV.put(`balance:${account.id}`, '1000')
 
-  // Seed rate limit to already exceeded
   await env.KV.put(
     `ratelimit:fetch:${account.id}`,
     JSON.stringify({
@@ -3075,10 +3128,12 @@ test('GET /api/:url paid user skips rate limits', async () => {
       },
     },
   )
-  // Paid user should NOT get 429 even though rate limit is exceeded
-  expect(res.status).toBe(200)
-  // Should not have rate limit headers
-  expect(res.headers.get('x-ratelimit-limit')).toBeNull()
+  expect(res.status).toBe(429)
+  expect(res.headers.get('x-ratelimit-limit')).toBe('1000')
+  await expect(res.json()).resolves.toEqual({
+    code: 'rate_limit_exceeded',
+    message: 'Rate limit exceeded',
+  })
 })
 
 test('GET /api/:url zero balance user gets authed rate limits', async () => {

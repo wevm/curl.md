@@ -31,7 +31,8 @@ curl.md example.com
 md example.com
 
 # Add to your agent
-claude plugin install curl-md@claude-plugins-official
+claude plugin marketplace add wevm/curl.md
+claude plugin install curl-md@curl-md
 opencode plugin -g @curl.md/opencode
 pi install npm:@curl.md/pi
 npx @curl.md/amp install
