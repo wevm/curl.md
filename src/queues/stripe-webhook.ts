@@ -1,5 +1,7 @@
 import { env } from 'cloudflare:workers'
+import Stripe from 'stripe'
 import type { Database } from '#db/client.ts'
+import * as StripeUtils from '#lib/stripe.ts'
 
 export async function processStripeWebhookMessage(
   message: Message<processStripeWebhookMessage.Body>,
@@ -82,7 +84,15 @@ async function processReversal(
     .executeTakeFirst()
   if (existing) return
 
-  const entity = await findEntity(data.customer, db)
+  const customerId = await (async () => {
+    if ('customer' in data) return data.customer
+    const stripe = new Stripe(env.STRIPE_SECRET_KEY, StripeUtils.stripeOptions(env.STRIPE_API_URL))
+    const charge = await stripe.charges.retrieve(data.charge_id)
+    return typeof charge.customer === 'string' ? charge.customer : null
+  })()
+  if (!customerId) return
+
+  const entity = await findEntity(customerId, db)
   if (!entity) return
 
   await db.transaction().execute(async (tx) => {
@@ -164,18 +174,30 @@ export namespace processStripeWebhookMessage {
       }
     | {
         type: 'charge.dispute.created'
-        data: {
-          amount_total: number
-          customer: string
-          id: string
-        }
+        data:
+          | {
+              amount_total: number
+              customer: string
+              id: string
+            }
+          | {
+              amount_total: number
+              charge_id: string
+              id: string
+            }
       }
     | {
         type: 'refund.created'
-        data: {
-          amount_total: number
-          customer: string
-          id: string
-        }
+        data:
+          | {
+              amount_total: number
+              customer: string
+              id: string
+            }
+          | {
+              amount_total: number
+              charge_id: string
+              id: string
+            }
       }
 }

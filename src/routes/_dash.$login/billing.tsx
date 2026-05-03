@@ -119,12 +119,17 @@ function Component() {
   const addCredits = useMutation({
     async mutationFn(amount: (typeof creditAmounts)[number]) {
       if (data.payment_methods.length > 0) {
-        const res = await rpc.api.credits.charge.$post({
-          json: {
-            amount,
-            ...(entity.type === 'organization' ? { organization_id: entity.id } : {}),
+        const res = await rpc.api.credits.charge.$post(
+          {
+            json: {
+              amount,
+              ...(entity.type === 'organization' ? { organization_id: entity.id } : {}),
+            },
           },
-        })
+          {
+            headers: { 'Idempotency-Key': crypto.randomUUID() },
+          },
+        )
         if (res.status === 200) return { kind: 'charge', result: await res.json() } as const
 
         if (res.status === 400) {

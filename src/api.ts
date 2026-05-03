@@ -1049,15 +1049,19 @@ export const api = new Hono<{
 
       let paymentIntent: Stripe.PaymentIntent
       try {
-        paymentIntent = await stripe.paymentIntents.create({
-          amount,
-          confirm: true,
-          currency: 'usd',
-          customer: stripeCustomerId,
-          metadata: { entity_type: entityType, entity_id: entityId },
-          off_session: true,
-          payment_method: defaultPaymentMethod.id,
-        })
+        const idempotencyKey = c.req.header('idempotency-key')
+        paymentIntent = await stripe.paymentIntents.create(
+          {
+            amount,
+            confirm: true,
+            currency: 'usd',
+            customer: stripeCustomerId,
+            metadata: { entity_type: entityType, entity_id: entityId },
+            off_session: true,
+            payment_method: defaultPaymentMethod.id,
+          },
+          idempotencyKey ? { idempotencyKey } : undefined,
+        )
       } catch (error) {
         if (
           error instanceof Stripe.errors.StripeCardError &&
@@ -1733,7 +1737,7 @@ export const api = new Hono<{
 
     switch (event.type) {
       case 'payment_intent.succeeded': {
-        const paymentIntent = event.data.object as import('stripe').Stripe.PaymentIntent
+        const paymentIntent = event.data.object
         const customer = typeof paymentIntent.customer === 'string' ? paymentIntent.customer : null
         if (customer && paymentIntent.amount)
           await c.env.STRIPE_WEBHOOK_QUEUE.send({
@@ -1748,36 +1752,30 @@ export const api = new Hono<{
       }
       case 'charge.dispute.created': {
         // TODO: send chargeback alert (email/Slack)
-        const dispute = event.data.object as import('stripe').Stripe.Dispute
-        const charge =
-          typeof dispute.charge === 'string'
-            ? await stripe.charges.retrieve(dispute.charge)
-            : dispute.charge
-        const customer = typeof charge.customer === 'string' ? charge.customer : null
-        if (customer)
+        const dispute = event.data.object
+        const chargeId =
+          typeof dispute.charge === 'string' ? dispute.charge : (dispute.charge?.id ?? null)
+        if (chargeId)
           await c.env.STRIPE_WEBHOOK_QUEUE.send({
             type: event.type,
             data: {
               amount_total: dispute.amount,
-              customer,
+              charge_id: chargeId,
               id: dispute.id,
             },
           })
         break
       }
       case 'refund.created': {
-        const refund = event.data.object as import('stripe').Stripe.Refund
-        const charge =
-          typeof refund.charge === 'string'
-            ? await stripe.charges.retrieve(refund.charge)
-            : refund.charge
-        const customer = charge && typeof charge.customer === 'string' ? charge.customer : null
-        if (customer)
+        const refund = event.data.object
+        const chargeId =
+          typeof refund.charge === 'string' ? refund.charge : (refund.charge?.id ?? null)
+        if (chargeId)
           await c.env.STRIPE_WEBHOOK_QUEUE.send({
             type: 'refund.created',
             data: {
               amount_total: refund.amount,
-              customer,
+              charge_id: chargeId,
               id: refund.id,
             },
           })

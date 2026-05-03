@@ -1476,6 +1476,47 @@ describe('POST /api/credits/charge', () => {
     })
   })
 
+  test('forwards stripe idempotency key for off-session charges', async () => {
+    const account = await factory.account.insert({})
+    await db
+      .updateTable('account')
+      .set({ stripe_customer_id: `cus_${Nanoid.generate()}` })
+      .where('id', '=', account.id)
+      .execute()
+    const session = await factory.session.insert({ account_id: account.id })
+
+    let idempotencyKey: string | null = null
+
+    server.use(
+      http.get('https://api.stripe.com/v1/payment_methods', () =>
+        HttpResponse.json({
+          data: [{ id: 'pm_test', card: { brand: 'visa', last4: '4242' } }],
+          object: 'list',
+        }),
+      ),
+      http.post('https://api.stripe.com/v1/payment_intents', ({ request }) => {
+        idempotencyKey = request.headers.get('idempotency-key')
+        return HttpResponse.json({
+          id: 'pi_charge_test',
+          status: 'succeeded',
+          object: 'payment_intent',
+        })
+      }),
+    )
+
+    const res = await client.api.credits.charge.$post(
+      { json: { amount: '1000' } },
+      {
+        headers: {
+          Cookie: await Cookie.generateSigned('curl.session', session.id, env.COOKIE_SECRET),
+          'Idempotency-Key': 'charge_attempt_test',
+        },
+      },
+    )
+    expect(res.status).toBe(200)
+    expect(idempotencyKey).toBe('charge_attempt_test')
+  })
+
   test('returns payment_failed when saved card is declined', async () => {
     const account = await factory.account.insert({})
     await db
@@ -5023,22 +5064,7 @@ describe('POST /api/stripe/webhook', () => {
       },
     })
 
-    // Compute HMAC signature (async-safe for Workers)
-    const timestamp = Math.floor(Date.now() / 1000)
-    const key = await crypto.subtle.importKey(
-      'raw',
-      new TextEncoder().encode(env.STRIPE_WEBHOOK_SECRET),
-      { name: 'HMAC', hash: 'SHA-256' },
-      false,
-      ['sign'],
-    )
-    const sig = await crypto.subtle.sign(
-      'HMAC',
-      key,
-      new TextEncoder().encode(`${timestamp}.${payload}`),
-    )
-    const hex = [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, '0')).join('')
-    const header = `t=${timestamp},v1=${hex}`
+    const header = await createStripeWebhookSignature(payload)
 
     const res = await api.request(
       '/api/stripe/webhook',
@@ -5054,6 +5080,94 @@ describe('POST /api/stripe/webhook', () => {
     )
     expect(res.status).toBe(200)
     await expect(res.json()).resolves.toEqual({ received: true })
+  })
+
+  test('queues charge disputes without expanding charge details inline', async () => {
+    const sendSpy = vi.spyOn(env.STRIPE_WEBHOOK_QUEUE, 'send').mockResolvedValue({
+      metadata: { metrics: { backlogBytes: 0, backlogCount: 0 } },
+    })
+    const payload = JSON.stringify({
+      id: 'evt_test_dispute',
+      type: 'charge.dispute.created',
+      data: {
+        object: {
+          amount: 500,
+          charge: 'ch_test_dispute',
+          id: 'dp_test_dispute',
+        },
+      },
+    })
+
+    try {
+      const res = await api.request(
+        '/api/stripe/webhook',
+        {
+          method: 'POST',
+          body: payload,
+          headers: {
+            'content-type': 'application/json',
+            'stripe-signature': await createStripeWebhookSignature(payload),
+          },
+        },
+        env,
+      )
+
+      expect(res.status).toBe(200)
+      expect(sendSpy).toHaveBeenCalledWith({
+        type: 'charge.dispute.created',
+        data: {
+          amount_total: 500,
+          charge_id: 'ch_test_dispute',
+          id: 'dp_test_dispute',
+        },
+      })
+    } finally {
+      sendSpy.mockRestore()
+    }
+  })
+
+  test('queues refunds without expanding charge details inline', async () => {
+    const sendSpy = vi.spyOn(env.STRIPE_WEBHOOK_QUEUE, 'send').mockResolvedValue({
+      metadata: { metrics: { backlogBytes: 0, backlogCount: 0 } },
+    })
+    const payload = JSON.stringify({
+      id: 'evt_test_refund',
+      type: 'refund.created',
+      data: {
+        object: {
+          amount: 700,
+          charge: 'ch_test_refund',
+          id: 're_test_refund',
+        },
+      },
+    })
+
+    try {
+      const res = await api.request(
+        '/api/stripe/webhook',
+        {
+          method: 'POST',
+          body: payload,
+          headers: {
+            'content-type': 'application/json',
+            'stripe-signature': await createStripeWebhookSignature(payload),
+          },
+        },
+        env,
+      )
+
+      expect(res.status).toBe(200)
+      expect(sendSpy).toHaveBeenCalledWith({
+        type: 'refund.created',
+        data: {
+          amount_total: 700,
+          charge_id: 'ch_test_refund',
+          id: 're_test_refund',
+        },
+      })
+    } finally {
+      sendSpy.mockRestore()
+    }
   })
 })
 
@@ -5124,4 +5238,22 @@ function toSearchParams(formData: FormData) {
   return new URLSearchParams(
     Array.from(formData.entries()).map(([key, value]) => [key, String(value)]),
   )
+}
+
+async function createStripeWebhookSignature(payload: string) {
+  const timestamp = Math.floor(Date.now() / 1000)
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(env.STRIPE_WEBHOOK_SECRET),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  )
+  const sig = await crypto.subtle.sign(
+    'HMAC',
+    key,
+    new TextEncoder().encode(`${timestamp}.${payload}`),
+  )
+  const hex = [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, '0')).join('')
+  return `t=${timestamp},v1=${hex}`
 }
