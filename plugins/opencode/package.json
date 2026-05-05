@@ -1,6 +1,6 @@
 {
   "name": "@curl.md/opencode",
-  "version": "0.0.11",
+  "version": "0.1.0",
   "description": "URL to markdown for OpenCode",
   "contributors": [
     "tmm <t@curl.md>",

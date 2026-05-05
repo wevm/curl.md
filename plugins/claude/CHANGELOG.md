@@ -1,5 +1,16 @@
 # @curl.md/claude
 
+## 0.1.0
+
+### Minor Changes
+
+- Public release ([`5b08434`](https://github.com/wevm/curl.md/commit/5b08434cd9a4bdc0b0416e3e42848f03f97102f1))
+
+### Patch Changes
+
+- Updated dependencies [[`5b08434`](https://github.com/wevm/curl.md/commit/5b08434cd9a4bdc0b0416e3e42848f03f97102f1)]:
+  - curl.md@0.1.0
+
 ## 0.0.7
 
 ### Patch Changes
