@@ -1,5 +1,11 @@
 # curl.md
 
+## 0.1.1
+
+### Patch Changes
+
+- Fixed npx support ([`58233b1`](https://github.com/wevm/curl.md/commit/58233b1ed3d16f2f6789b2233510dbee747d9b09))
+
 ## 0.1.0
 
 ### Minor Changes

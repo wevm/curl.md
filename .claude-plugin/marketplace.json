@@ -16,9 +16,9 @@
       "source": {
         "package": "@curl.md/claude",
         "source": "npm",
-        "version": "0.1.0"
+        "version": "0.1.1"
       },
-      "version": "0.1.0"
+      "version": "0.1.1"
     }
   ]
 }
