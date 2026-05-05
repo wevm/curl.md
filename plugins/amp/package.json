@@ -1,6 +1,6 @@
 {
   "name": "@curl.md/amp",
-  "version": "0.0.13",
+  "version": "0.0.14",
   "description": "URL to markdown for Amp",
   "bin": {
     "curlmd-amp": "./dist/install.js"

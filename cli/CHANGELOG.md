@@ -1,5 +1,11 @@
 # curl.md
 
+## 0.0.25
+
+### Patch Changes
+
+- Updated logging ([`9079a94`](https://github.com/wevm/curl.md/commit/9079a94bc339174ff2d1c37e2a9c29bddecc1737))
+
 ## 0.0.24
 
 ### Patch Changes

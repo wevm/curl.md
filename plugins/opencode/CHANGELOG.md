@@ -1,5 +1,12 @@
 # @curl.md/opencode
 
+## 0.0.11
+
+### Patch Changes
+
+- Updated dependencies [[`9079a94`](https://github.com/wevm/curl.md/commit/9079a94bc339174ff2d1c37e2a9c29bddecc1737)]:
+  - curl.md@0.0.25
+
 ## 0.0.10
 
 ### Patch Changes

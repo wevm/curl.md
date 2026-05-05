@@ -1,5 +1,12 @@
 # @curl.md/claude
 
+## 0.0.7
+
+### Patch Changes
+
+- Updated dependencies [[`9079a94`](https://github.com/wevm/curl.md/commit/9079a94bc339174ff2d1c37e2a9c29bddecc1737)]:
+  - curl.md@0.0.25
+
 ## 0.0.6
 
 ### Patch Changes
