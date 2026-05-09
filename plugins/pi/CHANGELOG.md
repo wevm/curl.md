@@ -1,5 +1,11 @@
 # @curl.md/pi
 
+## 0.1.2
+
+### Patch Changes
+
+- Switched `@earendil-works` scoped packages. ([`3c3cb40`](https://github.com/wevm/curl.md/commit/3c3cb40c997a4b9d2354a1fb56539523881f083e))
+
 ## 0.1.1
 
 ### Patch Changes
