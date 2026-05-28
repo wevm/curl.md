@@ -193,6 +193,23 @@ test.each([
   )
 })
 
+test.each([
+  [
+    'https://docs.expo.dev/get-started/start-developing/',
+    'https://docs.expo.dev/get-started/start-developing.md',
+  ],
+  [
+    'https://expo.dev/blog/expo-go-vs-development-builds',
+    'https://expo.dev/blog/expo-go-vs-development-builds.md',
+  ],
+  [
+    'https://expo.dev/blog/expo-go-vs-development-builds/',
+    'https://expo.dev/blog/expo-go-vs-development-builds.md',
+  ],
+] as const)('expo rewrites %s to markdown URL', (url, expected) => {
+  expect(rewrite(rules.expo, url)?.href).toBe(expected)
+})
+
 test('conductor matches canonical and redirecting docs urls', () => {
   expect(patternsMatch(rules.conductor(), 'https://conductor.build/docs')).toBe(true)
   expect(patternsMatch(rules.conductor(), 'https://www.conductor.build/docs/installation')).toBe(

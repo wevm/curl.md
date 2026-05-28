@@ -75,6 +75,35 @@ export const drizzle = rawRepoWithIndex({
   ],
   checks: [{ url: 'https://orm.drizzle.team/docs/overview', contains: ['Drizzle ORM'] }],
 })
+export const expo = defineRule({
+  key: 'expo',
+  patterns: [
+    new URLPattern({ hostname: 'docs.expo.dev' }),
+    new URLPattern({ hostname: 'expo.dev', pathname: '/blog/:slug' }),
+    new URLPattern({ hostname: 'expo.dev', pathname: '/blog/:slug/' }),
+  ],
+  checks: [
+    {
+      url: 'https://docs.expo.dev/get-started/start-developing/',
+      contains: ['Make your first change to an Expo project and see it live on your device.'],
+    },
+    {
+      url: 'https://expo.dev/blog/expo-go-vs-development-builds',
+      contains: [
+        'Development builds and Expo Go are both tools for developing React Native apps',
+        '## What exactly is Expo Go?',
+      ],
+      minLength: 500,
+      title: 'Expo Go vs Development Builds',
+    },
+  ],
+  rewrite(url) {
+    if (/\.mdx?$/i.test(url.pathname)) return
+    const mdUrl = new URL(url.href)
+    mdUrl.pathname = url.pathname === '/' ? '/index.md' : `${url.pathname.replace(/\/$/, '')}.md`
+    return mdUrl
+  },
+})
 export const openai = appendMd({
   key: 'openai',
   patterns: [new URLPattern({ hostname: 'developers.openai.com' })],
