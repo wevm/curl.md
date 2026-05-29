@@ -34,8 +34,29 @@ afterEach(() => {
 test('registers tool hooks and fallback tool', () => {
   const { handlers, tools } = loadPlugin()
 
-  expect(handlers.map((handler) => handler.event)).toEqual(['tool.call', 'tool.result'])
+  expect(handlers.map((handler) => handler.event)).toEqual([
+    'agent.start',
+    'tool.call',
+    'tool.result',
+  ])
   expect(tools.map((t) => t.name)).toEqual(['curl_md'])
+})
+
+test('agent.start hook steers URL reads to curl_md', () => {
+  const { handlers } = loadPlugin()
+  const handler = handlers.find((h) => h.event === 'agent.start')!
+
+  const result = handler.fn(
+    { id: 'msg_1', message: 'Read https://example.com', thread: { id: 'T-test' } },
+    {} as any,
+  )
+
+  expect(result).toEqual({
+    message: {
+      content:
+        'For web page or URL reads, use the curl_md tool instead of read_web_page. curl_md returns optimized markdown and supports url, objective, keywords, mode, and fresh inputs.',
+    },
+  })
 })
 
 test('tool.call hook allows non-read_web_page tools', async () => {
@@ -202,7 +223,7 @@ test('preserves URL fragments', async () => {
   } as any)
 
   expect(requests[0]?.url).toContain('anchor=section')
-  expect((result as any).url).toBe('https://example.com/docs?q=1#section')
+  expect(result).toBe('# Fragment')
 })
 
 // --- Anonymous fetch ---
@@ -244,20 +265,7 @@ test('fetches anonymously and returns expected shape', async () => {
 
   expect(requests[0]?.url).toContain(`${defaultBaseUrl}/api/https://example.com/docs`)
   expect(requests[0]?.url).toContain('anchor=intro')
-  expect(result).toEqual({
-    auth: 'anon',
-    cache: 'HIT',
-    credits_remaining: 42,
-    fresh: true,
-    keywords: ['a'],
-    markdown: '# Example\n\n---\n\nPowered by [curl.md](https://curl.md)',
-    mode: 'rush',
-    objective: 'test',
-    request_id: 'req_abc',
-    tokens_count: 100,
-    tokens_saved: 50,
-    url: 'https://example.com/docs#intro',
-  })
+  expect(result).toBe('# Example\n\n---\n\nPowered by [curl.md](https://curl.md)')
 })
 
 // --- API key auth ---
@@ -411,8 +419,7 @@ test('retries once on session 401 with forced auth refresh', async () => {
     'Bearer access-token-stale',
     'Bearer access-token-fresh',
   ])
-  expect((result as any).auth).toBe('session')
-  expect((result as any).markdown).toBe('# Retried')
+  expect(result).toBe('# Retried')
 
   Session.delete()
 })

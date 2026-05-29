@@ -47,13 +47,7 @@ test('installs the package and writes the global shim', async () => {
 }\n`)
 
   await expect(fs.readFile(path.join(tempDir, 'plugins', 'curlmd.ts'), 'utf8')).resolves.toBe(
-    [
-      '// @i-know-the-amp-plugin-api-is-wip-and-very-experimental-right-now',
-      "import plugin from '@curl.md/amp'",
-      '',
-      'export default plugin',
-      '',
-    ].join('\n'),
+    ["import plugin from '@curl.md/amp'", '', 'export default plugin', ''].join('\n'),
   )
 })
 
@@ -84,15 +78,9 @@ test('runs when invoked through a symlinked bin path', async () => {
   expect(result.stderr).toBe('')
   expect(result.stdout).toContain(`Installed @curl.md/amp@`)
   expect(result.stdout).toContain(` to ${ampConfigDir}`)
-  expect(result.stdout).toContain("Run 'PLUGINS=all amp' to load plugins")
+  expect(result.stdout).toContain("Run 'amp' to load plugins")
 
   await expect(fs.readFile(path.join(ampConfigDir, 'plugins', 'curlmd.ts'), 'utf8')).resolves.toBe(
-    [
-      '// @i-know-the-amp-plugin-api-is-wip-and-very-experimental-right-now',
-      "import plugin from '@curl.md/amp'",
-      '',
-      'export default plugin',
-      '',
-    ].join('\n'),
+    ["import plugin from '@curl.md/amp'", '', 'export default plugin', ''].join('\n'),
   )
 })
