@@ -5,12 +5,9 @@
     "emitDeclarationOnly": true,
     "noEmit": false,
     "outDir": "dist",
-    "paths": {
-      "#api.ts": ["./src/shims.d.ts"]
-    },
-    "rootDir": "src",
+    "rootDir": "..",
     "rewriteRelativeImportExtensions": true
   },
-  "include": ["src/exports/index.ts", "src/exports/internal.ts", "src/cf-env.d.ts"],
+  "include": ["../src/api.ts"],
   "exclude": ["src/**/*.test.*", "test"]
 }

@@ -18,7 +18,7 @@ auditConfig:
     - GHSA-6cpc-mj5c-m9rq
 blockExoticSubdeps: true
 catalog:
-  hono: ^4.12.16
+  hono: ^4.12.21
   # Vite+ dependency aliases.
   vite: npm:@voidzero-dev/vite-plus-core@0.1.20
   vite-plus: 0.1.20

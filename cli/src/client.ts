@@ -1,8 +1,8 @@
 // oxlint-disable-next-line typescript-eslint/triple-slash-reference -- ambient worker shims for published type output
-/// <reference path="./cf-env.d.ts" />
+/// <reference path="./cf-env.d.ts" preserve="true" />
 
 import { hc, type ClientRequestOptions } from 'hono/client'
-import type { api } from '../../src/api.ts'
+import type { api } from '#api.ts'
 
 export const defaultBaseUrl = 'https://curl.md'
 
@@ -78,7 +78,7 @@ export type Client = Omit<RpcClient, 'api'> & {
 
 type RpcClient = ReturnType<typeof hc<typeof api>>
 type Api = RpcClient['api']
-type PublicApi = Omit<Api, 'og.png' | 'sentry' | 'stats' | 'stripe'>
+type PublicApi = Omit<Api, 'og.png' | 'sentry' | 'stats' | 'stripe' | 'tunnel'>
 type Fetch = RpcClient['api'][':url{.+}']['$get']
 type FetchQuery = Pick<
   NonNullable<NonNullable<Parameters<Fetch>[0]>['query']>,

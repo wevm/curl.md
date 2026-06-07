@@ -74,13 +74,14 @@ export default function (amp: PluginAPI) {
       required: ['url'],
     },
     async execute(input) {
-      return fetchPage({
+      const result = await fetchPage({
         fresh: input.fresh as boolean | undefined,
         keywords: input.keywords as string[] | undefined,
         mode: input.mode as 'rush' | 'smart' | undefined,
         objective: input.objective as string | undefined,
         url: input.url as string,
       })
+      return result.markdown
     },
   })
 
