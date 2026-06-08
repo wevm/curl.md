@@ -42,6 +42,13 @@ export default defineConfig({
         },
       },
       {
+        resolve: {
+          alias: [
+            { find: /^#db\/(.*)$/, replacement: path.resolve(root, 'db/$1') },
+            { find: /^#test\/(.*)$/, replacement: path.resolve(root, 'test/$1') },
+            { find: /^#(.*)$/, replacement: path.resolve(root, 'src/$1') },
+          ],
+        },
         test: {
           name: 'cli',
           globalSetup: ['cli/test/global.setup.ts'],
@@ -50,6 +57,14 @@ export default defineConfig({
           include: ['cli/src/**/*.test.ts'],
           root,
           testTimeout: 30_000,
+        },
+      },
+      {
+        test: {
+          name: 'sdk',
+          include: ['cli/test/package-types.test.ts'],
+          root,
+          testTimeout: 180_000,
         },
       },
       {

@@ -7,8 +7,8 @@ settings:
 catalogs:
   default:
     hono:
-      specifier: ^4.12.16
-      version: 4.12.18
+      specifier: ^4.12.21
+      version: 4.12.23
     vite-plus:
       specifier: 0.1.20
       version: 0.1.20
@@ -53,7 +53,7 @@ importers:
         version: 5.2.8
       '@hono/zod-validator':
         specifier: ^0.7.6
-        version: 0.7.6(hono@4.12.18)(zod@4.3.6)
+        version: 0.7.6(hono@4.12.23)(zod@4.3.6)
       '@octokit/core':
         specifier: ^7.0.6
         version: 7.0.6
@@ -89,7 +89,7 @@ importers:
         version: 1.167.35(@tanstack/react-router@1.169.2(patch_hash=53ce3be0f6f7b146142e16bfe785fc470bf9dcc679b9b3b701a2b3cb4668a198)(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(@voidzero-dev/vite-plus-core@0.1.20)
       hono:
         specifier: 'catalog:'
-        version: 4.12.18
+        version: 4.12.23
       kysely:
         specifier: ^0.28.17
         version: 0.28.17
@@ -207,7 +207,7 @@ importers:
         version: 5.2.0(@voidzero-dev/vite-plus-core@0.1.20)
       emulate:
         specifier: 0.5.0
-        version: 0.5.0(hono@4.12.18)
+        version: 0.5.0(hono@4.12.23)
       knip:
         specifier: ^6.7.0
         version: 6.7.0(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)
@@ -273,7 +273,7 @@ importers:
     dependencies:
       hono:
         specifier: 'catalog:'
-        version: 4.12.18
+        version: 4.12.23
       incur:
         specifier: 0.4.5
         version: 0.4.5
@@ -4680,8 +4680,8 @@ packages:
   highlight.js@10.7.3:
     resolution: {integrity: sha512-tzcUFauisWKNHaRkN4Wjl/ZA07gENAjFl3J/c480dprkGTg5EQstgaNFqBfUqCq54kZRIEcreTsAgF/m2quD7A==}
 
-  hono@4.12.18:
-    resolution: {integrity: sha512-RWzP96k/yv0PQfyXnWjs6zot20TqfpfsNXhOnev8d1InAxubW93L11/oNUc3tQqn2G0bSdAOBpX+2uDFHV7kdQ==}
+  hono@4.12.23:
+    resolution: {integrity: sha512-eIaZ9qDgu7XV0pxOCrg7/WhnQ6Ivm22UcxhXx/A3dcbqbbYgBEkc6e/J/s7j2tS96zoB0S9VBdLwQNCWwUo4LA==}
     engines: {node: '>=16.9.0'}
 
   hosted-git-info@9.0.2:
@@ -7799,13 +7799,13 @@ snapshots:
       protobufjs: 7.5.8
       yargs: 17.7.2
 
-  '@hono/node-server@1.19.13(hono@4.12.18)':
+  '@hono/node-server@1.19.13(hono@4.12.23)':
     dependencies:
-      hono: 4.12.18
+      hono: 4.12.23
 
-  '@hono/zod-validator@0.7.6(hono@4.12.18)(zod@4.3.6)':
+  '@hono/zod-validator@0.7.6(hono@4.12.23)(zod@4.3.6)':
     dependencies:
-      hono: 4.12.18
+      hono: 4.12.23
       zod: 4.3.6
 
   '@iconify/json@2.2.467':
@@ -10837,9 +10837,9 @@ snapshots:
 
   emoji-regex@9.2.2: {}
 
-  emulate@0.5.0(hono@4.12.18):
+  emulate@0.5.0(hono@4.12.23):
     dependencies:
-      '@hono/node-server': 1.19.13(hono@4.12.18)
+      '@hono/node-server': 1.19.13(hono@4.12.23)
       commander: 14.0.3
       picocolors: 1.1.1
       yaml: 2.8.3
@@ -11401,7 +11401,7 @@ snapshots:
 
   highlight.js@10.7.3: {}
 
-  hono@4.12.18: {}
+  hono@4.12.23: {}
 
   hosted-git-info@9.0.2:
     dependencies:

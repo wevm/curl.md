@@ -21,9 +21,20 @@ for (const dir of packageDirs) {
     await linkExport(dir, key, value.default)
     await linkExport(dir, key, value.types)
   }
+
+  if (packageJson.name === 'curl.md') {
+    await linkDir(path.join(dir, 'dist/src'), 'src')
+    await linkDir(path.join(dir, 'dist/db'), 'db')
+  }
 }
 
 console.log('Done.')
+
+async function linkDir(outputPath: string, sourcePath: string) {
+  await fs.rm(outputPath, { force: true, recursive: true })
+  await fs.mkdir(path.dirname(outputPath), { recursive: true })
+  await fs.symlink(path.resolve(sourcePath), outputPath, 'dir')
+}
 
 async function linkExport(dir: string, key: string, exportPath: string | undefined) {
   if (!exportPath) return

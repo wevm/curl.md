@@ -202,7 +202,7 @@ test('preserves URL fragments', async () => {
   } as any)
 
   expect(requests[0]?.url).toContain('anchor=section')
-  expect((result as any).url).toBe('https://example.com/docs?q=1#section')
+  expect(result).toBe('# Fragment')
 })
 
 // --- Anonymous fetch ---
@@ -244,20 +244,7 @@ test('fetches anonymously and returns expected shape', async () => {
 
   expect(requests[0]?.url).toContain(`${defaultBaseUrl}/api/https://example.com/docs`)
   expect(requests[0]?.url).toContain('anchor=intro')
-  expect(result).toEqual({
-    auth: 'anon',
-    cache: 'HIT',
-    credits_remaining: 42,
-    fresh: true,
-    keywords: ['a'],
-    markdown: '# Example\n\n---\n\nPowered by [curl.md](https://curl.md)',
-    mode: 'rush',
-    objective: 'test',
-    request_id: 'req_abc',
-    tokens_count: 100,
-    tokens_saved: 50,
-    url: 'https://example.com/docs#intro',
-  })
+  expect(result).toBe('# Example\n\n---\n\nPowered by [curl.md](https://curl.md)')
 })
 
 // --- API key auth ---
@@ -411,8 +398,7 @@ test('retries once on session 401 with forced auth refresh', async () => {
     'Bearer access-token-stale',
     'Bearer access-token-fresh',
   ])
-  expect((result as any).auth).toBe('session')
-  expect((result as any).markdown).toBe('# Retried')
+  expect(result).toBe('# Retried')
 
   Session.delete()
 })
