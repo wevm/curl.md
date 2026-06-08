@@ -23,7 +23,7 @@
       "localConnectionString": "postgresql://postgres:postgres@db.curl.local:5432/curl_dev",
     },
   ],
-  "kv_namespaces": [{ "binding": "KV", "id": "e3a921b8d13741b99e7aa1cbb6144c9f" }],
+  "kv_namespaces": [{ "binding": "KV", "id": "a17268e8b48e4ee7a5d1bf49bca98f9e" }],
   "queues": {
     "producers": [
       { "binding": "REQUEST_ENRICH_QUEUE", "queue": "curl-request-enrichment" },
@@ -102,7 +102,7 @@
           "id": "96d641bd374842d784a128d7de0428af",
         },
       ],
-      "kv_namespaces": [{ "binding": "KV", "id": "e3a921b8d13741b99e7aa1cbb6144c9f" }],
+      "kv_namespaces": [{ "binding": "KV", "id": "a17268e8b48e4ee7a5d1bf49bca98f9e" }],
       "queues": {
         "producers": [
           { "binding": "REQUEST_ENRICH_QUEUE", "queue": "curl-request-enrichment" },
