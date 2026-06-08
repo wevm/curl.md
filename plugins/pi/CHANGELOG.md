@@ -1,5 +1,12 @@
 # @curl.md/pi
 
+## 0.1.3
+
+### Patch Changes
+
+- Updated dependencies [[`a21434c`](https://github.com/wevm/curl.md/commit/a21434c9daa242619e3cc0de6af9135520af869f)]:
+  - curl.md@0.1.2
+
 ## 0.1.2
 
 ### Patch Changes
