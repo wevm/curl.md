@@ -25,6 +25,7 @@ catalog:
   vitest: npm:@voidzero-dev/vite-plus-test@0.1.20
 minimumReleaseAge: 1440
 minimumReleaseAgeExclude:
+  - '@ampcode/plugin'
   - incur
 overrides:
   '@protobufjs/utf8@<=1.1.0': 1.1.1

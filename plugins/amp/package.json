@@ -41,6 +41,6 @@
     "curl.md": "workspace:*"
   },
   "devDependencies": {
-    "@ampcode/plugin": "0.0.0-dev"
+    "@ampcode/plugin": "0.0.0-20260607025156-g42a1e47"
   }
 }

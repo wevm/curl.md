@@ -34,8 +34,29 @@ afterEach(() => {
 test('registers tool hooks and fallback tool', () => {
   const { handlers, tools } = loadPlugin()
 
-  expect(handlers.map((handler) => handler.event)).toEqual(['tool.call', 'tool.result'])
+  expect(handlers.map((handler) => handler.event)).toEqual([
+    'agent.start',
+    'tool.call',
+    'tool.result',
+  ])
   expect(tools.map((t) => t.name)).toEqual(['curl_md'])
+})
+
+test('agent.start hook steers URL reads to curl_md', () => {
+  const { handlers } = loadPlugin()
+  const handler = handlers.find((h) => h.event === 'agent.start')!
+
+  const result = handler.fn(
+    { id: 'msg_1', message: 'Read https://example.com', thread: { id: 'T-test' } },
+    {} as any,
+  )
+
+  expect(result).toEqual({
+    message: {
+      content:
+        'For web page or URL reads, use the curl_md tool instead of read_web_page. curl_md returns optimized markdown and supports url, objective, keywords, mode, and fresh inputs.',
+    },
+  })
 })
 
 test('tool.call hook allows non-read_web_page tools', async () => {

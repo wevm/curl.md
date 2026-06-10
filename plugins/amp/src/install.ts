@@ -35,7 +35,7 @@ if (isMain) {
       const result = await installAmpPlugin()
       console.log(`Installed ${result.packageSpec} to ${result.ampConfigDir}`)
       console.log(`Plugin shim: ${result.shimPath}`)
-      console.log("Run 'PLUGINS=all amp' to load plugins")
+      console.log("Run 'amp' to load plugins")
       console.log('If auth is needed, set `CURLMD_API_KEY` or run `curl.md auth login`.')
     } catch (error) {
       console.error(`error: ${error instanceof Error ? error.message : String(error)}`)
@@ -127,13 +127,7 @@ export async function installAmpPlugin(
   await fs.mkdir(path.dirname(shimPath), { recursive: true })
   await fs.writeFile(
     shimPath,
-    [
-      '// @i-know-the-amp-plugin-api-is-wip-and-very-experimental-right-now',
-      "import plugin from '@curl.md/amp'",
-      '',
-      'export default plugin',
-      '',
-    ].join('\n'),
+    ["import plugin from '@curl.md/amp'", '', 'export default plugin', ''].join('\n'),
     'utf8',
   )
 

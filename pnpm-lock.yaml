@@ -292,8 +292,8 @@ importers:
         version: link:../../cli
     devDependencies:
       '@ampcode/plugin':
-        specifier: 0.0.0-dev
-        version: 0.0.0-dev
+        specifier: 0.0.0-20260607025156-g42a1e47
+        version: 0.0.0-20260607025156-g42a1e47
 
   plugins/claude:
     dependencies:
@@ -338,8 +338,8 @@ importers:
 
 packages:
 
-  '@ampcode/plugin@0.0.0-dev':
-    resolution: {integrity: sha512-6Bd+X7RTRDRnDouF9c++Ds+/an5XCOak/iWyqcW353lAX5VNy3uOxLquRO3UHjIJsQ5SO1Ld/X89K2fz3eEnIw==}
+  '@ampcode/plugin@0.0.0-20260607025156-g42a1e47':
+    resolution: {integrity: sha512-jGW17yOZ5sDuMA/fc7Hunj2uRDpiJ5t+lc0AFPJdVbXtAEbvWqvHSJsp7jleH/Bppv5M72NrFWc3q0l9TuZgxQ==}
 
   '@antfu/install-pkg@1.1.0':
     resolution: {integrity: sha512-MGQsmw10ZyI+EJo45CdSER4zEb+p31LpDAFp2Z3gkSd1yqVZGi0Ebx++YTEMonJy4oChEMLsxZ64j8FH6sSqtQ==}
@@ -6687,7 +6687,7 @@ packages:
 
 snapshots:
 
-  '@ampcode/plugin@0.0.0-dev': {}
+  '@ampcode/plugin@0.0.0-20260607025156-g42a1e47': {}
 
   '@antfu/install-pkg@1.1.0':
     dependencies:

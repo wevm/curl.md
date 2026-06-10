@@ -7,17 +7,13 @@ import packageJson from '../../plugins/amp/package.json'
 
 # Amp
 
-First-party [Amp](https://ampcode.com) plugin that routes Amp’s built-in `read_web_page` tool through curl.md and also adds a specific `curl_md` tool.
+First-party [Amp](https://ampcode.com) plugin that adds a `curl_md` tool and steers URL reads through curl.md.
 
 <PackageLinks
   npm="@curl.md/amp"
   source="https://github.com/wevm/curl.md/tree/main/plugins/amp"
   version={packageJson.version}
 />
-
-:::important
-The Amp [Plugin API](https://ampcode.com/manual/plugin-api) is still experimental. As a result, the curl.md Amp plugin may also change without warning.
-:::
 
 ## Quick Start
 
@@ -37,15 +33,11 @@ Successful installs create the Amp plugin shim in `~/.config/amp/plugins/curlmd.
 
 ### Start Amp
 
-Start Amp with plugins enabled via the `PLUGINS=all` env var:
+Start Amp:
 
 ```sh
-$ PLUGINS=all amp
+$ amp
 ```
-
-:::tip
-Amp requires `PLUGINS=all` to be set in order to load plugins. Add this to your environment so you do not need to prefix every Amp command manually.
-:::
 
 ### Use Amp
 
@@ -56,7 +48,7 @@ Read the curl.md Amp plugin docs and summarize how it works.
 https://curl.md/docs/plugins/amp
 ```
 
-Amp will automatically use curl.md to turn URLs you paste, or URLs it decides to fetch on its own, into markdown.
+Amp will use curl.md to turn URLs you paste, or URLs it decides to fetch on its own, into markdown.
 
 ::::
 
@@ -79,7 +71,6 @@ $ npx @curl.md/amp@latest install --yes
 If you prefer to add the shim manually, create your own plugin entry in `~/.config/amp/plugins`:
 
 ```ts title="~/.config/amp/plugins/curlmd.ts"
-// @i-know-the-amp-plugin-api-is-wip-and-very-experimental-right-now
 import plugin from '@curl.md/amp'
 export default plugin
 ```
@@ -113,14 +104,15 @@ For non-interactive environments, set [`CURLMD_API_KEY`](/docs/guide/cli#environ
 
 ### Tools
 
-The plugin registers the following tools:
+The plugin registers the following tool:
 
-| Tool            | Description                                              |
-| --------------- | -------------------------------------------------------- |
-| `curl_md`       | Fetch a URL as markdown.                                 |
-| `read_web_page` | Overrides built-in `read_web_page` with markdown output. |
+| Tool      | Description              |
+| --------- | ------------------------ |
+| `curl_md` | Fetch a URL as markdown. |
 
-Both `curl_md` and the intercepted `read_web_page` tool accept the following inputs:
+The plugin also keeps a best-effort legacy hook for `read_web_page` if Amp exposes built-in tool calls to plugins.
+
+`curl_md` accepts the following inputs:
 
 | Input        | Type             | Description                                                                          |
 | ------------ | ---------------- | ------------------------------------------------------------------------------------ |

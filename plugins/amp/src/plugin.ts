@@ -1,4 +1,3 @@
-// @i-know-the-amp-plugin-api-is-wip-and-very-experimental-right-now
 import type { PluginAPI } from '@ampcode/plugin'
 import { createClient, defaultBaseUrl } from 'curl.md'
 import { Auth, Session } from 'curl.md/internal'
@@ -9,6 +8,15 @@ export default function (amp: PluginAPI) {
   const baseUrl = process.env.CURLMD_BASE_URL || defaultBaseUrl
   const apiKey = process.env.CURLMD_API_KEY
   const resolver = Auth.createResolver(baseUrl, apiKey)
+
+  amp.on('agent.start', () => {
+    return {
+      message: {
+        content:
+          'For web page or URL reads, use the curl_md tool instead of read_web_page. curl_md returns optimized markdown and supports url, objective, keywords, mode, and fresh inputs.',
+      },
+    }
+  })
 
   amp.on('tool.call', async (event, ctx) => {
     if (event.tool !== 'read_web_page') return { action: 'allow' }
