@@ -8,7 +8,7 @@ export const test = base.extend<{
   factory: ReturnType<typeof createFactory>
   setSession: (accountId: string) => Promise<void>
 }>({
-  // oxlint-disable-next-line no-empty-pattern: playwright requires destructuring
+  // eslint-disable-next-line no-empty-pattern -- playwright requires destructuring
   db: async ({}, use) => {
     const db = createClient(process.env.PLAYWRIGHT_DB_URL, { max: 1 })
     await use(db)
