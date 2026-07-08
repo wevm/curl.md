@@ -1,5 +1,11 @@
 # curl.md
 
+## 0.1.3
+
+### Patch Changes
+
+- Bumped `incur` to `0.4.11` to fix a startup crash (`SyntaxError: ... does not provide an export named 'StdioServerTransport'`) caused by `incur@0.4.5`'s static root import of `StdioServerTransport` from `@modelcontextprotocol/server`, which moved that export to the `./stdio` subpath in `2.0.0-alpha.4` and later. ([#84](https://github.com/wevm/curl.md/pull/84))
+
 ## 0.1.2
 
 ### Patch Changes
