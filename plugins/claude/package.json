@@ -1,6 +1,6 @@
 {
   "name": "@curl.md/claude",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "URL to markdown for Claude",
   "contributors": [
     "tmm <t@curl.md>",
