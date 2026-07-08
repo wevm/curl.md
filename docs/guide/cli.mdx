@@ -648,8 +648,18 @@ $ curl.md completions <bash|fish|nushell|zsh>
 | -------- | -------------------------- | --------------------------------- |
 | `shell`  | `bash\|fish\|nushell\|zsh` | Shell to generate completions for |
 
+<a id="mcp"></a>
+### `mcp`
+
+Register as MCP server (add, doctor)
+
+| Command                 | Description                                  |
+| ----------------------- | -------------------------------------------- |
+| [`add`](#mcp-add)       | Register as MCP server                       |
+| [`doctor`](#mcp-doctor) | Validate MCP server startup and tool listing |
+
 <a id="mcp-add"></a>
-### `mcp add`
+#### `add`
 
 Register as MCP server
 
@@ -662,6 +672,15 @@ $ curl.md mcp add [options]
 | `--agent`       | `string`  | Target a specific agent (e.g. claude-code, cursor)              |
 | `--command, -c` | `string`  | Override the command agents will run (e.g. "pnpm my-cli --mcp") |
 | `--no-global`   | `boolean` | Install to project instead of globally                          |
+
+<a id="mcp-doctor"></a>
+#### `doctor`
+
+Validate MCP server startup and tool listing
+
+```sh
+$ curl.md mcp doctor
+```
 
 <a id="skills"></a>
 ### `skills`
