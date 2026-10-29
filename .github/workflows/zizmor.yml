@@ -24,4 +24,4 @@ jobs:
           persist-credentials: false
 
       - name: Run zizmor
-        uses: wevm/actions/vendor/zizmorcore/zizmor-action/v0.5.4@73e899a58d51092d694fbaf94b7a1d8c09bfea28 # v0.5.4
+        uses: wevm/actions/vendor/zizmorcore/zizmor-action/v0.5.4@73e899a58d51092d694fbaf94b7a1d8c09bfea28

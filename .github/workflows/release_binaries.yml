@@ -54,7 +54,7 @@ jobs:
         uses: ./.github/actions/setup-pnpm
 
       - name: Setup bun
-        uses: wevm/actions/vendor/oven-sh/setup-bun/v2.2.0@73e899a58d51092d694fbaf94b7a1d8c09bfea28 # v2.2.0
+        uses: wevm/actions/vendor/oven-sh/setup-bun/v2.2.0@73e899a58d51092d694fbaf94b7a1d8c09bfea28
         with:
           bun-version: 1.4.4
           no-cache: true
