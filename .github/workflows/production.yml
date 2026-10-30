@@ -65,7 +65,7 @@ jobs:
           SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
 
       - name: Deploy to Production
-        uses: cloudflare/wrangler-action@da0e0dfe58b7a431659754fdf3f186c529afbe65 # v3.14.1
+        uses: wevm/actions/vendor/cloudflare/wrangler-action/v3.14.1@73e899a58d51092d694fbaf94b7a1d8c09bfea28
         with:
           wranglerVersion: ''
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -123,7 +123,7 @@ jobs:
 
       - name: Create release PR or publish
         id: changesets
-        uses: changesets/action@6a0a831ff30acef54f2c6aa1cbbc1096b066edaf # v1.7.0
+        uses: wevm/actions/vendor/changesets/action/v1.7.0@73e899a58d51092d694fbaf94b7a1d8c09bfea28
         with:
           commit: 'chore: version packages'
           title: 'chore: version packages'
