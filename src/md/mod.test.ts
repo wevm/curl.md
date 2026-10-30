@@ -384,8 +384,44 @@ test('keeps html extraction when vitepress markdown path returns html', async ()
   expect(result.extras.source_tokens_method).toBe('html')
 })
 
+test('decodes html in the charset its content-type declares', async () => {
+  const md = create({
+    fetch: async () =>
+      new Response(shiftJisPage(''), {
+        headers: { 'content-type': 'text/html; charset=Shift_JIS' },
+        status: 200,
+      }),
+  })
+
+  const result = await md.fetch('https://example.jp/news')
+  expect(result.ok).toBe(true)
+  if (!result.ok) return
+
+  expect(result.content).toContain('日本語のページです。')
+})
+
+test('decodes html in the charset its meta tag declares', async () => {
+  const head = '<meta http-equiv="Content-Type" content="text/html; charset=Shift_JIS">'
+  const md = create({
+    fetch: async () =>
+      new Response(shiftJisPage(head), { headers: { 'content-type': 'text/html' }, status: 200 }),
+  })
+
+  const result = await md.fetch('https://example.jp/news')
+  expect(result.ok).toBe(true)
+  if (!result.ok) return
+
+  expect(result.content).toContain('日本語のページです。')
+})
+
 function withGitbookFooter(content: string) {
   return `${content}\n---\n\n# Agent Instructions: Querying This Documentation\n\nIf you need additional information that is not directly available in this page, you can query the documentation dynamically by asking a question.\n\nPerform an HTTP GET request on the current page URL with the \`ask\` query parameter:\n\n\`\`\`\nGET https://gitbook.com/docs/getting-started/quickstart.md?ask=<question>\n\`\`\`\n`
+}
+
+// The heading is 日本語のページです。 encoded as Shift_JIS, one byte per char.
+function shiftJisPage(head: string) {
+  const html = `<!doctype html><html><head>${head}</head><body><main><h1>\x93\xfa\x96\x7b\x8c\xea\x82\xcc\x83\x79\x81\x5b\x83\x57\x82\xc5\x82\xb7\x81\x42</h1><p>Body.</p></main></body></html>`
+  return Uint8Array.from(html, (char) => char.charCodeAt(0))
 }
 
 function withMintlifyFooter(content: string) {
