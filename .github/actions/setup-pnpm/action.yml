@@ -8,7 +8,7 @@ runs:
       uses: wevm/actions/vendor/pnpm/action-setup/v6@8963daf30237417f873c8e2f17e3bf9415e3a7b9
 
     - name: Setup node
-      uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+      uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
       with:
         node-version: 24
         package-manager-cache: false
