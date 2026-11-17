@@ -77,7 +77,7 @@ function Component() {
 // --- Server function ---
 
 const getUsageData = createServerFn({ method: 'GET' })
-  .inputValidator((d: { entityId: string; entityType: 'account' | 'organization' }) => d)
+  .validator((d: { entityId: string; entityType: 'account' | 'organization' }) => d)
   .handler(async (c) => {
     const request = getRequest()
     const db = createClient(env.DB.connectionString)

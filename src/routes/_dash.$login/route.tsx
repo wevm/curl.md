@@ -532,7 +532,7 @@ function EntityAvatar(props: { avatarUrl?: string | null | undefined; name: stri
 // --- Server functions ---
 
 const getLayoutData = createServerFn({ method: 'GET' })
-  .inputValidator((d: { login: string }) => d)
+  .validator((d: { login: string }) => d)
   .handler(async (c) => {
     const data = await getDashboardViewerData()
     if (!data) return false
@@ -544,7 +544,7 @@ const getLayoutData = createServerFn({ method: 'GET' })
   })
 
 const getNotFoundLayoutData = createServerFn({ method: 'GET' })
-  .inputValidator((d: { login: string }) => d)
+  .validator((d: { login: string }) => d)
   .handler(async (c) => {
     const data = await getDashboardViewerData()
     if (!data) return null

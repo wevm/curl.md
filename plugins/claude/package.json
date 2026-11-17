@@ -38,10 +38,10 @@
   "dependencies": {
     "@modelcontextprotocol/server": "2.0.0-alpha.2",
     "curl.md": "workspace:*",
-    "zod": "^4.3.6"
+    "zod": "^4.6.6"
   },
   "devDependencies": {
-    "@anthropic-ai/claude-code": "^2.1.163"
+    "@anthropic-ai/claude-code": "^2.1.311"
   },
   "engines": {
     "node": ">=22.0.0"

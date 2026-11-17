@@ -25,7 +25,7 @@ export type PaymentMethod = Pick<Stripe.PaymentMethod, 'id'> &
   > & { is_default: boolean }
 
 export const getBillingData = createServerFn({ method: 'GET' })
-  .inputValidator((d: { entityId: string; entityType: 'account' | 'organization' }) => d)
+  .validator((d: { entityId: string; entityType: 'account' | 'organization' }) => d)
   .handler(async (c) => {
     const request = getRequest()
     const db = createClient(env.DB.connectionString)
@@ -77,7 +77,7 @@ export const getBillingData = createServerFn({ method: 'GET' })
   })
 
 export const getTransactions = createServerFn({ method: 'GET' })
-  .inputValidator(
+  .validator(
     (d: {
       entityId: string
       entityType: 'account' | 'organization'
@@ -142,7 +142,7 @@ export const getTransactions = createServerFn({ method: 'GET' })
   })
 
 export const getPayment = createServerFn({ method: 'GET' })
-  .inputValidator((d: { id: string }) => d)
+  .validator((d: { id: string }) => d)
   .handler(async (c) => {
     const data = await env.KV.get(`payment:${c.data.id}`, 'json')
     if (!data) return null
@@ -152,7 +152,7 @@ export const getPayment = createServerFn({ method: 'GET' })
 const allowedPaymentAmounts = new Set(Constants.creditAmounts.map(Number))
 
 export const changePaymentAmount = createServerFn({ method: 'POST' })
-  .inputValidator((d: { amount: number; id: string }) => d)
+  .validator((d: { amount: number; id: string }) => d)
   .handler(async (c) => {
     requireSameOrigin(getRequest())
     if (!allowedPaymentAmounts.has(c.data.amount)) throw new Error('invalid_amount')
@@ -168,14 +168,14 @@ export const changePaymentAmount = createServerFn({ method: 'POST' })
   })
 
 export const deletePayment = createServerFn({ method: 'POST' })
-  .inputValidator((d: { id: string }) => d)
+  .validator((d: { id: string }) => d)
   .handler(async (c) => {
     requireSameOrigin(getRequest())
     await env.KV.delete(`payment:${c.data.id}`)
   })
 
 export const setupPaymentMethod = createServerFn({ method: 'POST' })
-  .inputValidator((d: { entityId: string; entityType: 'account' | 'organization' }) => d)
+  .validator((d: { entityId: string; entityType: 'account' | 'organization' }) => d)
   .handler(async (c) => {
     const request = getRequest()
     requireSameOrigin(request)
@@ -236,7 +236,7 @@ export const setupPaymentMethod = createServerFn({ method: 'POST' })
   })
 
 export const setDefaultPaymentMethod = createServerFn({ method: 'POST' })
-  .inputValidator(
+  .validator(
     (d: { entityId: string; entityType: 'account' | 'organization'; paymentMethodId: string }) => d,
   )
   .handler(async (c) => {
@@ -265,7 +265,7 @@ export const setDefaultPaymentMethod = createServerFn({ method: 'POST' })
   })
 
 export const removePaymentMethod = createServerFn({ method: 'POST' })
-  .inputValidator(
+  .validator(
     (d: { entityId: string; entityType: 'account' | 'organization'; paymentMethodId: string }) => d,
   )
   .handler(async (c) => {

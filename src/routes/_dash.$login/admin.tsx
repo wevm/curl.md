@@ -131,7 +131,7 @@ function PromoCreditForm() {
 }
 
 const grantPromoCredit = createServerFn({ method: 'POST' })
-  .inputValidator((data) =>
+  .validator((data) =>
     z.parse(
       z.object({
         amount: z

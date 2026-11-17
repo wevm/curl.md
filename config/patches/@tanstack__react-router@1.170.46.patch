@@ -1,0 +1,52 @@
+--- a/dist/esm/headContentUtils.js
++++ b/dist/esm/headContentUtils.js
+@@ -122,9 +122,49 @@
+ 	appendUniqueUserTags(tags, constructedLinks);
+ 	tags.push(...manifestCssTags);
+ 	appendUniqueUserTags(tags, styles);
++	const unmaskOnReloadScript = buildUnmaskOnReloadHeadScript(router, nonce);
++	if (unmaskOnReloadScript) tags.push(unmaskOnReloadScript);
+ 	appendUniqueUserTags(tags, headScripts);
+ 	return tags;
+ }
++var unmaskOnReloadInline = "function(e){const o=e.routeMaskSources.map(a=>new RegExp(a)),t=window.history.state?.__tempLocation;t?.pathname&&(t.pathname===window.location.pathname&&(t.search??\"\")===window.location.search&&(t.hash??\"\")===window.location.hash||o.some(a=>a.test(t.pathname))&&window.location.replace(t.pathname+(t.search??\"\")+(t.hash??\"\")))}";
++function buildUnmaskOnReloadHeadScript(router, nonce) {
++	const routeMaskSources = (router.options.routeMasks ?? []).filter((routeMask) => routeMask.unmaskOnReload && typeof routeMask.from === "string").map((routeMask) => routePathToRegExpSource(routeMask.from));
++	if (!routeMaskSources.length) return void 0;
++	return {
++		tag: "script",
++		attrs: nonce ? { nonce } : void 0,
++		children: `(${unmaskOnReloadInline})(${escapeHtml(JSON.stringify({ routeMaskSources }))})`
++	};
++}
++function routePathToRegExpSource(routePath) {
++	if (!routePath || routePath === "/") return "^/$";
++	let regExpSource = "";
++	for (const segment of routePath.split("/")) {
++		if (!segment) continue;
++		if (segment === "$") {
++			regExpSource += "(?:/.*)?";
++			continue;
++		}
++		if (segment.startsWith("$")) {
++			regExpSource += "/[^/]+";
++			continue;
++		}
++		const match = segment.match(/^(.*?)\{(-?)\$([^}]*)\}(.*)$/);
++		if (!match) {
++			regExpSource += `/${escapeRegExp(segment)}`;
++			continue;
++		}
++		const [, prefix, optional, key, suffix] = match;
++		const value = key ? "[^/]+" : ".*";
++		const part = `/${escapeRegExp(prefix)}${value}${escapeRegExp(suffix)}`;
++		regExpSource += optional ? `(?:${part})?` : part;
++	}
++	return `^${regExpSource}$`;
++}
++function escapeRegExp(value) {
++	return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
++}
+ /**
+ * Build the head/link/meta/script tags from the renderable presented prefix.
+ * Used internally by `HeadContent`.

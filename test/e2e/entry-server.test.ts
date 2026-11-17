@@ -89,9 +89,9 @@ test('browser navigation to dot-segment paths renders converted external markdow
 }) => {
   await page.goto('/example.com')
 
+  await expect(page.locator('body')).toContainText('title: Example Domain')
   await expect(page.locator('body')).toContainText('url: https://example.com/')
   await expect(page.locator('body')).toContainText('site: example.com')
-  await expect(page.locator('body')).toContainText('# Example Domain')
 })
 
 test('protocol-prefixed browser paths redirect to non-protocol paths', async ({ request }) => {

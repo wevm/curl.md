@@ -440,7 +440,7 @@ const updateEntityInput = z.object({
 })
 
 const updateEntity = createServerFn({ method: 'POST' })
-  .inputValidator((data) => z.parse(updateEntityInput, data))
+  .validator((data) => z.parse(updateEntityInput, data))
   .handler(async (c) => {
     const request = getRequest()
     requireSameOrigin(request)
@@ -503,7 +503,7 @@ const updateEntity = createServerFn({ method: 'POST' })
   })
 
 const deleteOrganization = createServerFn({ method: 'POST' })
-  .inputValidator((data: { organizationId: string }) => data)
+  .validator((data: { organizationId: string }) => data)
   .handler(async (c) => {
     const request = getRequest()
     requireSameOrigin(request)
@@ -537,7 +537,7 @@ const deleteOrganization = createServerFn({ method: 'POST' })
   })
 
 const deleteAccount = createServerFn({ method: 'POST' })
-  .inputValidator((data: { accountId: string }) => data)
+  .validator((data: { accountId: string }) => data)
   .handler(async (c) => {
     const request = getRequest()
     requireSameOrigin(request)

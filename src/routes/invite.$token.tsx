@@ -122,7 +122,7 @@ function Component() {
 }
 
 const getInviteData = createServerFn({ method: 'GET' })
-  .inputValidator((data) => z.parse(z.object({ token: z.string() }), data))
+  .validator((data) => z.parse(z.object({ token: z.string() }), data))
   .handler(async (c) => {
     const request = getRequest()
     const db = createClient(env.DB.connectionString)

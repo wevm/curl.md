@@ -17,9 +17,23 @@ auditConfig:
   ignoreGhsas:
     # false positive — matches npm "cli" package, not our "curl.md" workspace
     - GHSA-6cpc-mj5c-m9rq
+    # dev/test/build tooling only; no fix within the parent's major
+    # vite-plus <=1.0.0 dev server: 1.x ships vitest 5, @cloudflare/vitest-pool-workers needs vitest 4
+    - GHSA-587h-7wmj-h5pm
+    - GHSA-698v-4r3x-3vcv
+    - GHSA-9jrq-w75r-8gcw
+    - GHSA-r825-w8mm-5pxw
+    - GHSA-rq7h-c2jc-7f22
+    # zod 3 via @cloudflare/vitest-pool-workers
+    - GHSA-mrhx-c7xc-m3w5
+    # @hono/node-server 1.x via emulate
+    - GHSA-rmxm-3fg6-px4f
+    # glob/minimatch via testcontainers, @sentry/vite-plugin, @earendil-works/pi-coding-agent
+    - GHSA-3g3m-2fjr-6pw4
+    - GHSA-g3hv-75wg-m249
 blockExoticSubdeps: true
 catalog:
-  hono: ^4.12.25
+  hono: ^4.13.18
   # Vite+ dependency aliases.
   vite: npm:@voidzero-dev/vite-plus-core@0.1.24
   vite-plus: 0.1.24
@@ -41,28 +55,44 @@ minimumReleaseAgeExclude:
   - '@oven/bun-windows-x64@1.4.4'
   - incur
 overrides:
-  '@babel/core@<=7.29.0': 7.29.7
-  '@grpc/grpc-js@>=1.14.0 <1.14.4': 1.14.4
+  '@babel/core@<=7.29.0': ^7.29.7
+  '@grpc/grpc-js@>=1.14.0 <1.14.5': 1.14.5
+  '@hono/node-server@<1.19.18': 1.19.18
   '@opentelemetry/core@<2.8.0': 2.8.0
   '@protobufjs/utf8@<=1.1.0': 1.1.1
   '@tanstack/start-server-core@<1.167.30': 1.167.30
+  '@toon-format/toon@<2.3.1': 2.3.1
+  baseline-browser-mapping@>=2.0.0 <2.11.0: 2.11.0
   basic-ftp@<=5.3.0: 5.3.1
-  brace-expansion@>=5.0.0 <5.0.6: 5.0.6
+  brace-expansion@>=2.0.0 <2.1.7: 2.1.7
+  brace-expansion@>=5.0.0 <5.0.12: 5.0.12
+  browserslist@<4.28.7: 4.28.7
+  effect@>=4.0.0-beta.0 <4.0.0-beta.103: 4.0.0-beta.107
   esbuild@>=0.27.3 <0.28.1: 0.28.1
   fast-uri@<=3.1.1: 3.1.2
   fast-xml-builder@<=1.1.6: 1.1.7
   fast-xml-parser@<5.7.0: 5.7.0
   ip-address@<10.1.1: 10.1.1
-  js-yaml@<3.15.0: 3.15.0
-  js-yaml@>=4.0.0 <=4.1.1: 4.3.0
-  protobufjs@<=7.6.2: 7.6.3
+  js-yaml@<3.15.2: 3.15.2
+  js-yaml@>=4.0.0 <4.3.2: 4.3.2
+  nanoid@<3.3.18: 3.3.18
+  nanoid@>=4.0.0 <5.1.16: 5.1.16
+  postcss@<8.5.23: 8.5.23
+  protobufjs@<7.6.5: 7.6.5
   semver@<7.7.4: 7.7.4
+  sharp@<0.35.5: 0.35.5
+  smol-toml@<1.9.0: 1.9.0
+  source-map-js@>=1.0.0 <1.2.2: 1.2.2
+  tinypool@<2.1.2: 2.1.2
   tmp@<0.2.7: 0.2.7
-  undici@>=7.0.0 <7.28.0: 7.28.0
+  toml@<5.0.1: 5.0.1
+  undici@>=7.0.0 <7.30.1: 7.30.1
+  undici@>=8.0.0 <8.12.2: 8.12.2
   uuid@<14.0.0: 14.0.0
   vite: 'catalog:'
   vitest: 'catalog:'
   ws@>=8.0.0 <8.21.0: 8.21.0
+  zod@>=4.0.0 <4.6.6: ^4.6.6
 packageExtensions:
   '@voidzero-dev/vite-plus-core@*':
     dependencies:
@@ -73,8 +103,7 @@ packages:
 # TODO: Remove once issue is fixed
 # https://github.com/TanStack/router/pull/7115
 patchedDependencies:
-  '@tanstack/react-router@1.169.2': config/patches/@tanstack__react-router@1.169.2.patch
-  '@tanstack/router-core@1.169.2': config/patches/@tanstack__router-core@1.169.2.patch
+  '@tanstack/react-router@1.170.46': config/patches/@tanstack__react-router@1.170.46.patch
 peerDependencyRules:
   allowAny:
     - vite
