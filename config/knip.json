@@ -1,6 +1,6 @@
 {
   "$schema": "../node_modules/knip/schema.json",
-  "exclude": ["binaries", "catalog", "duplicates", "exports", "unlisted"],
+  "exclude": ["binaries", "catalog", "duplicates", "exports", "subpaths", "unlisted"],
   "ignoreWorkspaces": ["."],
   "workspaces": {
     "cli": {
