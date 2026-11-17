@@ -44,8 +44,9 @@ export const cfBrowserRendering = defineTransport<{
   })()
   if (content === null) return null
   if (/error code:\s*\d+/i.test(content)) return null
+  // The rendered HTML is a string now, so its original `<meta charset>` no longer applies.
   return new Response(content, {
-    headers: { 'content-type': 'text/html' },
+    headers: { 'content-type': 'text/html; charset=utf-8' },
   })
 })
 

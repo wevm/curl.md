@@ -103,7 +103,7 @@ export function create(options: create.Options = {}): create.ReturnType {
           return matched.rule.extract(response)
         }
 
-        const text = await response.text()
+        const text = await readText(response)
 
         if (isMarkdown) {
           const split = splitFrontmatter(text)
@@ -589,12 +589,26 @@ function normalizeFencedCodeBlockIndentation(content: string): string {
     .join('\n')
 }
 
+// `response.text()` always decodes UTF-8, which garbles pages served as Shift_JIS, EUC-JP, etc.
+async function readText(response: Response): Promise<string> {
+  const bytes = new Uint8Array(await response.arrayBuffer())
+  // Like browsers: the header's charset first, then a `<meta charset>` in the first 1024 bytes.
+  const head = String.fromCharCode(...bytes.subarray(0, 1024))
+  const charset =
+    /charset\s*=\s*["']?([\w-]+)/i.exec(response.headers.get('content-type') ?? '')?.[1] ??
+    /<meta\b[^>]*\bcharset\s*=\s*["']?([\w-]+)/i.exec(head)?.[1]
+  try {
+    if (charset) return new TextDecoder(charset).decode(bytes)
+  } catch {}
+  return new TextDecoder().decode(bytes)
+}
+
 async function extractMarkdownResponse(
   response: Response,
   url: URL,
   generator?: string | undefined,
 ): Promise<{ content: string; meta: Meta } | undefined> {
-  const text = await response.text()
+  const text = await readText(response)
   if (!isLikelyMarkdownResponse(response, text, url)) return
   const split = splitFrontmatter(text)
   const meta = filterFrontmatterKeys(split.meta)
