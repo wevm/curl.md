@@ -2208,7 +2208,13 @@ export const api = new Hono<{
                 try {
                   const output = z.parse(
                     z.object({
-                      response: z.string().default(''),
+                      choices: z
+                        .array(
+                          z.object({
+                            message: z.object({ content: z.string().nullish() }),
+                          }),
+                        )
+                        .default([]),
                       usage: z
                         .object({
                           completion_tokens: z.number().default(0),
@@ -2217,6 +2223,7 @@ export const api = new Hono<{
                         .default({ completion_tokens: 0, prompt_tokens: 0 }),
                     }),
                     await c.env.AI.run(mode.model, {
+                      chat_template_kwargs: { enable_thinking: false },
                       max_tokens: 4096,
                       messages: [
                         { role: 'system', content: Constants.systemPrompt },
@@ -2227,7 +2234,10 @@ export const api = new Hono<{
                       ],
                     }),
                   )
-                  return output
+                  return {
+                    response: output.choices[0]?.message.content ?? '',
+                    usage: output.usage,
+                  }
                 } catch (error) {
                   lastError = error
                   if (

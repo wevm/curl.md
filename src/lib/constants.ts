@@ -20,9 +20,9 @@ export const stripeApiVersion = '2026-02-25.clover'
 // https://developers.cloudflare.com/workers-ai/platform/pricing
 export const modes = {
   rush: {
-    model: '@cf/meta/llama-3.1-8b-instruct-fp8' as const,
-    inputPricePerMToken: 0.045,
-    outputPricePerMToken: 0.384,
+    model: '@cf/google/gemma-4-26b-a4b-it' as const,
+    inputPricePerMToken: 0.1,
+    outputPricePerMToken: 0.3,
   },
   smart: {
     model: '@cf/meta/llama-4-scout-17b-16e-instruct' as const,

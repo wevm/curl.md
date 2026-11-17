@@ -3016,7 +3016,7 @@ test('GET /api/:url bounds objective chunk inference concurrency', async () => {
     await new Promise((resolve) => setTimeout(resolve, 10))
     activeCalls -= 1
     return {
-      response: '## Matched\n\nRelevant content',
+      choices: [{ message: { content: '## Matched\n\nRelevant content' } }],
       usage: { completion_tokens: 1, prompt_tokens: 1 },
     }
   })
@@ -3041,6 +3041,7 @@ test('GET /api/:url bounds objective chunk inference concurrency', async () => {
   )
 
   expect(res.status).toBe(200)
+  expect(await res.text()).toContain('Relevant content')
   expect(aiRun).toHaveBeenCalledTimes(3)
   expect(maxActiveCalls).toBeLessThanOrEqual(2)
 })
