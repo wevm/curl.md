@@ -122,7 +122,7 @@ jobs:
           SHA: ${{ inputs.sha }}
 
       - name: Setup pscale
-        uses: wevm/actions/vendor/planetscale/setup-pscale-action/rev-b6a50ee45b4b@b518cf981b50a4c745a8b7335fc693f34b108a75
+        uses: wevm/actions/vendor/planetscale/setup-pscale-action/rev-b6a50ee45b4b@e0e99cfdac7c74eadc3ee7281015c0bf0496d6ac
 
       - name: Setup PlanetScale branch
         id: pscale
@@ -303,7 +303,7 @@ jobs:
 
       - name: Deploy preview
         id: deploy
-        uses: wevm/actions/vendor/cloudflare/wrangler-action/v3.14.1@b518cf981b50a4c745a8b7335fc693f34b108a75
+        uses: wevm/actions/vendor/cloudflare/wrangler-action/v3.14.1@e0e99cfdac7c74eadc3ee7281015c0bf0496d6ac
         with:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
